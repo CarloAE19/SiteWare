@@ -1,0 +1,9 @@
+RewriteEngine On
+
+# Unless it's a directory or an existing file...
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteCond %{REQUEST_FILENAME} !-f
+
+# ...check if adding .php makes it a valid file, and route it silently
+RewriteCond %{REQUEST_FILENAME}.php -f
+RewriteRule ^([^\.]+)$ $1.php [NC,L]

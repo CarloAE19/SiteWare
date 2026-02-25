@@ -1,0 +1,230 @@
+:root {
+    /* GB Construction Brand Colors extracted from logo */
+    --gb-blue: #0033CC;     /* From the 'B' shape */
+    --gb-red: #D80000;      /* From the Triangle / 'G' shape */
+    --gb-yellow: #FFD700;   /* From the outlines */
+    --gb-dark: #0A111F;     /* Deep navy/black for the sidebar */
+    --gb-bg: #f4f6f9;       /* Light gray background */
+}
+
+body {
+    background-color: var(--gb-bg);
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    overflow: hidden; /* Prevents whole body scroll, handled by #content */
+    height: 100vh;
+}
+
+/* ================= LOGIN PAGE ================= */
+.login-body {
+    background-color: var(--gb-bg);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    overflow: auto; /* Login page scrolls normally */
+}
+.brand-logo {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    font-weight: 700;
+    color: var(--gb-dark);
+    margin-bottom: 2rem;
+    font-size: 1.3rem;
+}
+.brand-logo img {
+    border-radius: 8px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+}
+.login-card {
+    background: #fff;
+    width: 100%;
+    max-width: 420px;
+    padding: 2.5rem;
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+    border-top: 5px solid var(--gb-blue); 
+}
+.login-title {
+    text-align: center;
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 1.5rem;
+    color: var(--gb-dark);
+}
+.required-asterisk { color: var(--gb-red); }
+.btn-login {
+    background-color: var(--gb-blue);
+    border-color: var(--gb-blue);
+    color: white;
+    font-weight: 600;
+    padding: 0.75rem;
+    width: 100%;
+    border-radius: 4px;
+    margin-top: 1rem;
+    transition: all 0.3s;
+}
+.btn-login:hover {
+    background-color: #002299; 
+    color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 51, 204, 0.3);
+}
+
+/* Password Toggle Button Styling */
+.input-group .btn-toggle-pass {
+    border-color: #dee2e6;
+    background-color: transparent;
+    color: #6c757d;
+}
+.input-group .btn-toggle-pass:hover {
+    background-color: #f8f9fa;
+    color: #495057;
+}
+.input-group .form-control:focus + .btn-toggle-pass {
+    border-color: #86b7fe;
+}
+
+/* ================= DASHBOARD LAYOUT ================= */
+.wrapper {
+    display: flex;
+    width: 100%;
+    align-items: stretch;
+    height: 100vh;
+}
+
+#sidebar {
+    min-width: 250px;
+    max-width: 250px;
+    background: var(--gb-dark);
+    color: #fff;
+    min-height: 100vh;
+    overflow-y: auto;
+    transition: all 0.3s;
+    z-index: 1001;
+}
+#sidebar.active { margin-left: -250px; }
+
+.sidebar-header {
+    padding: 20px;
+    background: rgba(0, 0, 0, 0.3);
+    border-bottom: 4px solid var(--gb-red); 
+}
+.sidebar-header h5 {
+    margin: 0;
+    color: #fff;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    font-size: 1.1rem;
+}
+.sidebar-header h5 span { color: var(--gb-yellow); }
+
+#sidebar ul.components { padding: 20px 0; }
+#sidebar ul li a {
+    padding: 15px 20px;
+    font-size: 1.05em;
+    display: block;
+    color: rgba(255, 255, 255, 0.75);
+    text-decoration: none;
+    transition: 0.2s;
+}
+#sidebar ul li a:hover {
+    color: white;
+    background: var(--gb-blue); 
+}
+#sidebar ul li.active > a {
+    color: #fff;
+    background: rgba(216, 0, 0, 0.1); 
+    border-left: 5px solid var(--gb-red); 
+}
+
+/* ================= SCROLLING CONTENT AREA ================= */
+#content {
+    width: 100%;
+    min-width: 0;
+    transition: all 0.3s;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow-y: auto; /* ONLY this part scrolls! */
+    background-color: var(--gb-bg);
+}
+
+/* Locked Top Navbar */
+.top-navbar {
+    background: #fff;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    padding: 15px 25px;
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+}
+
+/* Locked Bottom Footer */
+.system-footer {
+    background: #fff;
+    border-top: 1px solid #dee2e6;
+    padding: 15px;
+    text-align: center;
+    color: #6c757d;
+    font-size: 0.875em;
+    margin-top: auto; 
+    position: sticky; 
+    bottom: 0;
+    z-index: 1000;
+    box-shadow: 0 -4px 10px rgba(0,0,0,0.03); 
+}
+
+/* ================= COMPONENTS ================= */
+.stat-card {
+    border-left: 5px solid var(--gb-blue); 
+    border-radius: 8px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.04);
+    transition: transform 0.2s;
+}
+.stat-card:hover { transform: translateY(-5px); }
+
+.table-container {
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.04); /* Fixed shadow color to black */
+    padding: 20px;
+}
+.table thead {
+    background-color: var(--gb-dark);
+    color: white;
+}
+.table thead th {
+    border-bottom: 3px solid var(--gb-yellow); 
+}
+
+/* Custom Primary Button */
+.btn-brand {
+    background-color: var(--gb-blue);
+    color: white;
+    font-weight: 600;
+    transition: all 0.2s;
+}
+.btn-brand:hover {
+    background-color: #002299;
+    color: white;
+    box-shadow: 0 4px 8px rgba(0, 51, 204, 0.2);
+}
+
+/* Custom Badges */
+.badge-materials { background-color: var(--gb-blue); }
+.badge-tools { background-color: #6f42c1; }
+.badge-safety { background-color: #198754; }
+.badge-equipment { background-color: #fd7e14; }
+
+/* Responsive */
+@media (max-width: 768px) {
+    #sidebar {
+        margin-left: -250px;
+        position: absolute;
+        height: 100%;
+    }
+    #sidebar.active { margin-left: 0; }
+}
