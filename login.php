@@ -77,6 +77,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </form>
     </div>
 
+    <!-- FIXED LOGIN FOOTER: Transparent and perfectly spaced -->
+    <div class="mt-4 text-center text-muted small" style="opacity: 0.8;">
+        <span class="fw-bold">&copy; <?= date('Y') ?> Genetian Builders & Enterprises inc.</span> All rights reserved.<br>
+        <span style="font-size: 0.95em;">The Medyas &bull; Capstone Project</span>
+    </div>
+
     <script src="assets/js/script.js"></script>
 </body>
 </html>

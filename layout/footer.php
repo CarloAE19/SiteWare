@@ -4,8 +4,8 @@
             <!-- Added mt-auto to push the footer to the bottom -->
             <footer class="mt-auto py-3 bg-white border-top text-center text-muted small">
                 <div class="container-fluid">
-                    <span class="fw-bold">&copy; <?= date('Y') ?> Genetian Builders Construction & Enterprises inc.</span> All rights reserved.<br>
-                    <span style="font-size: 0.85em; color: #adb5bd;">The Medyas &bull; Capstone Project</span>
+                    <span class="fw-bold">&copy; <?= date('Y') ?> Genetian Builders & Enterprises inc.</span> All rights reserved.<br>
+                    <span style="font-size: 0.90em; color: #91979d;">The Medyas &bull; Capstone Project</span>
                 </div>
             </footer>
 

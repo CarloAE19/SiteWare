@@ -16,35 +16,57 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // ==========================================
         // INVENTORY (MATERIALS) LOGIC
         // ==========================================
-        if ($action === 'add') {
-            $stmt = $pdo->prepare("INSERT INTO inventory (item_code, item_name, category, quantity, unit, unit_price, status) VALUES (:item_code, :item_name, :category, :quantity, :unit, :unit_price, :status)");
-            $stmt->execute([
-                ':item_code' => $_POST['item_code'], ':item_name' => $_POST['item_name'],
-                ':category' => $_POST['category'], ':quantity' => $_POST['quantity'],
-                ':unit' => $_POST['unit'], ':unit_price' => $_POST['unit_price'], ':status' => $_POST['status']
-            ]);
-            $_SESSION['message'] = "Material added successfully!";
+        if ($action === 'stock_in_scanned') {
+            if (!in_array($_SESSION['user_role'], ['admin', 'warehouse'])) throw new Exception("Unauthorized.");
+            
+            $added_qty = (int)$_POST['added_qty'];
+            if ($added_qty <= 0) throw new Exception("Quantity must be greater than zero.");
+
+            // Add the new quantity
+            $stmt = $pdo->prepare("UPDATE inventory SET quantity = quantity + ? WHERE item_code = ?");
+            $stmt->execute([$added_qty, $_POST['item_code']]);
+            
+            // Auto-calculate new status!
+            $pdo->prepare("UPDATE inventory SET status = CASE WHEN quantity <= 0 THEN 'Out of Stock' WHEN quantity <= 10 THEN 'Low Stock' ELSE 'In Stock' END WHERE item_code = ?")->execute([$_POST['item_code']]);
+            
+            $_SESSION['message'] = "Stock updated successfully via QR scan!";
+            $_SESSION['msg_type'] = "success";
+            header("Location: ../index"); 
+            exit;
+
+        } elseif ($action === 'add') {
+            if (!in_array($_SESSION['user_role'], ['admin', 'warehouse'])) throw new Exception("Unauthorized.");
+            
+            // Auto-calculate status before inserting
+            $qty = (int)$_POST['quantity'];
+            $status = ($qty <= 0) ? 'Out of Stock' : (($qty <= 10) ? 'Low Stock' : 'In Stock');
+
+            $stmt = $pdo->prepare("INSERT INTO inventory (item_code, item_name, quantity, unit, unit_price, status) VALUES (?, ?, ?, ?, ?, ?)");
+            $stmt->execute([$_POST['item_code'], $_POST['item_name'], $qty, $_POST['unit'], $_POST['unit_price'], $status]);
+            $_SESSION['message'] = "Material added to inventory successfully!";
             $_SESSION['msg_type'] = "success";
             header("Location: ../index"); 
             exit;
 
         } elseif ($action === 'edit') {
-            $stmt = $pdo->prepare("UPDATE inventory SET item_code = :item_code, item_name = :item_name, category = :category, quantity = :quantity, unit = :unit, unit_price = :unit_price, status = :status WHERE id = :id");
-            $stmt->execute([
-                ':item_code' => $_POST['item_code'], ':item_name' => $_POST['item_name'],
-                ':category' => $_POST['category'], ':quantity' => $_POST['quantity'],
-                ':unit' => $_POST['unit'], ':unit_price' => $_POST['unit_price'],
-                ':status' => $_POST['status'], ':id' => $_POST['id']
-            ]);
+            if (!in_array($_SESSION['user_role'], ['admin', 'warehouse'])) throw new Exception("Unauthorized.");
+            
+            // Auto-calculate status before updating
+            $qty = (int)$_POST['quantity'];
+            $status = ($qty <= 0) ? 'Out of Stock' : (($qty <= 10) ? 'Low Stock' : 'In Stock');
+
+            $stmt = $pdo->prepare("UPDATE inventory SET item_code=?, item_name=?, quantity=?, unit=?, unit_price=?, status=? WHERE id=?");
+            $stmt->execute([$_POST['item_code'], $_POST['item_name'], $qty, $_POST['unit'], $_POST['unit_price'], $status, $_POST['id']]);
             $_SESSION['message'] = "Material updated successfully!";
             $_SESSION['msg_type'] = "success";
             header("Location: ../index"); 
             exit;
 
         } elseif ($action === 'delete') {
-            $stmt = $pdo->prepare("DELETE FROM inventory WHERE id = :id");
-            $stmt->execute([':id' => $_POST['id']]);
-            $_SESSION['message'] = "Material deleted.";
+            if (!in_array($_SESSION['user_role'], ['admin', 'warehouse'])) throw new Exception("Unauthorized.");
+            $stmt = $pdo->prepare("DELETE FROM inventory WHERE id = ?");
+            $stmt->execute([$_POST['id']]);
+            $_SESSION['message'] = "Material deleted from inventory.";
             $_SESSION['msg_type'] = "danger";
             header("Location: ../index"); 
             exit;
@@ -101,7 +123,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } elseif ($action === 'edit_user') {
                 $userId = $_POST['user_id'];
                 
-                // Ensure they aren't changing their username to one that already exists
                 $check = $pdo->prepare("SELECT id FROM users WHERE username = ? AND id != ?");
                 $check->execute([$_POST['username'], $userId]);
                 if ($check->rowCount() > 0) throw new Exception("This username is already taken by someone else.");
@@ -151,7 +172,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
             
-            // Notification: Alert Management
             $notif = $pdo->prepare("INSERT INTO notifications (target_role, title, message) VALUES ('management', 'New Requisition Pending', ?)");
             $notif->execute(["{$_POST['requestor_name']} submitted {$_POST['rs_no']} for {$_POST['project_name']}."]);
 
@@ -169,7 +189,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $rsData->execute([$_POST['rs_id']]);
             $rs = $rsData->fetch();
 
-            // Notifications
             $pdo->prepare("INSERT INTO notifications (target_user_id, title, message) VALUES (?, 'Requisition Approved', ?)")->execute([$rs['requestor_id'], "Your request {$rs['rs_no']} has been approved."]);
             $pdo->prepare("INSERT INTO notifications (target_role, title, message) VALUES ('purchasing', 'Ready for PO', ?)")->execute(["{$rs['rs_no']} was approved. Please generate a PO."]);
 
@@ -187,7 +206,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $rsData->execute([$_POST['rs_id']]);
             $rs = $rsData->fetch();
 
-            // Notification
             $pdo->prepare("INSERT INTO notifications (target_user_id, title, message) VALUES (?, 'Requisition Rejected', ?)")->execute([$rs['requestor_id'], "Your request {$rs['rs_no']} was rejected."]);
 
             $_SESSION['message'] = "Requisition Rejected.";
@@ -207,12 +225,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $supplier_id = $_POST['supplier_id'];
             $prepared_by = $_SESSION['user_id'];
 
-            // 1. Create the PO Record
             $stmt = $pdo->prepare("INSERT INTO purchase_orders (po_no, rs_id, supplier_id, prepared_by) VALUES (?, ?, ?, ?)");
             $stmt->execute([$po_no, $rs_id, $supplier_id, $prepared_by]);
             $po_id = $pdo->lastInsertId();
 
-            // 2. Automatically copy items from the RS to the PO
             $rsItemsStmt = $pdo->prepare("
                 SELECT ri.item_code, ri.quantity, i.unit_price 
                 FROM requisition_items ri 
@@ -228,10 +244,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $poItemStmt->execute([$po_id, $item['item_code'], $item['quantity'], $price]);
             }
 
-            // 3. Update the original RS status
             $pdo->prepare("UPDATE requisitions SET status = 'PO Created' WHERE id = ?")->execute([$rs_id]);
 
-            // 4. Send Notification to Warehouse
             $notif = $pdo->prepare("INSERT INTO notifications (target_role, title, message) VALUES ('warehouse', 'Incoming Delivery Expected', ?)");
             $notif->execute(["PO {$po_no} has been generated. Prepare space to receive materials."]);
 
@@ -256,7 +270,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $items = $_POST['items'];
             $quantities = $_POST['quantities'];
 
-            // 1. Verify we have enough stock FIRST (Prevent negative inventory)
+            // 1. Verify Stock
             for ($i = 0; $i < count($items); $i++) {
                 if (!empty($items[$i]) && !empty($quantities[$i])) {
                     $checkStmt = $pdo->prepare("SELECT quantity, item_name FROM inventory WHERE item_code = ?");
@@ -269,27 +283,85 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
 
-            // 2. Create the Withdrawal Record
+            // 2. Create Withdrawal Record
             $stmt = $pdo->prepare("INSERT INTO withdrawals (withdrawal_no, project_name, released_by, remarks) VALUES (?, ?, ?, ?)");
             $stmt->execute([$withdrawal_no, $project_name, $released_by, $remarks]);
             $withdrawal_id = $pdo->lastInsertId();
 
-            // 3. Insert items AND subtract from Inventory!
             $wdItemStmt = $pdo->prepare("INSERT INTO withdrawal_items (withdrawal_id, item_code, quantity) VALUES (?, ?, ?)");
             $deductStmt = $pdo->prepare("UPDATE inventory SET quantity = quantity - ? WHERE item_code = ?");
+            $updateStatusStmt = $pdo->prepare("UPDATE inventory SET status = CASE WHEN quantity <= 0 THEN 'Out of Stock' WHEN quantity <= 10 THEN 'Low Stock' ELSE 'In Stock' END WHERE item_code = ?");
             
             for ($i = 0; $i < count($items); $i++) {
                 if (!empty($items[$i]) && !empty($quantities[$i])) {
-                    // Record it
                     $wdItemStmt->execute([$withdrawal_id, $items[$i], $quantities[$i]]);
-                    // Deduct it from master inventory
                     $deductStmt->execute([$quantities[$i], $items[$i]]);
+                    $updateStatusStmt->execute([$items[$i]]); // Auto-update status to Low Stock / Out of Stock
                 }
             }
 
             $_SESSION['message'] = "Materials successfully withdrawn and deducted from inventory.";
             $_SESSION['msg_type'] = "success";
             header("Location: ../withdrawals");
+            exit;
+        }
+
+        // ==========================================
+        // MONTHLY RECOUNT / AUDIT LOGIC
+        // ==========================================
+        elseif ($action === 'submit_audit') {
+            if (!in_array($_SESSION['user_role'], ['warehouse', 'admin'])) {
+                throw new Exception("Only the Warehouse In-Charge can submit audits.");
+            }
+
+            $audit_month = date('F Y'); // e.g., "February 2026"
+            $conducted_by = $_SESSION['user_id'];
+            $remarks = $_POST['remarks'] ?? '';
+            
+            $item_codes = $_POST['item_code'];
+            $system_qtys = $_POST['system_qty'];
+            $physical_qtys = $_POST['physical_qty'];
+
+            // 1. Create the Audit Record
+            $stmt = $pdo->prepare("INSERT INTO inventory_audits (audit_month, conducted_by, remarks) VALUES (?, ?, ?)");
+            $stmt->execute([$audit_month, $conducted_by, $remarks]);
+            $audit_id = $pdo->lastInsertId();
+
+            $auditItemStmt = $pdo->prepare("INSERT INTO audit_items (audit_id, item_code, system_qty, physical_qty, discrepancy) VALUES (?, ?, ?, ?, ?)");
+            $updateInvStmt = $pdo->prepare("UPDATE inventory SET quantity = ? WHERE item_code = ?");
+            $updateStatusStmt = $pdo->prepare("UPDATE inventory SET status = CASE WHEN quantity <= 0 THEN 'Out of Stock' WHEN quantity <= 10 THEN 'Low Stock' ELSE 'In Stock' END WHERE item_code = ?");
+            
+            $discrepancyCount = 0;
+
+            // 2. Loop through every item counted
+            for ($i = 0; $i < count($item_codes); $i++) {
+                $sys_qty = (int)$system_qtys[$i];
+                $phys_qty = (int)$physical_qtys[$i];
+                $diff = $phys_qty - $sys_qty; // Negative means missing items (theft/loss)
+
+                // Save to Audit Trail
+                $auditItemStmt->execute([$audit_id, $item_codes[$i], $sys_qty, $phys_qty, $diff]);
+
+                if ($diff !== 0) {
+                    $discrepancyCount++;
+                    // Override the system inventory to match physical reality
+                    $updateInvStmt->execute([$phys_qty, $item_codes[$i]]);
+                    $updateStatusStmt->execute([$item_codes[$i]]);
+                }
+            }
+
+            // Update total discrepancies found
+            $pdo->prepare("UPDATE inventory_audits SET total_discrepancy_items = ? WHERE id = ?")->execute([$discrepancyCount, $audit_id]);
+
+            // Notify Management if there are missing items!
+            if ($discrepancyCount > 0) {
+                $notif = $pdo->prepare("INSERT INTO notifications (target_role, title, message) VALUES ('management', 'Audit Discrepancy Alert', ?)");
+                $notif->execute(["The $audit_month audit found $discrepancyCount items with discrepancies. Please review the audit trail immediately."]);
+            }
+
+            $_SESSION['message'] = "Monthly recount submitted successfully. Inventory adjusted to match physical count.";
+            $_SESSION['msg_type'] = "success";
+            header("Location: ../audit");
             exit;
         }
 

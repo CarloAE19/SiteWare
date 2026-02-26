@@ -1,37 +1,17 @@
 <?php
-// Modernized Function to calculate "Time Ago" for notifications (PHP 8+ Safe)
+// Modernized Function to calculate "Time Ago" for notifications
 function time_elapsed_string($datetime, $full = false) {
     $now = new DateTime;
     $ago = new DateTime($datetime);
     $diff = $now->diff($ago);
-
-    // Calculate weeks and remaining days safely
     $weeks = floor($diff->d / 7);
     $days = $diff->d - ($weeks * 7);
-
-    // Map the values safely
-    $values = [
-        'y' => $diff->y,
-        'm' => $diff->m,
-        'w' => $weeks,
-        'd' => $days,
-        'h' => $diff->h,
-        'i' => $diff->i,
-        's' => $diff->s,
-    ];
-
-    $string = [
-        'y' => 'year', 'm' => 'month', 'w' => 'week', 'd' => 'day',
-        'h' => 'hour', 'i' => 'minute', 's' => 'second',
-    ];
-
+    $values = ['y' => $diff->y, 'm' => $diff->m, 'w' => $weeks, 'd' => $days, 'h' => $diff->h, 'i' => $diff->i, 's' => $diff->s];
+    $string = ['y' => 'year', 'm' => 'month', 'w' => 'week', 'd' => 'day', 'h' => 'hour', 'i' => 'minute', 's' => 'second'];
     $parts = [];
     foreach ($string as $k => $v) {
-        if ($values[$k]) {
-            $parts[] = $values[$k] . ' ' . $v . ($values[$k] > 1 ? 's' : '');
-        }
+        if ($values[$k]) $parts[] = $values[$k] . ' ' . $v . ($values[$k] > 1 ? 's' : '');
     }
-
     if (!$full) $parts = array_slice($parts, 0, 1);
     return $parts ? implode(', ', $parts) . ' ago' : 'just now';
 }
@@ -39,16 +19,11 @@ function time_elapsed_string($datetime, $full = false) {
 $currentUserRole = $_SESSION['user_role'] ?? 'requestor';
 $currentUserId = $_SESSION['user_id'] ?? 0;
 
-// FETCH NOTIFICATIONS FOR CURRENT USER OR ROLE
-$notifStmt = $pdo->prepare("SELECT * FROM notifications 
-                            WHERE target_user_id = ? OR target_role = ? 
-                            ORDER BY created_at DESC LIMIT 5");
+$notifStmt = $pdo->prepare("SELECT * FROM notifications WHERE target_user_id = ? OR target_role = ? ORDER BY created_at DESC LIMIT 5");
 $notifStmt->execute([$currentUserId, $currentUserRole]);
 $notifications = $notifStmt->fetchAll(PDO::FETCH_ASSOC);
-
 $unreadCount = count($notifications);
 
-// Define Role Aesthetics for the header badge
 $headerRoles = [
     'admin' => ['label' => 'Admin', 'class' => 'bg-danger'],
     'warehouse' => ['label' => 'Warehouse In-Charge', 'class' => 'bg-success'],
@@ -59,8 +34,6 @@ $headerRoles = [
 
 $userBadgeClass = $headerRoles[$currentUserRole]['class'] ?? 'bg-secondary';
 $userBadgeLabel = $headerRoles[$currentUserRole]['label'] ?? 'Unknown Role';
-
-// Get current page to highlight the active menu item accurately
 $currentPage = basename($_SERVER['PHP_SELF']);
 ?>
 <!DOCTYPE html>
@@ -70,17 +43,26 @@ $currentPage = basename($_SERVER['PHP_SELF']);
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GB Construction & Enterprise Inc.</title>
     <link rel="icon" type="image/png" href="assets/LogoGB.png">
-    <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Bootstrap Icons -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-    <!-- Centralized Custom CSS -->
     <link rel="stylesheet" href="assets/css/style.css">
+    
+    <!-- Forces the active sidebar link to be readable and match your theme -->
+    <style>
+        #sidebar ul li.active > a {
+            background-color: var(--gb-blue, #0d6efd) !important;
+            color: #ffffff !important;
+            font-weight: bold;
+            border-left: 4px solid var(--gb-yellow, #ffc107);
+        }
+        #sidebar ul li.active > a i {
+            color: var(--gb-yellow, #ffc107) !important;
+        }
+    </style>
 </head>
 <body>
 
     <div class="wrapper">
-        <!-- Sidebar  -->
         <nav id="sidebar">
             <div class="sidebar-header d-flex justify-content-between align-items-center">
                 <h4 class="mb-0"><i class="bi bi-cone-striped me-2" style="color: var(--gb-yellow);"></i>GB Inventory</h4>
@@ -91,25 +73,27 @@ $currentPage = basename($_SERVER['PHP_SELF']);
 
             <ul class="list-unstyled components">
                 
-                <li class="px-3 text-uppercase small fw-bold mb-2 mt-3">Master Data</li>
-                
-                <!-- CLEAN URL: Changed href="index.php" to href="index" -->
+                <?php if (in_array($_SESSION['user_role'], ['admin', 'management', 'purchasing'])): ?>
+                <!-- <li class="px-3 text-uppercase small fw-bold mb-2 mt-2" style="color: #adb5bd;">Main Menu</li> -->
+                <li class="<?= $currentPage == 'analytics.php' || $currentPage == 'dashboard.php' ? 'active' : '' ?>">
+                    <a href="analytics"><i class="bi bi-speedometer2 me-3"></i> Dashboard</a>
+                </li>
+                <?php endif; ?>
+
+                <li class="px-3 text-uppercase small fw-bold mb-2 mt-4" style="color: #adb5bd;">Master Data</li>
                 <li class="<?= $currentPage == 'index.php' ? 'active' : '' ?>">
                     <a href="index"><i class="bi bi-box-seam me-3"></i> Materials Inventory</a>
                 </li>
-                
                 <?php if (in_array($_SESSION['user_role'], ['admin', 'purchasing'])): ?>
-                <!-- CLEAN URL: Changed href="suppliers.php" to href="suppliers" -->
                 <li class="<?= $currentPage == 'suppliers.php' ? 'active' : '' ?>">
                     <a href="suppliers"><i class="bi bi-buildings me-3"></i> Suppliers Database</a>
                 </li>
                 <?php endif; ?>
 
+                <li class="px-3 text-uppercase small fw-bold mb-2 mt-4" style="color: #adb5bd;">Transactions</li>
                 <li class="<?= $currentPage == 'withdrawals.php' ? 'active' : '' ?>">
                     <a href="withdrawals"><i class="bi bi-tools me-3"></i> Material Withdrawals</a>
                 </li>
-
-                <!-- CLEAN URL: Changed href="requisitions.php" to href="requisitions" -->
                 <li class="<?= $currentPage == 'requisitions.php' ? 'active' : '' ?>">
                     <a href="requisitions"><i class="bi bi-card-checklist me-3"></i> Requisitions (RS)</a>
                 </li>
@@ -117,24 +101,25 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                     <a href="po"><i class="bi bi-file-earmark-text me-3"></i> Purchase Orders (PO)</a>
                 </li>
                 
-                <li class="px-3 text-uppercase small fw-bold mb-2 mt-4">System</li>
-
-                <li class="<?= $currentPage == 'analytics.php' ? 'active' : '' ?>">
-                    <a href="analytics"><i class="bi bi-graph-up me-3"></i> Analytics & AI Predictions</a>
-                </li>
+                <!-- SYSTEM SECTION: Fixed Visibility! -->
+                <?php if (in_array($_SESSION['user_role'], ['admin', 'management', 'warehouse'])): ?>
+                <li class="px-3 text-uppercase small fw-bold mb-2 mt-4" style="color: #adb5bd;">System</li>
                 
+                <li class="<?= $currentPage == 'audit.php' ? 'active' : '' ?>">
+                    <a href="audit"><i class="bi bi-clipboard-check me-3"></i> Monthly Audit (Recount)</a>
+                </li>
+                <?php endif; ?>
+
                 <?php if ($_SESSION['user_role'] === 'admin'): ?>
-                <!-- CLEAN URL: Changed href="users.php" to href="users" -->
                 <li class="<?= $currentPage == 'users.php' ? 'active' : '' ?>">
                     <a href="users"><i class="bi bi-people me-3"></i> Manage Users</a>
                 </li>
                 <?php endif; ?>
+                
             </ul>
         </nav>
 
-        <!-- Page Content  -->
         <div id="content">
-            <!-- Top Navbar -->
             <nav class="navbar navbar-expand-lg top-navbar">
                 <div class="container-fluid px-0">
                     <button type="button" id="sidebarCollapse" class="btn btn-brand">
@@ -142,8 +127,6 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                     </button>
                     
                     <div class="d-flex align-items-center ms-auto">
-                        
-                        <!-- DYNAMIC NOTIFICATION BELL DROPDOWN -->
                         <div class="dropdown me-3">
                             <a href="#" class="text-muted position-relative d-flex align-items-center text-decoration-none" id="dropdownNotif" data-bs-toggle="dropdown" aria-expanded="false">
                                 <i class="bi bi-bell fs-5"></i>
@@ -155,7 +138,6 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                             </a>
                             <ul class="dropdown-menu dropdown-menu-end shadow" aria-labelledby="dropdownNotif" style="width: 320px;">
                                 <li><h6 class="dropdown-header fw-bold border-bottom pb-2">Notifications</h6></li>
-                                
                                 <div style="max-height: 300px; overflow-y: auto;">
                                     <?php if($unreadCount > 0): ?>
                                         <?php foreach($notifications as $notif): ?>
@@ -175,7 +157,6 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                                 </div>
                             </ul>
                         </div>
-                        <!-- END NOTIFICATION BELL -->
 
                         <div class="dropdown">
                             <a href="#" class="d-flex align-items-center text-decoration-none dropdown-toggle text-dark" id="dropdownUser1" data-bs-toggle="dropdown" aria-expanded="false">
@@ -190,7 +171,6 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                             <ul class="dropdown-menu dropdown-menu-end shadow" aria-labelledby="dropdownUser1">
                                 <li><a class="dropdown-item" href="#">Profile</a></li>
                                 <li><hr class="dropdown-divider"></li>
-                                <!-- CLEAN URL: Changed href="logout.php" to href="logout" -->
                                 <li><a class="dropdown-item text-danger" href="logout"><i class="bi bi-box-arrow-right me-2"></i>Sign out</a></li>
                             </ul>
                         </div>

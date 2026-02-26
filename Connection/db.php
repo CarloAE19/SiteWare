@@ -154,6 +154,32 @@ try {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     ");
 
+    // 11. Create Audit History Table (Monthly Recount)
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS inventory_audits (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            audit_month VARCHAR(50) NOT NULL,
+            conducted_by INT NOT NULL,
+            total_discrepancy_items INT DEFAULT 0,
+            remarks TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (conducted_by) REFERENCES users(id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    ");
+
+    // 12. Create Audit Items Table (Discrepancy Tracker)
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS audit_items (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            audit_id INT NOT NULL,
+            item_code VARCHAR(50) NOT NULL,
+            system_qty INT NOT NULL,
+            physical_qty INT NOT NULL,
+            discrepancy INT NOT NULL,
+            FOREIGN KEY (audit_id) REFERENCES inventory_audits(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    ");
+
 } catch (PDOException $e) {
     die("Database Error: " . $e->getMessage());
 }
