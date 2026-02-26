@@ -38,7 +38,6 @@ $aiPayloadData = json_encode($consumptionData);
 include 'layout/header.php';
 ?>
 
-<!-- Import Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <div class="container-fluid px-4 py-4">
