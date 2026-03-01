@@ -1,0 +1,45 @@
+/* * GB Inventory Custom Additions 
+ * This file handles extra animations and dynamic styling overrides 
+ */
+
+/* Sidebar Active Tab Override */
+#sidebar ul li.active > a {
+    background-color: var(--gb-blue, #0d6efd) !important;
+    color: #ffffff !important;
+    font-weight: bold;
+    border-left: 4px solid var(--gb-yellow, #ffc107);
+}
+#sidebar ul li.active > a i {
+    color: var(--gb-yellow, #ffc107) !important;
+}
+
+/* AI Animations & Badges */
+.blink-icon { animation: blinker 1.5s linear infinite; }
+.blink-text { animation: blinker 2s linear infinite; }
+@keyframes blinker { 50% { opacity: 0.3; } }
+
+.diff-badge { transition: all 0.3s ease; }
+
+/* ==========================================================
+ * MOBILE RESPONSIVE FIXES
+ * ========================================================== */
+
+/* Desktop Default Width for Notifications */
+.notif-menu {
+    width: 350px;
+}
+
+/* Mobile Override: Turns the dropdown into a centered floating card */
+@media (max-width: 768px) {
+    .notif-menu {
+        position: fixed !important;
+        top: 70px !important; /* Drops it just below the top navbar */
+        left: 5% !important;
+        right: 5% !important;
+        width: 90% !important;
+        max-width: none !important;
+        transform: none !important; /* Disables Bootstrap's buggy mobile positioning */
+        z-index: 1050;
+        border-radius: 8px;
+    }
+}

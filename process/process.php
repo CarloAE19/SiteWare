@@ -14,13 +14,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     try {
         // ==========================================
+        // LIVE SYNC (MULTI-DEVICE AUTO-UPDATE)
+        // ==========================================
+        if ($action === 'live_sync') {
+            $stmt = $pdo->query("SELECT item_code, quantity, status FROM inventory");
+            echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
+            exit; // Instantly return JSON and stop
+        }
+        
+        // ==========================================
         // INVENTORY (MATERIALS) LOGIC
         // ==========================================
         if ($action === 'stock_in_scanned') {
-            if (!in_array($_SESSION['user_role'], ['admin', 'warehouse'])) throw new Exception("Unauthorized.");
+            if (!in_array($_SESSION['user_role'], ['admin', 'warehouse'])) {
+                if(isset($_POST['ajax'])) { echo json_encode(['status'=>'error', 'message'=>'Unauthorized']); exit; }
+                throw new Exception("Unauthorized.");
+            }
             
             $added_qty = (int)$_POST['added_qty'];
-            if ($added_qty <= 0) throw new Exception("Quantity must be greater than zero.");
+            if ($added_qty <= 0) {
+                 if(isset($_POST['ajax'])) { echo json_encode(['status'=>'error', 'message'=>'Quantity must be greater than zero.']); exit; }
+                 throw new Exception("Quantity must be greater than zero.");
+            }
 
             // Add the new quantity
             $stmt = $pdo->prepare("UPDATE inventory SET quantity = quantity + ? WHERE item_code = ?");
@@ -29,11 +44,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Auto-calculate new status!
             $pdo->prepare("UPDATE inventory SET status = CASE WHEN quantity <= 0 THEN 'Out of Stock' WHEN quantity <= 10 THEN 'Low Stock' ELSE 'In Stock' END WHERE item_code = ?")->execute([$_POST['item_code']]);
             
+            // --- NEW: AJAX JSON RESPONSE ---
+            if (isset($_POST['ajax'])) {
+                // Fetch the updated item to send the new numbers back to Javascript
+                $stmt = $pdo->prepare("SELECT quantity, status FROM inventory WHERE item_code = ?");
+                $stmt->execute([$_POST['item_code']]);
+                $updatedItem = $stmt->fetch(PDO::FETCH_ASSOC);
+
+                echo json_encode([
+                    'status' => 'success', 
+                    'new_qty' => $updatedItem['quantity'],
+                    'new_status' => $updatedItem['status']
+                ]);
+                exit; // Stop the script here so it doesn't refresh the page!
+            }
+
+            // Normal Fallback
             $_SESSION['message'] = "Stock updated successfully via QR scan!";
             $_SESSION['msg_type'] = "success";
             header("Location: ../index"); 
             exit;
-
+            
         } elseif ($action === 'add') {
             if (!in_array($_SESSION['user_role'], ['admin', 'warehouse'])) throw new Exception("Unauthorized.");
             
@@ -146,10 +177,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } elseif ($action === 'delete_user') {
                 $userId = $_POST['user_id'];
                 if ($userId == $_SESSION['user_id']) throw new Exception("You cannot delete your own account.");
-                $stmt = $pdo->prepare("DELETE FROM users WHERE id = :id");
-                $stmt->execute([':id' => $userId]);
-                $_SESSION['message'] = "User deleted permanently.";
-                $_SESSION['msg_type'] = "danger";
+                // FIXED: Catch the specific SQL Integrity Constraint Error!
+                try {
+                    $stmt = $pdo->prepare("DELETE FROM users WHERE id = :id");
+                    $stmt->execute([':id' => $userId]);
+                    $_SESSION['message'] = "User deleted permanently.";
+                    $_SESSION['msg_type'] = "success";
+                } catch (PDOException $e) {
+                    if ($e->getCode() == 23000) {
+                        throw new Exception("<b>Data Protection Lock:</b> Cannot delete this user because their account is permanently tied to past warehouse transactions or audits. To revoke access, please <b>Edit</b> the user and change their password instead.");
+                    }
+                    throw $e;
+                }
             }
             header("Location: ../users");
             exit;
@@ -250,6 +289,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $notif->execute(["PO {$po_no} has been generated. Prepare space to receive materials."]);
 
             $_SESSION['message'] = "Purchase Order generated and sent to Supplier successfully!";
+            $_SESSION['msg_type'] = "success";
+            header("Location: ../po");
+            exit;
+
+            // --- ADD THIS NEW BLOCK RIGHT HERE ---
+        } elseif ($action === 'mark_po_delivered') {
+            if (!in_array($_SESSION['user_role'], ['warehouse', 'admin'])) throw new Exception("Unauthorized.");
+            
+            $po_id = $_POST['po_id'];
+            $po_no = $_POST['po_no'];
+            
+            // 1. Update the PO Status
+            $pdo->prepare("UPDATE purchase_orders SET status = 'Delivered' WHERE id = ?")->execute([$po_id]);
+            
+            // 2. Notify Management & Purchasing
+            $alertMsg = "Order {$po_no} has arrived and was received at the warehouse.";
+            $pdo->prepare("INSERT INTO notifications (target_role, title, message) VALUES ('purchasing', 'PO Delivered', ?)")->execute([$alertMsg]);
+            $pdo->prepare("INSERT INTO notifications (target_role, title, message) VALUES ('management', 'PO Delivered', ?)")->execute([$alertMsg]);
+
+            $_SESSION['message'] = "Purchase Order marked as successfully Delivered!";
             $_SESSION['msg_type'] = "success";
             header("Location: ../po");
             exit;
@@ -362,6 +421,124 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['message'] = "Monthly recount submitted successfully. Inventory adjusted to match physical count.";
             $_SESSION['msg_type'] = "success";
             header("Location: ../audit");
+            exit;
+        }
+
+        // ==========================================
+        // UPDATE PROFILE LOGIC
+        // ==========================================
+        elseif ($action === 'update_profile') {
+            $userId = $_SESSION['user_id'];
+            $newName = trim($_POST['name']);
+            $newUsername = trim($_POST['username']);
+            $newPassword = $_POST['new_password'];
+            $confirmPassword = $_POST['confirm_password'];
+
+            // Check if username is taken by someone else
+            $check = $pdo->prepare("SELECT id FROM users WHERE username = ? AND id != ?");
+            $check->execute([$newUsername, $userId]);
+            if ($check->rowCount() > 0) {
+                throw new Exception("That username is already taken. Please choose another.");
+            }
+
+            if (!empty($newPassword)) {
+                if ($newPassword !== $confirmPassword) {
+                    throw new Exception("New passwords do not match!");
+                }
+                // Update Name, Username AND Password
+                $hashed_password = password_hash($newPassword, PASSWORD_DEFAULT);
+                $stmt = $pdo->prepare("UPDATE users SET name = ?, username = ?, password = ? WHERE id = ?");
+                $stmt->execute([$newName, $newUsername, $hashed_password, $userId]);
+            } else {
+                // Update only Name and Username
+                $stmt = $pdo->prepare("UPDATE users SET name = ?, username = ? WHERE id = ?");
+                $stmt->execute([$newName, $newUsername, $userId]);
+            }
+
+            // Update Session Name so the header changes immediately
+            $_SESSION['user_name'] = $newName;
+
+            $_SESSION['message'] = "Profile updated successfully!";
+            $_SESSION['msg_type'] = "success";
+            header("Location: ../profile");
+            exit;
+        }
+
+        // ==========================================
+        // DYNAMIC UNITS LOGIC
+        // ==========================================
+        elseif ($action === 'add_unit') {
+            if ($_SESSION['user_role'] !== 'admin') throw new Exception("Unauthorized.");
+            $stmt = $pdo->prepare("INSERT INTO units (unit_name, abbreviation) VALUES (?, ?)");
+            $stmt->execute([$_POST['unit_name'], $_POST['abbreviation']]);
+            $_SESSION['message'] = "Measurement unit added successfully!";
+            $_SESSION['msg_type'] = "success";
+            header("Location: ../units"); exit;
+
+        } elseif ($action === 'edit_unit') {
+            if ($_SESSION['user_role'] !== 'admin') throw new Exception("Unauthorized.");
+            $stmt = $pdo->prepare("UPDATE units SET unit_name = ?, abbreviation = ? WHERE id = ?");
+            $stmt->execute([$_POST['unit_name'], $_POST['abbreviation'], $_POST['unit_id']]);
+            $_SESSION['message'] = "Unit updated successfully!";
+            $_SESSION['msg_type'] = "success";
+            header("Location: ../units"); exit;
+
+        } elseif ($action === 'delete_unit') {
+            if ($_SESSION['user_role'] !== 'admin') throw new Exception("Unauthorized.");
+            $stmt = $pdo->prepare("DELETE FROM units WHERE id = ?");
+            $stmt->execute([$_POST['unit_id']]);
+            $_SESSION['message'] = "Unit deleted successfully.";
+            $_SESSION['msg_type'] = "danger";
+            header("Location: ../units"); exit;
+        }
+
+        // ==========================================
+        // PURCHASE ORDERS: SMS BLASTER (AJAX)
+        // ==========================================
+        elseif ($action === 'send_po_sms') {
+            if (!in_array($_SESSION['user_role'], ['purchasing', 'admin'])) {
+                echo json_encode(['status' => 'error', 'message' => 'Unauthorized']); exit;
+            }
+            
+            $po_id = $_POST['po_id'];
+            $po_no = $_POST['po_no'];
+            $company = $_POST['company'];
+            
+            // SIMULATE SMS GATEWAY DELAY (1.5 seconds)
+            usleep(1500000); 
+
+            // Update Database Status
+            $pdo->prepare("UPDATE purchase_orders SET status = 'SMS Sent' WHERE id = ?")->execute([$po_id]);
+            
+            // Log Notification
+            $notif = $pdo->prepare("INSERT INTO notifications (target_role, title, message) VALUES ('management', 'SMS Order Sent', ?)");
+            $notif->execute(["Automated SMS was sent to {$company} for {$po_no}."]);
+
+            echo json_encode(['status' => 'success']);
+            exit;
+        }
+
+        // ==========================================
+        // PURCHASE ORDERS: LOG WEATHER DELAY
+        // ==========================================
+        elseif ($action === 'log_po_delay') {
+            if (!in_array($_SESSION['user_role'], ['purchasing', 'admin'])) throw new Exception("Unauthorized.");
+            
+            $po_id = $_POST['po_id'];
+            $po_no = $_POST['po_no'];
+            $delayReason = $_POST['delay_type'] . " - " . $_POST['remarks'];
+
+            // Update Database Status
+            $pdo->prepare("UPDATE purchase_orders SET status = 'Delayed (Weather)', delay_remarks = ? WHERE id = ?")->execute([$delayReason, $po_id]);
+            
+            // Alert Management AND Warehouse!
+            $alertMsg = "ALERT: {$po_no} is delayed. Reason: {$delayReason}";
+            $pdo->prepare("INSERT INTO notifications (target_role, title, message) VALUES ('management', 'Supply Chain Delay', ?)")->execute([$alertMsg]);
+            $pdo->prepare("INSERT INTO notifications (target_role, title, message) VALUES ('warehouse', 'Expected Delivery Delayed', ?)")->execute([$alertMsg]);
+
+            $_SESSION['message'] = "Logistics delay successfully logged and alerts sent.";
+            $_SESSION['msg_type'] = "danger";
+            header("Location: ../po");
             exit;
         }
 

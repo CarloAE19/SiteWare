@@ -12,9 +12,12 @@
         </div> <!-- End #content wrapper opened in header.php -->
     </div> <!-- End .wrapper opened in header.php -->
 
-    <!-- Bootstrap JS Bundle -->
+     <!-- Bootstrap 5 JS Bundle with Popper (Required for Modals & Dropdowns) -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-    <!-- Centralized Custom JS -->
+
+    <!-- Global Custom Script (Required for Sidebar Toggle, Passwords, and QR Scanner) -->
     <script src="assets/js/script.js"></script>
+    <script src="assets/js/notifications.js"></script>
+
 </body>
 </html>

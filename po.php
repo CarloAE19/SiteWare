@@ -1,38 +1,33 @@
 <?php
 session_start();
-if (!isset($_SESSION['user_id'])) {
-    header("Location: login");
-    exit;
-}
+if (!isset($_SESSION['user_id'])) { header("Location: login"); exit; }
 
+// FIXED: Added 'warehouse' to the allowed roles so they can receive deliveries!
+if (!in_array($_SESSION['user_role'], ['admin', 'purchasing', 'management', 'warehouse'])) { header("Location: index"); exit; }
 require_once 'Connection/db.php';
 
 $role = $_SESSION['user_role'];
 
-// Fetch all POs for the table
-$query = "SELECT po.*, r.rs_no, r.project_name, s.company_name, u.name as preparer_name 
-          FROM purchase_orders po
-          LEFT JOIN requisitions r ON po.rs_id = r.id
-          LEFT JOIN suppliers s ON po.supplier_id = s.id
-          LEFT JOIN users u ON po.prepared_by = u.id
-          ORDER BY po.created_at DESC";
+// AUTO-PATCH DB: Ensures the PO table can handle SMS Status and Weather Delays!
+try {
+    $pdo->exec("ALTER TABLE purchase_orders ADD COLUMN status VARCHAR(50) DEFAULT 'Generated'");
+    $pdo->exec("ALTER TABLE purchase_orders ADD COLUMN delay_remarks TEXT");
+} catch (PDOException $e) { /* Columns already exist */ }
+
+// Fetch Purchase Orders
+$query = "
+    SELECT p.*, s.company_name, s.contact_number, r.rs_no, r.project_name 
+    FROM purchase_orders p 
+    LEFT JOIN suppliers s ON p.supplier_id = s.id 
+    LEFT JOIN requisitions r ON p.rs_id = r.id 
+    ORDER BY p.created_at DESC
+";
 $pos = $pdo->query($query)->fetchAll(PDO::FETCH_ASSOC);
-
-// Fetch Approved RS (that don't have a PO yet) for the dropdown
-$approvedRS = $pdo->query("SELECT id, rs_no, project_name FROM requisitions WHERE status = 'Approved'")->fetchAll(PDO::FETCH_ASSOC);
-
-// Fetch Active Suppliers for the dropdown
-$suppliers = $pdo->query("SELECT id, company_name FROM suppliers WHERE status = 'Active' ORDER BY company_name ASC")->fetchAll(PDO::FETCH_ASSOC);
-
-// Calculate Stats
-$totalPOs = count($pos);
-$pendingDelivery = count(array_filter($pos, fn($p) => $p['status'] === 'Pending Delivery'));
 
 include 'layout/header.php';
 ?>
 
 <div class="container-fluid px-4 py-4">
-    <!-- Flash Messages -->
     <?php if (isset($_SESSION['message'])): ?>
         <div class="alert alert-<?= $_SESSION['msg_type'] ?> alert-dismissible fade show shadow-sm" role="alert">
             <?= $_SESSION['message'] ?>
@@ -41,103 +36,143 @@ include 'layout/header.php';
         <?php unset($_SESSION['message'], $_SESSION['msg_type']); ?>
     <?php endif; ?>
 
-    <!-- PO Stats -->
-    <div class="row mb-4">
-        <div class="col-xl-6 col-md-6 mb-3">
-            <div class="card stat-card bg-white h-100 p-3" style="border-left-color: var(--gb-blue);">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <h6 class="text-muted text-uppercase mb-1">Total Purchase Orders</h6>
-                        <h2 class="mb-0 fw-bold"><?= $totalPOs ?></h2>
-                    </div>
-                    <div class="fs-1 text-primary" style="color: var(--gb-blue) !important;"><i class="bi bi-file-earmark-text"></i></div>
-                </div>
+    <div class="table-container shadow-sm border-0">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h4 class="mb-0 fw-bold text-dark"><i class="bi bi-file-earmark-text me-2 text-primary"></i>Purchase Orders</h4>
+                <small class="text-muted">Manage procurement, track deliveries, and log logistics delays.</small>
             </div>
-        </div>
-        <div class="col-xl-6 col-md-6 mb-3">
-            <div class="card stat-card bg-white h-100 p-3" style="border-left-color: var(--gb-yellow);">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <h6 class="text-muted text-uppercase mb-1">Awaiting Delivery</h6>
-                        <h2 class="mb-0 fw-bold"><?= $pendingDelivery ?></h2>
-                    </div>
-                    <div class="fs-1 text-warning"><i class="bi bi-truck"></i></div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Main Table Area -->
-    <div class="table-container">
-        <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
-            <h4 class="mb-0 fw-bold text-dark"><i class="bi bi-cart-check me-2"></i>Purchase Orders (PO)</h4>
-            
-            <div class="d-flex gap-2">
-                <div class="input-group">
-                    <span class="input-group-text bg-light"><i class="bi bi-search"></i></span>
-                    <input type="text" class="form-control" placeholder="Search PO No...">
-                </div>
-                
-                <?php if (in_array($role, ['purchasing', 'admin'])): ?>
-                <button class="btn btn-brand" data-bs-toggle="modal" data-bs-target="#poModal">
-                    <i class="bi bi-plus-lg me-1"></i> Generate PO
-                </button>
-                <?php endif; ?>
-            </div>
+            <?php if (in_array($role, ['admin', 'purchasing'])): ?>
+            <button class="btn btn-brand" data-bs-toggle="modal" data-bs-target="#poModal">
+                <i class="bi bi-plus-circle me-1"></i> Create New PO
+            </button>
+            <?php endif; ?>
         </div>
 
         <div class="table-responsive">
             <table class="table table-hover align-middle">
-                <thead>
+                <thead class="table-light">
                     <tr>
-                        <th scope="col">PO Number</th>
-                        <th scope="col">Linked RS</th>
-                        <th scope="col">Supplier</th>
-                        <th scope="col">Prepared By</th>
-                        <th scope="col">Date Issued</th>
-                        <th scope="col">Status</th>
-                        <th scope="col" class="text-end">Actions</th>
+                        <th>PO Number</th>
+                        <th>Linked RS / Project</th>
+                        <th>Supplier</th>
+                        <th>Status</th>
+                        <th class="text-end">Logistics Actions</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <?php if(count($pos) > 0): ?>
-                        <?php foreach ($pos as $po): ?>
-                            <tr>
-                                <td class="fw-bold text-primary"><?= htmlspecialchars($po['po_no']) ?></td>
-                                <td><span class="badge bg-light text-dark border"><i class="bi bi-link-45deg"></i> <?= htmlspecialchars($po['rs_no']) ?></span></td>
-                                <td class="fw-bold"><?= htmlspecialchars($po['company_name']) ?></td>
-                                <td><i class="bi bi-person me-1 text-muted"></i><?= htmlspecialchars($po['preparer_name']) ?></td>
-                                <td class="text-muted small"><?= date('M d, Y', strtotime($po['created_at'])) ?></td>
-                                <td>
-                                    <?php 
-                                        $statusClass = 'bg-warning text-dark'; // Pending Delivery
-                                        if($po['status'] == 'Partial Delivery') $statusClass = 'bg-info text-dark';
-                                        if($po['status'] == 'Completed') $statusClass = 'bg-success';
-                                    ?>
-                                    <span class="badge <?= $statusClass ?>"><i class="bi bi-truck me-1"></i><?= htmlspecialchars($po['status']) ?></span>
-                                </td>
-                                <td class="text-end">
-                                    <button class="btn btn-sm btn-outline-secondary" title="Print PO">
-                                        <i class="bi bi-printer"></i>
-                                    </button>
-                                </td>
-                            </tr>
-                        <?php endforeach; ?>
-                    <?php else: ?>
+                    <?php foreach ($pos as $po): ?>
+                        <?php 
+                            // Status Badge Logic (Updated to handle all statuses)
+                            $statusClass = 'bg-secondary';
+                            if ($po['status'] === 'Generated') $statusClass = 'bg-primary';
+                            if ($po['status'] === 'SMS Sent') $statusClass = 'bg-success';
+                            if ($po['status'] === 'Pending Delivery') $statusClass = 'bg-secondary';
+                            if ($po['status'] === 'Delayed (Weather)') $statusClass = 'bg-danger';
+                            if ($po['status'] === 'Delivered') $statusClass = 'bg-info text-dark';
+                        ?>
                         <tr>
-                            <td colspan="7" class="text-center py-5 text-muted">
-                                <i class="bi bi-folder-x fs-1 d-block mb-2"></i>
-                                No Purchase Orders found.
+                            <td class="fw-bold text-dark"><?= htmlspecialchars($po['po_no']) ?></td>
+                            <td>
+                                <span class="badge bg-light text-dark border me-1"><?= htmlspecialchars($po['rs_no']) ?></span>
+                                <small class="text-muted fw-bold"><?= htmlspecialchars($po['project_name']) ?></small>
+                            </td>
+                            <td class="fw-bold text-primary">
+                                <i class="bi bi-building me-1 text-muted"></i><?= htmlspecialchars($po['company_name']) ?>
+                            </td>
+                            <td>
+                                <span class="badge <?= $statusClass ?> px-2 py-1" id="status_<?= $po['id'] ?>">
+                                    <?= htmlspecialchars($po['status'] ?? 'Generated') ?>
+                                </span>
+                                <?php if ($po['status'] === 'Delayed (Weather)'): ?>
+                                    <small class="d-block text-danger mt-1" style="font-size: 0.7rem;"><i class="bi bi-exclamation-triangle-fill me-1"></i><?= htmlspecialchars($po['delay_remarks']) ?></small>
+                                <?php endif; ?>
+                            </td>
+                            
+                            <td class="text-end">
+                                <?php if (in_array($role, ['admin', 'purchasing'])): ?>
+                                    <!-- PURCHASING ACTIONS -->
+                                    <button class="btn btn-sm btn-outline-success fw-bold me-1" id="smsBtn_<?= $po['id'] ?>" onclick="sendSmsBlaster(<?= $po['id'] ?>, '<?= $po['po_no'] ?>', '<?= addslashes($po['company_name']) ?>', '<?= $po['contact_number'] ?>')">
+                                        <i class="bi bi-chat-text-fill me-1"></i> SMS
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger fw-bold me-1" onclick="openDelayModal(<?= $po['id'] ?>, '<?= $po['po_no'] ?>')">
+                                        <i class="bi bi-cloud-lightning-rain-fill me-1"></i> Delay
+                                    </button>
+                                <?php endif; ?>
+
+                                <?php if (in_array($role, ['admin', 'warehouse']) && $po['status'] !== 'Delivered'): ?>
+                                    <!-- WAREHOUSE ACTION: Receive Order -->
+                                    <form method="POST" action="process/process.php" class="d-inline" onsubmit="return confirm('Confirm that the truck has arrived and items are received at the warehouse?');">
+                                        <input type="hidden" name="action" value="mark_po_delivered">
+                                        <input type="hidden" name="po_id" value="<?= $po['id'] ?>">
+                                        <input type="hidden" name="po_no" value="<?= $po['po_no'] ?>">
+                                        <button type="submit" class="btn btn-sm btn-success fw-bold me-1">
+                                            <i class="bi bi-box-seam me-1"></i> Receive Order
+                                        </button>
+                                    </form>
+                                <?php endif; ?>
+                                
+                                <button class="btn btn-sm btn-outline-secondary" title="View/Print PO"><i class="bi bi-printer"></i></button>
                             </td>
                         </tr>
-                    <?php endif; ?>
+                    <?php endforeach; ?>
                 </tbody>
             </table>
         </div>
     </div>
 </div>
 
-<!-- Include the modularized PO Form Component -->
+<!-- EXTERNAL MODALS -->
 <?php include 'components/po_modal.php'; ?>
+
+<!-- AJAX LOGIC FOR SMS BLASTER -->
+<script>
+async function sendSmsBlaster(poId, poNo, company, phone) {
+    if (!phone || phone.trim() === '') {
+        alert("Cannot send SMS: " + company + " does not have a registered phone number in the system.");
+        return;
+    }
+
+    if (!confirm("Are you sure you want to send an automated SMS order notification to " + company + " (" + phone + ")?")) {
+        return;
+    }
+
+    const btn = document.getElementById('smsBtn_' + poId);
+    const originalHtml = btn.innerHTML;
+    
+    btn.disabled = true;
+    btn.classList.replace('btn-outline-success', 'btn-success');
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Sending...';
+
+    let formData = new FormData();
+    formData.append('action', 'send_po_sms');
+    formData.append('po_id', poId);
+    formData.append('po_no', poNo);
+    formData.append('company', company);
+
+    try {
+        const response = await fetch('process/process.php', { method: 'POST', body: formData });
+        const data = await response.json();
+        
+        if (data.status === 'success') {
+            new Audio('assets/sounds/success.mp3').play().catch(e => {});
+            btn.innerHTML = '<i class="bi bi-check-circle-fill me-1"></i> Sent!';
+            const statusBadge = document.getElementById('status_' + poId);
+            statusBadge.className = 'badge bg-success px-2 py-1';
+            statusBadge.innerText = 'SMS Sent';
+        } else {
+            alert("Error sending SMS: " + data.message);
+            btn.disabled = false;
+            btn.innerHTML = originalHtml;
+            btn.classList.replace('btn-success', 'btn-outline-success');
+        }
+    } catch (e) {
+        alert("Network Error: Could not connect to SMS Gateway.");
+        btn.disabled = false;
+        btn.innerHTML = originalHtml;
+        btn.classList.replace('btn-success', 'btn-outline-success');
+    }
+}
+</script>
 
 <?php include 'layout/footer.php'; ?>
