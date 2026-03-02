@@ -60,6 +60,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login - GB Inventory</title>
+
+    <!-- PWA Links for Login Page -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="assets/LogoGB.png">
+
     <link rel="icon" type="image/png" href="assets/LogoGB.png">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
@@ -97,6 +104,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </div>
             </div>
 
+            <!-- Custom Install Button (Hidden by default) -->
+        <button type="button" id="installAppBtn" class="btn btn-outline-primary w-100 mb-3 d-none" style="border-radius: 8px; font-weight: bold;">
+            <i class="bi bi-android2 fs-5 me-1" style="color: #3DDC84;"></i>
+            <i class="bi bi-apple fs-5 me-1" style="color: #000000;"></i>
+            <i class="bi bi-windows fs-5 me-2" style="color: #0078D7;"></i> 
+            Install GB Inventory App
+        </button>
             <button type="submit" class="btn btn-login w-100 fw-bold"><i class="bi bi-box-arrow-in-right me-2"></i>Sign in</button>
         </form>
     </div>
@@ -108,4 +122,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     <script src="assets/js/script.js"></script>
 </body>
+<script>
+    let deferredPrompt;
+    const installBtn = document.getElementById('installAppBtn');
+
+    // Hijack the browser's automatic install prompt
+    window.addEventListener('beforeinstallprompt', (e) => {
+        // 1. Prevent Chrome/Edge from showing the automatic annoying popup
+        e.preventDefault();
+        // 2. Save the event so we can trigger it when the user clicks our button
+        deferredPrompt = e;
+        // 3. Un-hide our beautiful custom Install button
+        installBtn.classList.remove('d-none');
+    });
+
+    // What happens when they click our button
+    installBtn.addEventListener('click', async () => {
+        if (deferredPrompt !== null) {
+            // Trigger the browser's official install prompt
+            deferredPrompt.prompt();
+            // Wait for the user to click "Install" or "Cancel"
+            const { outcome } = await deferredPrompt.userChoice;
+            if (outcome === 'accepted') {
+                console.log('App Installed successfully!');
+                installBtn.classList.add('d-none'); // Hide button after install
+            }
+            deferredPrompt = null;
+        }
+    });
+
+    // If they already installed it, hide the button
+    window.addEventListener('appinstalled', () => {
+        installBtn.classList.add('d-none');
+    });
+</script>
 </html>

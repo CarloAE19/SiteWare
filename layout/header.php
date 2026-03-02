@@ -4,6 +4,11 @@ try {
     $pdo->exec("ALTER TABLE notifications ADD COLUMN is_read TINYINT(1) DEFAULT 0");
 } catch (PDOException $e) { /* Column already exists, do nothing */ }
 
+// DB Auto-Patch: Ensure users table can store Firebase Device Tokens
+try {
+    $pdo->exec("ALTER TABLE users ADD COLUMN fcm_token TEXT DEFAULT NULL");
+} catch (PDOException $e) { /* Column already exists, do nothing */ }
+
 // Modernized Function to calculate "Time Ago"
 function time_elapsed_string($datetime, $full = false) {
     $now = new DateTime; $ago = new DateTime($datetime); $diff = $now->diff($ago);
@@ -46,6 +51,14 @@ $currentPage = basename($_SERVER['PHP_SELF']);
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GB Construction & Enterprise Inc.</title>
+
+    <!-- PWA & Apple iOS Tags -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="GB Inventory">
+    <link rel="apple-touch-icon" href="assets/LogoGB.png">
+    
     <link rel="icon" type="image/png" href="assets/LogoGB.png">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
@@ -110,7 +123,6 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                                 <?php endif; ?>
                             </a>
                             
-                            <!-- FIXED: Added 'notif-menu' class instead of inline 350px width -->
                             <ul class="dropdown-menu dropdown-menu-end shadow notif-menu" aria-labelledby="dropdownNotif">
                                 <li>
                                     <div class="dropdown-header d-flex justify-content-between align-items-center border-bottom pb-2">
@@ -123,7 +135,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                                 <div style="max-height: 350px; overflow-y: auto;">
                                     <?php if(count($notifications) > 0): ?>
                                         <?php foreach($notifications as $notif): 
-                                            // SMART ROUTER: Decides where clicking the notification takes you
+                                            // SMART ROUTER
                                             $titleLower = strtolower($notif['title']);
                                             $targetLink = 'index';
                                             if (strpos($titleLower, 'requisition') !== false || strpos($titleLower, 'ready for po') !== false) {
@@ -134,7 +146,6 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                                                 $targetLink = 'audit';
                                             }
                                             
-                                            // Styling for Unread vs Read
                                             $bgClass = $notif['is_read'] == 0 ? 'bg-light border-start border-primary border-4' : 'bg-white';
                                             $iconClass = $notif['is_read'] == 0 ? 'text-primary' : 'text-muted';
                                         ?>

@@ -8,6 +8,7 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 require_once '../Connection/db.php';
+require_once 'fcm_helper.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
@@ -366,22 +367,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         // ==========================================
-        // MONTHLY RECOUNT / AUDIT LOGIC
+        // AUDIT (MONTHLY RECOUNT) LOGIC
         // ==========================================
         elseif ($action === 'submit_audit') {
-            if (!in_array($_SESSION['user_role'], ['warehouse', 'admin'])) {
-                throw new Exception("Only the Warehouse In-Charge can submit audits.");
-            }
+            if (!in_array($_SESSION['user_role'], ['warehouse', 'admin'])) throw new Exception("Unauthorized.");
+            $audit_month = date('F Y'); $conducted_by = $_SESSION['user_id']; $remarks = $_POST['remarks'] ?? '';
+            $item_codes = $_POST['item_code']; $system_qtys = $_POST['system_qty']; $physical_qtys = $_POST['physical_qty'];
 
-            $audit_month = date('F Y'); // e.g., "February 2026"
-            $conducted_by = $_SESSION['user_id'];
-            $remarks = $_POST['remarks'] ?? '';
-            
-            $item_codes = $_POST['item_code'];
-            $system_qtys = $_POST['system_qty'];
-            $physical_qtys = $_POST['physical_qty'];
-
-            // 1. Create the Audit Record
             $stmt = $pdo->prepare("INSERT INTO inventory_audits (audit_month, conducted_by, remarks) VALUES (?, ?, ?)");
             $stmt->execute([$audit_month, $conducted_by, $remarks]);
             $audit_id = $pdo->lastInsertId();
@@ -391,37 +383,48 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $updateStatusStmt = $pdo->prepare("UPDATE inventory SET status = CASE WHEN quantity <= 0 THEN 'Out of Stock' WHEN quantity <= 10 THEN 'Low Stock' ELSE 'In Stock' END WHERE item_code = ?");
             
             $discrepancyCount = 0;
-
-            // 2. Loop through every item counted
             for ($i = 0; $i < count($item_codes); $i++) {
-                $sys_qty = (int)$system_qtys[$i];
-                $phys_qty = (int)$physical_qtys[$i];
-                $diff = $phys_qty - $sys_qty; // Negative means missing items (theft/loss)
-
-                // Save to Audit Trail
+                $sys_qty = (int)$system_qtys[$i]; $phys_qty = (int)$physical_qtys[$i]; $diff = $phys_qty - $sys_qty;
                 $auditItemStmt->execute([$audit_id, $item_codes[$i], $sys_qty, $phys_qty, $diff]);
-
+                
                 if ($diff !== 0) {
                     $discrepancyCount++;
-                    // Override the system inventory to match physical reality
+                    // Instantly update the inventory to match the physical count
                     $updateInvStmt->execute([$phys_qty, $item_codes[$i]]);
                     $updateStatusStmt->execute([$item_codes[$i]]);
                 }
             }
 
-            // Update total discrepancies found
             $pdo->prepare("UPDATE inventory_audits SET total_discrepancy_items = ? WHERE id = ?")->execute([$discrepancyCount, $audit_id]);
-
-            // Notify Management if there are missing items!
+            
+            // ==========================================
+            // 🔥 SMART PUSH NOTIFICATIONS LOGIC 🔥
+            // ==========================================
             if ($discrepancyCount > 0) {
-                $notif = $pdo->prepare("INSERT INTO notifications (target_role, title, message) VALUES ('management', 'Audit Discrepancy Alert', ?)");
-                $notif->execute(["The $audit_month audit found $discrepancyCount items with discrepancies. Please review the audit trail immediately."]);
+                // If there are missing/surplus items: Alert Admin & Management
+                $alertMsg = "The $audit_month physical recount is complete. Found $discrepancyCount items with discrepancies.";
+                
+                // Save to Database Dropdown
+                $pdo->prepare("INSERT INTO notifications (target_role, title, message) VALUES ('management', 'Audit Discrepancy Alert', ?)")->execute([$alertMsg]);
+                $pdo->prepare("INSERT INTO notifications (target_role, title, message) VALUES ('admin', 'Audit Discrepancy Alert', ?)")->execute([$alertMsg]);
+                
+                // Blast Push Notification to Devices!
+                sendPushNotification($pdo, 'Audit Discrepancy Alert', $alertMsg, 'management', null);
+                sendPushNotification($pdo, 'Audit Discrepancy Alert', $alertMsg, 'admin', null);
+            } else {
+                // If perfect match: Just notify the Admin for record-keeping
+                $successMsg = "The $audit_month physical recount was completed successfully. All physical stocks match the system records exactly.";
+                
+                // Save to Database Dropdown
+                $pdo->prepare("INSERT INTO notifications (target_role, title, message) VALUES ('admin', 'Audit Completed', ?)")->execute([$successMsg]);
+                
+                // Blast Push Notification to Devices!
+                sendPushNotification($pdo, 'Audit Completed', $successMsg, 'admin', null);
             }
 
-            $_SESSION['message'] = "Monthly recount submitted successfully. Inventory adjusted to match physical count.";
+            $_SESSION['message'] = "Monthly recount submitted. Inventory adjusted.";
             $_SESSION['msg_type'] = "success";
-            header("Location: ../audit");
-            exit;
+            header("Location: ../audit"); exit;
         }
 
         // ==========================================
@@ -531,10 +534,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Update Database Status
             $pdo->prepare("UPDATE purchase_orders SET status = 'Delayed (Weather)', delay_remarks = ? WHERE id = ?")->execute([$delayReason, $po_id]);
             
-            // Alert Management AND Warehouse!
+            // Log Database Alerts
             $alertMsg = "ALERT: {$po_no} is delayed. Reason: {$delayReason}";
             $pdo->prepare("INSERT INTO notifications (target_role, title, message) VALUES ('management', 'Supply Chain Delay', ?)")->execute([$alertMsg]);
             $pdo->prepare("INSERT INTO notifications (target_role, title, message) VALUES ('warehouse', 'Expected Delivery Delayed', ?)")->execute([$alertMsg]);
+            
+            // NEW: Add Admin to the Database Notifications
+            $pdo->prepare("INSERT INTO notifications (target_role, title, message) VALUES ('admin', 'Supply Chain Delay', ?)")->execute([$alertMsg]);
+
+            // 🔥 TRIGGER REAL DEVICE PUSH NOTIFICATIONS! 🔥
+            sendPushNotification($pdo, 'Supply Chain Delay', $alertMsg, 'management', null);
+            sendPushNotification($pdo, 'Expected Delivery Delayed', $alertMsg, 'warehouse', null);
+            
+            // NEW: Send the Push Notification to the Admin's device too!
+            sendPushNotification($pdo, 'Supply Chain Delay', $alertMsg, 'admin', null);
 
             $_SESSION['message'] = "Logistics delay successfully logged and alerts sent.";
             $_SESSION['msg_type'] = "danger";

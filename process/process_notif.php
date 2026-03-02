@@ -1,7 +1,7 @@
 <?php
 session_start();
 
-// Ensure the user is logged in before allowing notification updates
+// Ensure the user is logged in
 if (!isset($_SESSION['user_id'])) {
     echo json_encode(['status' => 'error', 'message' => 'Unauthorized']);
     exit;
@@ -18,11 +18,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         echo json_encode(['status' => 'success']);
         exit;
         
-    // Mark ALL notifications as read for this specific user
+    // Mark ALL notifications as read
     } elseif ($action === 'read_all_notifs') {
         $pdo->prepare("UPDATE notifications SET is_read = 1 WHERE target_user_id = ? OR target_role = ?")
             ->execute([$_SESSION['user_id'], $_SESSION['user_role']]);
         echo json_encode(['status' => 'success']);
+        exit;
+        
+    // --- NEW: Save Firebase Device Token ---
+    } elseif ($action === 'save_fcm_token') {
+        $token = trim($_POST['fcm_token']);
+        if (!empty($token)) {
+            // Update the user's record with their device ID
+            $stmt = $pdo->prepare("UPDATE users SET fcm_token = ? WHERE id = ?");
+            $stmt->execute([$token, $_SESSION['user_id']]);
+            echo json_encode(['status' => 'success', 'message' => 'Token saved.']);
+        } else {
+            echo json_encode(['status' => 'error', 'message' => 'Empty token.']);
+        }
         exit;
     }
 }

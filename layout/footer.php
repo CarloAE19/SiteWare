@@ -15,9 +15,14 @@
      <!-- Bootstrap 5 JS Bundle with Popper (Required for Modals & Dropdowns) -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
+    <!-- 1. FIREBASE CDN SCRIPTS FIRST -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-messaging-compat.js"></script>
+
     <!-- Global Custom Script (Required for Sidebar Toggle, Passwords, and QR Scanner) -->
     <script src="assets/js/script.js"></script>
     <script src="assets/js/notifications.js"></script>
+    <script src="assets/js/fcm.js"></script>
 
 </body>
 </html>
