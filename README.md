@@ -27,7 +27,8 @@ The system features 5 distinct user workspaces, each with specific authorization
 * **Frontend:** HTML5, CSS3, JavaScript (ES6), Bootstrap 5, Bootstrap Icons.  
 * **Backend:** PHP 8+ (PDO for secure database interactions).  
 * **Database:** MySQL / MariaDB.  
-* **APIs & Integrations:** \* Firebase Cloud Messaging (FCM API v1)  
+* **APIs & Integrations:**
+  * Firebase Cloud Messaging (FCM API v1)  
   * Google Gemini AI API  
   * HTML5-QRCode Library  
   * QRServer API
