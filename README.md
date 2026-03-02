@@ -1,5 +1,4 @@
 🏗️ GB Construction & Enterprise - Smart Inventory & Logistics System
-
 An enterprise-grade, cloud-ready Construction Inventory Management System (CIMS) tailored for GB Construction & Enterprise Inc. This system bridges the gap between project sites, warehousing, and management through real-time data syncing, AI analytics, and cross-platform native push notifications.
 
 ✨ Key Features
