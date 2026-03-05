@@ -40,17 +40,17 @@ document.addEventListener("DOMContentLoaded", () => {
     startTimer();
 });
 
-function startTimer() {
-    clearInterval(timerInterval);
-    countdown = 60;
-    document.getElementById('timerText').innerText = `Refreshing in: ${countdown}s`;
+// function startTimer() {
+//     clearInterval(timerInterval);
+//     countdown = 60;
+//     document.getElementById('timerText').innerText = `Refreshing in: ${countdown}s`;
     
-    timerInterval = setInterval(() => {
-        countdown--;
-        document.getElementById('timerText').innerText = `Refreshing in: ${countdown}s`;
-        if (countdown <= 0) generateAIPrediction(false);
-    }, 1000);
-}
+//     timerInterval = setInterval(() => {
+//         countdown--;
+//         document.getElementById('timerText').innerText = `Refreshing in: ${countdown}s`;
+//         if (countdown <= 0) generateAIPrediction(false);
+//     }, 1000);
+// }
 
 async function generateAIPrediction(isManualClick) {
     const loading = document.getElementById('aiLoading');

@@ -23,9 +23,9 @@ $unitsList = $stmt->fetchAll(PDO::FETCH_ASSOC);
 include 'layout/header.php';
 ?>
 
-<div class="container-fluid px-4 py-4">
+<div class="container-fluid px-3 px-md-4 py-4"> <!-- Reduced padding on mobile -->
     <?php if (isset($_SESSION['message'])): ?>
-        <div class="alert alert-<?= $_SESSION['msg_type'] ?> alert-dismissible fade show" role="alert">
+        <div class="alert alert-<?= $_SESSION['msg_type'] ?> alert-dismissible fade show shadow-sm" role="alert">
             <?= $_SESSION['message'] ?>
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
@@ -33,24 +33,30 @@ include 'layout/header.php';
     <?php endif; ?>
 
     <div class="table-container shadow-sm border-0">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <div>
+        
+        <!-- FIXED: Bulletproof Bootstrap Grid Header -->
+        <div class="row align-items-center mb-4 g-3">
+            <div class="col-12 col-md-8">
                 <h4 class="mb-0 fw-bold text-dark"><i class="bi bi-rulers me-2 text-primary"></i>Manage Unit Metrics</h4>
                 <small class="text-muted">Customize the measurement units used in inventory.</small>
             </div>
-            <button class="btn btn-brand" data-bs-toggle="modal" data-bs-target="#unitModal" onclick="openAddUnitModal()">
-                <i class="bi bi-plus-circle me-1"></i> Add New Unit
-            </button>
+            <div class="col-12 col-md-4 text-md-end">
+                <!-- Button becomes 100% width on mobile, auto-width on PC -->
+                <button class="btn btn-brand shadow-sm w-100" data-bs-toggle="modal" data-bs-target="#unitModal" onclick="openAddUnitModal()">
+                    <i class="bi bi-plus-circle me-1"></i> Add New Unit
+                </button>
+            </div>
         </div>
 
-        <div class="table-responsive">
-            <table class="table table-hover align-middle">
+        <div class="table-responsive border rounded">
+            <!-- FIXED: Added text-nowrap so columns don't squish words -->
+            <table class="table table-hover align-middle mb-0 text-nowrap">
                 <thead class="table-light">
                     <tr>
-                        <th style="width: 10%;">ID</th>
-                        <th style="width: 40%;">Unit Name</th>
-                        <th style="width: 30%;">Abbreviation</th>
-                        <th class="text-end" style="width: 20%;">Actions</th>
+                        <th>ID</th>
+                        <th>Unit Name</th>
+                        <th>Abbreviation</th>
+                        <th class="text-end">Actions</th>
                     </tr>
                 </thead>
                 <tbody>

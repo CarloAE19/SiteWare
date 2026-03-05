@@ -13,11 +13,13 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const messaging = firebase.messaging();
 
-messaging.onBackgroundMessage((payload) => {
-  const notificationTitle = payload.notification.title;
-  const notificationOptions = {
-    body: payload.notification.body,
-    icon: 'assets/favicon.ico' // Optional: Add an icon for the notification
-  };
-  self.registration.showNotification(notificationTitle, notificationOptions);
-});
+// The browser handles background notifications natively via fcm_options link!
+
+// messaging.onBackgroundMessage((payload) => {
+//   const notificationTitle = payload.notification.title;
+//   const notificationOptions = {
+//     body: payload.notification.body,
+//     icon: 'assets/favicon.ico' // Optional: Add an icon for the notification
+//   };
+//   self.registration.showNotification(notificationTitle, notificationOptions);
+// });

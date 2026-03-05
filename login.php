@@ -36,11 +36,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (empty($username) || empty($password)) {
         $error = 'Please enter both username and password.';
     } else {
+        // 🛡️ SECURITY LAYER 1: SQL INJECTION PREVENTION (Prepared Statements)
         $stmt = $pdo->prepare("SELECT * FROM users WHERE username = ?");
         $stmt->execute([$username]);
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
+        // 🛡️ SECURITY LAYER 2: BCRYPT PASSWORD HASHING
         if ($user && password_verify($password, $user['password'])) {
+            
+            // 🛡️ SECURITY LAYER 3: SESSION HIJACKING PREVENTION
+            session_regenerate_id(true);
+
             // Set session variables
             $_SESSION['user_id'] = $user['id'];
             $_SESSION['user_name'] = $user['name'];
@@ -105,12 +111,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
 
             <!-- Custom Install Button (Hidden by default) -->
-        <button type="button" id="installAppBtn" class="btn btn-outline-primary w-100 mb-3 d-none" style="border-radius: 8px; font-weight: bold;">
-            <i class="bi bi-android2 fs-5 me-1" style="color: #3DDC84;"></i>
-            <i class="bi bi-apple fs-5 me-1" style="color: #000000;"></i>
-            <i class="bi bi-windows fs-5 me-2" style="color: #0078D7;"></i> 
-            Install GB Inventory App
-        </button>
+            <button type="button" id="installAppBtn" class="btn btn-outline-primary w-100 mb-3 d-none" style="border-radius: 8px; font-weight: bold;">
+                <i class="bi bi-android2 fs-5 me-1" style="color: #3DDC84;"></i>
+                <i class="bi bi-apple fs-5 me-1" style="color: #000000;"></i>
+                <i class="bi bi-windows fs-5 me-2" style="color: #0078D7;"></i> 
+                Install GB Inventory App
+            </button>
             <button type="submit" class="btn btn-login w-100 fw-bold"><i class="bi bi-box-arrow-in-right me-2"></i>Sign in</button>
         </form>
     </div>
@@ -120,38 +126,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <span style="font-size: 0.85em;">The Medyas &bull; Capstone Project</span>
     </div>
 
-    <script src="assets/js/script.js"></script>
 </body>
 <script>
+    // ==========================================
+    // 1. PASSWORD TOGGLE LOGIC (FIXED!)
+    // ==========================================
+    function togglePass(inputId, iconId) {
+        const input = document.getElementById(inputId);
+        const icon = document.getElementById(iconId);
+        if (input.type === "password") {
+            input.type = "text";
+            icon.classList.replace("bi-eye-slash", "bi-eye");
+        } else {
+            input.type = "password";
+            icon.classList.replace("bi-eye", "bi-eye-slash");
+        }
+    }
+
+    // ==========================================
+    // 2. PWA INSTALLATION LOGIC
+    // ==========================================
     let deferredPrompt;
     const installBtn = document.getElementById('installAppBtn');
 
-    // Hijack the browser's automatic install prompt
     window.addEventListener('beforeinstallprompt', (e) => {
-        // 1. Prevent Chrome/Edge from showing the automatic annoying popup
         e.preventDefault();
-        // 2. Save the event so we can trigger it when the user clicks our button
         deferredPrompt = e;
-        // 3. Un-hide our beautiful custom Install button
         installBtn.classList.remove('d-none');
     });
 
-    // What happens when they click our button
     installBtn.addEventListener('click', async () => {
         if (deferredPrompt !== null) {
-            // Trigger the browser's official install prompt
             deferredPrompt.prompt();
-            // Wait for the user to click "Install" or "Cancel"
             const { outcome } = await deferredPrompt.userChoice;
             if (outcome === 'accepted') {
                 console.log('App Installed successfully!');
-                installBtn.classList.add('d-none'); // Hide button after install
+                installBtn.classList.add('d-none'); 
             }
             deferredPrompt = null;
         }
     });
 
-    // If they already installed it, hide the button
     window.addEventListener('appinstalled', () => {
         installBtn.classList.add('d-none');
     });

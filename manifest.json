@@ -1,11 +1,12 @@
 {
-  "name": "GB Inventory",
+  "name": "GB Inventory Management System",
   "short_name": "GB Inventory",
-  "description": "Smart Inventory & Logistics System",
-  "start_url": "./login",
+  "description": "Materials and Inventory Management for GB Construction",
+  "start_url": "/CIMS/",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#0d6efd",
+  "theme_color": "#0033CC",
+  "orientation": "portrait",
   "icons": [
     {
       "src": "assets/LogoGB.png",

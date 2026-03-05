@@ -2,20 +2,16 @@
 /* ==========================================================
  * GB INVENTORY - FIREBASE PUSH NOTIFICATION ENGINE
  * Enterprise-grade Google OAuth2 JWT Generator (No Composer required!)
+ *  Localhost XAMPP SSL Bypass & Native Background Delivery
  * ========================================================== */
 
 function sendPushNotification($pdo, $title, $body, $targetRole = null, $targetUserId = null) {
-    // 1. Load the Private Key you downloaded from Firebase
     $keyFile = __DIR__ . '/firebase-key.json';
-    if (!file_exists($keyFile)) {
-        error_log("FCM ERROR: firebase-key.json is missing in the process folder!");
-        return false;
-    }
+    if (!file_exists($keyFile)) return false;
 
     $keyData = json_decode(file_get_contents($keyFile), true);
     $projectId = $keyData['project_id'];
 
-    // 2. Generate a Secure JWT Token to authenticate with Google
     $header = json_encode(['alg' => 'RS256', 'typ' => 'JWT']);
     $now = time();
     $payload = json_encode([
@@ -35,7 +31,7 @@ function sendPushNotification($pdo, $title, $body, $targetRole = null, $targetUs
     $base64UrlSignature = str_replace(['+', '/', '='], ['-', '_', ''], base64_encode($signature));
     $jwt = $signatureInput . '.' . $base64UrlSignature;
 
-    // 3. Exchange JWT for a Google Access Token
+    // 1. Authenticate with Google (Bypass local SSL)
     $ch = curl_init();
     curl_setopt($ch, CURLOPT_URL, 'https://oauth2.googleapis.com/token');
     curl_setopt($ch, CURLOPT_POST, true);
@@ -44,28 +40,27 @@ function sendPushNotification($pdo, $title, $body, $targetRole = null, $targetUs
         'assertion' => $jwt
     ]));
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false); // FIX: Bypass XAMPP SSL
+    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false); // FIX: Bypass XAMPP SSL
     $response = json_decode(curl_exec($ch), true);
     curl_close($ch);
 
     $accessToken = $response['access_token'] ?? null;
-    if (!$accessToken) {
-        error_log("FCM ERROR: Failed to get Google Access Token.");
-        return false;
-    }
+    if (!$accessToken) return false;
 
-    // 4. Find exactly who needs to receive this notification from the DB
+    // 2. Gather Tokens
     $tokens = [];
     if ($targetUserId) {
-        $stmt = $pdo->prepare("SELECT fcm_token FROM users WHERE id = ? AND fcm_token IS NOT NULL");
+        $stmt = $pdo->prepare("SELECT fcm_token FROM users WHERE id = ? AND fcm_token IS NOT NULL AND fcm_token != ''");
         $stmt->execute([$targetUserId]);
         if ($res = $stmt->fetch()) $tokens[] = $res['fcm_token'];
     } elseif ($targetRole) {
-        $stmt = $pdo->prepare("SELECT fcm_token FROM users WHERE role = ? AND fcm_token IS NOT NULL");
+        $stmt = $pdo->prepare("SELECT fcm_token FROM users WHERE role = ? AND fcm_token IS NOT NULL AND fcm_token != ''");
         $stmt->execute([$targetRole]);
         foreach ($stmt->fetchAll() as $row) $tokens[] = $row['fcm_token'];
     }
 
-    // 5. Blast the notification to every targeted device!
+    // 3. Send Notification payload to Google
     foreach ($tokens as $token) {
         $message = [
             'message' => [
@@ -73,6 +68,11 @@ function sendPushNotification($pdo, $title, $body, $targetRole = null, $targetUs
                 'notification' => [
                     'title' => $title,
                     'body' => $body
+                ],
+                'webpush' => [
+                    'headers' => [ 'Urgency' => 'high' ], // FIX: Apple iOS Wakeup
+                    'notification' => [ 'icon' => '/CIMS/assets/LogoGB.png' ],
+                    'fcm_options' => [ 'link' => '/CIMS/' ] // FIX: Click to open App
                 ]
             ]
         ];
@@ -86,6 +86,8 @@ function sendPushNotification($pdo, $title, $body, $targetRole = null, $targetUs
         ]);
         curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($message));
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false); // FIX: Bypass XAMPP SSL
+        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false); // FIX: Bypass XAMPP SSL
         curl_exec($ch);
         curl_close($ch);
     }

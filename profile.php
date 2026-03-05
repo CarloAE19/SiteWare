@@ -28,7 +28,7 @@ $roleLabel = $roleDisplay[$user['role']]['label'] ?? 'Unknown Role';
 include 'layout/header.php';
 ?>
 
-<div class="container-fluid px-4 py-4">
+<div class="container-fluid px-3 px-md-4 py-4"> <!-- FIXED: Reduced padding on mobile -->
     <!-- Flash Messages -->
     <?php if (isset($_SESSION['message'])): ?>
         <div class="alert alert-<?= $_SESSION['msg_type'] ?> alert-dismissible fade show shadow-sm" role="alert">
@@ -42,10 +42,12 @@ include 'layout/header.php';
         <h4 class="mb-0 fw-bold text-dark"><i class="bi bi-person-circle me-2 text-primary"></i>My Profile</h4>
     </div>
 
-    <div class="row">
+    <!-- FIXED: Added g-4 for consistent gap spacing when stacked on mobile -->
+    <div class="row g-4">
         <!-- LEFT COLUMN: Profile Overview -->
-        <div class="col-xl-4 mb-4">
-            <div class="card border-0 shadow-sm text-center">
+        <!-- FIXED: Added col-12 so it takes full width on phones -->
+        <div class="col-12 col-xl-4">
+            <div class="card border-0 shadow-sm text-center h-100">
                 <div class="card-body py-5">
                     <div class="mb-3">
                         <div class="d-inline-flex align-items-center justify-content-center bg-light text-primary rounded-circle shadow-sm" style="width: 120px; height: 120px; font-size: 3rem;">
@@ -76,7 +78,8 @@ include 'layout/header.php';
         </div>
 
         <!-- RIGHT COLUMN: Edit Settings -->
-        <div class="col-xl-8 mb-4">
+        <!-- FIXED: Added col-12 so it takes full width on phones -->
+        <div class="col-12 col-xl-8">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-header bg-white fw-bold py-3">
                     <i class="bi bi-gear-fill text-primary me-2"></i>Account Settings
@@ -87,11 +90,12 @@ include 'layout/header.php';
                         
                         <h6 class="fw-bold mb-3 border-bottom pb-2">Basic Information</h6>
                         <div class="row mb-4">
-                            <div class="col-md-6 mb-3">
+                            <!-- FIXED: Added col-12 for mobile stacking -->
+                            <div class="col-12 col-md-6 mb-3">
                                 <label class="form-label fw-bold">Full Name</label>
                                 <input type="text" class="form-control" name="name" value="<?= htmlspecialchars($user['name']) ?>" required>
                             </div>
-                            <div class="col-md-6 mb-3">
+                            <div class="col-12 col-md-6 mb-3">
                                 <label class="form-label fw-bold">Username</label>
                                 <input type="text" class="form-control" name="username" value="<?= htmlspecialchars($user['username']) ?>" required>
                             </div>
@@ -103,28 +107,30 @@ include 'layout/header.php';
                         </div>
                         
                         <div class="row mb-4">
-                            <div class="col-md-6 mb-3">
+                            <!-- FIXED: Added col-12 for mobile stacking -->
+                            <div class="col-12 col-md-6 mb-3">
                                 <label class="form-label fw-bold">New Password</label>
                                 <div class="input-group">
                                     <input type="password" class="form-control border-end-0" name="new_password" id="newPass">
                                     <button class="btn border border-start-0 bg-white" type="button" onclick="togglePass('newPass', 'eyeNew')">
-                                        <i class="bi bi-eye-slash" id="eyeNew"></i>
+                                        <i class="bi bi-eye-slash text-muted" id="eyeNew"></i>
                                     </button>
                                 </div>
                             </div>
-                            <div class="col-md-6 mb-3">
+                            <div class="col-12 col-md-6 mb-3">
                                 <label class="form-label fw-bold">Confirm New Password</label>
                                 <div class="input-group">
                                     <input type="password" class="form-control border-end-0" name="confirm_password" id="confPass">
                                     <button class="btn border border-start-0 bg-white" type="button" onclick="togglePass('confPass', 'eyeConf')">
-                                        <i class="bi bi-eye-slash" id="eyeConf"></i>
+                                        <i class="bi bi-eye-slash text-muted" id="eyeConf"></i>
                                     </button>
                                 </div>
                             </div>
                         </div>
 
-                        <div class="text-end">
-                            <button type="submit" class="btn btn-brand px-4">
+                        <div class="text-end mt-4 mt-md-0">
+                            <!-- FIXED: Button is 100% width on phone, auto-width on PC -->
+                            <button type="submit" class="btn btn-brand px-4 w-100 w-md-auto fw-bold py-2 py-md-1">
                                 <i class="bi bi-save me-1"></i> Save Changes
                             </button>
                         </div>
@@ -137,7 +143,7 @@ include 'layout/header.php';
 
 <script>
 // Simple Password Toggle for Profile Page
-function togglePass(inputId, iconId) {
+window.togglePass = function(inputId, iconId) {
     const input = document.getElementById(inputId);
     const icon = document.getElementById(iconId);
     if (input.type === "password") {
