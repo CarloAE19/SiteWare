@@ -14,7 +14,7 @@ foreach($auditItemsData as $item) { $groupedAuditItems[$item['audit_id']][] = $i
 include 'layout/header.php';
 ?>
 
-<div class="container-fluid px-4 py-4">
+<div class="container-fluid px-3 px-md-4 py-4"> <!-- FIXED: Mobile padding -->
     <?php if (isset($_SESSION['message'])): ?>
         <div class="alert alert-<?= $_SESSION['msg_type'] ?> alert-dismissible fade show shadow-sm" role="alert">
             <?= $_SESSION['message'] ?>
@@ -30,10 +30,19 @@ include 'layout/header.php';
         </div>
     </div>
 
+    <!-- Tabs -->
     <ul class="nav nav-tabs mb-4" id="auditTabs" role="tablist">
-        <li class="nav-item" role="presentation"><button class="nav-link active fw-bold text-dark" id="history-tab" data-bs-toggle="tab" data-bs-target="#history" type="button" role="tab"><i class="bi bi-clock-history me-1"></i> Audit History (Logs)</button></li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active fw-bold text-dark" id="history-tab" data-bs-toggle="tab" data-bs-target="#history" type="button" role="tab">
+                <i class="bi bi-clock-history me-1"></i> Audit History <span class="d-none d-sm-inline">(Logs)</span>
+            </button>
+        </li>
         <?php if (in_array($role, ['warehouse', 'admin'])): ?>
-        <li class="nav-item" role="presentation"><button class="nav-link fw-bold text-primary" id="recount-tab" data-bs-toggle="tab" data-bs-target="#recount" type="button" role="tab"><i class="bi bi-calculator me-1"></i> Perform Physical Count</button></li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link fw-bold text-primary" id="recount-tab" data-bs-toggle="tab" data-bs-target="#recount" type="button" role="tab">
+                <i class="bi bi-calculator me-1"></i> Perform <span class="d-none d-sm-inline">Physical</span> Count
+            </button>
+        </li>
         <?php endif; ?>
     </ul>
 
@@ -41,9 +50,12 @@ include 'layout/header.php';
         <!-- TAB 1: AUDIT HISTORY -->
         <div class="tab-pane fade show active" id="history" role="tabpanel">
             <div class="card border-0 shadow-sm">
-                <div class="card-body p-0 table-responsive">
-                    <table class="table table-hover align-middle mb-0" id="historyTable">
-                        <thead class="table-light"><tr><th>Audit Month</th><th>Conducted By</th><th>Date Completed</th><th>Discrepancies</th><th class="text-end">Actions</th></tr></thead>
+                <div class="card-body p-0 table-responsive border rounded">
+                    <!-- FIXED: Added text-nowrap to prevent squishing -->
+                    <table class="table table-hover align-middle mb-0 text-nowrap" id="historyTable">
+                        <thead class="table-light">
+                            <tr><th>Audit Month</th><th>Conducted By</th><th>Date Completed</th><th>Discrepancies</th><th class="text-end">Actions</th></tr>
+                        </thead>
                         <tbody>
                             <?php if(count($audits) > 0): ?>
                                 <?php foreach ($audits as $audit): ?>
@@ -52,7 +64,7 @@ include 'layout/header.php';
                                         <td><i class="bi bi-person me-1 text-muted"></i><?= htmlspecialchars($audit['auditor_name']) ?></td>
                                         <td class="text-muted small"><?= date('M d, Y h:i A', strtotime($audit['created_at'])) ?></td>
                                         <td>
-                                            <?php if($audit['total_discrepancy_items'] > 0): ?><span class="badge bg-danger"><i class="bi bi-exclamation-triangle me-1"></i><?= $audit['total_discrepancy_items'] ?> Items Missing</span>
+                                            <?php if($audit['total_discrepancy_items'] > 0): ?><span class="badge bg-danger"><i class="bi bi-exclamation-triangle me-1"></i><?= $audit['total_discrepancy_items'] ?> Items Adjusted</span>
                                             <?php else: ?><span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Perfect Match</span><?php endif; ?>
                                         </td>
                                         <td class="text-end">
@@ -74,33 +86,67 @@ include 'layout/header.php';
         <?php if (in_array($role, ['warehouse', 'admin'])): ?>
         <div class="tab-pane fade" id="recount" role="tabpanel">
             <div class="card border-0 shadow-sm">
-                <div class="card-body bg-light">
+                <div class="card-body bg-light p-3 p-md-4">
                     <form method="POST" action="process/process.php" onsubmit="return confirm('Are you sure? This will overwrite the system inventory. Ensure all pages are correct before submitting.');">
                         <input type="hidden" name="action" value="submit_audit">
-                        <div class="table-responsive bg-white border rounded">
-                            <table class="table table-hover align-middle mb-0" id="recountTable">
+                        
+                        <div class="table-responsive bg-white border rounded shadow-sm">
+                            <!-- FIXED: text-nowrap added here -->
+                            <table class="table table-hover align-middle mb-0 text-nowrap" id="recountTable">
                                 <thead class="table-dark">
-                                    <tr><th>Item Name</th><th class="text-center">System Record</th><th class="text-center">Physical Count (Actual)</th><th class="text-center">Discrepancy (+/-)</th></tr>
+                                    <tr>
+                                        <th style="min-width: 200px;">Item Name</th>
+                                        <th class="text-center">System Record</th>
+                                        <!-- FIXED: Physical count header size -->
+                                        <th class="text-center" style="min-width: 220px;">Physical Count (Actual)</th>
+                                        <th class="text-center" style="min-width: 140px;">Discrepancy (+/-)</th>
+                                    </tr>
                                 </thead>
                                 <tbody>
                                     <?php foreach ($inventory as $i => $item): ?>
                                         <tr>
-                                            <td class="fw-bold"><?= htmlspecialchars($item['item_name']) ?> <small class="text-muted d-block"><?= $item['item_code'] ?></small><input type="hidden" name="item_code[]" value="<?= $item['item_code'] ?>"></td>
-                                            <td class="text-center"><span class="fs-5 fw-bold text-secondary" id="sysQty_<?= $i ?>"><?= $item['quantity'] ?></span> <small><?= $item['unit'] ?></small><input type="hidden" name="system_qty[]" value="<?= $item['quantity'] ?>"></td>
+                                            <td class="fw-bold">
+                                                <?= htmlspecialchars($item['item_name']) ?> 
+                                                <small class="text-muted d-block"><?= $item['item_code'] ?></small>
+                                                <input type="hidden" name="item_code[]" value="<?= $item['item_code'] ?>">
+                                            </td>
+                                            
+                                            <td class="text-center">
+                                                <span class="fs-5 fw-bold text-secondary" id="sysQty_<?= $i ?>"><?= $item['quantity'] ?></span> 
+                                                <small class="text-muted"><?= $item['unit'] ?></small>
+                                                <input type="hidden" name="system_qty[]" value="<?= $item['quantity'] ?>">
+                                            </td>
+                                            
                                             <td>
-                                                <div class="input-group">
-                                                    <input type="number" class="form-control text-center fw-bold fs-5 text-primary phys-input" name="physical_qty[]" data-index="<?= $i ?>" value="<?= $item['quantity'] ?>" required min="0">
-                                                    <span class="input-group-text bg-light"><?= $item['unit'] ?></span>
+                                                <!-- FIXED: Hard minimum width constraints applied to the input group and input -->
+                                                <div class="input-group shadow-sm mx-auto" style="min-width: 180px; max-width: 250px;">
+                                                    <input type="number" class="form-control text-center fw-bold fs-5 text-primary phys-input" 
+                                                           name="physical_qty[]" data-index="<?= $i ?>" value="<?= $item['quantity'] ?>" 
+                                                           required min="0" style="min-width: 70px;">
+                                                    <span class="input-group-text bg-light text-muted fw-bold"><?= $item['unit'] ?></span>
                                                 </div>
                                             </td>
-                                            <td class="text-center"><span class="badge bg-secondary fs-6 w-75 p-2 diff-badge" id="diff_<?= $i ?>">0 Match</span></td>
+                                            
+                                            <td class="text-center">
+                                                <span class="badge bg-secondary fs-6 w-100 py-2 diff-badge" id="diff_<?= $i ?>">0 Match</span>
+                                            </td>
                                         </tr>
                                     <?php endforeach; ?>
                                 </tbody>
                             </table>
                         </div>
-                        <div class="mt-4 mb-3"><label class="form-label fw-bold">Audit Remarks / Notes</label><textarea class="form-control" name="remarks" rows="2" placeholder="Explain any missing items..."></textarea></div>
-                        <div class="text-end mt-3"><button type="submit" class="btn btn-danger btn-lg px-5 fw-bold"><i class="bi bi-save me-2"></i>Finalize Audit & Adjust Inventory</button></div>
+                        
+                        <div class="mt-4 mb-3">
+                            <label class="form-label fw-bold">Audit Remarks / Notes</label>
+                            <textarea class="form-control" name="remarks" rows="2" placeholder="Explain any missing items..."></textarea>
+                        </div>
+                        
+                        <!-- FIXED: Button expands to 100% width on mobile -->
+                        <div class="text-end mt-4">
+                            <button type="submit" class="btn btn-danger btn-lg w-100 w-md-auto px-5 fw-bold shadow-sm">
+                                <i class="bi bi-save me-2"></i>Finalize Audit & Adjust Inventory
+                            </button>
+                        </div>
                     </form>
                 </div>
             </div>
