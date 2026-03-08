@@ -44,6 +44,60 @@ $approvedRS = count(array_filter($requisitions, fn($r) => in_array($r['status'],
 include 'layout/header.php';
 ?>
 
+<style>
+    @media (max-width: 767.98px) {
+        /* FIXED: Added .rs-table-wrapper class so this CSS DOES NOT break the Modal's table! */
+        .rs-table-wrapper { overflow-x: visible !important; border: none !important; box-shadow: none !important; background: transparent !important; }
+        #rsTable { white-space: normal !important; background: transparent !important; }
+        
+        #rsTable thead { display: none; }
+        
+        #rsTable tbody tr {
+            display: block;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            background: #fff;
+            padding: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+        
+        #rsTable tbody td {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            text-align: right;
+            padding: 8px 10px;
+            border: none;
+            border-bottom: 1px solid #f4f7f6;
+        }
+        
+        #rsTable tbody td.d-none { display: none !important; }
+        
+        #rsTable tbody td:last-child {
+            border-bottom: none;
+            justify-content: flex-end;
+            gap: 8px;
+            padding-top: 12px;
+            background-color: #f8f9fa;
+            border-radius: 0 0 8px 8px;
+            margin: 0 -8px -8px -8px;
+            padding-right: 15px;
+        }
+        
+        #rsTable tbody td::before {
+            content: attr(data-label);
+            font-weight: 700;
+            font-size: 0.75rem;
+            color: #6c757d;
+            text-transform: uppercase;
+            text-align: left;
+            margin-right: 15px;
+        }
+        #rsTable tbody td:last-child::before { display: none; }
+    }
+</style>
+
 <div class="container-fluid px-3 px-md-4 py-4"> 
     
     <?php if (isset($_SESSION['message'])): ?>
@@ -56,7 +110,7 @@ include 'layout/header.php';
 
     <div class="row mb-4 g-3">
         <div class="col-12 col-md-4">
-            <div class="card stat-card bg-white h-100 p-3" style="border-left-color: var(--gb-blue);">
+            <div class="card stat-card bg-white h-100 p-3 shadow-sm border-0" style="border-left: 4px solid var(--gb-blue) !important;">
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
                         <h6 class="text-muted text-uppercase mb-1" style="font-size:0.8rem;"><?= $statTitle ?> Total Requisitions</h6>
@@ -67,7 +121,7 @@ include 'layout/header.php';
             </div>
         </div>
         <div class="col-12 col-md-4">
-            <div class="card stat-card bg-white h-100 p-3" style="border-left-color: var(--gb-yellow);">
+            <div class="card stat-card bg-white h-100 p-3 shadow-sm border-0" style="border-left: 4px solid var(--gb-yellow) !important;">
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
                         <h6 class="text-muted text-uppercase mb-1" style="font-size:0.8rem;"><?= $statTitle ?> Pending Approval</h6>
@@ -78,7 +132,7 @@ include 'layout/header.php';
             </div>
         </div>
         <div class="col-12 col-md-4">
-            <div class="card stat-card bg-white h-100 p-3" style="border-left-color: #198754;">
+            <div class="card stat-card bg-white h-100 p-3 shadow-sm border-0" style="border-left: 4px solid #198754 !important;">
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
                         <h6 class="text-muted text-uppercase mb-1" style="font-size:0.8rem;"><?= $statTitle ?> Approved (Ready)</h6>
@@ -90,60 +144,86 @@ include 'layout/header.php';
         </div>
     </div>
 
-    <!-- Main Table Area -->
     <div class="card border-0 shadow-sm p-3 p-md-4 bg-white">
         <div class="row align-items-center mb-4 g-3">
-            <div class="col-12 col-xl-5">
-                <h4 class="mb-0 fw-bold text-dark"><i class="bi bi-ui-checks me-2 text-primary"></i>Requisition Slips (RS)</h4>
-                <small class="text-muted">Manage material requests and digital workflow approvals.</small>
+            <div class="col-12 col-xl-4 text-center text-xl-start">
+                <h4 class="mb-0 fw-bold text-dark"><i class="bi bi-ui-checks me-2 text-primary"></i>Requisition Slips</h4>
+                <small class="text-muted">Manage material requests and digital workflow.</small>
             </div>
             
-            <div class="col-12 col-xl-7">
-                <div class="d-flex flex-column flex-md-row justify-content-xl-end gap-2">
-                    <div class="input-group w-100 mb-2 mb-md-0" style="max-width: 400px;">
-                        <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
-                        <input type="text" id="searchRs" class="form-control border-start-0 ps-0 bg-light" placeholder="Search RS No or Project...">
+            <div class="col-12 col-xl-8">
+                <div class="d-flex flex-wrap justify-content-start justify-content-xl-end align-items-center gap-2 w-100">
+                    
+                    <div class="input-group shadow-sm flex-grow-1 flex-md-grow-0" style="max-width: 320px; min-width: 200px;">
+                        <span class="input-group-text bg-white border-end-0 text-muted"><i class="bi bi-search"></i></span>
+                        <input type="text" id="searchRs" class="form-control border-start-0 ps-0 bg-white" placeholder="Search RS No or Project...">
+                    </div>
+
+                    <div class="dropdown">
+                        <button class="btn btn-sm btn-outline-secondary fw-bold shadow-sm px-3" type="button" id="columnToggleBtn" data-bs-toggle="dropdown" aria-expanded="false" data-bs-auto-close="outside">
+                            <i class="bi bi-funnel-fill me-1 text-primary"></i> Filter
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-md-end shadow-lg border-0 p-2" aria-labelledby="columnToggleBtn" style="min-width: 250px;">
+                            <li><h6 class="dropdown-header fw-bold text-uppercase small text-muted">Filter Columns</h6></li>
+                            <li><label class="dropdown-item d-flex align-items-center rounded py-2 text-dark fw-bold" style="cursor:pointer;"><input class="form-check-input col-toggle me-3 mt-0 border-secondary" type="checkbox" style="transform: scale(1.2);" value="col-project" checked> Project / Purpose</label></li>
+                            <li><label class="dropdown-item d-flex align-items-center rounded py-2 text-dark fw-bold" style="cursor:pointer;"><input class="form-check-input col-toggle me-3 mt-0 border-secondary" type="checkbox" style="transform: scale(1.2);" value="col-requestor" checked> Requested By</label></li>
+                            <li><label class="dropdown-item d-flex align-items-center rounded py-2 text-dark fw-bold" style="cursor:pointer;"><input class="form-check-input col-toggle me-3 mt-0 border-secondary" type="checkbox" style="transform: scale(1.2);" value="col-date" checked> Date Requested</label></li>
+                            <li><label class="dropdown-item d-flex align-items-center rounded py-2 text-dark fw-bold" style="cursor:pointer;"><input class="form-check-input col-toggle me-3 mt-0 border-secondary" type="checkbox" style="transform: scale(1.2);" value="col-urgency" checked> Urgency</label></li>
+                            <li><label class="dropdown-item d-flex align-items-center rounded py-2 text-dark fw-bold" style="cursor:pointer;"><input class="form-check-input col-toggle me-3 mt-0 border-secondary" type="checkbox" style="transform: scale(1.2);" value="col-status" checked> Status</label></li>
+                        </ul>
                     </div>
                     
                     <?php if (in_array($role, ['requestor', 'warehouse'])): ?>
-                    <button class="btn btn-brand w-100 w-md-auto fw-bold text-nowrap shadow-sm px-4" data-bs-toggle="modal" data-bs-target="#rsModal">
-                        <i class="bi bi-plus-lg me-1"></i> Create RS
-                    </button>
+                    <div>
+                        <button class="btn btn-brand btn-sm fw-bold text-nowrap shadow-sm px-3" data-bs-toggle="modal" data-bs-target="#rsModal">
+                            <i class="bi bi-plus-lg me-1"></i> Create RS
+                        </button>
+                    </div>
                     <?php endif; ?>
+
                 </div>
             </div>
         </div>
 
-        <div class="table-responsive border rounded shadow-sm">
+        <!-- FIXED: Added rs-table-wrapper class here -->
+        <div class="table-responsive rs-table-wrapper border rounded shadow-sm mt-3 bg-white">
             <table class="table table-hover align-middle mb-0 text-nowrap" id="rsTable">
                 <thead class="table-dark">
                     <tr>
-                        <th scope="col">RS Number</th>
-                        <th scope="col">Project / Purpose</th>
-                        <th scope="col">Requested By</th>
-                        <th scope="col">Date Requested</th>
-                        <th scope="col">Urgency</th>
-                        <th scope="col">Status</th>
-                        <th scope="col" class="text-end">Actions</th>
+                        <th scope="col" class="col-rs-no py-3">RS Number</th>
+                        <th scope="col" class="col-project py-3">Project / Purpose</th>
+                        <th scope="col" class="col-requestor py-3">Requested By</th>
+                        <th scope="col" class="col-date py-3">Date</th>
+                        <th scope="col" class="col-urgency py-3">Urgency</th>
+                        <th scope="col" class="col-status py-3">Status</th>
+                        <th scope="col" class="text-end py-3">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php if(count($requisitions) > 0): ?>
                         <?php foreach ($requisitions as $rs): ?>
                             <tr class="rs-row">
-                                <td class="fw-bold text-primary rs-no"><?= htmlspecialchars($rs['rs_no']) ?></td>
-                                <td class="fw-bold rs-project"><?= htmlspecialchars($rs['project_name']) ?></td>
-                                <td><i class="bi bi-person me-1 text-muted"></i><?= htmlspecialchars($rs['requestor_name']) ?></td>
-                                <td class="text-muted small"><?= date('M d, Y', strtotime($rs['created_at'])) ?></td>
-                                <td>
+                                <td class="fw-bold text-primary rs-no col-rs-no" data-label="RS Number"><?= htmlspecialchars($rs['rs_no']) ?></td>
+                                <td class="fw-bold rs-project col-project text-dark" data-label="Project / Purpose"><?= htmlspecialchars($rs['project_name']) ?></td>
+                                
+                                <!-- FIXED: Grouped Icon and Name tightly to the right side! -->
+                                <td class="col-requestor" data-label="Requested By">
+                                    <div class="d-flex align-items-center justify-content-end">
+                                        <i class="bi bi-person me-1 text-muted"></i>
+                                        <span class="rs-requestor fw-bold text-dark"><?= htmlspecialchars($rs['requestor_name']) ?></span>
+                                    </div>
+                                </td>
+                                
+                                <td class="text-muted small fw-bold col-date" data-label="Date"><?= date('M d, Y', strtotime($rs['created_at'])) ?></td>
+                                <td class="col-urgency" data-label="Urgency">
                                     <?php 
                                         $urgencyClass = 'bg-secondary';
                                         if($rs['urgency'] == 'High') $urgencyClass = 'bg-warning text-dark';
                                         if($rs['urgency'] == 'Urgent') $urgencyClass = 'bg-danger';
                                     ?>
-                                    <span class="badge <?= $urgencyClass ?>"><?= htmlspecialchars($rs['urgency']) ?></span>
+                                    <span class="badge <?= $urgencyClass ?> shadow-sm"><?= htmlspecialchars($rs['urgency']) ?></span>
                                 </td>
-                                <td>
+                                <td class="col-status" data-label="Status">
                                     <?php 
                                         $statusClass = 'bg-secondary';
                                         if($rs['status'] == 'Pending Approval') $statusClass = 'bg-warning text-dark';
@@ -151,11 +231,10 @@ include 'layout/header.php';
                                         if($rs['status'] == 'Rejected') $statusClass = 'bg-danger';
                                         if($rs['status'] == 'PO Created') $statusClass = 'bg-success';
                                     ?>
-                                    <span class="badge <?= $statusClass ?>"><?= htmlspecialchars($rs['status']) ?></span>
+                                    <span class="badge <?= $statusClass ?> shadow-sm"><?= htmlspecialchars($rs['status']) ?></span>
                                 </td>
-                                <td class="text-end">
+                                <td class="text-end" data-label="Actions">
                                     
-                                    <!-- FIXED: Safe encoding prevents syntax errors from quotes and line breaks! -->
                                     <?php 
                                         $cleanProject = str_replace(["\r", "\n"], ["\\r", "\\n"], addslashes($rs['project_name']));
                                         $cleanRemarks = str_replace(["\r", "\n"], ["\\r", "\\n"], addslashes($rs['remarks']));
@@ -165,17 +244,17 @@ include 'layout/header.php';
                                     
                                     <button class="btn btn-sm btn-outline-secondary fw-bold shadow-sm me-1" title="View Details" 
                                             onclick="viewRsDetails('<?= $rs['rs_no'] ?>', '<?= $cleanProject ?>', '<?= $cleanRemarks ?>', '<?= $rs['status'] ?>', '<?= $cleanRequestor ?>', '<?= date('M d, Y', strtotime($rs['created_at'])) ?>', '<?= $itemsB64 ?>')">
-                                        <i class="bi bi-file-earmark-text me-1"></i> View Form
+                                        <i class="bi bi-file-earmark-text me-1"></i> View
                                     </button>
                                     
                                     <?php if (in_array($role, ['management', 'admin']) && $rs['status'] === 'Pending Approval'): ?>
                                         <form method="POST" action="process/process.php" class="d-inline">
                                             <input type="hidden" name="action" value="approve_rs">
                                             <input type="hidden" name="rs_id" value="<?= $rs['id'] ?>">
-                                            <button class="btn btn-sm btn-outline-success shadow-sm me-1" title="Approve RS"><i class="bi bi-check-lg"></i></button>
+                                            <button class="btn btn-sm btn-success shadow-sm me-1" title="Approve RS"><i class="bi bi-check-lg"></i></button>
                                         </form>
                                         
-                                        <button type="button" class="btn btn-sm btn-outline-danger shadow-sm" title="Reject RS" onclick="openRejectModal(<?= $rs['id'] ?>, '<?= $rs['rs_no'] ?>')">
+                                        <button type="button" class="btn btn-sm btn-danger shadow-sm" title="Reject RS" onclick="openRejectModal(<?= $rs['id'] ?>, '<?= $rs['rs_no'] ?>')">
                                             <i class="bi bi-x-lg"></i>
                                         </button>
                                     <?php endif; ?>

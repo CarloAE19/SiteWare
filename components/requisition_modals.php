@@ -39,9 +39,9 @@
                             <tr>
                                 <th>Item Code</th>
                                 <th>Item Name</th>
-                                <th class="text-center">Qty Requested</th>
-                                <!-- FIXED: Added Current Stock (Hidden on print) -->
-                                <th class="text-center d-print-none text-primary">Stock Available</th>
+                                <!-- FIXED: Shortened headers so they fit perfectly inside the mobile modal without wrapping -->
+                                <th class="text-center">Qty</th>
+                                <th class="text-center d-print-none text-primary">Stock</th>
                             </tr>
                         </thead>
                         <tbody id="viewRsItemsBody"></tbody>
@@ -63,7 +63,7 @@
 </div>
 
 <!-- ======================================================== -->
-<!-- MODAL: REJECT REASON (NEW)                               -->
+<!-- MODAL: REJECT REASON                                     -->
 <!-- ======================================================== -->
 <div class="modal fade" id="rejectRsModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
     <div class="modal-dialog modal-dialog-centered">

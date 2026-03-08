@@ -2,13 +2,11 @@
  * GB INVENTORY - REQUISITIONS (RS) JAVASCRIPT
  * ========================================================== */
 
-// 1. SPA-Safe Modal Trigger (View Details & Check Stock Validation)
-// FIXED: Accepts Base64 encoded items to prevent syntax errors
+// 1. SPA-Safe Modal Trigger 
 window.viewRsDetails = function(rsNo, project, remarks, status, requestor, date, itemsB64) {
     document.getElementById('viewRsNo').innerText = rsNo;
     document.getElementById('viewRsProject').innerText = project;
     
-    // FIXED: Properly display line breaks in remarks!
     const remarksEl = document.getElementById('viewRsRemarks');
     remarksEl.innerText = remarks ? remarks : 'No remarks provided.';
     remarksEl.style.whiteSpace = 'pre-wrap'; 
@@ -33,7 +31,6 @@ window.viewRsDetails = function(rsNo, project, remarks, status, requestor, date,
     tbody.innerHTML = ''; 
     
     try {
-        // FIXED: Safely Decode Base64 string into usable JSON!
         const itemsJson = atob(itemsB64);
         const items = JSON.parse(itemsJson);
         
@@ -70,14 +67,12 @@ window.viewRsDetails = function(rsNo, project, remarks, status, requestor, date,
     new bootstrap.Modal(document.getElementById('viewRsModal')).show();
 }
 
-// 2. Open Reject Reason Modal
 window.openRejectModal = function(id, rsNo) {
     document.getElementById('rejectRsId').value = id;
     document.getElementById('rejectRsNoDisplay').innerText = rsNo;
     new bootstrap.Modal(document.getElementById('rejectRsModal')).show();
 }
 
-// 3. RS Document Print Function
 window.printRSDocument = function() {
     const printContent = document.getElementById('rsPrintArea').innerHTML;
     const originalContent = document.body.innerHTML;
@@ -87,7 +82,6 @@ window.printRSDocument = function() {
     window.location.reload(); 
 }
 
-// 4. Dynamic Row Addition
 if (!window.rsGlobalListenersAttached) {
     window.rsGlobalListenersAttached = true;
     document.body.addEventListener('click', function(e) {
@@ -123,57 +117,100 @@ window.updateDeleteButtons = function(container) {
     }
 }
 
-// 5. Pagination & Search
+// 5. COLUMN TOGGLE ENGINE & PAGINATION
 function initializeRequisitionsPage() {
     const searchInput = document.getElementById('searchRs');
-    if (searchInput) {
-        searchInput.addEventListener('keyup', function(e) {
-            const term = e.target.value.toLowerCase();
-            const rows = document.querySelectorAll('.rs-row');
-            rows.forEach(row => {
-                const no = row.querySelector('.rs-no').textContent.toLowerCase();
-                const proj = row.querySelector('.rs-project').textContent.toLowerCase();
-                row.style.display = (no.includes(term) || proj.includes(term)) ? '' : 'none';
+    const table = document.getElementById('rsTable');
+    
+    // --- SHOW / HIDE COLUMNS LOGIC ---
+    const columnToggles = document.querySelectorAll('.col-toggle');
+    columnToggles.forEach(toggle => {
+        // Init toggle
+        toggle.addEventListener('change', function() {
+            const colClass = this.value; // e.g., 'col-project'
+            const elements = document.querySelectorAll('.' + colClass);
+            elements.forEach(el => {
+                if (this.checked) {
+                    el.classList.remove('d-none');
+                } else {
+                    el.classList.add('d-none');
+                }
             });
         });
-    }
+    });
 
-    const table = document.getElementById('rsTable');
+    // --- SEARCH & PAGINATION LOGIC ---
     if (!table || table.parentElement.querySelector('.pagination-wrapper')) return;
 
+    const allRows = Array.from(table.querySelectorAll('tbody .rs-row'));
+    let filteredRows = [...allRows];
     const rowsPerPage = 10;
-    const rows = Array.from(table.querySelectorAll('tbody .rs-row'));
-    if (rows.length <= rowsPerPage) return;
-
     let currentPage = 1;
-    const totalPages = Math.ceil(rows.length / rowsPerPage);
 
     const paginationWrapper = document.createElement('div');
     paginationWrapper.className = 'd-flex justify-content-between align-items-center p-3 bg-white border-top pagination-wrapper';
     
-    const infoText = document.createElement('span'); infoText.className = 'text-muted small fw-bold';
-    const btnGroup = document.createElement('div'); btnGroup.className = 'btn-group shadow-sm';
+    const infoText = document.createElement('span'); 
+    infoText.className = 'text-muted small fw-bold';
+    
+    const btnGroup = document.createElement('div'); 
+    btnGroup.className = 'btn-group shadow-sm';
 
-    const prevBtn = document.createElement('button'); prevBtn.className = 'btn btn-sm btn-outline-primary fw-bold px-3'; prevBtn.innerHTML = '<i class="bi bi-chevron-left me-1"></i> Prev';
-    const pageIndicator = document.createElement('button'); pageIndicator.className = 'btn btn-sm btn-brand fw-bold px-3 pe-none';
-    const nextBtn = document.createElement('button'); nextBtn.className = 'btn btn-sm btn-outline-primary fw-bold px-3'; nextBtn.innerHTML = 'Next <i class="bi bi-chevron-right ms-1"></i>';
+    const prevBtn = document.createElement('button'); 
+    prevBtn.className = 'btn btn-sm btn-outline-primary fw-bold px-3'; 
+    prevBtn.innerHTML = '<i class="bi bi-chevron-left me-1"></i> Prev';
+    
+    const pageIndicator = document.createElement('button'); 
+    pageIndicator.className = 'btn btn-sm btn-brand fw-bold px-3 pe-none';
+    
+    const nextBtn = document.createElement('button'); 
+    nextBtn.className = 'btn btn-sm btn-outline-primary fw-bold px-3'; 
+    nextBtn.innerHTML = 'Next <i class="bi bi-chevron-right ms-1"></i>';
 
     btnGroup.append(prevBtn, pageIndicator, nextBtn);
     paginationWrapper.append(infoText, btnGroup);
     table.parentElement.appendChild(paginationWrapper);
 
-    function showPage(page) {
-        currentPage = page;
-        const start = (page - 1) * rowsPerPage; const end = start + rowsPerPage;
-        rows.forEach((row, index) => { row.style.display = (index >= start && index < end) ? '' : 'none'; });
-        infoText.innerHTML = `Showing <b>${start + 1}</b> to <b>${Math.min(end, rows.length)}</b> of <b>${rows.length}</b>`;
-        pageIndicator.innerText = `Page ${page} / ${totalPages}`;
-        prevBtn.disabled = page === 1; nextBtn.disabled = page === totalPages;
+    function updatePagination() {
+        const totalPages = Math.ceil(filteredRows.length / rowsPerPage) || 1;
+        if (currentPage > totalPages) currentPage = totalPages;
+
+        const start = (currentPage - 1) * rowsPerPage; 
+        const end = start + rowsPerPage;
+
+        allRows.forEach(row => row.style.display = 'none');
+        const rowsToShow = filteredRows.slice(start, end);
+        rowsToShow.forEach(row => row.style.display = '');
+
+        const showingEnd = Math.min(end, filteredRows.length);
+        const showingStart = filteredRows.length > 0 ? start + 1 : 0;
+
+        infoText.innerHTML = `Showing <b>${showingStart}</b> to <b>${showingEnd}</b> of <b>${filteredRows.length}</b>`;
+        pageIndicator.innerText = `Page ${currentPage} / ${totalPages}`;
+        
+        prevBtn.disabled = currentPage === 1; 
+        nextBtn.disabled = currentPage === totalPages || totalPages === 0;
     }
 
-    prevBtn.addEventListener('click', () => { if (currentPage > 1) showPage(currentPage - 1); });
-    nextBtn.addEventListener('click', () => { if (currentPage < totalPages) showPage(currentPage + 1); });
-    showPage(1);
+    function filterData() {
+        const term = searchInput ? searchInput.value.toLowerCase() : '';
+
+        filteredRows = allRows.filter(row => {
+            const no = row.querySelector('.rs-no').textContent.toLowerCase();
+            const proj = row.querySelector('.rs-project').textContent.toLowerCase();
+            return no.includes(term) || proj.includes(term);
+        });
+
+        currentPage = 1;
+        updatePagination();
+    }
+
+    if (searchInput) searchInput.addEventListener('input', filterData);
+
+    prevBtn.addEventListener('click', () => { if (currentPage > 1) { currentPage--; updatePagination(); } });
+    nextBtn.addEventListener('click', () => { const totalPages = Math.ceil(filteredRows.length / rowsPerPage); if (currentPage < totalPages) { currentPage++; updatePagination(); } });
+
+    updatePagination();
 }
 
 if (document.readyState === "loading") { document.addEventListener("DOMContentLoaded", initializeRequisitionsPage); } else { initializeRequisitionsPage(); }
