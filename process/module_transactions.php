@@ -77,7 +77,6 @@ elseif ($action === 'create_rs') {
 } elseif ($action === 'reject_rs') {
     if (!in_array($_SESSION['user_role'], ['management', 'admin'])) throw new Exception("Only Management or Admins can reject requisitions.");
     
-    // FIXED: Capture the reason and append it to the remarks so the user can read it!
     $reason = trim($_POST['reject_reason']);
     $appendRemark = "\n\n[MANAGEMENT REJECTED]: " . $reason;
 
@@ -140,13 +139,41 @@ elseif ($action === 'create_po') {
     $po_id = $_POST['po_id'];
     $po_no = $_POST['po_no'];
     
+    // ========================================================================
+    // NEW: AUTOMATED STOCK IN SYSTEM
+    // ========================================================================
+    
+    // 1. Fetch all items requested in this PO
+    $stmt = $pdo->prepare("SELECT item_code, quantity FROM po_items WHERE po_id = ?");
+    $stmt->execute([$po_id]);
+    $po_items = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    // 2. Prepare dynamic addition query. It adds PO quantity to existing Inventory quantity!
+    $updateInv = $pdo->prepare("
+        UPDATE inventory 
+        SET quantity = quantity + ?, 
+            status = CASE 
+                        WHEN (quantity + ?) > 10 THEN 'In Stock' 
+                        ELSE 'Low Stock' 
+                     END 
+        WHERE item_code = ?
+    ");
+    
+    // 3. Loop through every item and ADD it to inventory automatically
+    foreach($po_items as $item) {
+        $updateInv->execute([$item['quantity'], $item['quantity'], $item['item_code']]);
+    }
+
+    // ========================================================================
+
+    // 4. Mark the PO as officially delivered
     $pdo->prepare("UPDATE purchase_orders SET status = 'Delivered' WHERE id = ?")->execute([$po_id]);
     
-    $alertMsg = "Order {$po_no} has arrived and was received at the warehouse.";
-    $pdo->prepare("INSERT INTO notifications (target_role, title, message) VALUES ('purchasing', 'PO Delivered', ?)")->execute([$alertMsg]);
-    $pdo->prepare("INSERT INTO notifications (target_role, title, message) VALUES ('management', 'PO Delivered', ?)")->execute([$alertMsg]);
+    $alertMsg = "Order {$po_no} has arrived. Items have been successfully STOCKED IN to the Master Inventory.";
+    $pdo->prepare("INSERT INTO notifications (target_role, title, message) VALUES ('purchasing', 'PO Delivered & Stocked In', ?)")->execute([$alertMsg]);
+    $pdo->prepare("INSERT INTO notifications (target_role, title, message) VALUES ('management', 'PO Delivered & Stocked In', ?)")->execute([$alertMsg]);
 
-    $_SESSION['message'] = "Purchase Order marked as successfully Delivered!";
+    $_SESSION['message'] = "Stock In Successful! Delivered items are now added to Master Inventory.";
     $_SESSION['msg_type'] = "success";
     header("Location: ../po");
     exit;
