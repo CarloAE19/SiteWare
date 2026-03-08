@@ -3,8 +3,38 @@
 // REQUISITIONS, POs, AND WITHDRAWALS LOGIC
 // ==========================================
 
+// --- AJAX: FETCH RS DATA VIA QR SCANNER (PHASE 2 WORKFLOW) ---
+if ($action === 'fetch_rs_data') {
+    if (!in_array($_SESSION['user_role'], ['warehouse', 'admin'])) {
+        echo json_encode(['status' => 'error', 'message' => 'Unauthorized.']); exit;
+    }
+
+    $rs_no = str_replace('REQ-DATA:', '', $_POST['rs_no']); 
+    
+    $stmt = $pdo->prepare("SELECT id, project_name FROM requisitions WHERE rs_no = ? AND status IN ('Approved', 'PO Created')");
+    $stmt->execute([$rs_no]);
+    $rs = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$rs) {
+        echo json_encode(['status' => 'error', 'message' => 'Invalid QR Code, or this RS has not been Approved yet.']);
+        exit;
+    }
+
+    $itemStmt = $pdo->prepare("SELECT ri.item_code, ri.quantity, i.item_name FROM requisition_items ri LEFT JOIN inventory i ON ri.item_code = i.item_code WHERE ri.requisition_id = ?");
+    $itemStmt->execute([$rs['id']]);
+    $items = $itemStmt->fetchAll(PDO::FETCH_ASSOC);
+
+    echo json_encode([
+        'status' => 'success',
+        'rs_no' => $rs_no,
+        'project_name' => $rs['project_name'],
+        'items' => $items
+    ]);
+    exit;
+}
+
 // --- REQUISITIONS (RS) ---
-if ($action === 'create_rs') {
+elseif ($action === 'create_rs') {
     $stmt = $pdo->prepare("INSERT INTO requisitions (rs_no, requestor_id, requestor_name, project_name, urgency, remarks, status) VALUES (?, ?, ?, ?, ?, ?, 'Pending Approval')");
     $stmt->execute([$_POST['rs_no'], $_POST['requestor_id'], $_POST['requestor_name'], $_POST['project_name'], $_POST['urgency'], $_POST['remarks']]);
     $requisition_id = $pdo->lastInsertId();
@@ -27,7 +57,8 @@ if ($action === 'create_rs') {
     exit;
     
 } elseif ($action === 'approve_rs') {
-    if ($_SESSION['user_role'] !== 'management') throw new Exception("Only Management can approve requisitions.");
+    if (!in_array($_SESSION['user_role'], ['management', 'admin'])) throw new Exception("Only Management or Admins can approve requisitions.");
+    
     $stmt = $pdo->prepare("UPDATE requisitions SET status = 'Approved' WHERE id = ?");
     $stmt->execute([$_POST['rs_id']]);
     
@@ -44,17 +75,22 @@ if ($action === 'create_rs') {
     exit;
 
 } elseif ($action === 'reject_rs') {
-    if ($_SESSION['user_role'] !== 'management') throw new Exception("Only Management can reject requisitions.");
-    $stmt = $pdo->prepare("UPDATE requisitions SET status = 'Rejected' WHERE id = ?");
-    $stmt->execute([$_POST['rs_id']]);
+    if (!in_array($_SESSION['user_role'], ['management', 'admin'])) throw new Exception("Only Management or Admins can reject requisitions.");
+    
+    // FIXED: Capture the reason and append it to the remarks so the user can read it!
+    $reason = trim($_POST['reject_reason']);
+    $appendRemark = "\n\n[MANAGEMENT REJECTED]: " . $reason;
+
+    $stmt = $pdo->prepare("UPDATE requisitions SET status = 'Rejected', remarks = CONCAT(IFNULL(remarks,''), ?) WHERE id = ?");
+    $stmt->execute([$appendRemark, $_POST['rs_id']]);
     
     $rsData = $pdo->prepare("SELECT rs_no, requestor_id FROM requisitions WHERE id = ?");
     $rsData->execute([$_POST['rs_id']]);
     $rs = $rsData->fetch();
 
-    $pdo->prepare("INSERT INTO notifications (target_user_id, title, message) VALUES (?, 'Requisition Rejected', ?)")->execute([$rs['requestor_id'], "Your request {$rs['rs_no']} was rejected."]);
+    $pdo->prepare("INSERT INTO notifications (target_user_id, title, message) VALUES (?, 'Requisition Rejected', ?)")->execute([$rs['requestor_id'], "Your request {$rs['rs_no']} was rejected. Reason: {$reason}"]);
 
-    $_SESSION['message'] = "Requisition Rejected.";
+    $_SESSION['message'] = "Requisition Rejected successfully.";
     $_SESSION['msg_type'] = "danger";
     header("Location: ../requisitions");
     exit;

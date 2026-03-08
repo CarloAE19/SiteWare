@@ -1,8 +1,9 @@
 <?php
 // ==========================================
-// DYNAMIC UNITS LOGIC
+// DYNAMIC UNITS & CATEGORIES LOGIC
 // ==========================================
 
+// --- UNITS LOGIC ---
 if ($action === 'add_unit') {
     if ($_SESSION['user_role'] !== 'admin') throw new Exception("Unauthorized.");
     $stmt = $pdo->prepare("INSERT INTO units (unit_name, abbreviation) VALUES (?, ?)");
@@ -28,6 +29,35 @@ if ($action === 'add_unit') {
     $_SESSION['message'] = "Unit deleted successfully.";
     $_SESSION['msg_type'] = "danger";
     header("Location: ../units"); 
+    exit;
+}
+
+// --- CATEGORIES LOGIC ---
+elseif ($action === 'add_category') {
+    if ($_SESSION['user_role'] !== 'admin') throw new Exception("Unauthorized.");
+    $stmt = $pdo->prepare("INSERT INTO categories (category_name) VALUES (?)");
+    $stmt->execute([trim($_POST['category_name'])]);
+    $_SESSION['message'] = "Category added successfully!";
+    $_SESSION['msg_type'] = "success";
+    header("Location: ../categories"); 
+    exit;
+
+} elseif ($action === 'edit_category') {
+    if ($_SESSION['user_role'] !== 'admin') throw new Exception("Unauthorized.");
+    $stmt = $pdo->prepare("UPDATE categories SET category_name = ? WHERE id = ?");
+    $stmt->execute([trim($_POST['category_name']), $_POST['category_id']]);
+    $_SESSION['message'] = "Category updated successfully!";
+    $_SESSION['msg_type'] = "success";
+    header("Location: ../categories"); 
+    exit;
+
+} elseif ($action === 'delete_category') {
+    if ($_SESSION['user_role'] !== 'admin') throw new Exception("Unauthorized.");
+    $stmt = $pdo->prepare("DELETE FROM categories WHERE id = ?");
+    $stmt->execute([$_POST['category_id']]);
+    $_SESSION['message'] = "Category deleted successfully.";
+    $_SESSION['msg_type'] = "danger";
+    header("Location: ../categories"); 
     exit;
 }
 ?>

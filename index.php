@@ -22,7 +22,12 @@ $pendingRSCount = $pdo->query("SELECT COUNT(*) FROM requisitions WHERE status = 
 $totalItems = count($items);
 $totalValue = array_reduce($items, fn($carry, $item) => $carry + ($item['quantity'] * $item['unit_price']), 0);
 $lowStockCount = count(array_filter($items, fn($item) => $item['quantity'] <= 10));
+
+// ==========================================
+// FIXED: FETCH BOTH UNITS AND CATEGORIES
+// ==========================================
 $dynamicUnits = $pdo->query("SELECT unit_name FROM units ORDER BY unit_name ASC")->fetchAll(PDO::FETCH_ASSOC);
+$dynamicCategories = $pdo->query("SELECT category_name FROM categories ORDER BY category_name ASC")->fetchAll(PDO::FETCH_ASSOC);
 
 include 'layout/header.php';
 ?>
@@ -81,7 +86,6 @@ include 'layout/header.php';
     <!-- INVENTORY TABLE -->
     <div class="table-container bg-white rounded shadow-sm border-0 p-3 p-md-4">
         
-        <!-- FIXED: Bulletproof Grid Header prevents squishing -->
         <div class="row align-items-center mb-4 g-3">
             <div class="col-12 col-xl-4">
                 <h4 class="mb-0 fw-bold text-dark"><i class="bi bi-list-check me-2 text-primary"></i>Materials Inventory</h4>
@@ -197,7 +201,7 @@ include 'layout/header.php';
                         </div>
                     </div>
                     
-                    <button type="submit" class="btn btn-success w-100 btn-lg fw-bold shadow-sm">
+                    <button type="submit" class="btn btn-success w-100 btn-lg fw-bold shadow-sm" id="receiveSubmitBtn">
                         <i class="bi bi-box-arrow-in-down me-2"></i>Confirm Delivery
                     </button>
                 </form>
@@ -206,7 +210,7 @@ include 'layout/header.php';
     </div>
 </div>
 
-<!-- SPA-SAFE SCRIPTS (Pagination & Scanner) -->
+<!-- SPA-SAFE SCRIPTS (Pagination ONLY) -->
 <script>
 function initInventoryPagination() {
     function setupPagination(tableId, rowsPerPage) {
@@ -281,90 +285,6 @@ if (document.readyState === "loading") {
 } else {
     initInventoryPagination();
 }
-
-// SPA-SAFE QR SCANNER
-window.html5QrcodeScanner = window.html5QrcodeScanner || null;
-
-function startDeliveryScanner() {
-    const modal = new bootstrap.Modal(document.getElementById('deliveryScannerModal'));
-    modal.show();
-
-    document.getElementById('reader').style.display = 'block';
-    document.getElementById('stockInForm').classList.add('d-none');
-    document.getElementById('scannerResult').innerText = "Initializing camera...";
-
-    if (!window.html5QrcodeScanner) {
-        window.html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: {width: 250, height: 250} }, false);
-    }
-
-    window.html5QrcodeScanner.render((decodedText, decodedResult) => {
-        const itemCode = decodedText.trim();
-        const item = inventoryData.find(i => i.item_code === itemCode);
-        
-        if (item) {
-            new Audio('assets/sounds/scan.mp3').play().catch(e => {});
-            window.html5QrcodeScanner.clear().then(() => { window.html5QrcodeScanner = null; }).catch(e=>{});
-            document.getElementById('reader').style.display = 'none';
-            
-            document.getElementById('scannerResult').innerHTML = `<span class="text-success fw-bold"><i class="bi bi-check-circle me-1"></i> QR Code Recognized!</span>`;
-            document.getElementById('scan_item_code').value = item.item_code;
-            document.getElementById('scan_item_name').innerText = item.item_name;
-            document.getElementById('scan_item_category').innerText = item.category;
-            document.getElementById('scan_item_unit').innerText = item.unit;
-            
-            document.getElementById('stockInForm').classList.remove('d-none');
-            setTimeout(() => document.getElementById('scan_added_qty').focus(), 300);
-        } else {
-            document.getElementById('scannerResult').innerHTML = `<span class="text-danger fw-bold"><i class="bi bi-x-circle me-1"></i> Item "${itemCode}" not found.</span>`;
-        }
-    }, (error) => {});
-}
-
-function stopScanner() {
-    if (window.html5QrcodeScanner) {
-        window.html5QrcodeScanner.clear().then(() => { window.html5QrcodeScanner = null; }).catch(e=>{});
-    }
-}
-
-document.getElementById('deliveryScannerModal').addEventListener('hidden.bs.modal', stopScanner);
-
-document.getElementById('stockInForm').addEventListener('submit', async function(e) {
-    e.preventDefault(); 
-    const submitBtn = this.querySelector('button[type="submit"]');
-    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Processing...';
-    submitBtn.disabled = true;
-
-    const formData = new FormData(this);
-    formData.append('ajax', '1'); 
-    
-    try {
-        const response = await fetch('process/process.php', { method: 'POST', body: formData });
-        const data = await response.json();
-        
-        if (data.status === 'success') {
-            new Audio('assets/sounds/success.mp3').play().catch(e=>{});
-            
-            const itemCode = formData.get('item_code');
-            const qtySpan = document.getElementById('qty_' + itemCode);
-            const statusSpan = document.getElementById('status_' + itemCode);
-            
-            if (qtySpan) qtySpan.innerText = data.new_qty;
-            if (statusSpan) {
-                statusSpan.innerText = data.new_status;
-                statusSpan.className = 'badge ' + (data.new_qty <= 0 ? 'bg-danger' : (data.new_qty <= 10 ? 'bg-warning text-dark' : 'bg-success'));
-            }
-            
-            bootstrap.Modal.getInstance(document.getElementById('deliveryScannerModal')).hide();
-        } else {
-            alert(data.message || "Error updating stock");
-        }
-    } catch(err) {
-        alert("Network error.");
-    } finally {
-        submitBtn.innerHTML = '<i class="bi bi-box-arrow-in-down me-2"></i>Confirm Delivery';
-        submitBtn.disabled = false;
-    }
-});
 </script>
 
 <?php include 'components/inventory_modals.php'; ?>

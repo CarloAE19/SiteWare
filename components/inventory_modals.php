@@ -74,33 +74,74 @@
 <?php if (in_array($role, ['admin', 'warehouse'])): ?>
 <div class="modal fade" id="itemModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content border-0">
+        <div class="modal-content border-0 shadow-lg">
             <div class="modal-header" style="background-color: var(--gb-dark); color: white;">
                 <h5 class="modal-title" id="modalTitle"><span style="color: var(--gb-yellow);">Add Item</span></h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <form method="POST" action="process/process.php">
-                <div class="modal-body bg-light">
-                    <input type="hidden" name="action" id="formAction" value="add"><input type="hidden" name="id" id="itemId" value="">
-                    <div class="row">
-                        <div class="col-md-4 mb-3"><label class="form-label fw-bold">Item Code</label><input type="text" class="form-control" name="item_code" id="itemCode" required></div>
-                        <div class="col-md-8 mb-3"><label class="form-label fw-bold">Item Name</label><input type="text" class="form-control" name="item_name" id="itemName" required></div>
+                <div class="modal-body bg-light p-4">
+                    <input type="hidden" name="action" id="formAction" value="add">
+                    <input type="hidden" name="id" id="itemId" value="">
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-5 mb-3 mb-md-0">
+                            <label class="form-label fw-bold small text-muted text-uppercase">Item Code</label>
+                            <input type="text" class="form-control fw-bold bg-white" name="item_code" id="itemCode" readonly required>
+                        </div>
+                        <div class="col-md-7">
+                            <label class="form-label fw-bold small text-muted text-uppercase">Item Name / Desc.</label>
+                            <input type="text" class="form-control fw-bold" name="item_name" id="itemName" placeholder="e.g. Concrete Nails 2in" required>
+                        </div>
                     </div>
-                    <div class="row">
-                        <div class="col-md-6 mb-3"><label class="form-label fw-bold">Category</label><select class="form-select" name="category" id="itemCategory" required><option>Materials</option><option>Tools</option><option>Equipment</option><option>Safety Gear</option></select></div>
-                        <div class="col-md-6 mb-3 d-none"><input type="hidden" name="status" id="itemStatus" value="In Stock"></div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-12">
+                            <label class="form-label fw-bold small text-muted text-uppercase">Category Classification</label>
+                            <select class="form-select fw-bold" name="category" id="itemCategory" required>
+                                <!-- FIXED: Dynamic Categories Loop! -->
+                                <?php if (!empty($dynamicCategories)): ?>
+                                    <?php foreach ($dynamicCategories as $cat): ?>
+                                        <option value="<?= htmlspecialchars($cat['category_name']) ?>"><?= htmlspecialchars($cat['category_name']) ?></option>
+                                    <?php endforeach; ?>
+                                <?php else: ?>
+                                    <!-- Fallback if database is completely empty -->
+                                    <option value="Materials">Materials</option>
+                                    <option value="Tools">Tools</option>
+                                <?php endif; ?>
+                            </select>
+                        </div>
+                        <div class="d-none"><input type="hidden" name="status" id="itemStatus" value="In Stock"></div>
                     </div>
+                    
                     <div class="row">
-                        <div class="col-md-4 mb-3"><label class="form-label fw-bold">Qty</label><input type="number" class="form-control" name="quantity" id="itemQuantity" required></div>
-                        <div class="col-md-4 mb-3"><label class="form-label fw-bold">Unit</label><select class="form-select" name="unit" id="itemUnit" required>
-                <?php foreach ($dynamicUnits as $u): ?>
-                <option value="<?= htmlspecialchars($u['unit_name']) ?>"><?= htmlspecialchars($u['unit_name']) ?></option>
-                                <?php endforeach; ?>
-                            </select></div>
-                        <div class="col-md-4 mb-3"><label class="form-label fw-bold">Price ($)</label><input type="number" step="0.01" class="form-control" name="unit_price" id="itemPrice" required></div>
+                        <div class="col-md-4 mb-3 mb-md-0">
+                            <label class="form-label fw-bold small text-muted text-uppercase">Initial Qty</label>
+                            <input type="number" class="form-control fw-bold text-center text-primary" name="quantity" id="itemQuantity" required min="0">
+                        </div>
+                        <div class="col-md-4 mb-3 mb-md-0">
+                            <label class="form-label fw-bold small text-muted text-uppercase">Unit</label>
+                            <select class="form-select fw-bold text-center" name="unit" id="itemUnit" required>
+                                <!-- Dynamic Units Loop -->
+                                <?php if (!empty($dynamicUnits)): ?>
+                                    <?php foreach ($dynamicUnits as $u): ?>
+                                        <option value="<?= htmlspecialchars($u['unit_name']) ?>"><?= htmlspecialchars($u['unit_name']) ?></option>
+                                    <?php endforeach; ?>
+                                <?php else: ?>
+                                    <option value="Pieces">Pieces</option>
+                                <?php endif; ?>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold small text-muted text-uppercase">Price (₱)</label>
+                            <input type="number" step="0.01" class="form-control fw-bold text-end" name="unit_price" id="itemPrice" required placeholder="0.00">
+                        </div>
                     </div>
                 </div>
-                <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-brand" id="submitBtn">Save Item</button></div>
+                <div class="modal-footer bg-white">
+                    <button type="button" class="btn btn-light text-muted fw-bold" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-brand px-4 fw-bold shadow-sm" id="submitBtn"><i class="bi bi-save me-2"></i>Save Item</button>
+                </div>
             </form>
         </div>
     </div>

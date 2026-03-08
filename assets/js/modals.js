@@ -3,7 +3,6 @@
  * Handles passwords toggles, modal triggers, and UI events
  * ========================================================== */
 
-// --- EVENT LISTENERS FOR MODALS ---
 document.addEventListener("DOMContentLoaded", () => {
     // Receive QR Scanner Init
     document.body.addEventListener('click', (e) => {
@@ -52,7 +51,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 });
 
-// --- GLOBAL MODAL OPENERS & TOGGLES ---
 window.toggleUserPass = function() {
     const input = document.getElementById('userPassword');
     const icon = document.getElementById('toggleUserIcon');
@@ -104,15 +102,21 @@ window.viewAuditDetails = function(month, remarks, itemsJson) {
     new bootstrap.Modal(document.getElementById('auditModal')).show();
 }
 
+// FIXED: Now selects the first available Category/Unit instead of hardcoding "Materials"!
 window.openAddModal = function() {
     document.getElementById('modalTitle').innerHTML = '<i class="bi bi-plus-circle me-2"></i>Add New Item';
     document.getElementById('formAction').value = 'add';
     document.getElementById('itemId').value = '';
     document.getElementById('itemCode').value = 'ITM-' + Math.floor(Math.random() * 9000 + 1000);
     document.getElementById('itemName').value = '';
-    document.getElementById('itemCategory').value = 'Materials';
+    
+    const catSelect = document.getElementById('itemCategory');
+    if(catSelect && catSelect.options.length > 0) catSelect.selectedIndex = 0;
+    
+    const unitSelect = document.getElementById('itemUnit');
+    if(unitSelect && unitSelect.options.length > 0) unitSelect.selectedIndex = 0;
+    
     document.getElementById('itemQuantity').value = '0';
-    document.getElementById('itemUnit').value = 'Pieces';
     document.getElementById('itemPrice').value = '0.00';
 }
 

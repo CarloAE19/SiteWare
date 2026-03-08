@@ -3,10 +3,15 @@
  * Handles QR scanning, Label Printing, AJAX, and Live Sync
  * ========================================================== */
 
-// --- MULTI-DEVICE LIVE SYNC (BACKGROUND POLLING) ---
 document.addEventListener("DOMContentLoaded", () => {
+    
+    // ==========================================
+    // 1. MULTI-DEVICE LIVE SYNC (BACKGROUND POLLING)
+    // ==========================================
     setInterval(async () => {
-        if (!document.getElementById('startReceiveScannerBtn')) return; // Only run on inventory page
+        // FIXED 1: Now properly checks if we are on the Inventory page by looking for the table!
+        if (!document.getElementById('inventoryTable')) return; 
+        
         try {
             let formData = new FormData();
             formData.append('action', 'live_sync');
@@ -32,54 +37,163 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
             });
         } catch (e) {
-            // Silently ignore network errors
+            // Silently ignore network errors to prevent console spam
         }
     }, 3000); 
+
+    // ==========================================
+    // 2. AJAX STOCK-IN FORM SUBMISSION (SPA SAFE)
+    // ==========================================
+    // FIXED 2: We use Event Delegation so this survives page transitions perfectly
+    document.body.addEventListener('submit', async (e) => {
+        if (e.target.id === 'stockInForm') {
+            e.preventDefault(); 
+            
+            const form = e.target;
+            const submitBtn = form.querySelector('button[type="submit"]');
+            const originalBtnText = submitBtn.innerHTML;
+            
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Processing...';
+            
+            const formData = new FormData(form);
+            // FIXED 3: This tells the PHP backend to return JSON instead of reloading the page!
+            formData.append('ajax', '1'); 
+            
+            const itemCode = formData.get('item_code');
+            const addedQty = formData.get('added_qty');
+            
+            try {
+                const response = await fetch('process/process.php', { method: 'POST', body: formData });
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    // Play success sound
+                    new Audio('assets/sounds/success.mp3').play().catch(err => {});
+                    
+                    // Dynamically update UI
+                    const qtyEl = document.getElementById('qty_' + itemCode);
+                    const statusEl = document.getElementById('status_' + itemCode);
+                    
+                    if (qtyEl && statusEl) {
+                        qtyEl.innerText = data.new_qty;
+                        qtyEl.className = 'fw-bold fs-5 text-success'; 
+                        setTimeout(() => { qtyEl.className = 'fw-bold fs-6'; }, 2000);
+                        
+                        statusEl.innerText = data.new_status;
+                        if(data.new_status === 'Out of Stock') statusEl.className = 'badge bg-danger';
+                        else if(data.new_status === 'Low Stock') statusEl.className = 'badge bg-warning text-dark';
+                        else statusEl.className = 'badge bg-success';
+                    }
+                    
+                    // Update global memory if it exists
+                    if (typeof inventoryData !== 'undefined') {
+                        let foundItem = inventoryData.find(item => item.item_code === itemCode);
+                        if(foundItem) foundItem.quantity = data.new_qty;
+                    }
+
+                    // Close Modal gracefully
+                    const modalEl = document.getElementById('deliveryScannerModal');
+                    if (modalEl) {
+                        const modal = bootstrap.Modal.getInstance(modalEl);
+                        if (modal) modal.hide();
+                    }
+                    
+                } else {
+                    alert("Server Error: " + data.message);
+                }
+            } catch (error) {
+                alert("Network Error. Could not process stock-in.");
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalBtnText;
+            }
+        }
+    });
 });
 
-// --- QR SCANNER & PRINTING LOGIC ---
-let receiveScanner;
+// ==========================================
+// 3. QR SCANNER & PRINTING LOGIC
+// ==========================================
+window.html5QrcodeScanner = null;
 
-window.resetReceiveScanner = function() {
-    document.getElementById('receive-qr-reader').style.display = 'block';
-    document.getElementById('receiveFormContainer').style.display = 'none';
-    if (receiveScanner) receiveScanner.clear();
+// FIXED 4: Updated IDs to match the new mobile-responsive 'index.php' modal!
+window.startDeliveryScanner = function() {
+    const modalEl = document.getElementById('deliveryScannerModal');
+    if (!modalEl) return;
     
-    if (typeof Html5QrcodeScanner !== 'undefined') {
-        receiveScanner = new Html5QrcodeScanner("receive-qr-reader", { fps: 10, qrbox: {width: 250, height: 250} }, false);
-        receiveScanner.render(window.onReceiveScanSuccess);
+    const modal = new bootstrap.Modal(modalEl);
+    modal.show();
+
+    document.getElementById('reader').style.display = 'block';
+    document.getElementById('stockInForm').classList.add('d-none');
+    document.getElementById('scannerResult').innerHTML = "Point your camera at the item's QR Code...";
+
+    if (!window.html5QrcodeScanner) {
+        window.html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: {width: 250, height: 250} }, false);
     }
-}
 
-window.stopReceiveScanner = function() {
-    if (receiveScanner) receiveScanner.clear();
-}
-
-window.onReceiveScanSuccess = function(decodedText) {
-    let scanAudio = new Audio('assets/sounds/scan.mp3');
-    scanAudio.play().catch(e => console.log("Audio play blocked"));
-    
-    let foundItem = typeof inventoryData !== 'undefined' ? inventoryData.find(item => item.item_code === decodedText) : null;
-    
-    if(foundItem) {
-        document.getElementById('scannedItemDisplayName').innerText = foundItem.item_name + " (" + foundItem.item_code + ")";
-        document.getElementById('scannedInputCode').value = decodedText;
+    window.html5QrcodeScanner.render((decodedText, decodedResult) => {
+        const itemCode = decodedText.trim();
         
-        receiveScanner.clear();
-        document.getElementById('receive-qr-reader').style.display = 'none';
-        document.getElementById('receiveFormContainer').style.display = 'block';
-        setTimeout(() => document.querySelector('input[name="added_qty"]').focus(), 500);
-    } else {
-        alert("Scanned item (" + decodedText + ") not found in inventory!");
-    }
-}
+        // Check if item exists in global inventoryData
+        const item = (typeof inventoryData !== 'undefined') ? inventoryData.find(i => i.item_code === itemCode) : null;
+        
+        if (item) {
+            new Audio('assets/sounds/scan.mp3').play().catch(e => {});
+            
+            // Stop scanner camera
+            window.html5QrcodeScanner.clear().then(() => { window.html5QrcodeScanner = null; }).catch(e=>{});
+            document.getElementById('reader').style.display = 'none';
+            
+            // Populate the Delivery Form
+            document.getElementById('scannerResult').innerHTML = `<span class="text-success fw-bold"><i class="bi bi-check-circle me-1"></i> QR Code Recognized!</span>`;
+            document.getElementById('scan_item_code').value = item.item_code;
+            
+            // These IDs must match your index.php!
+            const nameEl = document.getElementById('scan_item_name');
+            const catEl = document.getElementById('scan_item_category');
+            const unitEl = document.getElementById('scan_item_unit');
+            
+            if(nameEl) nameEl.innerText = item.item_name;
+            if(catEl) catEl.innerText = item.category;
+            if(unitEl) unitEl.innerText = item.unit;
+            
+            document.getElementById('stockInForm').classList.remove('d-none');
+            document.getElementById('stockInForm').reset(); // Clear previous inputs
+            
+            // Auto-focus the quantity box so the user can just start typing!
+            setTimeout(() => {
+                const qtyInput = document.getElementById('scan_added_qty');
+                if(qtyInput) qtyInput.focus();
+            }, 300);
+        } else {
+            document.getElementById('scannerResult').innerHTML = `<span class="text-danger fw-bold"><i class="bi bi-x-circle me-1"></i> Item "${itemCode}" not found.</span>`;
+        }
+    }, (error) => {});
+};
 
+window.stopScanner = function() {
+    if (window.html5QrcodeScanner) {
+        window.html5QrcodeScanner.clear().then(() => { window.html5QrcodeScanner = null; }).catch(e=>{});
+    }
+};
+
+// Auto-stop scanner camera when the user clicks out of the modal
+document.body.addEventListener('hidden.bs.modal', function (e) {
+    if (e.target.id === 'deliveryScannerModal') {
+        window.stopScanner();
+    }
+});
+
+// QR Label Printing
 window.showItemQR = function(itemCode, itemName) {
     document.getElementById('qrItemCode').innerText = itemCode;
     document.getElementById('qrItemName').innerText = itemName;
     document.getElementById('qrItemImg').src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${itemCode}`;
-    new bootstrap.Modal(document.getElementById('itemQrModal')).show();
-}
+    const modalEl = document.getElementById('itemQrModal');
+    if (modalEl) new bootstrap.Modal(modalEl).show();
+};
 
 window.printItemLabel = function() {
     const printContent = document.getElementById('qrPrintArea').innerHTML;
@@ -88,63 +202,4 @@ window.printItemLabel = function() {
     window.print();
     document.body.innerHTML = originalContent;
     window.location.reload(); 
-}
-
-// --- AJAX QR STOCK-IN LOGIC ---
-window.submitReceiveAjax = async function(e) {
-    e.preventDefault(); 
-    const form = e.target;
-    const btn = document.getElementById('receiveSubmitBtn');
-    const successMsg = document.getElementById('ajaxSuccessMsg');
-    const originalBtnText = btn.innerHTML;
-    
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Saving to Database...';
-    
-    const formData = new FormData(form);
-    const itemCode = formData.get('item_code');
-    const addedQty = formData.get('added_qty');
-    
-    try {
-        const response = await fetch('process/process.php', { method: 'POST', body: formData });
-        const data = await response.json();
-        
-        if (data.status === 'success') {
-            const qtyEl = document.getElementById('qty_' + itemCode);
-            const statusEl = document.getElementById('status_' + itemCode);
-            
-            if (qtyEl && statusEl) {
-                qtyEl.innerText = data.new_qty;
-                qtyEl.className = 'fw-bold fs-5 text-success'; 
-                setTimeout(() => { qtyEl.className = 'fw-bold fs-6'; }, 2000);
-                
-                statusEl.innerText = data.new_status;
-                if(data.new_status === 'Out of Stock') statusEl.className = 'badge bg-danger';
-                else if(data.new_status === 'Low Stock') statusEl.className = 'badge bg-warning text-dark';
-                else statusEl.className = 'badge bg-success';
-            }
-            
-            let foundItem = typeof inventoryData !== 'undefined' ? inventoryData.find(item => item.item_code === itemCode) : null;
-            if(foundItem) foundItem.quantity = data.new_qty;
-            
-            let successAudio = new Audio('assets/sounds/success.mp3');
-            successAudio.play().catch(e => console.log("Audio play blocked."));
-            successMsg.innerHTML = `<i class="bi bi-check-circle-fill me-2 fs-5"></i> Successfully added +${addedQty} units!`;
-            successMsg.classList.remove('d-none');
-            
-            setTimeout(() => {
-                successMsg.classList.add('d-none');
-                form.reset();
-                window.resetReceiveScanner();
-            }, 1500);
-
-        } else {
-            alert("❌ Server Error: " + data.message);
-        }
-    } catch (error) {
-        alert("❌ Network Error. The database could not be reached.");
-    } finally {
-        btn.disabled = false;
-        btn.innerHTML = originalBtnText;
-    }
-}
+};

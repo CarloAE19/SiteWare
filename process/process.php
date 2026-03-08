@@ -26,17 +26,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         elseif (in_array($action, ['add_user', 'edit_user', 'delete_user', 'update_profile'])) {
             require 'module_users.php';
         } 
-        elseif (in_array($action, ['create_rs', 'approve_rs', 'reject_rs', 'create_po', 'mark_po_delivered', 'send_po_sms', 'log_po_delay', 'create_withdrawal'])) {
+        // FIXED: Added 'fetch_rs_data' right here so the Scanner can communicate with the backend!
+        elseif (in_array($action, ['create_rs', 'approve_rs', 'reject_rs', 'create_po', 'mark_po_delivered', 'send_po_sms', 'log_po_delay', 'create_withdrawal', 'fetch_rs_data'])) {
             require 'module_transactions.php';
         } 
         elseif ($action === 'submit_audit') {
             require 'module_audit.php';
         } 
-        elseif (in_array($action, ['add_unit', 'edit_unit', 'delete_unit'])) {
+        elseif (in_array($action, ['add_unit', 'edit_unit', 'delete_unit', 'add_category', 'edit_category', 'delete_category'])) {
             require 'module_settings.php';
         } 
         else {
-            throw new Exception("Invalid system action requested.");
+            throw new Exception("Invalid system action requested: " . htmlspecialchars($action));
         }
 
     } catch (Exception $e) {
