@@ -54,8 +54,10 @@ elseif ($action === 'add') {
     $qty = (int)$_POST['quantity'];
     $status = ($qty <= 0) ? 'Out of Stock' : (($qty <= 10) ? 'Low Stock' : 'In Stock');
 
-    $stmt = $pdo->prepare("INSERT INTO inventory (item_code, item_name, quantity, unit, unit_price, status) VALUES (?, ?, ?, ?, ?, ?)");
-    $stmt->execute([$_POST['item_code'], $_POST['item_name'], $qty, $_POST['unit'], $_POST['unit_price'], $status]);
+    // FIXED: Added 'category' to the INSERT statement!
+    $stmt = $pdo->prepare("INSERT INTO inventory (item_code, item_name, category, quantity, unit, unit_price, status) VALUES (?, ?, ?, ?, ?, ?, ?)");
+    $stmt->execute([$_POST['item_code'], $_POST['item_name'], $_POST['category'], $qty, $_POST['unit'], $_POST['unit_price'], $status]);
+    
     $_SESSION['message'] = "Material added to inventory successfully!";
     $_SESSION['msg_type'] = "success";
     header("Location: ../index"); 
@@ -68,8 +70,10 @@ elseif ($action === 'edit') {
     $qty = (int)$_POST['quantity'];
     $status = ($qty <= 0) ? 'Out of Stock' : (($qty <= 10) ? 'Low Stock' : 'In Stock');
 
-    $stmt = $pdo->prepare("UPDATE inventory SET item_code=?, item_name=?, quantity=?, unit=?, unit_price=?, status=? WHERE id=?");
-    $stmt->execute([$_POST['item_code'], $_POST['item_name'], $qty, $_POST['unit'], $_POST['unit_price'], $status, $_POST['id']]);
+    // FIXED: Added 'category=?' to the UPDATE statement!
+    $stmt = $pdo->prepare("UPDATE inventory SET item_code=?, item_name=?, category=?, quantity=?, unit=?, unit_price=?, status=? WHERE id=?");
+    $stmt->execute([$_POST['item_code'], $_POST['item_name'], $_POST['category'], $qty, $_POST['unit'], $_POST['unit_price'], $status, $_POST['id']]);
+    
     $_SESSION['message'] = "Material updated successfully!";
     $_SESSION['msg_type'] = "success";
     header("Location: ../index"); 
