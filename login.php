@@ -122,8 +122,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </div>
 
     <div class="mt-4 text-center text-muted small" style="opacity: 0.8;">
-        <span class="fw-bold">&copy; <?= date('Y') ?> Genetian Builders Construction & Enterprises inc.</span> All rights reserved.<br>
-        <span style="font-size: 0.85em;">The Medyas &bull; Capstone Project</span>
+        <span class="fw-bold">Copyright &copy; <?= date('Y') ?> Genetian Builders & Enterprises inc.</span>
+        <span style="opacity: 0.8;"> | Powered by The Medyas &bull; Capstone Project</span>
     </div>
 
 </body>
