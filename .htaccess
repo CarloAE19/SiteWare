@@ -7,3 +7,9 @@ RewriteCond %{REQUEST_FILENAME} !-f
 # ...check if adding .php makes it a valid file, and route it silently
 RewriteCond %{REQUEST_FILENAME}.php -f
 RewriteRule ^([^\.]+)$ $1.php [NC,L]
+
+# Block direct web access to the .env file
+<Files .env>
+    Order allow,deny
+    Deny from all
+</Files>

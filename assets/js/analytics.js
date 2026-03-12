@@ -107,7 +107,7 @@ window.generateAIPrediction = async function(isManualClick) {
 }
 
 // =========================================================
-// 2. DASHBOARD CHART ENGINE (ZERO-TO-HERO SPA FIX)
+// 2. DASHBOARD CHART ENGINE (MIXED ANIMATIONS)
 // =========================================================
 
 window.lastChartState = { pct: "", pie: "", days: "" };
@@ -128,16 +128,16 @@ window.buildTheCharts = function() {
     window.lastChartState.pie = JSON.stringify(window.chartData.pieData);
     window.lastChartState.days = JSON.stringify(window.chartData.daysLeftData);
 
-    // 1. DRAW PERCENTAGE BAR CHART (Start at Zero)
+    // 1. DRAW PERCENTAGE BAR CHART (Starts at Zero, grows UP)
     if (pctCtx && window.chartData.chartLabels.length > 0) {
-        let zeroData = window.chartData.percentageData.map(() => 0); // ARRAY OF ZEROES
+        let zeroData = window.chartData.percentageData.map(() => 0); 
         window.pctChartInstance = new Chart(pctCtx.getContext('2d'), {
             type: 'bar',
             data: {
                 labels: window.chartData.chartLabels,
                 datasets: [{
                     label: 'Consumption Share (%)',
-                    data: zeroData, // STARTS AT ZERO
+                    data: zeroData, 
                     backgroundColor: 'rgba(13, 110, 253, 0.85)', 
                     borderColor: 'rgba(13, 110, 253, 1)',
                     borderWidth: 0, borderRadius: 6, maxBarThickness: 45, 
@@ -153,37 +153,38 @@ window.buildTheCharts = function() {
         });
     }
 
-    // 2. DRAW OVERALL STOCK PIE CHART (Start Empty)
+    // 2. DRAW OVERALL STOCK PIE CHART (Starts with Real Data for Native Circular Rotation!)
     if (pieCtx && window.chartData.pieLabels.length > 0) {
         window.pieChartInstance = new Chart(pieCtx.getContext('2d'), {
             type: 'doughnut',
             data: {
-                labels: [], // STARTS EMPTY
+                labels: window.chartData.pieLabels, // Provided immediately
                 datasets: [{
-                    data: [], // STARTS EMPTY
+                    data: window.chartData.pieData, // Provided immediately
                     backgroundColor: window.chartData.pieColors,
                     borderWidth: 2, borderColor: '#ffffff', hoverOffset: 6 
                 }]
             },
             options: {
                 responsive: true, maintainAspectRatio: false, 
-                animation: { animateScale: true, animateRotate: true, duration: 1500, easing: 'easeOutCirc' },
+                // THE FIX: animateScale is false, animateRotate is true. This forces a pure circular sweep!
+                animation: { animateScale: false, animateRotate: true, duration: 2000, easing: 'easeOutQuart' },
                 cutout: '65%', layout: { padding: 15 }, 
                 plugins: { legend: { position: 'right', labels: { usePointStyle: true, pointStyle: 'circle', boxWidth: 8, font: { size: 11 } } }, tooltip: { callbacks: { label: function(context) { return ' ' + context.label + ': ' + context.raw + ' in stock'; } } } }
             }
         });
     }
 
-    // 3. DRAW DAYS LEFT BAR CHART (Start at Zero)
+    // 3. DRAW DAYS LEFT BAR CHART (Starts at Zero, slides RIGHT)
     if (daysCtx && window.chartData.daysLeftLabels.length > 0) {
-        let zeroDays = window.chartData.daysLeftData.map(() => 0); // ARRAY OF ZEROES
+        let zeroDays = window.chartData.daysLeftData.map(() => 0); 
         window.daysChartInstance = new Chart(daysCtx.getContext('2d'), {
             type: 'bar',
             data: {
                 labels: window.chartData.daysLeftLabels,
                 datasets: [{
                     label: 'Estimated Days Left',
-                    data: zeroDays, // STARTS AT ZERO
+                    data: zeroDays, 
                     backgroundColor: window.chartData.daysLeftColors,
                     borderRadius: 6, maxBarThickness: 35 
                 }]
@@ -198,24 +199,19 @@ window.buildTheCharts = function() {
     }
 
     // ========================================================
-    // THE MAGIC: FORCE ANIMATION AFTER SPA LOAD
-    // Wait 250ms for the page to visually settle, then push the REAL data!
+    // TRIGGER BAR CHART ANIMATIONS
+    // Only update the BAR charts, leave the Pie chart alone so its rotation finishes!
     // ========================================================
     setTimeout(() => {
         if (window.pctChartInstance) {
             window.pctChartInstance.data.datasets[0].data = window.chartData.percentageData;
-            window.pctChartInstance.update(); // Triggers upward growth
-        }
-        if (window.pieChartInstance) {
-            window.pieChartInstance.data.labels = window.chartData.pieLabels;
-            window.pieChartInstance.data.datasets[0].data = window.chartData.pieData;
-            window.pieChartInstance.update(); // Triggers outward spin
+            window.pctChartInstance.update(); 
         }
         if (window.daysChartInstance) {
             window.daysChartInstance.data.datasets[0].data = window.chartData.daysLeftData;
-            window.daysChartInstance.update(); // Triggers horizontal slide
+            window.daysChartInstance.update(); 
         }
-    }, 250);
+    }, 200); // Trigger slightly faster for a snappier feel
 
     // BACKGROUND LIVE SYNC ENGINE
     if (window.dashboardSyncInterval) { clearInterval(window.dashboardSyncInterval); }
@@ -277,8 +273,15 @@ window.initDashboardCharts = function() {
     }
     if (window.dashboardSyncInterval) clearInterval(window.dashboardSyncInterval);
     
-    // Instantiate immediately. The Zero-to-Hero setTimeout inside handles the visual delay!
-    window.buildTheCharts(); 
+    // Visibility checker ensures we don't draw until SPA animation finishes
+    let visibilityCheck = setInterval(function() {
+        let canvas = document.getElementById('pctConsumptionChart');
+        if (canvas && canvas.offsetHeight > 0) {
+            clearInterval(visibilityCheck);
+            setTimeout(window.buildTheCharts, 50); 
+        }
+    }, 50); 
+    setTimeout(() => { clearInterval(visibilityCheck); }, 3000);
 };
 
 window.initDashboardCharts();

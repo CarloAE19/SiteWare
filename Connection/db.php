@@ -1,20 +1,31 @@
 <?php
 // ==========================================
-// DATABASE SETUP
+// SECURE DATABASE SETUP
 // ==========================================
-$host = 'localhost';
-$user = 'root';
-$pass = ''; // Default XAMPP password
-$dbname = 'construction_inventory';
+
+// 1. Load the secure environment variables
+require_once __DIR__ . '/env_loader.php';
+
+// 2. Fetch credentials from memory
+$host = $_ENV['DB_HOST'] ?? 'localhost';
+$user = $_ENV['DB_USER'] ?? 'root';
+$pass = $_ENV['DB_PASS'] ?? '';
+$dbname = $_ENV['DB_NAME'] ?? 'construction_inventory';
+
+// 3. Define the AI Key globally so analytics.php can see it securely
+if (!defined('AI_API_KEY') && isset($_ENV['AI_API_KEY'])) {
+    define('AI_API_KEY', $_ENV['AI_API_KEY']);
+}
 
 try {
+    // Connect to MySQL server (Without DB name first, to allow creation)
     $pdo = new PDO("mysql:host=$host", $user, $pass);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
     $pdo->exec("CREATE DATABASE IF NOT EXISTS `$dbname`");
     $pdo->exec("USE `$dbname`");
 
-    // 1. Create Users Table (UPDATED to use 'username' instead of 'email')
+    // 1. Create Users Table
     $pdo->exec("
         CREATE TABLE IF NOT EXISTS users (
             id INT AUTO_INCREMENT PRIMARY KEY,
@@ -28,7 +39,6 @@ try {
 
     if ($pdo->query("SELECT COUNT(*) FROM users")->fetchColumn() == 0) {
         $hashed_password = password_hash('password123', PASSWORD_DEFAULT);
-        // Changed default admin login to 'admin'
         $stmt = $pdo->prepare("INSERT INTO users (name, username, password, role) VALUES (?, ?, ?, ?)");
         $stmt->execute(['System Admin', 'admin', $hashed_password, 'admin']);
     }

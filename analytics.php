@@ -3,8 +3,7 @@ session_start();
 if (!isset($_SESSION['user_id'])) { header("Location: login"); exit; }
 if (!in_array($_SESSION['user_role'], ['admin', 'management', 'purchasing'])) { header("Location: index"); exit; }
 
-require_once 'Connection/db.php'; 
-require_once 'Connection/api.php'; // <--- FIX 1: Added this to load your API Key!
+require_once 'Connection/db.php';
 
 // ==========================================
 // 1. DATA CALCULATION ENGINE
