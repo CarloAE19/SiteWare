@@ -4,25 +4,80 @@
         #auditDetailsTable { display: block; width: 100%; background: transparent !important; }
         #auditDetailsTable thead { display: none; }
         #auditDetailsTable tbody { display: block; width: 100%; }
-        
-        #auditDetailsTable tbody tr { 
-            display: flex; flex-direction: column; border: 1px solid #e0e4e8; border-radius: 12px; 
-            margin-bottom: 1rem; background: #fff; padding: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.02); 
+
+        #auditDetailsTable tbody tr {
+            display: flex;
+            flex-direction: column;
+            border: none;
+            border-radius: 14px;
+            margin-bottom: 1rem;
+            background: #fff;
+            padding: 0;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+            overflow: hidden;
         }
-        
-        #auditDetailsTable tbody td { 
-            display: flex; justify-content: space-between; align-items: center; text-align: right; 
-            padding: 10px 4px; border: none; border-bottom: 1px dashed #e9ecef; white-space: normal !important; word-break: break-word; 
+
+        /* First cell (Item Code) — dark header */
+        #auditDetailsTable tbody td:first-child {
+            background: #212529;
+            color: #adb5bd !important;
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            padding: 10px 14px;
+            border: none;
+            text-align: left;
         }
-        
-        #auditDetailsTable tbody td:last-child { border-bottom: none; }
-        
-        #auditDetailsTable tbody td::before { 
-            content: attr(data-label); font-weight: 700; font-size: 0.75rem; color: #6c757d; 
-            text-transform: uppercase; text-align: left; padding-right: 15px; flex-shrink: 0; 
+        #auditDetailsTable tbody td:first-child::before { display: none; }
+
+        /* Standard label+value rows */
+        #auditDetailsTable tbody td {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 14px;
+            border: none;
+            border-bottom: 1px solid #f3f3f3;
+            white-space: normal !important;
+            word-break: break-word;
+        }
+        #auditDetailsTable tbody td::before {
+            content: attr(data-label);
+            font-weight: 700;
+            font-size: 0.7rem;
+            color: #6c757d;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            text-align: left;
+            flex-shrink: 0;
+            padding-right: 12px;
+        }
+
+        /* Prevent right-side values from being squeezed */
+        #auditDetailsTable tbody td > span,
+        #auditDetailsTable tbody td > strong,
+        #auditDetailsTable tbody td > b {
+            flex-shrink: 0;
+            text-align: right;
+        }
+
+        /* Discrepancy cell — full width centered badge, NO label */
+        #auditDetailsTable tbody td:last-child {
+            border-bottom: none;
+            justify-content: center !important;
+            padding: 12px 14px 14px;
+        }
+        #auditDetailsTable tbody td:last-child::before { display: none; }
+        #auditDetailsTable tbody td:last-child .badge {
+            width: 100%;
+            font-size: 0.85rem !important;
+            padding: 10px !important;
+            text-align: center;
         }
     }
 </style>
+
 
 <div class="modal fade" id="auditModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg">
@@ -35,7 +90,7 @@
                 
                 <div class="mb-4 border-bottom pb-3">
                     <h4 class="fw-bold text-primary mb-0" id="modalAuditMonth">Month</h4>
-                    <small class="text-muted fw-bold text-uppercase">Monthly Recount Report</small>
+                    <small class="text-muted fw-bold text-uppercase">Weekly Recount Report</small>
                 </div>
                 
                 <h6 class="fw-bold text-uppercase small text-muted mb-2">Itemized Count Results:</h6>

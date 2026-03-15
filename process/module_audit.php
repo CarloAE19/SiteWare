@@ -1,15 +1,24 @@
 <?php
 // ==========================================
-// AUDIT (MONTHLY RECOUNT) LOGIC
+// AUDIT (WEEKLY RECOUNT) LOGIC
 // ==========================================
 
 if ($action === 'submit_audit') {
     if (!in_array($_SESSION['user_role'], ['warehouse', 'admin'])) throw new Exception("Unauthorized.");
-    $audit_month = date('F Y'); $conducted_by = $_SESSION['user_id']; $remarks = $_POST['remarks'] ?? '';
+
+    // Generate a clear weekly period label, e.g. "Week 11 — Mar 10–16, 2026"
+    $weekNum   = date('W');                          // ISO week number
+    $weekStart = new DateTime();                     // today
+    $weekStart->setISODate((int)date('o'), (int)$weekNum, 1); // Monday of this week
+    $weekEnd   = clone $weekStart;
+    $weekEnd->modify('+6 days');                     // Sunday of this week
+    $audit_week = 'Week ' . (int)$weekNum . ' — ' . $weekStart->format('M j') . '–' . $weekEnd->format('j, Y');
+
+    $conducted_by = $_SESSION['user_id']; $remarks = $_POST['remarks'] ?? '';
     $item_codes = $_POST['item_code']; $system_qtys = $_POST['system_qty']; $physical_qtys = $_POST['physical_qty'];
 
     $stmt = $pdo->prepare("INSERT INTO inventory_audits (audit_month, conducted_by, remarks) VALUES (?, ?, ?)");
-    $stmt->execute([$audit_month, $conducted_by, $remarks]);
+    $stmt->execute([$audit_week, $conducted_by, $remarks]);
     $audit_id = $pdo->lastInsertId();
 
     $auditItemStmt = $pdo->prepare("INSERT INTO audit_items (audit_id, item_code, system_qty, physical_qty, discrepancy) VALUES (?, ?, ?, ?, ?)");
@@ -32,18 +41,18 @@ if ($action === 'submit_audit') {
     
     // SMART PUSH NOTIFICATIONS LOGIC
     if ($discrepancyCount > 0) {
-        $alertMsg = "The $audit_month physical recount is complete. Found $discrepancyCount items with discrepancies.";
-        $pdo->prepare("INSERT INTO notifications (target_role, title, message) VALUES ('management', 'Audit Discrepancy Alert', ?)")->execute([$alertMsg]);
-        $pdo->prepare("INSERT INTO notifications (target_role, title, message) VALUES ('admin', 'Audit Discrepancy Alert', ?)")->execute([$alertMsg]);
-        sendPushNotification($pdo, 'Audit Discrepancy Alert', $alertMsg, 'management', null);
-        sendPushNotification($pdo, 'Audit Discrepancy Alert', $alertMsg, 'admin', null);
+        $alertMsg = "The $audit_week weekly recount is complete. Found $discrepancyCount item(s) with discrepancies. Inventory has been adjusted.";
+        $pdo->prepare("INSERT INTO notifications (target_role, title, message) VALUES ('management', 'Weekly Audit Discrepancy Alert', ?)")->execute([$alertMsg]);
+        $pdo->prepare("INSERT INTO notifications (target_role, title, message) VALUES ('admin', 'Weekly Audit Discrepancy Alert', ?)")->execute([$alertMsg]);
+        sendPushNotification($pdo, 'Weekly Audit Discrepancy Alert', $alertMsg, 'management', null);
+        sendPushNotification($pdo, 'Weekly Audit Discrepancy Alert', $alertMsg, 'admin', null);
     } else {
-        $successMsg = "The $audit_month physical recount was completed successfully. All physical stocks match the system records exactly.";
-        $pdo->prepare("INSERT INTO notifications (target_role, title, message) VALUES ('admin', 'Audit Completed', ?)")->execute([$successMsg]);
-        sendPushNotification($pdo, 'Audit Completed', $successMsg, 'admin', null);
+        $successMsg = "The $audit_week weekly recount was completed successfully. All physical stocks match the system records exactly.";
+        $pdo->prepare("INSERT INTO notifications (target_role, title, message) VALUES ('admin', 'Weekly Audit Completed', ?)")->execute([$successMsg]);
+        sendPushNotification($pdo, 'Weekly Audit Completed', $successMsg, 'admin', null);
     }
 
-    $_SESSION['message'] = "Monthly recount submitted. Inventory adjusted.";
+    $_SESSION['message'] = "Weekly recount submitted successfully. Inventory has been adjusted.";
     $_SESSION['msg_type'] = "success";
     header("Location: ../audit"); 
     exit;

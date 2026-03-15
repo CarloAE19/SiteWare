@@ -203,7 +203,7 @@ foreach ($notifications as $n) {
                 
                 <?php if (in_array($_SESSION['user_role'], ['admin', 'management', 'warehouse'])): ?>
                 <li class="px-3 text-uppercase small fw-bold mb-2 mt-4" style="color: #adb5bd;">System</li>
-                <li class="<?= $currentPage == 'audit.php' ? 'active' : '' ?>"><a href="audit"><i class="bi bi-clipboard-check"></i> Monthly Audit (Recount)</a></li>
+                <li class="<?= $currentPage == 'audit.php' ? 'active' : '' ?>"><a href="audit"><i class="bi bi-clipboard-check"></i> Weekly Audit (Recount)</a></li>
                 <?php endif; ?>
 
                 <?php if ($_SESSION['user_role'] === 'admin'): ?>

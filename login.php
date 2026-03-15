@@ -7,23 +7,19 @@ function redirectUserByRole($role) {
     switch ($role) {
         case 'admin':
         case 'management':
-            header("Location: analytics");
-            break;
+            header("Location: analytics"); break;
         case 'purchasing':
-            header("Location: po");
-            break;
+            header("Location: po"); break;
         case 'requestor':
-            header("Location: requisitions");
-            break;
+            header("Location: requisitions"); break;
         case 'warehouse':
         default:
-            header("Location: index");
-            break;
+            header("Location: index"); break;
     }
     exit;
 }
 
-// If already logged in, route them to their specific page
+// If already logged in, route them to their workspace
 if (isset($_SESSION['user_id'])) {
     redirectUserByRole($_SESSION['user_role']);
 }
@@ -36,23 +32,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (empty($username) || empty($password)) {
         $error = 'Please enter both username and password.';
     } else {
-        // 🛡️ SECURITY LAYER 1: SQL INJECTION PREVENTION (Prepared Statements)
+        // 🛡️ SQL Injection Prevention (Prepared Statements)
         $stmt = $pdo->prepare("SELECT * FROM users WHERE username = ?");
         $stmt->execute([$username]);
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        // 🛡️ SECURITY LAYER 2: BCRYPT PASSWORD HASHING
+        // 🛡️ Bcrypt Password Verification + Session Hijacking Prevention
         if ($user && password_verify($password, $user['password'])) {
-            
-            // 🛡️ SECURITY LAYER 3: SESSION HIJACKING PREVENTION
             session_regenerate_id(true);
-
-            // Set session variables
-            $_SESSION['user_id'] = $user['id'];
+            $_SESSION['user_id']   = $user['id'];
             $_SESSION['user_name'] = $user['name'];
             $_SESSION['user_role'] = $user['role'];
-            
-            // Route the user to their specific workspace!
             redirectUserByRole($user['role']);
         } else {
             $error = 'Invalid username or password.';
@@ -65,110 +55,127 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - GB Inventory</title>
+    <title>Sign In — GB Inventory System</title>
+    <meta name="description" content="GB Construction & Enterprise Smart Inventory & Logistics System — Secure Login">
 
-    <!-- PWA Links for Login Page -->
+    <!-- PWA -->
     <link rel="manifest" href="manifest.json">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="apple-touch-icon" href="assets/LogoGB.png">
-
     <link rel="icon" type="image/png" href="assets/LogoGB.png">
+
+    <!-- Bootstrap & Icons -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-    
-    <link rel="stylesheet" href="assets/css/style.css">
-    <link rel="stylesheet" href="assets/css/custom.css">
-</head>
-<body class="login-body">
 
-    <div class="brand-logo text-center">
-        <img src="assets/LogoGB.png" alt="GB Construction Logo" style="width: 100px; height: auto;" >
-        <div class="mt-2">GB Construction & Enterprises</div>
+    <!-- Google Font: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+    <!-- Login Styles -->
+    <link rel="stylesheet" href="assets/css/login.css">
+</head>
+<body>
+
+<div class="login-wrapper">
+
+    <!-- ============ LEFT: BRAND PANEL ============ -->
+    <div class="brand-panel">
+        <div class="top-stripe"></div>
+
+        <div class="brand-logo-wrap">
+            <img src="assets/LogoGB.png" alt="GB Construction Logo">
+            <div class="brand-name">
+                <span>GB Construction &amp;</span>
+                <strong>Enterprise Inc.</strong>
+            </div>
+        </div>
+
+        <div class="brand-headline">
+            <h1>Smart <span>Inventory</span></h1>
+            <p>A real-time enterprise platform built for the construction supply chain — from warehouse to project site.</p>
+        </div>
+
+        <ul class="brand-features">
+            <li>
+                <div class="feat-icon blue"><i class="bi bi-qr-code-scan"></i></div>
+                QR Code Scanning for rapid stock-in/out
+            </li>
+            <li>
+                <div class="feat-icon yellow"><i class="bi bi-graph-up-arrow"></i></div>
+                AI-powered analytics &amp; restock predictions
+            </li>
+            <li>
+                <div class="feat-icon red"><i class="bi bi-bell-fill"></i></div>
+                Live push notifications via Firebase FCM
+            </li>
+            <li>
+                <div class="feat-icon green"><i class="bi bi-clipboard-check-fill"></i></div>
+                Weekly physical recount &amp; audit trails
+            </li>
+        </ul>
     </div>
 
-    <div class="login-card shadow">
-        <div class="login-title">Account Login</div>
-        
-        <?php if ($error): ?>
-            <div class="alert alert-danger py-2 fs-6 text-center"><?= htmlspecialchars($error) ?></div>
-        <?php endif; ?>
+    <!-- ============ RIGHT: FORM PANEL ============ -->
+    <div class="form-panel">
+        <div class="login-card">
 
-        <form method="POST" action="">
-            <div class="mb-3">
-                <label class="form-label fw-bold" style="font-size: 0.9rem;">Username <span class="text-danger">*</span></label>
-                <input type="text" name="username" class="form-control" placeholder="Enter username" required>
+            <div class="card-eyebrow"><i class="bi bi-shield-lock-fill me-1"></i> Secure Access</div>
+            <h2>Welcome back</h2>
+            <p class="subtitle">Sign in to your workspace to continue.</p>
+
+            <?php if ($error): ?>
+            <div class="login-error">
+                <i class="bi bi-exclamation-circle-fill" style="font-size:1.1rem; color:var(--gb-red); flex-shrink:0;"></i>
+                <?= htmlspecialchars($error) ?>
             </div>
-            
-            <div class="mb-3">
-                <label class="form-label fw-bold" style="font-size: 0.9rem;">Password <span class="text-danger">*</span></label>
-                <div class="input-group">
-                    <input type="password" name="password" id="passwordField" class="form-control border-end-0" placeholder="Your password" required>
-                    <button class="btn border border-start-0 bg-white" type="button" onclick="togglePass('passwordField', 'toggleIcon')">
-                        <i class="bi bi-eye-slash text-muted" id="toggleIcon"></i>
+            <?php endif; ?>
+
+            <form method="POST" action="" autocomplete="on">
+
+                <div class="input-float">
+                    <label for="usernameField">Username</label>
+                    <input type="text" id="usernameField" name="username"
+                           placeholder="Enter your username"
+                           value="<?= htmlspecialchars($_POST['username'] ?? '') ?>"
+                           autocomplete="username" required>
+                    <i class="bi bi-person-fill field-icon"></i>
+                </div>
+
+                <div class="input-float">
+                    <label for="passwordField">Password</label>
+                    <input type="password" id="passwordField" name="password"
+                           placeholder="Enter your password"
+                           autocomplete="current-password" required>
+                    <i class="bi bi-lock-fill field-icon"></i>
+                    <button type="button" class="toggle-pass" onclick="togglePass()" aria-label="Toggle password">
+                        <i class="bi bi-eye-slash" id="toggleIcon"></i>
                     </button>
                 </div>
+
+                <!-- PWA Install Button (hidden until browser triggers beforeinstallprompt) -->
+                <button type="button" id="installAppBtn" class="btn-install">
+                    <i class="bi bi-android2" style="color:#3DDC84;"></i>
+                    <i class="bi bi-apple" style="color:#555;"></i>
+                    <i class="bi bi-windows" style="color:#0078D7;"></i>
+                    Install GB Inventory App
+                </button>
+
+                <button type="submit" class="btn-signin">
+                    <i class="bi bi-box-arrow-in-right"></i> Sign In
+                </button>
+
+            </form>
+
+            <div class="form-footer">
+                &copy; <?= date('Y') ?> Genetian Builders &amp; Enterprises Inc. &nbsp;|&nbsp; Powered by The MedYas
             </div>
 
-            <!-- Custom Install Button (Hidden by default) -->
-            <button type="button" id="installAppBtn" class="btn btn-outline-primary w-100 mb-3 d-none" style="border-radius: 8px; font-weight: bold;">
-                <i class="bi bi-android2 fs-5 me-1" style="color: #3DDC84;"></i>
-                <i class="bi bi-apple fs-5 me-1" style="color: #000000;"></i>
-                <i class="bi bi-windows fs-5 me-2" style="color: #0078D7;"></i> 
-                Install GB Inventory App
-            </button>
-            <button type="submit" class="btn btn-login w-100 fw-bold"><i class="bi bi-box-arrow-in-right me-2"></i>Sign in</button>
-        </form>
+        </div>
     </div>
+</div>
 
-    <div class="mt-4 text-center text-muted small" style="opacity: 0.8;">
-        <span class="fw-bold">Copyright &copy; <?= date('Y') ?> Genetian Builders & Enterprises inc.</span>
-        <span style="opacity: 0.8;"> | Powered by The Medyas &bull; Capstone Project</span>
-    </div>
-
+<!-- Login Scripts -->
+<script src="assets/js/login.js"></script>
 </body>
-<script>
-    // ==========================================
-    // 1. PASSWORD TOGGLE LOGIC (FIXED!)
-    // ==========================================
-    function togglePass(inputId, iconId) {
-        const input = document.getElementById(inputId);
-        const icon = document.getElementById(iconId);
-        if (input.type === "password") {
-            input.type = "text";
-            icon.classList.replace("bi-eye-slash", "bi-eye");
-        } else {
-            input.type = "password";
-            icon.classList.replace("bi-eye", "bi-eye-slash");
-        }
-    }
-
-    // ==========================================
-    // 2. PWA INSTALLATION LOGIC
-    // ==========================================
-    let deferredPrompt;
-    const installBtn = document.getElementById('installAppBtn');
-
-    window.addEventListener('beforeinstallprompt', (e) => {
-        e.preventDefault();
-        deferredPrompt = e;
-        installBtn.classList.remove('d-none');
-    });
-
-    installBtn.addEventListener('click', async () => {
-        if (deferredPrompt !== null) {
-            deferredPrompt.prompt();
-            const { outcome } = await deferredPrompt.userChoice;
-            if (outcome === 'accepted') {
-                console.log('App Installed successfully!');
-                installBtn.classList.add('d-none'); 
-            }
-            deferredPrompt = null;
-        }
-    });
-
-    window.addEventListener('appinstalled', () => {
-        installBtn.classList.add('d-none');
-    });
-</script>
 </html>

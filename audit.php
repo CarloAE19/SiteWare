@@ -16,33 +16,201 @@ include 'layout/header.php';
 
 <!-- Premium Mobile Card Table CSS -->
 <style>
+    /* =============================================
+       HISTORY TABLE — Label+Value Card Layout
+       ============================================= */
     @media (max-width: 767.98px) {
-        .table-responsive { overflow-x: hidden !important; border: none !important; box-shadow: none !important; background: transparent !important; }
-        #historyTable, #recountTable { display: block; width: 100%; background: transparent !important; }
-        #historyTable thead, #recountTable thead { display: none; }
-        #historyTable tbody, #recountTable tbody { display: block; width: 100%; }
-        
-        #historyTable tbody tr, #recountTable tbody tr { 
-            display: flex; flex-direction: column; border: 1px solid #e0e4e8; border-radius: 12px; 
-            margin-bottom: 1rem; background: #fff; padding: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.02); 
+        .table-responsive {
+            overflow-x: hidden !important;
+            border: none !important;
+            box-shadow: none !important;
+            background: transparent !important;
         }
-        
-        #historyTable tbody td, #recountTable tbody td { 
-            display: flex; justify-content: space-between; align-items: center; text-align: right; 
-            padding: 10px 4px; border: none; border-bottom: 1px dashed #e9ecef; white-space: normal !important; word-break: break-word; 
+
+        /* --- History Table --- */
+        #historyTable { display: block; width: 100%; background: transparent !important; }
+        #historyTable thead { display: none; }
+        #historyTable tbody { display: block; width: 100%; }
+
+        #historyTable tbody tr {
+            display: flex;
+            flex-direction: column;
+            border: none;
+            border-radius: 16px;
+            margin-bottom: 1rem;
+            background: #fff;
+            padding: 0;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+            overflow: hidden;
         }
-        
-        /* Remove border on last element and center actions */
-        #historyTable tbody td:last-child, #recountTable tbody td:last-child { 
-            border-bottom: none; justify-content: center !important; gap: 8px; padding-top: 16px; margin-top: 4px; 
+
+        /* Audit Month — highlighted header row */
+        #historyTable tbody td[data-label="Audit Month"] {
+            display: block;
+            background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%);
+            color: #fff !important;
+            font-size: 1.05rem;
+            font-weight: 800;
+            padding: 12px 16px;
+            border: none;
+            text-align: left;
         }
-        
-        #historyTable tbody td::before, #recountTable tbody td::before { 
-            content: attr(data-label); font-weight: 700; font-size: 0.75rem; color: #6c757d; 
-            text-transform: uppercase; text-align: left; padding-right: 15px; flex-shrink: 0; 
+        #historyTable tbody td[data-label="Audit Month"]::before { display: none; }
+
+        /* Remaining rows */
+        #historyTable tbody td {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 16px;
+            border: none;
+            border-bottom: 1px solid #f0f0f0;
+            text-align: right;
+            white-space: normal !important;
+            word-break: break-word;
         }
-        
-        #historyTable tbody td:last-child::before, #recountTable tbody td:last-child::before { display: none; }
+        #historyTable tbody td::before {
+            content: attr(data-label);
+            font-weight: 700;
+            font-size: 0.72rem;
+            color: #6c757d;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            text-align: left;
+            flex-shrink: 0;
+            padding-right: 12px;
+        }
+
+        /* Actions cell */
+        #historyTable tbody td[data-label="Actions"] {
+            border-bottom: none;
+            justify-content: center !important;
+            padding: 14px 16px;
+        }
+        #historyTable tbody td[data-label="Actions"]::before { display: none; }
+        #historyTable tbody td[data-label="Actions"] .btn {
+            width: 100%;
+            justify-content: center;
+        }
+
+        /* =============================================
+           RECOUNT TABLE — Inventory Item Card
+           ============================================= */
+        #recountTable { display: block; width: 100%; background: transparent !important; }
+        #recountTable thead { display: none; }
+        #recountTable tbody { display: block; width: 100%; }
+
+        #recountTable tbody tr {
+            display: flex;
+            flex-wrap: wrap;
+            border: none;
+            border-radius: 16px;
+            margin-bottom: 1rem;
+            background: #fff;
+            padding: 0;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+            overflow: hidden;
+        }
+
+        /* Visual reorder: Item → System|Discrepancy → Physical Input */
+        #recountTable tbody td[data-label="Item Name"]    { order: 1; }
+        #recountTable tbody td[data-label="System Record"] { order: 2; }
+        #recountTable tbody td[data-label="Physical Count"] { order: 4; }
+        #recountTable tbody td[data-label="Discrepancy"]  { order: 3; }
+
+        /* Item Name — full-width header */
+        #recountTable tbody td[data-label="Item Name"] {
+            flex: 0 0 100%;
+            display: block;
+            background: #212529;
+            color: #fff !important;
+            padding: 12px 16px;
+            border: none;
+            text-align: left;
+        }
+        #recountTable tbody td[data-label="Item Name"]::before { display: none; }
+        #recountTable tbody td[data-label="Item Name"] .text-end { text-align: left !important; }
+
+        /* System Record — left half */
+        #recountTable tbody td[data-label="System Record"] {
+            flex: 0 0 50%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 12px 10px;
+            background: #f8f9fa;
+            border: none;
+            border-right: 1px solid #e9ecef;
+            border-bottom: 1px solid #e9ecef;
+            text-align: center;
+        }
+        #recountTable tbody td[data-label="System Record"]::before {
+            content: "📋 System Qty";
+            font-weight: 700;
+            font-size: 0.68rem;
+            color: #6c757d;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 4px;
+            display: block;
+        }
+        #recountTable tbody td[data-label="System Record"] .text-end { text-align: center !important; }
+
+        /* Discrepancy — right half (moved alongside System Record) */
+        #recountTable tbody td[data-label="Discrepancy"] {
+            flex: 0 0 50%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 12px 10px;
+            border: none;
+            border-bottom: 1px solid #e9ecef;
+            text-align: center;
+        }
+        #recountTable tbody td[data-label="Discrepancy"]::before {
+            content: "⚖️ Difference";
+            font-weight: 700;
+            font-size: 0.68rem;
+            color: #6c757d;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 4px;
+            display: block;
+        }
+        #recountTable tbody td[data-label="Discrepancy"] .badge {
+            width: 100%;
+            font-size: 0.78rem !important;
+        }
+
+        /* Physical Count input — full width at bottom */
+        #recountTable tbody td[data-label="Physical Count"] {
+            flex: 0 0 100%;
+            display: block;
+            padding: 14px 16px;
+            border: none;
+            text-align: center;
+        }
+        #recountTable tbody td[data-label="Physical Count"]::before {
+            content: "✏️ Enter Physical Count";
+            display: block;
+            font-weight: 700;
+            font-size: 0.72rem;
+            color: #0d6efd;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            margin-bottom: 8px;
+            text-align: left;
+        }
+        #recountTable tbody td[data-label="Physical Count"] .input-group {
+            min-width: unset !important;
+            max-width: 100% !important;
+            margin: 0 !important;
+        }
+        #recountTable tbody td[data-label="Physical Count"] .form-control {
+            font-size: 1.3rem !important;
+        }
     }
 </style>
 
@@ -57,8 +225,7 @@ include 'layout/header.php';
 
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
-            <h4 class="mb-0 fw-bold text-dark"><i class="bi bi-clipboard-check me-2 text-primary"></i>Monthly Physical Recount</h4>
-            <small class="text-muted">Reconcile System Data vs. Physical Warehouse Stock</small>
+            <h4 class="mb-0 fw-bold text-dark"><i class="bi bi-clipboard-check me-2 text-primary"></i>Weekly Physical Recount</h4>
         </div>
     </div>
 
@@ -66,7 +233,7 @@ include 'layout/header.php';
     <ul class="nav nav-pills mb-4 bg-white p-2 rounded-3 shadow-sm border d-inline-flex" id="auditTabs" role="tablist">
         <li class="nav-item" role="presentation">
             <button class="nav-link active fw-bold px-4" id="history-tab" data-bs-toggle="pill" data-bs-target="#history" type="button" role="tab">
-                <i class="bi bi-clock-history me-1"></i> Audit History <span class="d-none d-sm-inline">(Logs)</span>
+                <i class="bi bi-clock-history me-1"></i> Audit History <span class="d-none d-sm-inline">(Weekly Logs)</span>
             </button>
         </li>
         <?php if (in_array($role, ['warehouse', 'admin'])): ?>
@@ -113,7 +280,7 @@ include 'layout/header.php';
                                             <?php if($audit['total_discrepancy_items'] > 0): ?>
                                                 <span class="badge bg-danger shadow-sm px-3 py-2 text-uppercase"><i class="bi bi-exclamation-triangle-fill me-1"></i><?= $audit['total_discrepancy_items'] ?> Items Adjusted</span>
                                             <?php else: ?>
-                                                <span class="badge bg-success shadow-sm px-3 py-2 text-uppercase"><i class="bi bi-check-circle-fill me-1"></i>Perfect Match</span>
+                                                <span class="badge bg-success shadow-sm px-3 py-2 text-uppercase"><i class="bi bi-check-circle-fill me-1"></i>Match</span>
                                             <?php endif; ?>
                                         </td>
                                         <td class="text-center" data-label="Actions">
@@ -140,10 +307,10 @@ include 'layout/header.php';
                 <div class="card-body bg-light p-3 p-md-4">
                     
                     <div class="alert alert-warning px-3 py-2 mb-4 shadow-sm" style="border-left: 4px solid #ffc107;">
-                        <i class="bi bi-exclamation-triangle-fill me-1"></i> <strong>Warning:</strong> Submitting this form will automatically overwrite the main inventory with your physical counts.
+                        <i class="bi bi-exclamation-triangle-fill me-1"></i> <strong>Warning:</strong> Submitting this form will automatically overwrite the main inventory with your weekly physical counts.
                     </div>
 
-                    <form method="POST" action="process/process.php" onsubmit="return confirm('CRITICAL: This will overwrite the system inventory. Ensure all pages are correct before submitting.');">
+                    <form method="POST" action="process/process.php" onsubmit="return confirm('CRITICAL: This will overwrite the system inventory with this week\'s physical count. Ensure all entries are correct before submitting.');">
                         <input type="hidden" name="action" value="submit_audit">
                         
                         <div class="table-responsive bg-white border rounded shadow-sm">
@@ -152,7 +319,7 @@ include 'layout/header.php';
                                     <tr>
                                         <th style="min-width: 200px;" class="py-3 px-3">Item Name</th>
                                         <th class="text-center py-3">System Record</th>
-                                        <th class="text-center py-3" style="min-width: 220px;">Physical Count (Actual)</th>
+                                        <th class="text-center py-3" style="min-width: 220px;">Physical Count (This Week)</th>
                                         <th class="text-center py-3" style="min-width: 140px;">Discrepancy (+/-)</th>
                                     </tr>
                                 </thead>
