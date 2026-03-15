@@ -57,8 +57,7 @@ include 'layout/header.php';
     <div class="card border-0 shadow-sm p-3 p-md-4 bg-white">
         <div class="row align-items-center mb-4 g-3">
             <div class="col-12 col-md-8 text-center text-md-start">
-                <h4 class="mb-0 fw-bold text-dark"><i class="bi bi-buildings me-2 text-primary"></i>Suppliers Database</h4>
-                <small class="text-muted">Manage vendor information and contact details.</small>
+                <h4 class="mb-0 fw-bold text-dark"><i class="bi bi-buildings me-2 text-primary"></i>Suppliers</h4>
             </div>
             
             <?php if (in_array($role, ['admin', 'purchasing'])): ?>

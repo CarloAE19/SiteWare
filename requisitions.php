@@ -148,7 +148,6 @@ include 'layout/header.php';
         <div class="row align-items-center mb-4 g-3">
             <div class="col-12 col-xl-4 text-center text-xl-start">
                 <h4 class="mb-0 fw-bold text-dark"><i class="bi bi-ui-checks me-2 text-primary"></i>Requisition Slips</h4>
-                <small class="text-muted">Manage material requests and digital workflow.</small>
             </div>
             
             <div class="col-12 col-xl-8">

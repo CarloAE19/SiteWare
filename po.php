@@ -116,7 +116,6 @@ include 'layout/header.php';
         <div class="row align-items-center mb-4 g-3">
             <div class="col-12 col-xl-5 text-center text-xl-start">
                 <h4 class="mb-0 fw-bold text-dark"><i class="bi bi-file-earmark-text me-2 text-primary"></i>Purchase Orders</h4>
-                <small class="text-muted">Manage procurement, track deliveries, and process Stock In.</small>
             </div>
             
             <div class="col-12 col-xl-7">
