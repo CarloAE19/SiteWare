@@ -1,0 +1,206 @@
+/* =====================================================================
+   AUDIT PAGE — Mobile Responsive Card Styles
+   GB Construction & Enterprise Smart Inventory System
+   ===================================================================== */
+
+/* =============================================
+   HISTORY TABLE — Label+Value Card Layout
+   ============================================= */
+@media (max-width: 767.98px) {
+    .table-responsive {
+        overflow-x: hidden !important;
+        border: none !important;
+        box-shadow: none !important;
+        background: transparent !important;
+    }
+
+    /* --- History Table --- */
+    #historyTable { display: block; width: 100%; background: transparent !important; }
+    #historyTable thead { display: none; }
+    #historyTable tbody { display: block; width: 100%; }
+
+    #historyTable tbody tr {
+        display: flex;
+        flex-direction: column;
+        border: none;
+        border-radius: 16px;
+        margin-bottom: 1rem;
+        background: #fff;
+        padding: 0;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+        overflow: hidden;
+    }
+
+    /* Audit Month — highlighted header row */
+    #historyTable tbody td[data-label="Audit Month"] {
+        display: block;
+        background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%);
+        color: #fff !important;
+        font-size: 1.05rem;
+        font-weight: 800;
+        padding: 12px 16px;
+        border: none;
+        text-align: left;
+    }
+    #historyTable tbody td[data-label="Audit Month"]::before { display: none; }
+
+    /* Remaining rows */
+    #historyTable tbody td {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 16px;
+        border: none;
+        border-bottom: 1px solid #f0f0f0;
+        text-align: right;
+        white-space: normal !important;
+        word-break: break-word;
+    }
+    #historyTable tbody td::before {
+        content: attr(data-label);
+        font-weight: 700;
+        font-size: 0.72rem;
+        color: #6c757d;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        text-align: left;
+        flex-shrink: 0;
+        padding-right: 12px;
+    }
+
+    /* Actions cell */
+    #historyTable tbody td[data-label="Actions"] {
+        border-bottom: none;
+        justify-content: center !important;
+        padding: 14px 16px;
+    }
+    #historyTable tbody td[data-label="Actions"]::before { display: none; }
+    #historyTable tbody td[data-label="Actions"] .btn {
+        width: 100%;
+        justify-content: center;
+    }
+
+    /* =============================================
+       RECOUNT TABLE — Inventory Item Card
+       ============================================= */
+    #recountTable { display: block; width: 100%; background: transparent !important; }
+    #recountTable thead { display: none; }
+    #recountTable tbody { display: block; width: 100%; }
+
+    #recountTable tbody tr {
+        display: flex;
+        flex-wrap: wrap;
+        border: none;
+        border-radius: 16px;
+        margin-bottom: 1rem;
+        background: #fff;
+        padding: 0;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+        overflow: hidden;
+    }
+
+    /* Visual reorder: Item → System | Discrepancy → Physical Input */
+    #recountTable tbody td[data-label="Item Name"]      { order: 1; }
+    #recountTable tbody td[data-label="System Record"]  { order: 2; }
+    #recountTable tbody td[data-label="Physical Count"] { order: 4; }
+    #recountTable tbody td[data-label="Discrepancy"]    { order: 3; }
+
+    /* Item Name — full-width dark header */
+    #recountTable tbody td[data-label="Item Name"] {
+        flex: 0 0 100%;
+        display: block;
+        background: #212529;
+        color: #fff !important;
+        padding: 12px 16px;
+        border: none;
+        text-align: left;
+    }
+    #recountTable tbody td[data-label="Item Name"]::before { display: none; }
+    #recountTable tbody td[data-label="Item Name"] .text-end { text-align: left !important; }
+    /* Force item name & code text to white — overrides Bootstrap's text-dark class */
+    #recountTable tbody td[data-label="Item Name"] span,
+    #recountTable tbody td[data-label="Item Name"] small {
+        color: #ffffff !important;
+    }
+
+    /* System Record — left 50% */
+    #recountTable tbody td[data-label="System Record"] {
+        flex: 0 0 50%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 12px 10px;
+        background: #f8f9fa;
+        border: none;
+        border-right: 1px solid #e9ecef;
+        border-bottom: 1px solid #e9ecef;
+        text-align: center;
+    }
+    #recountTable tbody td[data-label="System Record"]::before {
+        content: "📋 System Qty";
+        font-weight: 700;
+        font-size: 0.68rem;
+        color: #6c757d;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: 4px;
+        display: block;
+    }
+    #recountTable tbody td[data-label="System Record"] .text-end { text-align: center !important; }
+
+    /* Discrepancy — right 50% */
+    #recountTable tbody td[data-label="Discrepancy"] {
+        flex: 0 0 50%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 12px 10px;
+        border: none;
+        border-bottom: 1px solid #e9ecef;
+        text-align: center;
+    }
+    #recountTable tbody td[data-label="Discrepancy"]::before {
+        content: "⚖️ Difference";
+        font-weight: 700;
+        font-size: 0.68rem;
+        color: #6c757d;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: 4px;
+        display: block;
+    }
+    #recountTable tbody td[data-label="Discrepancy"] .badge {
+        width: 100%;
+        font-size: 0.78rem !important;
+    }
+
+    /* Physical Count input — full width at bottom */
+    #recountTable tbody td[data-label="Physical Count"] {
+        flex: 0 0 100%;
+        display: block;
+        padding: 14px 16px;
+        border: none;
+        text-align: center;
+    }
+    #recountTable tbody td[data-label="Physical Count"]::before {
+        content: "✏️ Enter Physical Count";
+        display: block;
+        font-weight: 700;
+        font-size: 0.72rem;
+        color: #0d6efd;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        margin-bottom: 8px;
+        text-align: left;
+    }
+    #recountTable tbody td[data-label="Physical Count"] .input-group {
+        min-width: unset !important;
+        max-width: 100% !important;
+        margin: 0 !important;
+    }
+    #recountTable tbody td[data-label="Physical Count"] .form-control {
+        font-size: 1.3rem !important;
+    }
+}
