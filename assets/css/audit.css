@@ -15,9 +15,20 @@
     }
 
     /* --- History Table --- */
-    #historyTable { display: block; width: 100%; background: transparent !important; }
-    #historyTable thead { display: none; }
-    #historyTable tbody { display: block; width: 100%; }
+    #historyTable {
+        display: block;
+        width: 100%;
+        background: transparent !important;
+    }
+
+    #historyTable thead {
+        display: none;
+    }
+
+    #historyTable tbody {
+        display: block;
+        width: 100%;
+    }
 
     #historyTable tbody tr {
         display: flex;
@@ -27,14 +38,14 @@
         margin-bottom: 1rem;
         background: #fff;
         padding: 0;
-        box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
         overflow: hidden;
     }
 
     /* Audit Month — highlighted header row */
     #historyTable tbody td[data-label="Audit Month"] {
         display: block;
-        background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%);
+        background: #212529; /* Changed to match PC layout table-dark header */
         color: #fff !important;
         font-size: 1.05rem;
         font-weight: 800;
@@ -42,7 +53,10 @@
         border: none;
         text-align: left;
     }
-    #historyTable tbody td[data-label="Audit Month"]::before { display: none; }
+
+    #historyTable tbody td[data-label="Audit Month"]::before {
+        display: none;
+    }
 
     /* Remaining rows */
     #historyTable tbody td {
@@ -56,6 +70,7 @@
         white-space: normal !important;
         word-break: break-word;
     }
+
     #historyTable tbody td::before {
         content: attr(data-label);
         font-weight: 700;
@@ -74,7 +89,11 @@
         justify-content: center !important;
         padding: 14px 16px;
     }
-    #historyTable tbody td[data-label="Actions"]::before { display: none; }
+
+    #historyTable tbody td[data-label="Actions"]::before {
+        display: none;
+    }
+
     #historyTable tbody td[data-label="Actions"] .btn {
         width: 100%;
         justify-content: center;
@@ -83,9 +102,20 @@
     /* =============================================
        RECOUNT TABLE — Inventory Item Card
        ============================================= */
-    #recountTable { display: block; width: 100%; background: transparent !important; }
-    #recountTable thead { display: none; }
-    #recountTable tbody { display: block; width: 100%; }
+    #recountTable {
+        display: block;
+        width: 100%;
+        background: transparent !important;
+    }
+
+    #recountTable thead {
+        display: none;
+    }
+
+    #recountTable tbody {
+        display: block;
+        width: 100%;
+    }
 
     #recountTable tbody tr {
         display: flex;
@@ -95,15 +125,26 @@
         margin-bottom: 1rem;
         background: #fff;
         padding: 0;
-        box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
         overflow: hidden;
     }
 
     /* Visual reorder: Item → System | Discrepancy → Physical Input */
-    #recountTable tbody td[data-label="Item Name"]      { order: 1; }
-    #recountTable tbody td[data-label="System Record"]  { order: 2; }
-    #recountTable tbody td[data-label="Physical Count"] { order: 4; }
-    #recountTable tbody td[data-label="Discrepancy"]    { order: 3; }
+    #recountTable tbody td[data-label="Item Name"] {
+        order: 1;
+    }
+
+    #recountTable tbody td[data-label="System Record"] {
+        order: 2;
+    }
+
+    #recountTable tbody td[data-label="Physical Count"] {
+        order: 4;
+    }
+
+    #recountTable tbody td[data-label="Discrepancy"] {
+        order: 3;
+    }
 
     /* Item Name — full-width dark header */
     #recountTable tbody td[data-label="Item Name"] {
@@ -115,8 +156,15 @@
         border: none;
         text-align: left;
     }
-    #recountTable tbody td[data-label="Item Name"]::before { display: none; }
-    #recountTable tbody td[data-label="Item Name"] .text-end { text-align: left !important; }
+
+    #recountTable tbody td[data-label="Item Name"]::before {
+        display: none;
+    }
+
+    #recountTable tbody td[data-label="Item Name"] .text-end {
+        text-align: left !important;
+    }
+
     /* Force item name & code text to white — overrides Bootstrap's text-dark class */
     #recountTable tbody td[data-label="Item Name"] span,
     #recountTable tbody td[data-label="Item Name"] small {
@@ -137,6 +185,7 @@
         border-bottom: 1px solid #e9ecef;
         text-align: center;
     }
+
     #recountTable tbody td[data-label="System Record"]::before {
         content: "📋 System Qty";
         font-weight: 700;
@@ -147,7 +196,10 @@
         margin-bottom: 4px;
         display: block;
     }
-    #recountTable tbody td[data-label="System Record"] .text-end { text-align: center !important; }
+
+    #recountTable tbody td[data-label="System Record"] .text-end {
+        text-align: center !important;
+    }
 
     /* Discrepancy — right 50% */
     #recountTable tbody td[data-label="Discrepancy"] {
@@ -161,6 +213,7 @@
         border-bottom: 1px solid #e9ecef;
         text-align: center;
     }
+
     #recountTable tbody td[data-label="Discrepancy"]::before {
         content: "⚖️ Difference";
         font-weight: 700;
@@ -171,6 +224,7 @@
         margin-bottom: 4px;
         display: block;
     }
+
     #recountTable tbody td[data-label="Discrepancy"] .badge {
         width: 100%;
         font-size: 0.78rem !important;
@@ -184,6 +238,7 @@
         border: none;
         text-align: center;
     }
+
     #recountTable tbody td[data-label="Physical Count"]::before {
         content: "✏️ Enter Physical Count";
         display: block;
@@ -195,11 +250,13 @@
         margin-bottom: 8px;
         text-align: left;
     }
+
     #recountTable tbody td[data-label="Physical Count"] .input-group {
         min-width: unset !important;
         max-width: 100% !important;
         margin: 0 !important;
     }
+
     #recountTable tbody td[data-label="Physical Count"] .form-control {
         font-size: 1.3rem !important;
     }

@@ -138,22 +138,23 @@ window.buildTheCharts = function() {
         });
     }
 
-    // 2. DRAW OVERALL STOCK PIE CHART (Starts with Real Data for Native Circular Rotation!)
+    // 2. DRAW OVERALL STOCK PIE CHART (Starts from Zero, grows OUT)
     if (pieCtx && window.chartData.pieLabels.length > 0) {
+        let zeroPieData = window.chartData.pieData.map(() => 0); // Start array with zeros
         window.pieChartInstance = new Chart(pieCtx.getContext('2d'), {
             type: 'doughnut',
             data: {
-                labels: window.chartData.pieLabels, // Provided immediately
+                labels: window.chartData.pieLabels,
                 datasets: [{
-                    data: window.chartData.pieData, // Provided immediately
+                    data: zeroPieData, // Init with zeros for animation
                     backgroundColor: window.chartData.pieColors,
                     borderWidth: 2, borderColor: '#ffffff', hoverOffset: 6 
                 }]
             },
             options: {
                 responsive: true, maintainAspectRatio: false, 
-                // THE FIX: animateScale is false, animateRotate is true. This forces a pure circular sweep!
-                animation: { animateScale: false, animateRotate: true, duration: 2000, easing: 'easeOutQuart' },
+                // Changed to standard animateScale and animateRotate for a clean data-in animation
+                animation: { animateScale: true, animateRotate: true, duration: 2000, easing: 'easeOutQuart' },
                 cutout: '65%', layout: { padding: 15 }, 
                 plugins: { legend: { position: 'right', labels: { usePointStyle: true, pointStyle: 'circle', boxWidth: 8, font: { size: 11 } } }, tooltip: { callbacks: { label: function(context) { return ' ' + context.label + ': ' + context.raw + ' in stock'; } } } }
             }
@@ -185,7 +186,7 @@ window.buildTheCharts = function() {
 
     // ========================================================
     // TRIGGER BAR CHART ANIMATIONS
-    // Only update the BAR charts, leave the Pie chart alone so its rotation finishes!
+    // Update all charts including Pie chart to trigger the data-in animations!
     // ========================================================
     setTimeout(() => {
         if (window.pctChartInstance) {
@@ -195,6 +196,10 @@ window.buildTheCharts = function() {
         if (window.daysChartInstance) {
             window.daysChartInstance.data.datasets[0].data = window.chartData.daysLeftData;
             window.daysChartInstance.update(); 
+        }
+        if (window.pieChartInstance) {
+            window.pieChartInstance.data.datasets[0].data = window.chartData.pieData;
+            window.pieChartInstance.update(); 
         }
     }, 200); // Trigger slightly faster for a snappier feel
 

@@ -189,7 +189,7 @@ include 'layout/header.php';
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <!-- FIX 2: Load the external JS file FIRST before triggering it -->
-<script src="assets/js/analytics.js"></script>
+<script src="assets/js/analytics.js?v=<?= time() ?>"></script>
 
 <!-- PASS PHP DATA TO JAVASCRIPT EXTERNALLY -->
 <script>
