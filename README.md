@@ -9,7 +9,6 @@ An enterprise-grade, cloud-ready Construction Inventory Management System (CIMS)
 * **🧠 AI-Powered Analytics:** Integrates Google Gemini AI to analyze 30-day consumption data, predict inventory depletion, and recommend optimal restock dates.  
 * **📷 QR Code Integration:** Built-in HTML5 QR/Barcode scanning for rapid material receiving and withdrawal slip verification.  
 * **✉️ SMS Blaster Integration:** Automated SMS dispatching for Purchase Order tracking and logistics notifications to suppliers.  
-* **☔ Smart Logistics Tracking:** Logs weather/typhoon delays and instantly blasts push notifications to the Supply Chain Management team.  
 * **📊 Discrepancy Auditing:** Automated monthly physical count module that recalculates inventory and alerts administration of stock discrepancies.
 
 ## **👥 Role-Based Access Control (RBAC)**
