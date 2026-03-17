@@ -96,7 +96,7 @@
 <!-- ======================================================== -->
 <!-- MODAL: CREATE RS (ONLY REQUESTORS & WAREHOUSE)           -->
 <!-- ======================================================== -->
-<?php if (in_array($role, ['requestor', 'warehouse'])): ?>
+<?php if (in_array($role, ['requestor', 'warehouse', 'admin'])): ?>
 <div class="modal fade" id="rsModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
     <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content border-0 shadow-lg">

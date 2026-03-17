@@ -50,23 +50,8 @@ window.generateAIPrediction = async function(isManualClick) {
 
     const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 
-    const systemPrompt = `You are the GB Construction AI Restock Assistant. Today is ${today}.
-    Analyze this JSON data showing inventory items, current stock, daily burn rates, and consuming projects.
-    
-    CRITICAL INSTRUCTIONS TO SATISFY USE CASE 13.2 (Supplier Lead Time):
-    Rule 1: Always account for a "3 to 5 Day Supplier Lead Time". If stock runs out in 8 days, they must order in 3 days!
-    Rule 2: If Current_Stock is 0, the Recommended Restock Date must be "IMMEDIATELY". Recommend an order quantity of at least 50.
-    Rule 3: For any item with less than 20 days of stock left, calculate a specific 'Recommended Restock Date' (Lead Time considered).
-    Rule 4: Look at 'Consuming_Projects' and explicitly state WHICH project is driving the usage. If none, write "General Stock".
-    
-    Format output clearly in HTML using <ul> and <li>. NO MARKDOWN (**). 
-    Use exactly this format for critical items:
-    <li style="margin-bottom: 15px; padding: 10px; border-left: 4px solid #dc3545; background-color: #fff;">
-        <span style="font-size: 1.1rem; color: #dc3545;">⚠️ <strong>[Item Name]</strong></span> - [Reason: e.g. Out of Stock / Runs out in X days].
-        <br>🏢 <strong>Top Consumer:</strong> [Name of the Project]
-        <br>👉 <strong>Recommended Restock Date:</strong> [Specific Date] (Accounts for 5-day Lead Time)
-        <br>👉 <strong>Recommended Order Qty:</strong> [Calculated Number] [Unit]
-    </li>`;
+    let systemPrompt = window.systemPrompt || '';
+    systemPrompt = systemPrompt.replace(/\\n/g, '\n').replace('{TODAY}', today);
 
     const userMessage = JSON.stringify(window.aiPayload); 
     const apiKey = window.apiKey; 

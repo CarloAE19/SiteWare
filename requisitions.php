@@ -172,7 +172,7 @@ include 'layout/header.php';
                         </ul>
                     </div>
                     
-                    <?php if (in_array($role, ['requestor', 'warehouse'])): ?>
+                    <?php if (in_array($role, ['requestor', 'warehouse', 'admin'])): ?>
                     <div>
                         <button class="btn btn-brand btn-sm fw-bold text-nowrap shadow-sm px-3" data-bs-toggle="modal" data-bs-target="#rsModal">
                             <i class="bi bi-plus-lg me-1"></i> Create RS

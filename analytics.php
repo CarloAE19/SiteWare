@@ -195,6 +195,7 @@ include 'layout/header.php';
 <script>
     window.aiPayload = <?= json_encode($aiPayload) ?>;
     window.apiKey = "<?= defined('AI_API_KEY') ? AI_API_KEY : '' ?>"; 
+    window.systemPrompt = <?= defined('AI_SYSTEM_PROMPT') ? json_encode(AI_SYSTEM_PROMPT) : '""' ?>; 
     
     window.chartData = {
         chartLabels: <?= json_encode($chartLabels) ?>,

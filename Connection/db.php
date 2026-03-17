@@ -16,6 +16,9 @@ $dbname = $_ENV['DB_NAME'] ?? 'construction_inventory';
 if (!defined('AI_API_KEY') && isset($_ENV['AI_API_KEY'])) {
     define('AI_API_KEY', $_ENV['AI_API_KEY']);
 }
+if (!defined('AI_SYSTEM_PROMPT') && isset($_ENV['AI_SYSTEM_PROMPT'])) {
+    define('AI_SYSTEM_PROMPT', trim($_ENV['AI_SYSTEM_PROMPT'], '"\''));
+}
 
 try {
     // Connect to MySQL server (Without DB name first, to allow creation)
