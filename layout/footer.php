@@ -1,14 +1,14 @@
 <!-- ========================================== -->
-        <!-- SYSTEM FOOTER -->
-        <!-- ========================================== -->
-        <footer class="app-footer">
-            <div class="text-muted small">
-                <span class="fw-bold">Copyright &copy; <?= date('Y') ?> Genetian Builders & Enterprises inc.</span>
-                <span style="opacity: 0.8;"> | Powered by The Medyas &bull; Capstone Project</span>
-            </div>
-        </footer>
+<!-- SYSTEM FOOTER -->
+<!-- ========================================== -->
+<footer class="app-footer">
+    <div class="text-muted small">
+        <span class="fw-bold">Copyright &copy; <?= date('Y') ?> Genetian Builders & Enterprises inc.</span>
+        <span style="opacity: 0.8;"> | Powered by <a href="about" class="text-decoration-none text-blue fw-bold">The Medyas</a> &bull; Capstone Project</span>
+    </div>
+</footer>
 
-    </div> <!-- End #content wrapper opened in header.php -->
+</div> <!-- End #content wrapper opened in header.php -->
 </div> <!-- End .wrapper opened in header.php -->
 
 <!-- Bootstrap 5 JS Bundle with Popper -->
@@ -29,4 +29,5 @@
 <script src="assets/js/fcm.js"></script>
 
 </body>
+
 </html>

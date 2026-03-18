@@ -30,7 +30,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const link = e.target.closest('a');
         if (!link) return;
 
-        if (!link.closest('#sidebar') && !link.closest('.top-navbar')) return;
+        if (!link.closest('#sidebar') && !link.closest('.top-navbar') && !link.closest('.app-footer')) return;
 
         const url = link.getAttribute('href');
         

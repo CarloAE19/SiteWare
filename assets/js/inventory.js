@@ -190,7 +190,17 @@ document.body.addEventListener('hidden.bs.modal', function (e) {
 window.showItemQR = function(itemCode, itemName) {
     document.getElementById('qrItemCode').innerText = itemCode;
     document.getElementById('qrItemName').innerText = itemName;
-    document.getElementById('qrItemImg').src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${itemCode}`;
+    
+    const qrImg = document.getElementById('qrItemImg');
+    const qrLogoImg = document.getElementById('qrLogoImg');
+    
+    if (qrLogoImg) qrLogoImg.classList.add('d-none');
+    
+    qrImg.onload = function() {
+        if (qrLogoImg) qrLogoImg.classList.remove('d-none');
+    };
+    
+    qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${itemCode}&ecc=H`;
     const modalEl = document.getElementById('itemQrModal');
     if (modalEl) new bootstrap.Modal(modalEl).show();
 };
