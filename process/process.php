@@ -10,6 +10,13 @@ if (!isset($_SESSION['user_id'])) {
 // === 2. LOAD DEPENDENCIES ===
 require_once '../Connection/db.php';
 
+// Fallback stub for Push Notifications to prevent undefined function errors
+if (!function_exists('sendPushNotification')) {
+    function sendPushNotification($pdo, $title, $message, $target_role, $target_user = null) {
+        // Implementation for actual FCM/external push api goes here
+    }
+}
+
 // === 3. MODULE ROUTER ===
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
@@ -24,7 +31,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             require 'module_users.php';
         }
         // FIXED: Added 'fetch_rs_data' right here so the Scanner can communicate with the backend!
-        elseif (in_array($action, ['create_rs', 'approve_rs', 'reject_rs', 'create_po', 'mark_po_delivered', 'send_po_sms', 'log_po_delay', 'create_withdrawal', 'fetch_rs_data'])) {
+        elseif (in_array($action, ['create_rs', 'approve_rs', 'reject_rs', 'create_po', 'mark_po_delivered', 'send_po_sms', 'log_po_delay', 'create_withdrawal', 'fetch_rs_data', 'fetch_rs_with_history', 'fetch_po_items'])) {
             require 'module_transactions.php';
         } elseif ($action === 'submit_audit') {
             require 'module_audit.php';

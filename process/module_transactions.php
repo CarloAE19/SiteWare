@@ -95,6 +95,71 @@ elseif ($action === 'create_rs') {
     exit;
 }
 
+// --- AJAX: FETCH RS ITEMS WITH SUPPLIER HISTORY ---
+elseif ($action === 'fetch_rs_with_history') {
+    if (!in_array($_SESSION['user_role'], ['purchasing', 'admin'])) {
+        echo json_encode(['status' => 'error', 'message' => 'Unauthorized.']); exit;
+    }
+
+    $rs_id = $_POST['rs_id'] ?? 0;
+    
+    // Fetch items requested in this RS
+    $stmt = $pdo->prepare("
+        SELECT ri.item_code, ri.quantity, i.item_name 
+        FROM requisition_items ri 
+        LEFT JOIN inventory i ON ri.item_code = i.item_code 
+        WHERE ri.requisition_id = ?
+    ");
+    $stmt->execute([$rs_id]);
+    $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    // For each item, look for the most recent PO supplier
+    foreach ($items as &$item) {
+        $histStmt = $pdo->prepare("
+            SELECT s.company_name, po.created_at 
+            FROM po_items pi 
+            JOIN purchase_orders po ON pi.po_id = po.id 
+            JOIN suppliers s ON po.supplier_id = s.id 
+            WHERE pi.item_code = ? AND po.status != 'Generated'
+            ORDER BY po.created_at DESC LIMIT 1
+        ");
+        $histStmt->execute([$item['item_code']]);
+        $history = $histStmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($history) {
+            $item['last_supplier'] = $history['company_name'];
+            $item['last_purchased'] = date('M d, Y', strtotime($history['created_at']));
+        } else {
+            $item['last_supplier'] = '<span class="text-muted fst-italic">No History</span>';
+            $item['last_purchased'] = '';
+        }
+    }
+
+    echo json_encode(['status' => 'success', 'items' => $items]);
+    exit;
+}
+
+// --- AJAX: FETCH PO ITEMS FOR RECEIVING MODAL ---
+elseif ($action === 'fetch_po_items') {
+    if (!in_array($_SESSION['user_role'], ['warehouse', 'admin'])) {
+        echo json_encode(['status' => 'error', 'message' => 'Unauthorized.']); exit;
+    }
+    
+    $po_id = $_POST['po_id'] ?? 0;
+    
+    $stmt = $pdo->prepare("
+        SELECT pi.item_code, pi.quantity as expected_qty, i.item_name 
+        FROM po_items pi 
+        JOIN inventory i ON pi.item_code = i.item_code 
+        WHERE pi.po_id = ?
+    ");
+    $stmt->execute([$po_id]);
+    $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    echo json_encode(['status' => 'success', 'items' => $items]);
+    exit;
+}
+
 // --- PURCHASE ORDERS (PO) ---
 elseif ($action === 'create_po') {
     if (!in_array($_SESSION['user_role'], ['purchasing', 'admin'])) throw new Exception("Unauthorized action.");
@@ -139,16 +204,11 @@ elseif ($action === 'create_po') {
     $po_id = $_POST['po_id'];
     $po_no = $_POST['po_no'];
     
-    // ========================================================================
-    // NEW: AUTOMATED STOCK IN SYSTEM
-    // ========================================================================
+    $item_codes = $_POST['item_codes'] ?? [];
+    $actual_qtys = $_POST['actual_qtys'] ?? [];
+    $expected_qtys = $_POST['expected_qtys'] ?? [];
     
-    // 1. Fetch all items requested in this PO
-    $stmt = $pdo->prepare("SELECT item_code, quantity FROM po_items WHERE po_id = ?");
-    $stmt->execute([$po_id]);
-    $po_items = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    
-    // 2. Prepare dynamic addition query. It adds PO quantity to existing Inventory quantity!
+    // 1. Prepare dynamic addition query. It adds Actual received to existing Inventory.
     $updateInv = $pdo->prepare("
         UPDATE inventory 
         SET quantity = quantity + ?, 
@@ -159,22 +219,58 @@ elseif ($action === 'create_po') {
         WHERE item_code = ?
     ");
     
-    // 3. Loop through every item and ADD it to inventory automatically
-    foreach($po_items as $item) {
-        $updateInv->execute([$item['quantity'], $item['quantity'], $item['item_code']]);
+    $discrepancyLog = "";
+    $hasDiscrepancy = false;
+    
+    for ($i = 0; $i < count($item_codes); $i++) {
+        $actual = (int)($actual_qtys[$i] ?? 0);
+        $expected = (int)($expected_qtys[$i] ?? 0);
+        $code = $item_codes[$i];
+        
+        if ($actual != $expected) {
+            $hasDiscrepancy = true;
+            $nameStmt = $pdo->prepare("SELECT item_name FROM inventory WHERE item_code = ?");
+            $nameStmt->execute([$code]);
+            $itemName = $nameStmt->fetchColumn() ?: $code;
+            $discrepancyLog .= "\n- {$itemName} [Code: {$code}]: Expected {$expected}, Received {$actual}";
+        }
+        
+        // Add only the ACTUAL things physically received!
+        if ($actual > 0) {
+            $updateInv->execute([$actual, $actual, $code]);
+        }
     }
 
-    // ========================================================================
+    if ($hasDiscrepancy) {
+        $cleanDesc = trim($discrepancyLog);
+        
+        // Mark as Delivered but with a red flag Warning Discrepancy
+        $pdo->prepare("UPDATE purchase_orders SET status = 'Delivered (Discrepancy)', delay_remarks = CONCAT(IFNULL(delay_remarks,''), '\n\n[DELIVERY DISCREPANCY]:\n', ?) WHERE id = ?")->execute([$cleanDesc, $po_id]);
+        
+        $alertMsg = "DISCREPANCY ALERT for {$po_no}: Order arrived physically with missing or excess items!{$discrepancyLog}";
+        $pdo->prepare("INSERT INTO notifications (target_role, title, message) VALUES ('purchasing', 'PO Discrepancy Found', ?)")->execute([$alertMsg]);
+        $pdo->prepare("INSERT INTO notifications (target_role, title, message) VALUES ('management', 'PO Receiving Discrepancy', ?)")->execute([$alertMsg]);
+        $pdo->prepare("INSERT INTO notifications (target_role, title, message) VALUES ('admin', 'PO Discrepancy Alert', ?)")->execute([$alertMsg]);
+        
+        if (function_exists('sendPushNotification')) {
+            sendPushNotification($pdo, 'PO Discrepancy Found', $alertMsg, 'management', null);
+            sendPushNotification($pdo, 'PO Discrepancy Found', $alertMsg, 'purchasing', null);
+        }
+        
+        $_SESSION['message'] = "Stock In partial/discrepancy recorded! Management has been notified of the mismatch.";
+        $_SESSION['msg_type'] = "warning";
+    } else {
+        // Perfect Delivery - Mark strictly as Delivered normally
+        $pdo->prepare("UPDATE purchase_orders SET status = 'Delivered' WHERE id = ?")->execute([$po_id]);
+        
+        $alertMsg = "Order {$po_no} has arrived complete. Exactly correct quantities successfully STOCKED IN to Master Inventory.";
+        $pdo->prepare("INSERT INTO notifications (target_role, title, message) VALUES ('purchasing', 'PO Delivered & Verified', ?)")->execute([$alertMsg]);
+        $pdo->prepare("INSERT INTO notifications (target_role, title, message) VALUES ('management', 'PO Delivered & Verified', ?)")->execute([$alertMsg]);
 
-    // 4. Mark the PO as officially delivered
-    $pdo->prepare("UPDATE purchase_orders SET status = 'Delivered' WHERE id = ?")->execute([$po_id]);
-    
-    $alertMsg = "Order {$po_no} has arrived. Items have been successfully STOCKED IN to the Master Inventory.";
-    $pdo->prepare("INSERT INTO notifications (target_role, title, message) VALUES ('purchasing', 'PO Delivered & Stocked In', ?)")->execute([$alertMsg]);
-    $pdo->prepare("INSERT INTO notifications (target_role, title, message) VALUES ('management', 'PO Delivered & Stocked In', ?)")->execute([$alertMsg]);
+        $_SESSION['message'] = "Stock In Successful! Delivered physical items perfectly matched the ordered blueprint.";
+        $_SESSION['msg_type'] = "success";
+    }
 
-    $_SESSION['message'] = "Stock In Successful! Delivered items are now added to Master Inventory.";
-    $_SESSION['msg_type'] = "success";
     header("Location: ../po");
     exit;
 
@@ -186,12 +282,41 @@ elseif ($action === 'create_po') {
     $po_id = $_POST['po_id'];
     $po_no = $_POST['po_no'];
     $company = $_POST['company'];
+    $phone = $_POST['contact_number'] ?? '';
     
-    usleep(1500000); // Simulate SMS
+    // 1. Fetch Items for the SMS
+    $stmt = $pdo->prepare("SELECT pi.quantity, i.item_name FROM po_items pi JOIN inventory i ON pi.item_code = i.item_code WHERE pi.po_id = ?");
+    $stmt->execute([$po_id]);
+    $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $itemList = "";
+    foreach ($items as $item) {
+        $itemList .= "- {$item['quantity']}x {$item['item_name']}\n";
+    }
+
+    $smsMessage = "GB Construction PO: {$po_no}\nItems to purchase:\n{$itemList}\nIf you have any concerns or clarifications text or email here";
+
+    // 2. Generic API implementation placeholder (cURL to SMS API)
+    // Configure this section with your actual SMS Blaster API details!
+    /*
+    $ch = curl_init('https://api.smsblaster.example/send'); // Replace with actual API endpoint
+    curl_setopt($ch, CURLOPT_POST, 1);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query([
+        'api_key' => 'YOUR_API_KEY', // Check .env if necessary
+        'number' => $phone,
+        'message' => $smsMessage
+    ]));
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    $response = curl_exec($ch);
+    curl_close($ch);
+    */
+
+    usleep(1500000); // Simulate SMS processing delay
+    
     $pdo->prepare("UPDATE purchase_orders SET status = 'SMS Sent' WHERE id = ?")->execute([$po_id]);
     
     $notif = $pdo->prepare("INSERT INTO notifications (target_role, title, message) VALUES ('management', 'SMS Order Sent', ?)");
-    $notif->execute(["Automated SMS was sent to {$company} for {$po_no}."]);
+    $notif->execute(["Automated SMS was sent to {$company} for {$po_no} with verified item list."]);
 
     echo json_encode(['status' => 'success']);
     exit;

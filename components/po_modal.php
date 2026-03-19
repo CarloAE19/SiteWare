@@ -26,13 +26,32 @@ $approvedRS = $pdo->query("SELECT id, rs_no, project_name FROM requisitions WHER
                     
                     <div class="mb-4">
                         <label class="form-label fw-bold small text-muted text-uppercase">Select Approved Requisition (RS) <span class="text-danger">*</span></label>
-                        <select class="form-select fw-bold shadow-sm" name="rs_id" required>
+                        <select class="form-select fw-bold shadow-sm" name="rs_id" id="poRsSelect" required>
                             <option value="" disabled selected>-- Select an Approved RS --</option>
                             <?php foreach ($approvedRS as $rs): ?>
                                 <option value="<?= $rs['id'] ?>"><?= $rs['rs_no'] ?> - <?= htmlspecialchars($rs['project_name']) ?></option>
                             <?php endforeach; ?>
                         </select>
                         <small class="text-muted d-block mt-2" style="font-size: 0.75rem;"><i class="bi bi-info-circle me-1"></i>Only RS approved by Management appear here.</small>
+                    </div>
+
+                    <!-- NEW: Item History Preview -->
+                    <div class="mb-4 d-none" id="rsItemsPreviewContainer">
+                        <label class="form-label fw-bold small text-muted text-uppercase">Items to Purchase & History</label>
+                        <div class="table-responsive border rounded shadow-sm bg-white">
+                            <table class="table table-sm table-hover align-middle mb-0 text-nowrap" style="font-size: 0.85rem;">
+                                <thead class="table-light text-muted">
+                                    <tr>
+                                        <th>Item Name</th>
+                                        <th class="text-center">Qty</th>
+                                        <th>Past Supplier</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="rsItemsPreviewBody">
+                                    <!-- Populated via AJAX -->
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
 
                     <div class="mb-2">
@@ -95,6 +114,79 @@ $approvedRS = $pdo->query("SELECT id, rs_no, project_name FROM requisitions WHER
                     <button type="submit" class="btn btn-danger btn-sm fw-bold shadow-sm px-3"><i class="bi bi-exclamation-triangle-fill me-1"></i> Submit Alert</button>
                 </div>
             </form>
+        </div>
+    </div>
+</div>
+
+<!-- ==========================================
+  3. MODAL: RECEIVE PO / VERIFY DISCREPANCY
+=========================================== -->
+<div class="modal fade" id="receiveModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 shadow-lg border-top border-success border-4">
+            <div class="modal-header bg-white">
+                <h5 class="modal-title text-success fw-bold"><i class="bi bi-box-seam me-2"></i>Verify Stock In (Delivery Receipt)</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="process/process.php" id="receiveForm">
+                <div class="modal-body p-4 bg-light">
+                    <input type="hidden" name="action" value="mark_po_delivered">
+                    <input type="hidden" name="po_id" id="receivePoId">
+                    <input type="hidden" name="po_no" id="receivePoNo">
+                    
+                    <div class="alert alert-warning px-3 py-2 mb-4 shadow-sm" style="font-size: 0.85rem; border-left: 3px solid #ffc107;">
+                        <i class="bi bi-exclamation-circle-fill me-1"></i> <strong>Attention Warehouse:</strong> Physically count the items against the manifest. Any mismatch from the expected quantity will automatically trigger a Discrepancy Alert to Management.
+                    </div>
+
+                    <div class="table-responsive border rounded shadow-sm bg-white mb-2">
+                        <table class="table table-hover align-middle mb-0 text-nowrap">
+                            <thead class="table-light text-muted" style="font-size: 0.8rem;">
+                                <tr>
+                                    <th>Item Code</th>
+                                    <th>Item Name</th>
+                                    <th class="text-center">Expected Qty</th>
+                                    <th class="text-center" style="width: 150px;">Actual Received Qty</th>
+                                </tr>
+                            </thead>
+                            <tbody id="receiveItemsBody">
+                                <!-- Populated dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="modal-footer justify-content-between bg-white p-3 border-top-0">
+                    <button type="button" class="btn btn-light text-muted fw-bold px-4" data-bs-dismiss="modal">Cancel Delivery</button>
+                    <button type="submit" class="btn btn-success fw-bold px-4 shadow-sm" id="confirmReceiveBtn"><i class="bi bi-check2-all me-1"></i>Confirm & Stock In</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- ==========================================
+  4. MODAL: VIEW DISCREPANCY DETAILS
+=========================================== -->
+<div class="modal fade" id="discrepancyModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg border-top border-danger border-4">
+            <div class="modal-header bg-white">
+                <h5 class="modal-title text-danger fw-bold"><i class="bi bi-exclamation-octagon-fill me-2"></i>Discrepancy Log</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4 bg-light">
+                <div class="d-flex justify-content-between align-items-center pb-3 border-bottom mb-3">
+                    <span class="text-muted fw-bold text-uppercase small"><i class="bi bi-file-earmark-text me-1"></i>Purchase Order</span>
+                    <span id="discPoNo" class="fw-bold text-dark fs-6 bg-white px-3 py-1 rounded shadow-sm border"></span>
+                </div>
+                
+                <h6 class="fw-bold text-secondary mb-2 small text-uppercase pb-1">Activity & Log Details</h6>
+                <div class="p-3 bg-white border border-danger border-opacity-25 rounded shadow-sm" style="max-height: 350px; overflow-y: auto;">
+                    <div id="discRemarks" class="text-dark" style="font-size: 0.95rem; white-space: pre-wrap; line-height: 1.7;"></div>
+                </div>
+            </div>
+            <div class="modal-footer bg-light border-0">
+                <button type="button" class="btn btn-secondary fw-bold px-4 shadow-sm" data-bs-dismiss="modal">Close</button>
+            </div>
         </div>
     </div>
 </div>

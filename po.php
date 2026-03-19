@@ -195,16 +195,21 @@ include 'layout/header.php';
                                         </button>
                                     <?php endif; ?>
 
-                                    <?php if (in_array($role, ['admin', 'warehouse']) && $po['status'] !== 'Delivered'): ?>
+                                    <?php if (in_array($role, ['admin', 'warehouse']) && $po['status'] !== 'Delivered' && $po['status'] !== 'Delivered (Discrepancy)'): ?>
                                         <!-- WAREHOUSE ACTION: Receive Order (STOCK IN) -->
-                                        <form method="POST" action="process/process.php" class="d-inline" onsubmit="return confirm('Confirm Stock In? This will automatically add all items from this Purchase Order into the Master Inventory.');">
-                                            <input type="hidden" name="action" value="mark_po_delivered">
-                                            <input type="hidden" name="po_id" value="<?= $po['id'] ?>">
-                                            <input type="hidden" name="po_no" value="<?= $po['po_no'] ?>">
-                                            <button type="submit" class="btn btn-sm btn-success fw-bold shadow-sm me-1">
-                                                <i class="bi bi-box-arrow-in-down"></i> <span class="d-none d-md-inline ms-1">Receive</span>
-                                            </button>
-                                        </form>
+                                        <button type="button" class="btn btn-sm btn-success fw-bold shadow-sm me-1" onclick="openReceiveModal(<?= $po['id'] ?>, '<?= $po['po_no'] ?>')">
+                                            <i class="bi bi-box-arrow-in-down"></i> <span class="d-none d-md-inline ms-1">Receive</span>
+                                        </button>
+                                    <?php endif; ?>
+
+                                    <?php if (in_array($role, ['admin', 'management', 'purchasing']) && $po['status'] === 'Delivered (Discrepancy)'): ?>
+                                        <!-- VIEW DISCREPANCY BUTTON -->
+                                        <button type="button" class="btn btn-sm btn-danger fw-bold shadow-sm me-1" title="View Discrepancy" 
+                                                data-pono="<?= htmlspecialchars($po['po_no']) ?>"
+                                                data-remarks="<?= htmlspecialchars($po['delay_remarks'] ?? 'No remarks provided.') ?>"
+                                                onclick="viewDiscrepancy(this)">
+                                            <i class="bi bi-search"></i> <span class="d-none d-md-inline ms-1">View Issue</span>
+                                        </button>
                                     <?php endif; ?>
                                     
                                     <button class="btn btn-sm btn-outline-secondary shadow-sm" title="View/Print PO"><i class="bi bi-printer"></i></button>
@@ -225,6 +230,130 @@ include 'layout/header.php';
 
 <!-- SPA-PROOF JAVASCRIPT LOGIC -->
 <script>
+// ==========================================
+// NEW: FETCH RS ITEMS & SUPPLIER HISTORY
+// ==========================================
+document.addEventListener('DOMContentLoaded', function() {
+    const rsSelect = document.getElementById('poRsSelect');
+    if (rsSelect) {
+        rsSelect.addEventListener('change', async function() {
+            const rsId = this.value;
+            if (!rsId) return;
+
+            const container = document.getElementById('rsItemsPreviewContainer');
+            const tbody = document.getElementById('rsItemsPreviewBody');
+            
+            tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted py-3"><div class="spinner-border spinner-border-sm me-2"></div> Loading items...</td></tr>';
+            container.classList.remove('d-none');
+
+            let formData = new FormData();
+            formData.append('action', 'fetch_rs_with_history');
+            formData.append('rs_id', rsId);
+
+            try {
+                const response = await fetch('process/process.php', { method: 'POST', body: formData });
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    tbody.innerHTML = '';
+                    if (data.items.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted py-2"><i class="bi bi-info-circle me-1"></i> No items found.</td></tr>';
+                        return;
+                    }
+                    data.items.forEach(item => {
+                        const tr = document.createElement('tr');
+                        const supplierText = item.last_purchased ? 
+                            `<span class="text-primary fw-bold" style="font-size: 0.8rem;">${item.last_supplier} <br><small class="text-muted fw-normal">${item.last_purchased}</small></span>` : 
+                            `${item.last_supplier}`;
+                            
+                        tr.innerHTML = `
+                            <td class="fw-bold text-dark text-wrap">${item.item_name}</td>
+                            <td class="text-center fw-bold text-danger">${item.quantity}</td>
+                            <td>${supplierText}</td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                } else {
+                    tbody.innerHTML = `<tr><td colspan="3" class="text-center text-danger py-2">Error: ${data.message}</td></tr>`;
+                }
+            } catch (e) {
+                tbody.innerHTML = `<tr><td colspan="3" class="text-center text-danger py-2">Network Error: Could not fetch RS items.</td></tr>`;
+            }
+        });
+    }
+});
+
+// ==========================================
+// NEW: RECEIVE MODAL LOGIC (Discrepancy Checks)
+// ==========================================
+window.openReceiveModal = async function(id, po_no) {
+    document.getElementById('receivePoId').value = id;
+    document.getElementById('receivePoNo').value = po_no;
+    
+    const tbody = document.getElementById('receiveItemsBody');
+    tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-4"><div class="spinner-border text-success spinner-border-sm me-2"></div> Fetching Manifest...</td></tr>';
+    
+    var myModalEl = document.getElementById('receiveModal');
+    var receiveModal = bootstrap.Modal.getInstance(myModalEl);
+    if (!receiveModal) receiveModal = new bootstrap.Modal(myModalEl);
+    receiveModal.show();
+
+    let formData = new FormData();
+    formData.append('action', 'fetch_po_items');
+    formData.append('po_id', id);
+
+    try {
+        const response = await fetch('process/process.php', { method: 'POST', body: formData });
+        const data = await response.json();
+        
+        if (data.status === 'success') {
+            tbody.innerHTML = '';
+            if (data.items.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-4">No items linked to this manifest.</td></tr>';
+                document.getElementById('confirmReceiveBtn').disabled = true;
+                return;
+            }
+            
+            document.getElementById('confirmReceiveBtn').disabled = false;
+            
+            data.items.forEach(item => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="fw-bold text-muted" style="font-size: 0.8rem;">
+                        ${item.item_code}
+                        <input type="hidden" name="item_codes[]" value="${item.item_code}">
+                        <input type="hidden" name="expected_qtys[]" value="${item.expected_qty}">
+                    </td>
+                    <td class="fw-bold text-dark text-wrap">${item.item_name}</td>
+                    <td class="text-center fw-bold text-primary fs-6">${item.expected_qty}</td>
+                    <td class="text-center align-middle">
+                        <input type="number" name="actual_qtys[]" class="form-control form-control-sm text-center fw-bold text-success border-success shadow-sm mx-auto" 
+                            style="max-width: 90px; font-size: 1.1rem; height: 35px;" value="${item.expected_qty}" min="0" required>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        } else {
+            tbody.innerHTML = `<tr><td colspan="4" class="text-center text-danger py-3">Error: ${data.message}</td></tr>`;
+        }
+    } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="4" class="text-center text-danger py-3">Network Error: Could not load the manifest.</td></tr>`;
+    }
+}
+
+window.viewDiscrepancy = function(btnElem) {
+    document.getElementById('discPoNo').innerText = btnElem.getAttribute('data-pono');
+    
+    let rawText = btnElem.getAttribute('data-remarks');
+    rawText = rawText.replace(/\[DELIVERY DISCREPANCY\]:/g, '<span class="d-block text-danger fw-bold mb-1 border-bottom border-danger border-opacity-25 pb-2"><i class="bi bi-x-circle-fill me-1"></i> DELIVERY DISCREPANCY ISSUES</span>');
+    document.getElementById('discRemarks').innerHTML = rawText;
+    
+    var myModalEl = document.getElementById('discrepancyModal');
+    var discModal = bootstrap.Modal.getInstance(myModalEl);
+    if (!discModal) discModal = new bootstrap.Modal(myModalEl);
+    discModal.show();
+}
+
 // SPA Fix: Attach search listener globally so it never breaks on page transitions
 window.initPoSearch = function() {
     const searchPo = document.getElementById('searchPo');
