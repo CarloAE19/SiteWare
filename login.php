@@ -36,6 +36,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (empty($username) || empty($password)) {
         $error = 'Please enter both username and password.';
+    } elseif (preg_match('/[^a-zA-Z0-9]/', $username)) {
+        $error = 'Special characters not allowed in username';
     } else {
         // 🛡️ SQL Injection Prevention (Prepared Statements)
         $stmt = $pdo->prepare("SELECT * FROM users WHERE username = ?");
@@ -79,7 +81,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 
     <!-- Login Styles -->
-    <link rel="stylesheet" href="assets/css/login.css">
+    <link rel="stylesheet" href="assets/css/login.css?v=<?= time() ?>">
 </head>
 
 <body>
@@ -131,8 +133,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <h2>Welcome back</h2>
                 <p class="subtitle">Sign in to your workspace to continue.</p>
 
-                <?php if ($error): ?>
-                    <div class="login-error">
+                <?php if ($error && $error !== 'Special characters not allowed in username'): ?>
+                    <div class="login-error" id="phpErrorBlock">
                         <i class="bi bi-exclamation-circle-fill" style="font-size:1.1rem; color:var(--gb-red); flex-shrink:0;"></i>
                         <?= htmlspecialchars($error) ?>
                     </div>
@@ -140,7 +142,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 <form method="POST" action="" autocomplete="on">
 
-                    <div class="input-float">
+                    <div class="input-float <?= ($error === 'Special characters not allowed in username') ? 'has-error' : '' ?>" id="usernameFloat">
                         <label for="usernameField">Username</label>
                         <input type="text" id="usernameField" name="username"
                             placeholder="Enter your username"
@@ -148,6 +150,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             autocomplete="username" required>
                         <i class="bi bi-person-fill field-icon"></i>
                     </div>
+
+                    <div class="field-error-msg" id="jsErrorBlock" style="display: none;">
+                        <i class="bi bi-exclamation-diamond-fill"></i>
+                        <span id="jsErrorMessage"></span>
+                    </div>
+
+                    <?php if ($error && $error === 'Special characters not allowed in username'): ?>
+                        <div class="field-error-msg" id="phpUsernameErrorBlock">
+                            <i class="bi bi-exclamation-diamond-fill"></i>
+                            <span><?= htmlspecialchars($error) ?></span>
+                        </div>
+                    <?php endif; ?>
 
                     <div class="input-float">
                         <label for="passwordField">Password</label>
