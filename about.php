@@ -73,6 +73,7 @@ include 'layout/header.php';
                 <!-- Replace text inside h3 with the QA's Name -->
                 <h3 class="fw-bold text-dark mb-1">LJ D. Caballero</h3>
                 <h6 class="fw-bold mb-2" style="color: #d39e00; letter-spacing: 1px; text-transform: uppercase;">Quality Assurance</h6>
+                <p class="text-muted mb-3" style="font-size: 1rem; font-weight: bold;">"Differences in graphics, but one person behind it, representing his personality"</p>
                 <p class="text-muted mb-3" style="font-size: 0.9rem;">Rigorously tests system functionalities, catches bugs, and verifies that the software meets quality standards before deployment.</p>
                 <div class="d-flex justify-content-center gap-3 mt-auto">
                     <a href="https://www.facebook.com/LjayCute09" target="_blank" class="text-secondary hover-primary transition"><i class="bi bi-facebook fs-4"></i></a>
