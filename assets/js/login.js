@@ -5,7 +5,7 @@
 // 1. PASSWORD TOGGLE
 function togglePass() {
     const input = document.getElementById('passwordField');
-    const icon  = document.getElementById('toggleIcon');
+    const icon = document.getElementById('toggleIcon');
     if (input.type === 'password') {
         input.type = 'text';
         icon.classList.replace('bi-eye-slash', 'bi-eye');
@@ -49,19 +49,19 @@ if (usernameField && jsErrorBlock && jsErrorMessage && usernameFloat) {
     const validateUsername = () => {
         const username = usernameField.value;
         const hasSpecialChars = /[^a-zA-Z0-9]/.test(username);
-        
+
         if (hasSpecialChars) {
             if (phpErrorBlock) phpErrorBlock.style.display = 'none';
             if (phpUsernameErrorBlock) phpUsernameErrorBlock.style.display = 'none';
-            
+
             jsErrorMessage.textContent = 'Special characters not allowed in username';
             jsErrorBlock.style.display = 'flex';
             usernameFloat.classList.add('has-error');
         } else {
             jsErrorBlock.style.display = 'none';
             usernameFloat.classList.remove('has-error');
-            
-            if (phpErrorBlock) phpErrorBlock.style.display = 'flex'; 
+
+            if (phpErrorBlock) phpErrorBlock.style.display = 'flex';
             if (phpUsernameErrorBlock) phpUsernameErrorBlock.style.display = 'none'; // Once corrected by JS, keep PHP fallback hidden
         }
     };
