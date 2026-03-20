@@ -423,6 +423,15 @@ body {
     transform: translateY(0);
 }
 
+.btn-signin:disabled,
+.btn-signin:disabled:hover {
+    background: #6c757d;
+    color: #e9ecef;
+    cursor: not-allowed;
+    box-shadow: none;
+    transform: none;
+}
+
 /* PWA Install button */
 .btn-install {
     display: none;

@@ -44,6 +44,7 @@ const jsErrorBlock = document.getElementById('jsErrorBlock');
 const jsErrorMessage = document.getElementById('jsErrorMessage');
 const phpErrorBlock = document.getElementById('phpErrorBlock');
 const phpUsernameErrorBlock = document.getElementById('phpUsernameErrorBlock');
+const signInBtn = document.getElementById('signInBtn');
 
 if (usernameField && jsErrorBlock && jsErrorMessage && usernameFloat) {
     const validateUsername = () => {
@@ -57,9 +58,11 @@ if (usernameField && jsErrorBlock && jsErrorMessage && usernameFloat) {
             jsErrorMessage.textContent = 'Special characters not allowed in username';
             jsErrorBlock.style.display = 'flex';
             usernameFloat.classList.add('has-error');
+            if (signInBtn) signInBtn.disabled = true;
         } else {
             jsErrorBlock.style.display = 'none';
             usernameFloat.classList.remove('has-error');
+            if (signInBtn) signInBtn.disabled = false;
 
             if (phpErrorBlock) phpErrorBlock.style.display = 'flex';
             if (phpUsernameErrorBlock) phpUsernameErrorBlock.style.display = 'none'; // Once corrected by JS, keep PHP fallback hidden

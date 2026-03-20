@@ -182,7 +182,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         Install GB Inventory App
                     </button>
 
-                    <button type="submit" class="btn-signin">
+                    <button type="submit" class="btn-signin" id="signInBtn" <?= ($error === 'Special characters not allowed in username') ? 'disabled' : '' ?>>
                         <i class="bi bi-box-arrow-in-right"></i> Sign In
                     </button>
 
