@@ -178,7 +178,7 @@ foreach ($notifications as $n) {
     <div class="wrapper">
         <nav id="sidebar">
             <div class="sidebar-header d-flex justify-content-between align-items-center">
-                <h4 class="mb-0"><i class="bi bi-cone-striped me-2" style="color: var(--gb-yellow);"></i>GB Inventory</h4>
+                <h4 class="mb-0 d-flex align-items-center"><img src="assets/LogoGB.png" alt="GB Logo" class="me-2" style="height: 32px; width: auto; object-fit: contain;">GB Inventory</h4>
                 <button type="button" id="sidebarClose" class="btn btn-link text-white d-md-none p-0 text-decoration-none"><i class="bi bi-x-lg fs-4"></i></button>
             </div>
 

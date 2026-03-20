@@ -61,7 +61,23 @@ include 'layout/header.php';
         }
         
         #poTable tbody td:last-child::before { display: none; }
-    }
+        
+        /* Receive Modal Table Mobile Stack */
+        #receiveItemsTable { white-space: normal !important; background: transparent !important; }
+        #receiveItemsTable thead { display: none; }
+        #receiveItemsTable tbody tr { 
+            display: flex; flex-direction: column; border: 1px solid #e0e4e8; border-radius: 12px; 
+            margin-bottom: 1rem; background: #fff; padding: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.02); 
+        }
+        #receiveItemsTable tbody td { 
+            display: flex; justify-content: space-between; align-items: flex-start; text-align: right; 
+            padding: 10px 4px; border: none; border-bottom: 1px dashed #e9ecef; white-space: normal !important; word-break: break-word; width: 100%;
+        }
+        #receiveItemsTable tbody td:last-child { border-bottom: none; align-items: center; }
+        #receiveItemsTable tbody td::before { 
+            content: attr(data-label); font-weight: 700; font-size: 0.75rem; color: #6c757d; 
+            text-transform: uppercase; text-align: left; padding-right: 15px; flex-shrink: 0; white-space: nowrap;
+        }
 </style>
 
 <div class="container-fluid px-3 px-md-4 py-4">
@@ -319,16 +335,16 @@ window.openReceiveModal = async function(id, po_no) {
             data.items.forEach(item => {
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
-                    <td class="fw-bold text-muted" style="font-size: 0.8rem;">
+                    <td class="fw-bold text-muted" style="font-size: 0.8rem;" data-label="Item Code">
                         ${item.item_code}
                         <input type="hidden" name="item_codes[]" value="${item.item_code}">
                         <input type="hidden" name="expected_qtys[]" value="${item.expected_qty}">
                     </td>
-                    <td class="fw-bold text-dark text-wrap">${item.item_name}</td>
-                    <td class="text-center fw-bold text-primary fs-6">${item.expected_qty}</td>
-                    <td class="text-center align-middle">
-                        <input type="number" name="actual_qtys[]" class="form-control form-control-sm text-center fw-bold text-success border-success shadow-sm mx-auto" 
-                            style="max-width: 90px; font-size: 1.1rem; height: 35px;" value="${item.expected_qty}" min="0" required>
+                    <td class="fw-bold text-dark text-wrap" data-label="Item Name">${item.item_name}</td>
+                    <td class="text-center fw-bold text-primary fs-6" data-label="Expected Qty">${item.expected_qty}</td>
+                    <td class="text-center align-middle" data-label="Actual Received">
+                        <input type="number" name="actual_qtys[]" class="form-control form-control-sm text-center fw-bold text-success border-success shadow-sm ms-auto" 
+                            style="max-width: 90px; font-size: 1.1rem; height: 35px;" value="${item.expected_qty}" min="0" onclick="this.select()" onfocus="this.select()" required>
                     </td>
                 `;
                 tbody.appendChild(tr);

@@ -18,12 +18,12 @@ $approvedRS = $pdo->query("SELECT id, rs_no, project_name FROM requisitions WHER
                 <!-- Added p-4 for premium spacing -->
                 <div class="modal-body bg-light p-4">
                     <input type="hidden" name="action" value="create_po">
-                    
+
                     <div class="mb-4">
                         <label class="form-label fw-bold small text-muted text-uppercase">Auto-Generated PO Number</label>
-                        <input type="text" class="form-control fw-bold text-primary bg-white shadow-sm" name="po_no" value="PO-<?= date('Ymd') ?>-<?= rand(100,999) ?>" readonly>
+                        <input type="text" class="form-control fw-bold text-primary bg-white shadow-sm" name="po_no" value="PO-<?= date('Ymd') ?>-<?= rand(100, 999) ?>" readonly>
                     </div>
-                    
+
                     <div class="mb-4">
                         <label class="form-label fw-bold small text-muted text-uppercase">Select Approved Requisition (RS) <span class="text-danger">*</span></label>
                         <select class="form-select fw-bold shadow-sm" name="rs_id" id="poRsSelect" required>
@@ -90,7 +90,7 @@ $approvedRS = $pdo->query("SELECT id, rs_no, project_name FROM requisitions WHER
                     <input type="hidden" name="action" value="log_po_delay">
                     <input type="hidden" name="po_id" id="delayPoId">
                     <input type="hidden" name="po_no" id="delayPoNo">
-                    
+
                     <div class="alert alert-danger px-3 py-2 mb-4 shadow-sm" style="font-size: 0.8rem; border-left: 3px solid #dc3545;">
                         <i class="bi bi-info-circle-fill me-1"></i> Flagging this PO will instantly notify Management.
                     </div>
@@ -103,7 +103,7 @@ $approvedRS = $pdo->query("SELECT id, rs_no, project_name FROM requisitions WHER
                             <option value="Supplier Out of Stock">Supplier Out of Stock</option>
                         </select>
                     </div>
-                    
+
                     <div class="mb-1">
                         <label class="form-label fw-bold small text-muted text-uppercase">Additional Remarks</label>
                         <textarea class="form-control fw-bold shadow-sm" name="remarks" rows="2" placeholder="e.g. Typhoon Basyang blocking port..."></textarea>
@@ -133,13 +133,13 @@ $approvedRS = $pdo->query("SELECT id, rs_no, project_name FROM requisitions WHER
                     <input type="hidden" name="action" value="mark_po_delivered">
                     <input type="hidden" name="po_id" id="receivePoId">
                     <input type="hidden" name="po_no" id="receivePoNo">
-                    
+
                     <div class="alert alert-warning px-3 py-2 mb-4 shadow-sm" style="font-size: 0.85rem; border-left: 3px solid #ffc107;">
                         <i class="bi bi-exclamation-circle-fill me-1"></i> <strong>Attention Warehouse:</strong> Physically count the items against the manifest. Any mismatch from the expected quantity will automatically trigger a Discrepancy Alert to Management.
                     </div>
 
                     <div class="table-responsive border rounded shadow-sm bg-white mb-2">
-                        <table class="table table-hover align-middle mb-0 text-nowrap">
+                        <table class="table table-hover align-middle mb-0 text-nowrap" id="receiveItemsTable">
                             <thead class="table-light text-muted" style="font-size: 0.8rem;">
                                 <tr>
                                     <th>Item Code</th>
@@ -155,7 +155,7 @@ $approvedRS = $pdo->query("SELECT id, rs_no, project_name FROM requisitions WHER
                     </div>
                 </div>
                 <div class="modal-footer justify-content-between bg-white p-3 border-top-0">
-                    <button type="button" class="btn btn-light text-muted fw-bold px-4" data-bs-dismiss="modal">Cancel Delivery</button>
+                    <button type="button" class="btn btn-light text-muted fw-bold px-4" data-bs-dismiss="modal">Cancel</button>
                     <button type="submit" class="btn btn-success fw-bold px-4 shadow-sm" id="confirmReceiveBtn"><i class="bi bi-check2-all me-1"></i>Confirm & Stock In</button>
                 </div>
             </form>
@@ -178,7 +178,7 @@ $approvedRS = $pdo->query("SELECT id, rs_no, project_name FROM requisitions WHER
                     <span class="text-muted fw-bold text-uppercase small"><i class="bi bi-file-earmark-text me-1"></i>Purchase Order</span>
                     <span id="discPoNo" class="fw-bold text-dark fs-6 bg-white px-3 py-1 rounded shadow-sm border"></span>
                 </div>
-                
+
                 <h6 class="fw-bold text-secondary mb-2 small text-uppercase pb-1">Activity & Log Details</h6>
                 <div class="p-3 bg-white border border-danger border-opacity-25 rounded shadow-sm" style="max-height: 350px; overflow-y: auto;">
                     <div id="discRemarks" class="text-dark" style="font-size: 0.95rem; white-space: pre-wrap; line-height: 1.7;"></div>
@@ -192,19 +192,19 @@ $approvedRS = $pdo->query("SELECT id, rs_no, project_name FROM requisitions WHER
 </div>
 
 <script>
-// ==========================================================
-// DELAY MODAL LOGIC (SPA-Proofed & Cache Bypassed)
-// ==========================================================
-window.openDelayModal = function(id, po_no) {
-    document.getElementById('delayPoId').value = id;
-    document.getElementById('delayPoNo').value = po_no;
-    
-    // Safely retrieve or instantiate the Bootstrap modal to prevent backdrop glitches
-    var myModalEl = document.getElementById('delayModal');
-    var delayModal = bootstrap.Modal.getInstance(myModalEl);
-    if (!delayModal) {
-        delayModal = new bootstrap.Modal(myModalEl);
+    // ==========================================================
+    // DELAY MODAL LOGIC (SPA-Proofed & Cache Bypassed)
+    // ==========================================================
+    window.openDelayModal = function(id, po_no) {
+        document.getElementById('delayPoId').value = id;
+        document.getElementById('delayPoNo').value = po_no;
+
+        // Safely retrieve or instantiate the Bootstrap modal to prevent backdrop glitches
+        var myModalEl = document.getElementById('delayModal');
+        var delayModal = bootstrap.Modal.getInstance(myModalEl);
+        if (!delayModal) {
+            delayModal = new bootstrap.Modal(myModalEl);
+        }
+        delayModal.show();
     }
-    delayModal.show();
-}
 </script>
