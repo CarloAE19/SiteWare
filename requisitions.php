@@ -14,6 +14,9 @@ $userId = $_SESSION['user_id'];
 $itemStmt = $pdo->query("SELECT item_code, item_name, unit FROM inventory WHERE status != 'Out of Stock' ORDER BY item_name ASC");
 $inventoryItems = $itemStmt->fetchAll(PDO::FETCH_ASSOC);
 
+// Fetch Active Projects
+$activeProjects = $pdo->query("SELECT project_name FROM projects WHERE status = 'active' ORDER BY project_name ASC")->fetchAll(PDO::FETCH_ASSOC);
+
 // ========================================================
 // ROLE-BASED DATA FETCHING
 // ========================================================

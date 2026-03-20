@@ -20,7 +20,12 @@
                         </div>
                         <div class="col-md-6">
                             <label class="form-label fw-bold small text-muted text-uppercase">Project Name / Assigned To <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control fw-bold" name="project_name" id="wdProjectName" required placeholder="e.g. Site A Repair">
+                            <select class="form-select fw-bold" name="project_name" id="wdProjectName" required>
+                                <option value="">Select Project...</option>
+                                <?php foreach ($activeProjects as $proj): ?>
+                                    <option value="<?= htmlspecialchars($proj['project_name']) ?>"><?= htmlspecialchars($proj['project_name']) ?></option>
+                                <?php endforeach; ?>
+                            </select>
                         </div>
                     </div>
 

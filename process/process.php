@@ -28,7 +28,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             require 'module_transactions.php';
         } elseif ($action === 'submit_audit') {
             require 'module_audit.php';
-        } elseif (in_array($action, ['add_unit', 'edit_unit', 'delete_unit', 'add_category', 'edit_category', 'delete_category'])) {
+        } elseif (in_array($action, ['add_unit', 'edit_unit', 'delete_unit', 'add_category', 'edit_category', 'delete_category', 'add_project', 'edit_project', 'delete_project'])) {
             require 'module_settings.php';
         } else {
             throw new Exception("Invalid system action requested: " . htmlspecialchars($action));

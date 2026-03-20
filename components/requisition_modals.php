@@ -131,7 +131,12 @@
 
                         <div class="mb-4">
                             <label class="form-label fw-bold small text-muted text-uppercase">Project Name / Purpose <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control fw-bold" name="project_name" required placeholder="e.g. City Hall Renovation Phase 1">
+                            <select class="form-select fw-bold" name="project_name" required>
+                                <option value="">Select Project...</option>
+                                <?php foreach ($activeProjects as $proj): ?>
+                                    <option value="<?= htmlspecialchars($proj['project_name']) ?>"><?= htmlspecialchars($proj['project_name']) ?></option>
+                                <?php endforeach; ?>
+                            </select>
                         </div>
 
                         <div class="card border-0 shadow-sm mb-4">

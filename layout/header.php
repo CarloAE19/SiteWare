@@ -207,6 +207,7 @@ foreach ($notifications as $n) {
                 <?php endif; ?>
 
                 <?php if ($_SESSION['user_role'] === 'admin'): ?>
+                <li class="<?= $currentPage == 'projects.php' ? 'active' : '' ?>"><a href="projects"><i class="bi bi-briefcase"></i> Manage Projects</a></li>
                 <li class="<?= $currentPage == 'categories.php' ? 'active' : '' ?>"><a href="categories"><i class="bi bi-tags"></i> Manage Categories</a></li>
                 <li class="<?= $currentPage == 'units.php' ? 'active' : '' ?>"><a href="units"><i class="bi bi-rulers"></i> Manage Units</a></li>
                 <li class="<?= $currentPage == 'users.php' ? 'active' : '' ?>"><a href="users"><i class="bi bi-people"></i> Manage Users</a></li>

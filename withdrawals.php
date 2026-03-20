@@ -24,6 +24,9 @@ foreach($allItems as $item) {
 // Fetch Inventory items for the dropdown
 $inventoryItems = $pdo->query("SELECT item_code, item_name, quantity, unit FROM inventory WHERE status != 'Out of Stock' AND quantity > 0 ORDER BY item_name ASC")->fetchAll(PDO::FETCH_ASSOC);
 
+// Fetch Active Projects
+$activeProjects = $pdo->query("SELECT project_name FROM projects WHERE status = 'active' ORDER BY project_name ASC")->fetchAll(PDO::FETCH_ASSOC);
+
 include 'layout/header.php';
 ?>
 

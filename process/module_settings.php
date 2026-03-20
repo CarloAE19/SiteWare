@@ -60,4 +60,33 @@ elseif ($action === 'add_category') {
     header("Location: ../categories"); 
     exit;
 }
+
+// --- PROJECTS LOGIC ---
+elseif ($action === 'add_project') {
+    if ($_SESSION['user_role'] !== 'admin') throw new Exception("Unauthorized.");
+    $stmt = $pdo->prepare("INSERT INTO projects (project_name, description, status) VALUES (?, ?, ?)");
+    $stmt->execute([trim($_POST['project_name']), trim($_POST['description']), $_POST['status']]);
+    $_SESSION['message'] = "Project added successfully!";
+    $_SESSION['msg_type'] = "success";
+    header("Location: ../projects"); 
+    exit;
+
+} elseif ($action === 'edit_project') {
+    if ($_SESSION['user_role'] !== 'admin') throw new Exception("Unauthorized.");
+    $stmt = $pdo->prepare("UPDATE projects SET project_name = ?, description = ?, status = ? WHERE id = ?");
+    $stmt->execute([trim($_POST['project_name']), trim($_POST['description']), $_POST['status'], $_POST['project_id']]);
+    $_SESSION['message'] = "Project updated successfully!";
+    $_SESSION['msg_type'] = "success";
+    header("Location: ../projects"); 
+    exit;
+
+} elseif ($action === 'delete_project') {
+    if ($_SESSION['user_role'] !== 'admin') throw new Exception("Unauthorized.");
+    $stmt = $pdo->prepare("DELETE FROM projects WHERE id = ?");
+    $stmt->execute([$_POST['project_id']]);
+    $_SESSION['message'] = "Project deleted successfully.";
+    $_SESSION['msg_type'] = "danger";
+    header("Location: ../projects"); 
+    exit;
+}
 ?>
