@@ -174,7 +174,7 @@ foreach ($notifications as $n) {
     </script>
 </head>
 <body>
-
+    <?php include_once 'components/splash_screen.php'; ?>
     <div class="wrapper">
         <nav id="sidebar">
             <div class="sidebar-header d-flex justify-content-between align-items-center">

@@ -85,6 +85,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </head>
 
 <body>
+    <?php include_once 'components/splash_screen.php'; ?>
 
     <div class="login-wrapper">
 
