@@ -3,14 +3,36 @@
 // SECURE DATABASE SETUP
 // ==========================================
 
-// 1. Load the secure environment variables
-require_once __DIR__ . '/env_loader.php';
+// 1. Load the secure environment variables (.env)
+if (!function_exists('loadEnv')) {
+    function loadEnv($filePath) {
+        if (!file_exists($filePath)) {
+            die("Critical Error: .env file is missing. The system cannot start securely.");
+        }
 
-// 2. Fetch credentials from memory
-$host = $_ENV['DB_HOST'] ?? 'localhost';
-$user = $_ENV['DB_USER'] ?? 'root';
-$pass = $_ENV['DB_PASS'] ?? '';
-$dbname = $_ENV['DB_NAME'] ?? 'construction_inventory';
+        $lines = file($filePath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+        
+        foreach ($lines as $line) {
+            // Skip comments
+            if (strpos(trim($line), '#') === 0) continue;
+
+            // Split "KEY=VALUE"
+            list($name, $value) = explode('=', $line, 2);
+            $name = trim($name);
+            $value = trim($value);
+
+            // Inject into PHP's global environment variables
+            if (!array_key_exists($name, $_SERVER) && !array_key_exists($name, $_ENV)) {
+                putenv(sprintf('%s=%s', $name, $value));
+                $_ENV[$name] = $value;
+                $_SERVER[$name] = $value;
+            }
+        }
+    }
+}
+
+// Load .env automatically from the root folder
+loadEnv(__DIR__ . '/../.env');
 
 // 3. Define the AI Key globally so analytics.php can see it securely
 if (!defined('AI_API_KEY') && isset($_ENV['AI_API_KEY'])) {
@@ -22,11 +44,11 @@ if (!defined('AI_SYSTEM_PROMPT') && isset($_ENV['AI_SYSTEM_PROMPT'])) {
 
 try {
     // Connect to MySQL server (Without DB name first, to allow creation)
-    $pdo = new PDO("mysql:host=$host", $user, $pass);
+    $pdo = new PDO("mysql:host=" . $_ENV['DB_HOST'], $_ENV['DB_USER'], $_ENV['DB_PASS']);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-    $pdo->exec("CREATE DATABASE IF NOT EXISTS `$dbname`");
-    $pdo->exec("USE `$dbname`");
+    $pdo->exec("CREATE DATABASE IF NOT EXISTS `" . $_ENV['DB_NAME'] . "`");
+    $pdo->exec("USE `" . $_ENV['DB_NAME'] . "`");
 
     // 1. Create Users Table
     $pdo->exec("
