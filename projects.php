@@ -1,8 +1,8 @@
 <?php
 session_start();
-if (!isset($_SESSION['user_id']) || $_SESSION['user_role'] !== 'admin') { 
-    header("Location: index"); 
-    exit; 
+if (!isset($_SESSION['user_id']) || $_SESSION['user_role'] !== 'admin') {
+    header("Location: index");
+    exit;
 }
 require_once 'Connection/db.php';
 
@@ -15,13 +15,18 @@ try {
         status ENUM('active', 'inactive') DEFAULT 'active',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )");
-    
+
     // Insert default project if the table is completely empty
     $stmt = $pdo->query("SELECT COUNT(*) FROM projects");
     if ($stmt->fetchColumn() == 0) {
         $pdo->exec("INSERT INTO projects (project_name, description, status) VALUES ('Main Headquarters Construction', 'General construction of the main building', 'active')");
     }
-} catch (PDOException $e) {}
+
+    try {
+        $pdo->exec("ALTER TABLE projects ADD COLUMN project_code VARCHAR(50) UNIQUE AFTER id");
+    } catch (PDOException $e) {}
+} catch (PDOException $e) {
+}
 
 // Fetch Projects
 $projects = $pdo->query("SELECT * FROM projects ORDER BY created_at DESC")->fetchAll(PDO::FETCH_ASSOC);
@@ -43,8 +48,7 @@ include 'layout/header.php';
     <!-- Mobile-Responsive Header -->
     <div class="row align-items-center mb-4 g-3">
         <div class="col-12 col-md-6">
-            <h4 class="mb-0 fw-bold text-dark"><i class="bi bi-briefcase me-2 text-primary"></i>Manage Projects</h4>
-            <small class="text-muted">Add, edit, or remove construction projects and alter their active status.</small>
+            <h3 class="mb-0 fw-bold text-dark"><i class="bi bi-briefcase me-2 text-primary"></i>Manage Projects</h3>
         </div>
         <div class="col-12 col-md-6 text-md-end">
             <button class="btn btn-brand w-100 w-md-auto fw-bold shadow-sm" data-bs-toggle="modal" data-bs-target="#projectModal" onclick="openAddProjectModal()">
@@ -71,7 +75,7 @@ include 'layout/header.php';
                         <?php if (count($projects) > 0): ?>
                             <?php foreach ($projects as $proj): ?>
                                 <tr>
-                                    <td class="text-muted fw-bold" data-label="ID">#<?= $proj['id'] ?></td>
+                                    <td class="text-muted fw-bold" data-label="ID"><?= htmlspecialchars($proj['project_code'] ?? '#'.$proj['id']) ?></td>
                                     <td class="fw-bold text-primary" data-label="Project Name"><?= htmlspecialchars($proj['project_name']) ?></td>
                                     <td class="text-muted text-wrap" style="max-width: 250px;" data-label="Description"><?= htmlspecialchars($proj['description'] ?? 'No description provided.') ?></td>
                                     <td data-label="Status">
@@ -82,7 +86,7 @@ include 'layout/header.php';
                                         <?php endif; ?>
                                     </td>
                                     <td class="text-end" data-label="Actions">
-                                        <button class="btn btn-sm btn-outline-primary me-1" onclick="openEditProjectModal(<?= $proj['id'] ?>, '<?= addslashes(htmlspecialchars($proj['project_name'])) ?>', '<?= addslashes(htmlspecialchars($proj['description'] ?? '')) ?>', '<?= $proj['status'] ?>')">
+                                        <button class="btn btn-sm btn-outline-primary me-1" onclick="openEditProjectModal(<?= $proj['id'] ?>, '<?= addslashes(htmlspecialchars($proj['project_code'] ?? '')) ?>', '<?= addslashes(htmlspecialchars($proj['project_name'])) ?>', '<?= addslashes(htmlspecialchars($proj['description'] ?? '')) ?>', '<?= $proj['status'] ?>')">
                                             <i class="bi bi-pencil-square"></i> Edit
                                         </button>
                                         <form method="POST" action="process/process.php" class="d-inline" onsubmit="return confirm('Delete this project?');">
@@ -94,7 +98,9 @@ include 'layout/header.php';
                                 </tr>
                             <?php endforeach; ?>
                         <?php else: ?>
-                            <tr><td colspan="5" class="text-center py-4 text-muted">No projects found.</td></tr>
+                            <tr>
+                                <td colspan="5" class="text-center py-4 text-muted">No projects found.</td>
+                            </tr>
                         <?php endif; ?>
                     </tbody>
                 </table>
@@ -115,7 +121,12 @@ include 'layout/header.php';
                 <div class="modal-body p-4">
                     <input type="hidden" name="action" id="projectFormAction" value="add_project">
                     <input type="hidden" name="project_id" id="projectId">
-                    
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Project ID <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control form-control-lg fw-bold" name="project_code" id="projectCode" placeholder="e.g. 20JE0010" required>
+                    </div>
+
                     <div class="mb-3">
                         <label class="form-label fw-bold">Project Name <span class="text-danger">*</span></label>
                         <input type="text" class="form-control form-control-lg fw-bold" name="project_name" id="projectName" placeholder="e.g. Phase 1 Building" required>

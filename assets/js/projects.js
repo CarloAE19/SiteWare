@@ -49,15 +49,17 @@ window.openAddProjectModal = function() {
     document.getElementById('projectModalTitle').innerText = 'Add New Project';
     document.getElementById('projectFormAction').value = 'add_project';
     document.getElementById('projectId').value = '';
+    document.getElementById('projectCode').value = '';
     document.getElementById('projectName').value = '';
     document.getElementById('projectDesc').value = '';
     document.getElementById('projectStatus').value = 'active';
 };
 
-window.openEditProjectModal = function(id, name, desc, status) {
+window.openEditProjectModal = function(id, code, name, desc, status) {
     document.getElementById('projectModalTitle').innerText = 'Edit Project';
     document.getElementById('projectFormAction').value = 'edit_project';
     document.getElementById('projectId').value = id;
+    document.getElementById('projectCode').value = code;
     document.getElementById('projectName').value = name;
     document.getElementById('projectDesc').value = desc;
     document.getElementById('projectStatus').value = status;
