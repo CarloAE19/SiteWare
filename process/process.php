@@ -10,12 +10,8 @@ if (!isset($_SESSION['user_id'])) {
 // === 2. LOAD DEPENDENCIES ===
 require_once '../Connection/db.php';
 
-// Fallback stub for Push Notifications to prevent undefined function errors
-if (!function_exists('sendPushNotification')) {
-    function sendPushNotification($pdo, $title, $message, $target_role, $target_user = null) {
-        // Implementation for actual FCM/external push api goes here
-    }
-}
+// FCM HTTP v1 Push Notification Helper (JWT + OAuth2, no Composer required)
+require_once '../Connection/fcm_helper.php';
 
 // === 3. MODULE ROUTER ===
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {

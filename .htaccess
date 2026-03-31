@@ -8,7 +8,7 @@ Options -Indexes
 
 # 2. BLOCK SENSITIVE FILES
 # Prevents anyone from downloading your database credentials or server config
-<FilesMatch "^\.env|^\.htaccess|\.ini|\.log|\.git">
+<FilesMatch "(^\\.env$|^\\.htaccess$|\\.ini$|\\.log$|\.git)">
     Order allow,deny
     Deny from all
 </FilesMatch>

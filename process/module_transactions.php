@@ -50,6 +50,7 @@ elseif ($action === 'create_rs') {
     
     $notif = $pdo->prepare("INSERT INTO notifications (target_role, title, message) VALUES ('management', 'New Requisition Pending', ?)");
     $notif->execute(["{$_POST['requestor_name']} submitted {$_POST['rs_no']} for {$_POST['project_name']}."]);
+    sendPushNotification($pdo, 'New Requisition Pending', "{$_POST['requestor_name']} submitted {$_POST['rs_no']} for {$_POST['project_name']}.", 'management', null);
 
     $_SESSION['message'] = "Requisition created successfully and sent to Management for approval.";
     $_SESSION['msg_type'] = "success";
@@ -68,6 +69,8 @@ elseif ($action === 'create_rs') {
 
     $pdo->prepare("INSERT INTO notifications (target_user_id, title, message) VALUES (?, 'Requisition Approved', ?)")->execute([$rs['requestor_id'], "Your request {$rs['rs_no']} has been approved."]);
     $pdo->prepare("INSERT INTO notifications (target_role, title, message) VALUES ('purchasing', 'Ready for PO', ?)")->execute(["{$rs['rs_no']} was approved. Please generate a PO."]);
+    sendPushNotification($pdo, 'Requisition Approved', "Your request {$rs['rs_no']} has been approved.", null, (int)$rs['requestor_id']);
+    sendPushNotification($pdo, 'Ready for PO', "{$rs['rs_no']} was approved. Please generate a PO.", 'purchasing', null);
 
     $_SESSION['message'] = "Requisition Approved. Ready for Purchasing.";
     $_SESSION['msg_type'] = "success";
@@ -88,6 +91,7 @@ elseif ($action === 'create_rs') {
     $rs = $rsData->fetch();
 
     $pdo->prepare("INSERT INTO notifications (target_user_id, title, message) VALUES (?, 'Requisition Rejected', ?)")->execute([$rs['requestor_id'], "Your request {$rs['rs_no']} was rejected. Reason: {$reason}"]);
+    sendPushNotification($pdo, 'Requisition Rejected', "Your request {$rs['rs_no']} was rejected. Reason: {$reason}", null, (int)$rs['requestor_id']);
 
     $_SESSION['message'] = "Requisition Rejected successfully.";
     $_SESSION['msg_type'] = "danger";
@@ -192,6 +196,7 @@ elseif ($action === 'create_po') {
 
     $notif = $pdo->prepare("INSERT INTO notifications (target_role, title, message) VALUES ('warehouse', 'Incoming Delivery Expected', ?)");
     $notif->execute(["PO {$po_no} has been generated. Prepare space to receive materials."]);
+    sendPushNotification($pdo, 'Incoming Delivery Expected', "PO {$po_no} has been generated. Prepare space to receive materials.", 'warehouse', null);
 
     $_SESSION['message'] = "Purchase Order generated and sent to Supplier successfully!";
     $_SESSION['msg_type'] = "success";
@@ -266,6 +271,8 @@ elseif ($action === 'create_po') {
         $alertMsg = "Order {$po_no} has arrived complete. Exactly correct quantities successfully STOCKED IN to Master Inventory.";
         $pdo->prepare("INSERT INTO notifications (target_role, title, message) VALUES ('purchasing', 'PO Delivered & Verified', ?)")->execute([$alertMsg]);
         $pdo->prepare("INSERT INTO notifications (target_role, title, message) VALUES ('management', 'PO Delivered & Verified', ?)")->execute([$alertMsg]);
+        sendPushNotification($pdo, 'PO Delivered & Verified', $alertMsg, 'purchasing', null);
+        sendPushNotification($pdo, 'PO Delivered & Verified', $alertMsg, 'management', null);
 
         $_SESSION['message'] = "Stock In Successful! Delivered physical items perfectly matched the ordered blueprint.";
         $_SESSION['msg_type'] = "success";
