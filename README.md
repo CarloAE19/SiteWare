@@ -43,10 +43,19 @@ The system features 5 distinct user workspaces, each with specific authorization
 ### **2\. Repository Setup**
 
 1. Clone this repository into your local web server directory (e.g., htdocs or www).  
-   git clone \[https://github.com/carloae19/cims.git\](https://github.com/carloae19/cims.git)
+   `git clone https://github.com/carloae19/cims.git`
 
-2. Import the database layout (ensure you have the gb\_inventory database created in phpMyAdmin).  
-3. Update Connection/db.php with your local database credentials.
+2. Create a `.env` file in the root directory. Update it with your database credentials (whether local or remote, such as Railway) and your API keys:
+   ```env
+   DB_HOST=localhost
+   DB_NAME=construction_inventory
+   DB_USER=root
+   DB_PASS=your_db_password
+   AI_API_KEY=your_gemini_api_key
+   AI_SYSTEM_PROMPT="Your system prompt here"
+   ```
+
+3. The system features auto-migration. Upon your first page load (which includes `Connection/db.php`), it will automatically create the `construction_inventory` database and generate all necessary tables. Optionally, you can import `construction_inventory.sql` or `cims_indexes.sql` if you need initial dummy data or specific index structures.
 
 ### **3\. Firebase Push Notifications Configuration**
 
@@ -56,7 +65,7 @@ Because this system uses enterprise-grade FCM v1 security, you must provide your
 2. Add a Web App to the project to get your firebaseConfig. Update assets/js/fcm.js and firebase-messaging-sw.js with these details.  
 3. Go to **Project Settings \> Cloud Messaging** and generate a **VAPID Key**. Add this to assets/js/fcm.js.  
 4. Go to **Project Settings \> Service Accounts** and generate a new private key.  
-5. Rename the downloaded file to firebase-key.json and place it securely inside the process/ directory.
+5. Rename the downloaded file to `firebase-service-account.json` and place it securely inside the `Connection/` directory.
 
 ### **4\. Testing Web Push on Mobile (Localhost Bypass)**
 

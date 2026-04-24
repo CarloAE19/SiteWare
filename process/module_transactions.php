@@ -256,11 +256,10 @@ elseif ($action === 'create_po') {
         $pdo->prepare("INSERT INTO notifications (target_role, title, message) VALUES ('purchasing', 'PO Discrepancy Found', ?)")->execute([$alertMsg]);
         $pdo->prepare("INSERT INTO notifications (target_role, title, message) VALUES ('management', 'PO Receiving Discrepancy', ?)")->execute([$alertMsg]);
         $pdo->prepare("INSERT INTO notifications (target_role, title, message) VALUES ('admin', 'PO Discrepancy Alert', ?)")->execute([$alertMsg]);
-        
-        if (function_exists('sendPushNotification')) {
-            sendPushNotification($pdo, 'PO Discrepancy Found', $alertMsg, 'management', null);
-            sendPushNotification($pdo, 'PO Discrepancy Found', $alertMsg, 'purchasing', null);
-        }
+
+        sendPushNotification($pdo, 'PO Discrepancy Found', $alertMsg, 'management', null);
+        sendPushNotification($pdo, 'PO Discrepancy Found', $alertMsg, 'purchasing', null);
+        sendPushNotification($pdo, 'PO Discrepancy Found', $alertMsg, 'admin', null);
         
         $_SESSION['message'] = "Stock In partial/discrepancy recorded! Management has been notified of the mismatch.";
         $_SESSION['msg_type'] = "warning";
@@ -271,8 +270,10 @@ elseif ($action === 'create_po') {
         $alertMsg = "Order {$po_no} has arrived complete. Exactly correct quantities successfully STOCKED IN to Master Inventory.";
         $pdo->prepare("INSERT INTO notifications (target_role, title, message) VALUES ('purchasing', 'PO Delivered & Verified', ?)")->execute([$alertMsg]);
         $pdo->prepare("INSERT INTO notifications (target_role, title, message) VALUES ('management', 'PO Delivered & Verified', ?)")->execute([$alertMsg]);
+        $pdo->prepare("INSERT INTO notifications (target_role, title, message) VALUES ('admin', 'PO Delivered & Verified', ?)")->execute([$alertMsg]);
         sendPushNotification($pdo, 'PO Delivered & Verified', $alertMsg, 'purchasing', null);
         sendPushNotification($pdo, 'PO Delivered & Verified', $alertMsg, 'management', null);
+        sendPushNotification($pdo, 'PO Delivered & Verified', $alertMsg, 'admin', null);
 
         $_SESSION['message'] = "Stock In Successful! Delivered physical items perfectly matched the ordered blueprint.";
         $_SESSION['msg_type'] = "success";

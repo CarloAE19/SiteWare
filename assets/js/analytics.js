@@ -264,9 +264,15 @@ window.initDashboardCharts = function() {
     if (window.dashboardSyncInterval) clearInterval(window.dashboardSyncInterval);
     
     // Visibility checker ensures we don't draw until SPA animation finishes
+    // Check ANY visible canvas - pctConsumptionChart may be hidden when no consumption data exists
     let visibilityCheck = setInterval(function() {
-        let canvas = document.getElementById('pctConsumptionChart');
-        if (canvas && canvas.offsetHeight > 0) {
+        let pctCanvas  = document.getElementById('pctConsumptionChart');
+        let pieCanvas  = document.getElementById('overallStockPieChart');
+        let daysCanvas = document.getElementById('newDaysLeftChart');
+        let anyVisible = (pctCanvas  && pctCanvas.offsetHeight  > 0) ||
+                         (pieCanvas  && pieCanvas.offsetHeight  > 0) ||
+                         (daysCanvas && daysCanvas.offsetHeight > 0);
+        if (anyVisible) {
             clearInterval(visibilityCheck);
             setTimeout(window.buildTheCharts, 50); 
         }

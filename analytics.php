@@ -166,7 +166,7 @@ include 'layout/header.php';
     <!-- AI ASSISTANT -->
     <div class="card border-0 shadow-sm rounded-3" style="border-top: 5px solid var(--gb-blue) !important;">
         <div class="card-header bg-white fw-bold py-3 d-flex justify-content-between align-items-center border-bottom-0">
-            <span class="fs-5 text-dark"><i class="bi bi-stars text-warning me-2"></i>AI Smart Restock Engine</span>
+            <span class="fs-5 text-dark"><i class="bi bi-stars text-warning me-2"></i>AI POWERED ANALYTICS</span>
             <div>
                 <button class="btn btn-sm btn-brand fw-bold shadow-sm px-3" id="generateAiBtn" onclick="generateAIPrediction(true)">
                     <i class="bi bi-arrow-clockwise me-1"></i> Analyze Now

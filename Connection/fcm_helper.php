@@ -1,14 +1,38 @@
 <?php
 /* ==========================================================
- * GB INVENTORY - FCM HTTP v1 PUSH NOTIFICATION HELPER
+ * CIMS - FCM HTTP v1 PUSH NOTIFICATION HELPER
  * Uses Service Account + JWT to get OAuth2 tokens
  * No Composer required — pure PHP + OpenSSL
+ * HTTP requests use file_get_contents (no cURL needed)
  * ========================================================== */
 
 define('FCM_SA_PATH',      __DIR__ . '/firebase-service-account.json');
 define('FCM_TOKEN_CACHE',  sys_get_temp_dir() . '/cims_fcm_token.json');
 define('FCM_PROJECT_ID',   'siteware-9fb2f');
 define('FCM_SEND_URL',     'https://fcm.googleapis.com/v1/projects/' . FCM_PROJECT_ID . '/messages:send');
+
+
+// ----------------------------------------------------------
+// Internal HTTP helper (no cURL dependency)
+// ----------------------------------------------------------
+function _fcm_http_post(string $url, array $headers, string $body): ?string {
+    $context = stream_context_create([
+        'http' => [
+            'method'        => 'POST',
+            'header'        => implode("\r\n", $headers),
+            'content'       => $body,
+            'ignore_errors' => true,   // read response body even on 4xx/5xx
+            'timeout'       => 10,
+        ],
+        'ssl' => [
+            'verify_peer'      => true,
+            'verify_peer_name' => true,
+        ],
+    ]);
+
+    $response = @file_get_contents($url, false, $context);
+    return ($response === false) ? null : $response;
+}
 
 
 // ----------------------------------------------------------
@@ -51,36 +75,27 @@ function _fcm_get_access_token(): ?string {
     }
 
     if (!file_exists(FCM_SA_PATH)) {
-        error_log('[FCM] Service account file not found: ' . FCM_SA_PATH);
         return null;
     }
 
     $sa  = json_decode(file_get_contents(FCM_SA_PATH), true);
     $jwt = _fcm_build_jwt($sa);
 
-    $ch = curl_init('https://oauth2.googleapis.com/token');
-    curl_setopt_array($ch, [
-        CURLOPT_POST           => true,
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_POSTFIELDS     => http_build_query([
+    $response = _fcm_http_post(
+        'https://oauth2.googleapis.com/token',
+        ['Content-Type: application/x-www-form-urlencoded'],
+        http_build_query([
             'grant_type' => 'urn:ietf:params:oauth:grant-type:jwt-bearer',
             'assertion'  => $jwt,
-        ]),
-        CURLOPT_HTTPHEADER => ['Content-Type: application/x-www-form-urlencoded'],
-    ]);
+        ])
+    );
 
-    $response = curl_exec($ch);
-    $err      = curl_error($ch);
-    curl_close($ch);
-
-    if ($err) {
-        error_log('[FCM] cURL error getting token: ' . $err);
+    if ($response === null) {
         return null;
     }
 
     $data = json_decode($response, true);
     if (empty($data['access_token'])) {
-        error_log('[FCM] Failed to get access token: ' . $response);
         return null;
     }
 
@@ -107,48 +122,37 @@ function _fcm_send_one(string $deviceToken, string $title, string $body, string 
             ],
             'webpush' => [
                 'notification' => [
-                    'icon'  => '/CIMS/assets/LogoGB.png',
-                    'badge' => '/CIMS/assets/favicon.ico',
+                    'icon'         => '/CIMS/assets/LogoGB.png',
+                    'badge'        => '/CIMS/assets/favicon.ico',
                     'click_action' => '/CIMS/',
                 ],
             ],
         ],
     ]);
 
-    $ch = curl_init(FCM_SEND_URL);
-    curl_setopt_array($ch, [
-        CURLOPT_POST           => true,
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_HTTPHEADER     => [
+    _fcm_http_post(
+        FCM_SEND_URL,
+        [
             'Authorization: Bearer ' . $accessToken,
             'Content-Type: application/json',
         ],
-        CURLOPT_POSTFIELDS => $payload,
-    ]);
-
-    $response = curl_exec($ch);
-    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    curl_close($ch);
-
-    if ($httpCode !== 200) {
-        error_log("[FCM] Send failed (HTTP {$httpCode}): {$response}");
-    }
+        $payload
+    );
 }
 
 
 // ----------------------------------------------------------
-// 4. PUBLIC API — called from module_transactions.php
+// 4. PUBLIC API
 //    sendPushNotification($pdo, $title, $body, $role, $userId)
-//    Pass $role for role-wide broadcasts, $userId for specific users.
+//    Pass $target_role for role-wide broadcasts,
+//    or $target_user_id for a specific user.
 // ----------------------------------------------------------
 function sendPushNotification(PDO $pdo, string $title, string $body, ?string $target_role, ?int $target_user_id): void {
     $accessToken = _fcm_get_access_token();
     if (!$accessToken) {
-        error_log('[FCM] Aborting send — could not get access token.');
         return;
     }
 
-    // Build query: get FCM tokens for matching users
     if ($target_user_id !== null) {
         $stmt = $pdo->prepare("SELECT fcm_token FROM users WHERE id = ? AND fcm_token IS NOT NULL AND fcm_token != ''");
         $stmt->execute([$target_user_id]);
