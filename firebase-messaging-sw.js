@@ -53,3 +53,96 @@ self.addEventListener('notificationclick', (event) => {
         })
     );
 });
+
+/* ==========================================================
+ * GB INVENTORY — OFFLINE CACHE STRATEGY
+ * Pre-caches offline.html on install; serves it as a fallback
+ * when a page navigation fails due to no connectivity.
+ * ========================================================== */
+
+const OFFLINE_CACHE = 'gb-offline-v2';
+
+const PRECACHE_ASSETS = [
+    '/CIMS/offline.html',
+    '/CIMS/assets/LogoGB.png',
+    '/CIMS/assets/favicon.ico',
+    '/CIMS/assets/css/style.css',
+    '/CIMS/assets/css/offline.css',
+    '/CIMS/assets/js/offline.js',
+];
+
+/* ── Install: pre-cache the offline shell ── */
+self.addEventListener('install', (event) => {
+    event.waitUntil(
+        caches.open(OFFLINE_CACHE).then((cache) => {
+            console.log('[SW] Pre-caching offline assets');
+            return cache.addAll(PRECACHE_ASSETS);
+        })
+    );
+    /* Immediately take control — don't wait for old SW to expire */
+    self.skipWaiting();
+});
+
+/* ── Activate: purge stale caches ── */
+self.addEventListener('activate', (event) => {
+    event.waitUntil(
+        caches.keys().then((keys) =>
+            Promise.all(
+                keys
+                    .filter((k) => k !== OFFLINE_CACHE)
+                    .map((k) => {
+                        console.log('[SW] Deleting old cache:', k);
+                        return caches.delete(k);
+                    })
+            )
+        )
+    );
+    /* Take control of all clients immediately */
+    self.clients.claim();
+});
+
+/* ── Fetch: network-first, fallback to offline.html for navigations ── */
+self.addEventListener('fetch', (event) => {
+    /* Only handle GET requests; skip non-http */
+    if (event.request.method !== 'GET') return;
+    if (!event.request.url.startsWith('http')) return;
+
+    /* Page navigation → network-first, fallback to offline.html */
+    if (event.request.mode === 'navigate') {
+        event.respondWith(
+            fetch(event.request).catch(() => {
+                console.log('[SW] Navigation failed — serving offline.html');
+                return caches.match('/CIMS/offline.html');
+            })
+        );
+        return;
+    }
+
+    /* Static assets (styles, images, fonts) → cache-first */
+    if (
+        event.request.destination === 'style' ||
+        event.request.destination === 'image' ||
+        event.request.destination === 'font'
+    ) {
+        event.respondWith(
+            caches.match(event.request).then((cached) => {
+                return (
+                    cached ||
+                    fetch(event.request).then((response) => {
+                        /* Cache same-origin assets only */
+                        if (
+                            response.ok &&
+                            event.request.url.startsWith(self.location.origin)
+                        ) {
+                            const clone = response.clone();
+                            caches.open(OFFLINE_CACHE).then((cache) =>
+                                cache.put(event.request, clone)
+                            );
+                        }
+                        return response;
+                    })
+                );
+            })
+        );
+    }
+});
