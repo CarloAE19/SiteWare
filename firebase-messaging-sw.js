@@ -8,12 +8,12 @@ importScripts('https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js'
 importScripts('https://www.gstatic.com/firebasejs/10.8.1/firebase-messaging-compat.js');
 
 firebase.initializeApp({
-    apiKey:            "AIzaSyAGR4gLzookR7GCva3RwlfBITu5KRhvnt0",
-    authDomain:        "siteware-9fb2f.firebaseapp.com",
-    projectId:         "siteware-9fb2f",
-    storageBucket:     "siteware-9fb2f.firebasestorage.app",
+    apiKey: "AIzaSyAGR4gLzookR7GCva3RwlfBITu5KRhvnt0",
+    authDomain: "siteware-9fb2f.firebaseapp.com",
+    projectId: "siteware-9fb2f",
+    storageBucket: "siteware-9fb2f.firebasestorage.app",
     messagingSenderId: "488556756323",
-    appId:             "1:488556756323:web:53fc4a2f1a2cfa7bd02756"
+    appId: "1:488556756323:web:53fc4a2f1a2cfa7bd02756"
 });
 
 const messaging = firebase.messaging();
@@ -23,13 +23,13 @@ messaging.onBackgroundMessage((payload) => {
     console.log('[SW] Background message received:', payload);
 
     const title = payload.notification?.title || 'GB Inventory';
-    const body  = payload.notification?.body  || 'You have a new notification.';
+    const body = payload.notification?.body || 'You have a new notification.';
 
     self.registration.showNotification(title, {
-        body:    body,
-        icon:    '/CIMS/assets/LogoGB.png',
-        badge:   '/CIMS/assets/favicon.ico',
-        tag:     'gb-inventory-notif',
+        body: body,
+        icon: '/CIMS/assets/LogoGB.png',
+        badge: '/CIMS/assets/favicon.ico',
+        tag: 'gb-inventory-notif',
         renotify: true,
         data: { url: '/CIMS/' }
     });
