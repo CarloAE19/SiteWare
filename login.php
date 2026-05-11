@@ -62,7 +62,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Sign In — GB Inventory System</title>
     <meta name="description" content="GB Construction & Enterprise Smart Inventory & Logistics System — Secure Login">
 
@@ -72,6 +72,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="apple-touch-icon" href="assets/LogoGB.png">
     <link rel="icon" type="image/png" href="assets/LogoGB.png">
+    <meta name="theme-color" content="transparent">
+    <style>
+        html, body {
+            overscroll-behavior-y: none;
+        }
+    </style>
 
     <!-- Bootstrap & Icons -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">

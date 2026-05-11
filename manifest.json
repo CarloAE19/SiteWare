@@ -5,7 +5,7 @@
   "start_url": "/CIMS/",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#0033CC",
+  "theme_color": "transparent",
   "orientation": "portrait",
   "icons": [
     {
