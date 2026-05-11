@@ -1,6 +1,19 @@
 <?php
 // Fetch Data needed for Create PO Modal
-$suppliers = $pdo->query("SELECT id, company_name FROM suppliers WHERE status = 'Active'")->fetchAll(PDO::FETCH_ASSOC);
+// Include performance score for each supplier so the Purchasing Officer can make informed decisions
+$suppliers = $pdo->query("
+    SELECT
+        s.id,
+        s.company_name,
+        COUNT(p.id)                                                               AS total_po,
+        SUM(CASE WHEN p.status LIKE '%Delayed%' THEN 1 ELSE 0 END)               AS delayed_count,
+        SUM(CASE WHEN p.status LIKE '%Discrepancy%' THEN 1 ELSE 0 END)           AS discrepancy_count
+    FROM suppliers s
+    LEFT JOIN purchase_orders p ON p.supplier_id = s.id
+    WHERE s.status = 'Active'
+    GROUP BY s.id
+    ORDER BY s.company_name ASC
+")->fetchAll(PDO::FETCH_ASSOC);
 $approvedRS = $pdo->query("SELECT id, rs_no, project_name FROM requisitions WHERE status = 'Approved'")->fetchAll(PDO::FETCH_ASSOC);
 ?>
 
@@ -58,10 +71,27 @@ $approvedRS = $pdo->query("SELECT id, rs_no, project_name FROM requisitions WHER
                         <label class="form-label fw-bold small text-muted text-uppercase">Select Supplier <span class="text-danger">*</span></label>
                         <select class="form-select fw-bold shadow-sm" name="supplier_id" required>
                             <option value="" disabled selected>-- Select Supplier --</option>
-                            <?php foreach ($suppliers as $sup): ?>
-                                <option value="<?= $sup['id'] ?>"><?= htmlspecialchars($sup['company_name']) ?></option>
+                            <?php foreach ($suppliers as $sup):
+                                $total = (int)$sup['total_po'];
+                                if ($total === 0) {
+                                    $tier  = '🔘 New';
+                                    $score = '';
+                                } else {
+                                    $onTime   = ($total - (int)$sup['delayed_count'])     / $total * 100;
+                                    $accuracy = ($total - (int)$sup['discrepancy_count']) / $total * 100;
+                                    $sc       = round(($onTime + $accuracy) / 2, 1);
+                                    if ($sc >= 90)      { $tier = '🟢 Excellent'; }
+                                    elseif ($sc >= 70)  { $tier = '🟡 Average';   }
+                                    else                { $tier = '🔴 Poor';      }
+                                    $score = ' — ' . $sc . '%';
+                                }
+                            ?>
+                                <option value="<?= $sup['id'] ?>">
+                                    <?= htmlspecialchars($sup['company_name']) ?> [<?= $tier ?><?= $score ?>]
+                                </option>
                             <?php endforeach; ?>
                         </select>
+                        <small class="text-muted d-block mt-2" style="font-size: 0.75rem;"><i class="bi bi-bar-chart-line me-1"></i>Performance score based on delivery history. 🟢 Excellent ≥90% &nbsp; 🟡 Average ≥70% &nbsp; 🔴 Poor &lt;70%</small>
                     </div>
                 </div>
                 <!-- Clean white footer -->

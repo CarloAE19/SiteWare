@@ -6,9 +6,31 @@ require_once 'Connection/db.php';
 
 $role = $_SESSION['user_role'];
 
-// Fetch all suppliers
-$stmt = $pdo->query("SELECT * FROM suppliers ORDER BY company_name ASC");
+// Fetch all suppliers with live performance scoring
+// Score = average of two metrics (each 0–100):
+//   1. On-Time Rate    = (total POs - delayed POs) / total POs * 100
+//   2. Accuracy Rate   = (total POs - discrepancy POs) / total POs * 100
+$stmt = $pdo->query("
+    SELECT
+        s.*,
+        COUNT(p.id)                                                               AS total_po,
+        SUM(CASE WHEN p.status LIKE '%Delayed%' THEN 1 ELSE 0 END)               AS delayed_count,
+        SUM(CASE WHEN p.status LIKE '%Discrepancy%' THEN 1 ELSE 0 END)           AS discrepancy_count
+    FROM suppliers s
+    LEFT JOIN purchase_orders p ON p.supplier_id = s.id
+    GROUP BY s.id
+    ORDER BY s.company_name ASC
+");
 $suppliers = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+// Helper: compute the composite score for a supplier row
+function calcPerformanceScore(array $sup): ?float {
+    if ((int)$sup['total_po'] === 0) return null; // No history yet
+    $total        = (int)$sup['total_po'];
+    $onTime       = ($total - (int)$sup['delayed_count'])     / $total * 100;
+    $accuracy     = ($total - (int)$sup['discrepancy_count']) / $total * 100;
+    return round(($onTime + $accuracy) / 2, 1);
+}
 
 include 'layout/header.php';
 ?>
@@ -78,11 +100,36 @@ include 'layout/header.php';
                         <th class="py-3">Contact Details</th>
                         <th class="py-3">Contact Number</th>
                         <th class="py-3">Status</th>
+                        <th class="py-3">Performance</th>
                         <?php if (in_array($role, ['admin', 'purchasing'])): ?><th class="text-center py-3">Actions</th><?php endif; ?>
                     </tr>
                 </thead>
                 <tbody>
                     <?php foreach ($suppliers as $sup): ?>
+                        <?php
+                        $score = calcPerformanceScore($sup);
+                        if ($score === null) {
+                            $barColor  = 'bg-secondary';
+                            $tierLabel = 'New Supplier';
+                            $tierBadge = 'bg-secondary';
+                            $scoreText = '—';
+                        } elseif ($score >= 90) {
+                            $barColor  = 'bg-success';
+                            $tierLabel = 'Excellent';
+                            $tierBadge = 'bg-success';
+                            $scoreText = $score . '%';
+                        } elseif ($score >= 70) {
+                            $barColor  = 'bg-warning';
+                            $tierLabel = 'Average';
+                            $tierBadge = 'bg-warning text-dark';
+                            $scoreText = $score . '%';
+                        } else {
+                            $barColor  = 'bg-danger';
+                            $tierLabel = 'Poor';
+                            $tierBadge = 'bg-danger';
+                            $scoreText = $score . '%';
+                        }
+                        ?>
                         <tr>
                             <td class="text-muted fw-bold" data-label="Supplier Code"><?= htmlspecialchars($sup['supplier_code']) ?></td>
                             
@@ -103,6 +150,34 @@ include 'layout/header.php';
                                     <span class="badge bg-danger px-3 py-2 shadow-sm">INACTIVE</span>
                                 <?php endif; ?>
                             </td>
+
+                            <!-- ===== PERFORMANCE RANKING COLUMN ===== -->
+                            <td data-label="Performance" style="min-width: 160px;">
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="flex-grow-1" style="min-width: 80px;">
+                                        <div class="progress shadow-sm" style="height: 8px; border-radius: 6px;">
+                                            <div class="progress-bar <?= $barColor ?>"
+                                                 role="progressbar"
+                                                 style="width: <?= $score !== null ? $score : 0 ?>%;"
+                                                 aria-valuenow="<?= $score !== null ? $score : 0 ?>"
+                                                 aria-valuemin="0" aria-valuemax="100">
+                                            </div>
+                                        </div>
+                                        <small class="text-muted d-block mt-1" style="font-size:0.7rem;">
+                                            <?php if ($score !== null): ?>
+                                                <?= (int)$sup['total_po'] ?> order<?= (int)$sup['total_po'] !== 1 ? 's' : '' ?>
+                                            <?php else: ?>
+                                                No orders yet
+                                            <?php endif; ?>
+                                        </small>
+                                    </div>
+                                    <div class="text-end">
+                                        <span class="badge <?= $tierBadge ?> shadow-sm px-2 py-1 d-block mb-1" style="font-size:0.7rem;"><?= $tierLabel ?></span>
+                                        <span class="fw-bold text-dark" style="font-size:0.85rem;"><?= $scoreText ?></span>
+                                    </div>
+                                </div>
+                            </td>
+                            <!-- ===== END PERFORMANCE RANKING COLUMN ===== -->
                             
                             <?php if (in_array($role, ['admin', 'purchasing'])): ?>
                             <td class="text-center" data-label="Actions">
