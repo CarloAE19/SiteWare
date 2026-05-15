@@ -215,6 +215,22 @@ try {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     ");
 
+    // 13. Create Projects Table
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS projects (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            project_code VARCHAR(50) UNIQUE,
+            project_name VARCHAR(150) NOT NULL UNIQUE,
+            description TEXT,
+            status ENUM('active', 'inactive') DEFAULT 'active',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    ");
+
+    if ($pdo->query("SELECT COUNT(*) FROM projects")->fetchColumn() == 0) {
+        $pdo->exec("INSERT INTO projects (project_name, description, status) VALUES ('Main Headquarters Construction', 'General construction of the main building', 'active')");
+    }
+
 } catch (PDOException $e) {
     die("Database Error: " . $e->getMessage());
 }
