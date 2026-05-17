@@ -3,8 +3,106 @@
 // REQUISITIONS, POs, AND WITHDRAWALS LOGIC
 // ==========================================
 
+// --- AJAX: FETCH SUPPLIER DELIVERY HISTORY ---
+if ($action === 'fetch_supplier_delivery_history') {
+    if (!in_array($_SESSION['user_role'], ['admin', 'purchasing', 'management', 'warehouse'])) {
+        echo json_encode(['status' => 'error', 'message' => 'Unauthorized.']); exit;
+    }
+
+    $supplier_id = (int)($_POST['supplier_id'] ?? 0);
+
+    // Fetch supplier info
+    $supStmt = $pdo->prepare("SELECT company_name, supplier_code FROM suppliers WHERE id = ?");
+    $supStmt->execute([$supplier_id]);
+    $supplier = $supStmt->fetch(PDO::FETCH_ASSOC);
+    if (!$supplier) {
+        echo json_encode(['status' => 'error', 'message' => 'Supplier not found.']); exit;
+    }
+
+    // Fetch all POs for this supplier
+    $poStmt = $pdo->prepare("
+        SELECT p.id, p.po_no, p.status, p.created_at, p.delay_remarks
+        FROM purchase_orders p
+        WHERE p.supplier_id = ?
+        ORDER BY p.created_at DESC
+    ");
+    $poStmt->execute([$supplier_id]);
+    $pos = $poStmt->fetchAll(PDO::FETCH_ASSOC);
+
+    // For each PO, fetch its items with expected vs actual quantities
+    $itemStmt = $pdo->prepare("
+        SELECT pi.item_code, pi.quantity AS expected_qty, i.item_name
+        FROM po_items pi
+        LEFT JOIN inventory i ON pi.item_code = i.item_code
+        WHERE pi.po_id = ?
+    ");
+
+    $orders = [];
+    $totalDelivered = 0;
+    $goodDeliveries = 0;
+    $discrepancies = 0;
+    $delayed = 0;
+    $pending = 0;
+
+    foreach ($pos as $po) {
+        $itemStmt->execute([$po['id']]);
+        $items = $itemStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Parse actual received quantities from delay_remarks for discrepancy POs
+        $itemDetails = [];
+        foreach ($items as $item) {
+            $itemDetails[] = [
+                'item_code' => $item['item_code'],
+                'item_name' => $item['item_name'] ?? $item['item_code'],
+                'expected_qty' => (int)$item['expected_qty']
+            ];
+        }
+
+        // Classify the order
+        $classification = 'pending';
+        if (strpos($po['status'], 'Discrepancy') !== false) {
+            $classification = 'discrepancy';
+            $discrepancies++;
+            $totalDelivered++;
+        } elseif ($po['status'] === 'Delivered') {
+            $classification = 'good';
+            $goodDeliveries++;
+            $totalDelivered++;
+        } elseif (strpos($po['status'], 'Delayed') !== false) {
+            $classification = 'delayed';
+            $delayed++;
+        } else {
+            $pending++;
+        }
+
+        $orders[] = [
+            'po_no' => $po['po_no'],
+            'status' => $po['status'],
+            'classification' => $classification,
+            'date' => date('M d, Y', strtotime($po['created_at'])),
+            'delay_remarks' => $po['delay_remarks'],
+            'items' => $itemDetails
+        ];
+    }
+
+    echo json_encode([
+        'status' => 'success',
+        'supplier' => $supplier,
+        'orders' => $orders,
+        'summary' => [
+            'total' => count($pos),
+            'delivered' => $totalDelivered,
+            'good' => $goodDeliveries,
+            'discrepancies' => $discrepancies,
+            'delayed' => $delayed,
+            'pending' => $pending
+        ]
+    ]);
+    exit;
+}
+
 // --- AJAX: FETCH RS DATA VIA QR SCANNER (PHASE 2 WORKFLOW) ---
-if ($action === 'fetch_rs_data') {
+elseif ($action === 'fetch_rs_data') {
     if (!in_array($_SESSION['user_role'], ['warehouse', 'admin'])) {
         echo json_encode(['status' => 'error', 'message' => 'Unauthorized.']); exit;
     }
