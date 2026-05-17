@@ -8,8 +8,11 @@ An enterprise-grade, cloud-ready Construction Inventory Management System (CIMS)
 * **🔔 Native Push Notifications (FCM):** Utilizes Firebase Cloud Messaging with a custom-built, pure PHP Google OAuth2 JWT authentication engine (No Composer plugins required). Supports background and foreground cross-platform alerts.  
 * **🧠 AI-Powered Analytics:** Integrates Google Gemini AI to analyze 30-day consumption data, predict inventory depletion, and recommend optimal restock dates.  
 * **📷 QR Code Integration:** Built-in HTML5 QR/Barcode scanning for rapid material receiving and withdrawal slip verification.  
-* **✉️ SMS Blaster Integration:** Automated SMS dispatching for Purchase Order tracking and logistics notifications to suppliers.  
+* **📈 Supplier Performance Tracking:** View detailed supplier delivery performance, distinguishing correctly delivered items versus discrepancies to evaluate vendor reliability.
+* **📜 Historical Supplier Insights:** Requisition items automatically display previous suppliers, helping Purchasing Officers make informed reordering decisions.
+* **✉️ Dynamic SMS Blaster Integration:** Automated SMS dispatching for Purchase Order tracking, dynamically generating exact item lists within the SMS payload.  
 * **📊 Discrepancy Auditing:** Automated monthly physical count module that recalculates inventory and alerts administration of stock discrepancies.
+* **⚙️ Automated Schema Provisioning:** Zero-touch database setup! The centralized configuration automatically checks and generates missing tables upon initialization.
 
 ## **👥 Role-Based Access Control (RBAC)**
 
