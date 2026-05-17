@@ -27,7 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             require 'module_users.php';
         }
         // FIXED: Added 'fetch_rs_data' right here so the Scanner can communicate with the backend!
-        elseif (in_array($action, ['create_rs', 'approve_rs', 'reject_rs', 'create_po', 'mark_po_delivered', 'send_po_sms', 'log_po_delay', 'create_withdrawal', 'fetch_rs_data', 'fetch_rs_with_history', 'fetch_po_items'])) {
+        elseif (in_array($action, ['create_rs', 'approve_rs', 'reject_rs', 'create_po', 'mark_po_delivered', 'send_po_sms', 'log_po_delay', 'create_withdrawal', 'fetch_rs_data', 'fetch_rs_with_history', 'fetch_po_items', 'fetch_supplier_delivery_history'])) {
             require 'module_transactions.php';
         } elseif ($action === 'submit_audit') {
             require 'module_audit.php';
