@@ -9,12 +9,23 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS units (
     id INT AUTO_INCREMENT PRIMARY KEY,
     unit_name VARCHAR(50) NOT NULL,
     abbreviation VARCHAR(20) NOT NULL,
+    reorder_level INT NOT NULL DEFAULT 10,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 )");
+// Auto-add reorder_level column if missing (existing databases)
+try {
+    $pdo->exec("ALTER TABLE units ADD COLUMN reorder_level INT NOT NULL DEFAULT 10");
+    // Set sensible defaults for bulk units
+    $pdo->exec("UPDATE units SET reorder_level = 5 WHERE unit_name IN ('Cubic Meters', 'Liters')");
+    $pdo->exec("UPDATE units SET reorder_level = 20 WHERE unit_name IN ('Kilograms')");
+    $pdo->exec("UPDATE units SET reorder_level = 15 WHERE unit_name IN ('Meters')");
+} catch (PDOException $e) {
+    // Column already exists, ignore
+}
 if ($pdo->query("SELECT COUNT(*) FROM units")->fetchColumn() == 0) {
-    $pdo->exec("INSERT INTO units (unit_name, abbreviation) VALUES 
-        ('Pieces', 'pcs'), ('Bags', 'bags'), ('Units', 'units'), 
-        ('Kilograms', 'kg'), ('Liters', 'L'), ('Meters', 'm')");
+    $pdo->exec("INSERT INTO units (unit_name, abbreviation, reorder_level) VALUES 
+        ('Pieces', 'pcs', 10), ('Bags', 'bags', 10), ('Units', 'units', 5), 
+        ('Kilograms', 'kg', 20), ('Liters', 'L', 5), ('Meters', 'm', 15)");
 }
 
 $stmt = $pdo->query("SELECT * FROM units ORDER BY unit_name ASC");
@@ -56,6 +67,7 @@ include 'layout/header.php';
                         <th>ID</th>
                         <th>Unit Name</th>
                         <th>Abbreviation</th>
+                        <th class="text-center">Low Stock Alert (≤)</th>
                         <th class="text-end">Actions</th>
                     </tr>
                 </thead>
@@ -65,8 +77,9 @@ include 'layout/header.php';
                             <td class="text-muted fw-bold">#<?= str_pad($u['id'], 3, '0', STR_PAD_LEFT) ?></td>
                             <td class="fw-bold"><?= htmlspecialchars($u['unit_name']) ?></td>
                             <td><span class="badge bg-secondary px-2 py-1"><?= htmlspecialchars($u['abbreviation']) ?></span></td>
+                            <td class="text-center"><span class="badge bg-warning text-dark px-2 py-1 shadow-sm"><i class="bi bi-exclamation-triangle me-1"></i>≤ <?= (int)$u['reorder_level'] ?> <?= htmlspecialchars($u['abbreviation']) ?></span></td>
                             <td class="text-end">
-                                <button class="btn btn-sm btn-outline-primary" onclick="openEditUnitModal(<?= $u['id'] ?>, '<?= addslashes($u['unit_name']) ?>', '<?= addslashes($u['abbreviation']) ?>')">
+                                <button class="btn btn-sm btn-outline-primary" onclick="openEditUnitModal(<?= $u['id'] ?>, '<?= addslashes($u['unit_name']) ?>', '<?= addslashes($u['abbreviation']) ?>', <?= (int)$u['reorder_level'] ?>)">
                                     <i class="bi bi-pencil-square"></i>
                                 </button>
                                 <form method="POST" action="process/process.php" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this unit?');">
