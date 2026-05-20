@@ -7,13 +7,13 @@ $role = $_SESSION['user_role'];
 
 // Fetch Inventory Data
 $search = $_GET['search'] ?? '';
-$query = "SELECT * FROM inventory";
+$query = "SELECT i.*, COALESCE(u.reorder_level, 10) as reorder_level FROM inventory i LEFT JOIN units u ON i.unit = u.unit_name";
 $params = [];
 if ($search) {
-    $query .= " WHERE item_name LIKE :search OR item_code LIKE :search OR category LIKE :search";
+    $query .= " WHERE (i.item_name LIKE :search OR i.item_code LIKE :search OR i.category LIKE :search)";
     $params[':search'] = "%$search%";
 }
-$query .= " ORDER BY last_updated DESC";
+$query .= " ORDER BY i.last_updated DESC";
 $stmt = $pdo->prepare($query);
 $stmt->execute($params);
 $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -21,7 +21,7 @@ $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
 $pendingRSCount = $pdo->query("SELECT COUNT(*) FROM requisitions WHERE status = 'Pending Approval'")->fetchColumn();
 $totalItems = count($items);
 $totalValue = array_reduce($items, fn($carry, $item) => $carry + ($item['quantity'] * $item['unit_price']), 0);
-$lowStockCount = count(array_filter($items, fn($item) => $item['quantity'] <= 10));
+$lowStockCount = count(array_filter($items, fn($item) => $item['quantity'] > 0 && $item['quantity'] <= (int)$item['reorder_level']));
 
 // Calculate Percentages for the new UI Refresh
 $lowStockPercentage = ($totalItems > 0) ? round(($lowStockCount / $totalItems) * 100) : 0;
@@ -220,8 +220,9 @@ include 'layout/header.php';
                         <?php foreach ($items as $item): ?>
                             <?php 
                                 $qty = (int)$item['quantity'];
+                                $reorderLevel = (int)$item['reorder_level'];
                                 if ($qty <= 0) { $statusText = 'Out of Stock'; $statusClass = 'bg-danger'; } 
-                                elseif ($qty <= 10) { $statusText = 'Low Stock'; $statusClass = 'bg-warning text-dark'; } 
+                                elseif ($qty <= $reorderLevel) { $statusText = 'Low Stock'; $statusClass = 'bg-warning text-dark'; } 
                                 else { $statusText = 'In Stock'; $statusClass = 'bg-success'; }
                             ?>
                             <tr class="item-row" data-status="<?= $statusText ?>">
