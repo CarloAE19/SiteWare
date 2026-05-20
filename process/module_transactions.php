@@ -313,13 +313,15 @@ elseif ($action === 'create_po') {
     
     // 1. Prepare dynamic addition query. It adds Actual received to existing Inventory.
     $updateInv = $pdo->prepare("
-        UPDATE inventory 
-        SET quantity = quantity + ?, 
-            status = CASE 
-                        WHEN (quantity + ?) > 10 THEN 'In Stock' 
-                        ELSE 'Low Stock' 
+        UPDATE inventory i 
+        JOIN units u ON i.unit = u.unit_name 
+        SET i.quantity = i.quantity + ?, 
+            i.status = CASE 
+                        WHEN (i.quantity + ?) <= 0 THEN 'Out of Stock'
+                        WHEN (i.quantity + ?) <= u.reorder_level THEN 'Low Stock'
+                        ELSE 'In Stock' 
                      END 
-        WHERE item_code = ?
+        WHERE i.item_code = ?
     ");
     
     $discrepancyLog = "";
@@ -340,7 +342,7 @@ elseif ($action === 'create_po') {
         
         // Add only the ACTUAL things physically received!
         if ($actual > 0) {
-            $updateInv->execute([$actual, $actual, $code]);
+            $updateInv->execute([$actual, $actual, $actual, $code]);
         }
     }
 
@@ -482,7 +484,16 @@ elseif ($action === 'create_withdrawal') {
 
     $wdItemStmt = $pdo->prepare("INSERT INTO withdrawal_items (withdrawal_id, item_code, quantity) VALUES (?, ?, ?)");
     $deductStmt = $pdo->prepare("UPDATE inventory SET quantity = quantity - ? WHERE item_code = ?");
-    $updateStatusStmt = $pdo->prepare("UPDATE inventory SET status = CASE WHEN quantity <= 0 THEN 'Out of Stock' WHEN quantity <= 10 THEN 'Low Stock' ELSE 'In Stock' END WHERE item_code = ?");
+    $updateStatusStmt = $pdo->prepare("
+        UPDATE inventory i 
+        JOIN units u ON i.unit = u.unit_name 
+        SET i.status = CASE 
+            WHEN i.quantity <= 0 THEN 'Out of Stock' 
+            WHEN i.quantity <= u.reorder_level THEN 'Low Stock' 
+            ELSE 'In Stock' 
+        END 
+        WHERE i.item_code = ?
+    ");
     
     for ($i = 0; $i < count($items); $i++) {
         if (!empty($items[$i]) && !empty($quantities[$i])) {
