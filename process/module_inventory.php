@@ -25,8 +25,17 @@ elseif ($action === 'stock_in_scanned') {
     $stmt = $pdo->prepare("UPDATE inventory SET quantity = quantity + ? WHERE item_code = ?");
     $stmt->execute([$added_qty, $_POST['item_code']]);
     
-    // Auto-calculate new status!
-    $pdo->prepare("UPDATE inventory SET status = CASE WHEN quantity <= 0 THEN 'Out of Stock' WHEN quantity <= 10 THEN 'Low Stock' ELSE 'In Stock' END WHERE item_code = ?")->execute([$_POST['item_code']]);
+    // Auto-calculate new status using dynamic reorder_level from units table!
+    $pdo->prepare("
+        UPDATE inventory i 
+        JOIN units u ON i.unit = u.unit_name 
+        SET i.status = CASE 
+            WHEN i.quantity <= 0 THEN 'Out of Stock' 
+            WHEN i.quantity <= u.reorder_level THEN 'Low Stock' 
+            ELSE 'In Stock' 
+        END 
+        WHERE i.item_code = ?
+    ")->execute([$_POST['item_code']]);
     
     // AJAX JSON RESPONSE
     if (isset($_POST['ajax'])) {
@@ -52,9 +61,11 @@ elseif ($action === 'add') {
     if (!in_array($_SESSION['user_role'], ['admin', 'warehouse'])) throw new Exception("Unauthorized.");
     
     $qty = (int)$_POST['quantity'];
-    $status = ($qty <= 0) ? 'Out of Stock' : (($qty <= 10) ? 'Low Stock' : 'In Stock');
-
-    // FIXED: Added 'category' to the INSERT statement!
+    // Lookup the reorder_level for this unit type
+    $reorderStmt = $pdo->prepare("SELECT reorder_level FROM units WHERE unit_name = ?");
+    $reorderStmt->execute([$_POST['unit']]);
+    $reorderLevel = (int)($reorderStmt->fetchColumn() ?: 10);
+    $status = ($qty <= 0) ? 'Out of Stock' : (($qty <= $reorderLevel) ? 'Low Stock' : 'In Stock');
     $stmt = $pdo->prepare("INSERT INTO inventory (item_code, item_name, category, quantity, unit, unit_price, status) VALUES (?, ?, ?, ?, ?, ?, ?)");
     $stmt->execute([$_POST['item_code'], $_POST['item_name'], $_POST['category'], $qty, $_POST['unit'], $_POST['unit_price'], $status]);
     
@@ -68,7 +79,11 @@ elseif ($action === 'edit') {
     if (!in_array($_SESSION['user_role'], ['admin', 'warehouse'])) throw new Exception("Unauthorized.");
     
     $qty = (int)$_POST['quantity'];
-    $status = ($qty <= 0) ? 'Out of Stock' : (($qty <= 10) ? 'Low Stock' : 'In Stock');
+    // Lookup the reorder_level for this unit type
+    $reorderStmt = $pdo->prepare("SELECT reorder_level FROM units WHERE unit_name = ?");
+    $reorderStmt->execute([$_POST['unit']]);
+    $reorderLevel = (int)($reorderStmt->fetchColumn() ?: 10);
+    $status = ($qty <= 0) ? 'Out of Stock' : (($qty <= $reorderLevel) ? 'Low Stock' : 'In Stock');
 
     // FIXED: Added 'category=?' to the UPDATE statement!
     $stmt = $pdo->prepare("UPDATE inventory SET item_code=?, item_name=?, category=?, quantity=?, unit=?, unit_price=?, status=? WHERE id=?");
