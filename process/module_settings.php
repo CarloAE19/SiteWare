@@ -6,8 +6,8 @@
 // --- UNITS LOGIC ---
 if ($action === 'add_unit') {
     if ($_SESSION['user_role'] !== 'admin') throw new Exception("Unauthorized.");
-    $stmt = $pdo->prepare("INSERT INTO units (unit_name, abbreviation) VALUES (?, ?)");
-    $stmt->execute([$_POST['unit_name'], $_POST['abbreviation']]);
+    $stmt = $pdo->prepare("INSERT INTO units (unit_name, abbreviation, reorder_level) VALUES (?, ?, ?)");
+    $stmt->execute([$_POST['unit_name'], $_POST['abbreviation'], (int)($_POST['reorder_level'] ?? 10)]);
     $_SESSION['message'] = "Measurement unit added successfully!";
     $_SESSION['msg_type'] = "success";
     header("Location: ../units"); 
@@ -15,8 +15,8 @@ if ($action === 'add_unit') {
 
 } elseif ($action === 'edit_unit') {
     if ($_SESSION['user_role'] !== 'admin') throw new Exception("Unauthorized.");
-    $stmt = $pdo->prepare("UPDATE units SET unit_name = ?, abbreviation = ? WHERE id = ?");
-    $stmt->execute([$_POST['unit_name'], $_POST['abbreviation'], $_POST['unit_id']]);
+    $stmt = $pdo->prepare("UPDATE units SET unit_name = ?, abbreviation = ?, reorder_level = ? WHERE id = ?");
+    $stmt->execute([$_POST['unit_name'], $_POST['abbreviation'], (int)($_POST['reorder_level'] ?? 10), $_POST['unit_id']]);
     $_SESSION['message'] = "Unit updated successfully!";
     $_SESSION['msg_type'] = "success";
     header("Location: ../units"); 
