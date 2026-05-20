@@ -29,7 +29,16 @@ if ($action === 'submit_audit') {
 
     $auditItemStmt = $pdo->prepare("INSERT INTO audit_items (audit_id, item_code, system_qty, physical_qty, discrepancy) VALUES (?, ?, ?, ?, ?)");
     $updateInvStmt = $pdo->prepare("UPDATE inventory SET quantity = ? WHERE item_code = ?");
-    $updateStatusStmt = $pdo->prepare("UPDATE inventory SET status = CASE WHEN quantity <= 0 THEN 'Out of Stock' WHEN quantity <= 10 THEN 'Low Stock' ELSE 'In Stock' END WHERE item_code = ?");
+    $updateStatusStmt = $pdo->prepare("
+        UPDATE inventory i 
+        JOIN units u ON i.unit = u.unit_name 
+        SET i.status = CASE 
+            WHEN i.quantity <= 0 THEN 'Out of Stock' 
+            WHEN i.quantity <= u.reorder_level THEN 'Low Stock' 
+            ELSE 'In Stock' 
+        END 
+        WHERE i.item_code = ?
+    ");
     
     $discrepancyCount = 0;
     for ($i = 0; $i < count($item_codes); $i++) {
