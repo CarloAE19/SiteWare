@@ -40,6 +40,7 @@ window.viewRsDetails = function(rsNo, project, remarks, status, requestor, date,
                 const unit = item.unit ? item.unit : '';
                 const reqQty = parseInt(item.quantity);
                 const curStock = parseInt(item.current_stock) || 0;
+                const totalPending = parseInt(item.total_pending) || 0;
                 
                 let stockDisplay = '';
                 if (curStock < reqQty) {
@@ -48,20 +49,71 @@ window.viewRsDetails = function(rsNo, project, remarks, status, requestor, date,
                     stockDisplay = `<span class="badge bg-success fs-6 shadow-sm">${curStock}</span>`;
                 }
                 
+                let pendingDisplay = '';
+                if (totalPending > 0) {
+                    let formattedDetails = '';
+                    if (item.pending_details) {
+                        const entries = item.pending_details.split('; ');
+                        formattedDetails = entries.map(entry => {
+                            const match = entry.match(/(.+) \[(.+) by (.+)\]/);
+                            if (match) {
+                                const project = match[1];
+                                const qty = match[2];
+                                const name = match[3];
+                                return `
+                                    <div class="mb-1 pb-1 border-bottom-dashed small">
+                                        <div class="fw-bold text-dark text-truncate" style="max-width: 180px;" title="${project}">${project}</div>
+                                        <div class="d-flex justify-content-between text-muted" style="font-size: 0.65rem;">
+                                            <span>Qty: <b>${qty}</b></span>
+                                            <span>by ${name}</span>
+                                        </div>
+                                    </div>
+                                `;
+                            }
+                            return `<div class="text-truncate small mb-1">${entry}</div>`;
+                        }).join('');
+                    } else {
+                        formattedDetails = '<div class="text-muted small">No details available.</div>';
+                    }
+
+                    const badgeClass = totalPending > curStock ? 'bg-warning text-dark' : 'bg-light text-dark border';
+                    const label = totalPending > curStock ? (totalPending > reqQty ? ' (Conflict)' : ' (Deficit)') : '';
+                    
+                    pendingDisplay = `
+                        <div class="d-flex flex-column align-items-center">
+                            <span class="badge ${badgeClass} fs-6 shadow-sm mb-1">${totalPending}${label}</span>
+                            <details class="w-100 text-center" style="font-size: 0.7rem;">
+                                <summary class="text-primary fw-bold" style="cursor: pointer; list-style: none; font-size: 0.65rem;">
+                                    <i class="bi bi-info-circle-fill me-1"></i>Who?
+                                </summary>
+                                <div class="mt-2 text-muted border rounded-3 p-2 bg-light text-start shadow-sm" style="line-height: 1.3; min-width: 200px; max-width: 220px; margin: 0 auto; white-space: normal;">
+                                    <div class="fw-bold text-muted border-bottom pb-1 mb-2 text-uppercase" style="font-size: 0.6rem; letter-spacing: 0.5px;">
+                                        <i class="bi bi-diagram-3-fill me-1 text-primary"></i>Pending Breakdown
+                                    </div>
+                                    ${formattedDetails}
+                                </div>
+                            </details>
+                        </div>
+                    `;
+                } else {
+                    pendingDisplay = `<span class="text-muted small fw-bold">-</span>`;
+                }
+                
                 tbody.innerHTML += `
                     <tr>
                         <td class="text-muted small align-middle">${item.item_code}</td>
                         <td class="fw-bold align-middle">${itemName}</td>
                         <td class="text-dark fw-bold text-center align-middle fs-5">${reqQty} <span class="fs-6 fw-normal">${unit}</span></td>
                         <td class="text-center align-middle d-print-none">${stockDisplay}</td>
+                        <td class="text-center align-middle d-print-none">${pendingDisplay}</td>
                     </tr>
                 `;
             });
         } else {
-            tbody.innerHTML = `<tr><td colspan="4" class="text-center text-muted py-3">No items found.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted py-3">No items found.</td></tr>`;
         }
     } catch (e) {
-        tbody.innerHTML = `<tr><td colspan="4" class="text-center text-danger py-3">Error loading items.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="5" class="text-center text-danger py-3">Error loading items.</td></tr>`;
     }
     
     new bootstrap.Modal(document.getElementById('viewRsModal')).show();
@@ -82,33 +134,48 @@ window.printRSDocument = function() {
     window.location.reload(); 
 }
 
-if (!window.rsGlobalListenersAttached) {
-    window.rsGlobalListenersAttached = true;
-    document.body.addEventListener('click', function(e) {
-        const container = document.getElementById('materialsContainer');
-        if (!container) return;
-
-        if (e.target.closest('#addMaterialBtn')) {
-            const firstRow = container.querySelector('.material-row');
-            const newRow = firstRow.cloneNode(true);
-            newRow.querySelector('select').value = '';
-            newRow.querySelector('input[type="number"]').value = '';
-            newRow.querySelector('.remove-row').disabled = false;
-            container.appendChild(newRow);
-            window.updateDeleteButtons(container);
-        }
-
-        if (e.target.closest('.remove-row')) {
-            const rowToRemove = e.target.closest('.material-row');
-            if (container.querySelectorAll('.material-row').length > 1) {
-                rowToRemove.remove();
-                window.updateDeleteButtons(container);
-            }
-        }
-    });
+if (window.rsGlobalClickListener) {
+    document.body.removeEventListener('click', window.rsGlobalClickListener);
 }
 
+window.rsGlobalClickListener = function(e) {
+    const container = document.getElementById('materialsContainer');
+    const restockContainer = document.getElementById('restockMaterialsContainer');
+
+    if (e.target.closest('#addMaterialBtn') && container) {
+        const firstRow = container.querySelector('.material-row');
+        const newRow = firstRow.cloneNode(true);
+        newRow.querySelector('select').value = '';
+        newRow.querySelector('input[type="number"]').value = '';
+        newRow.querySelector('.remove-row').disabled = false;
+        container.appendChild(newRow);
+        window.updateDeleteButtons(container);
+    }
+
+    if (e.target.closest('#addRestockMaterialBtn') && restockContainer) {
+        const firstRow = restockContainer.querySelector('.material-row');
+        const newRow = firstRow.cloneNode(true);
+        newRow.querySelector('select').value = '';
+        newRow.querySelector('input[type="number"]').value = '';
+        newRow.querySelector('.remove-row').disabled = false;
+        restockContainer.appendChild(newRow);
+        window.updateDeleteButtons(restockContainer);
+    }
+
+    if (e.target.closest('.remove-row')) {
+        const rowToRemove = e.target.closest('.material-row');
+        const parentContainer = rowToRemove.closest('#materialsContainer, #restockMaterialsContainer');
+        if (parentContainer && parentContainer.querySelectorAll('.material-row').length > 1) {
+            rowToRemove.remove();
+            window.updateDeleteButtons(parentContainer);
+        }
+    }
+};
+
+document.body.addEventListener('click', window.rsGlobalClickListener);
+
 window.updateDeleteButtons = function(container) {
+    if (!container) return;
     const rows = container.querySelectorAll('.material-row');
     if (rows.length === 1) {
         rows[0].querySelector('.remove-row').disabled = true;
