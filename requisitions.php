@@ -21,19 +21,32 @@ $activeProjects = $pdo->query("SELECT project_name FROM projects WHERE status = 
 // ROLE-BASED DATA FETCHING
 // ========================================================
 if ($role === 'requestor') {
-    $stmt = $pdo->prepare("SELECT * FROM requisitions WHERE requestor_id = ? ORDER BY created_at DESC");
-    $stmt->execute([$userId]);
+    $stmt = $pdo->query("SELECT * FROM requisitions WHERE type = 'project' ORDER BY created_at DESC");
     $requisitions = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    $statTitle = "My ";
+    $statTitle = "Project ";
+} elseif ($role === 'warehouse') {
+    $stmt = $pdo->query("SELECT * FROM requisitions WHERE type = 'restock' ORDER BY created_at DESC");
+    $requisitions = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $statTitle = "Warehouse ";
 } else {
     $stmt = $pdo->query("SELECT * FROM requisitions ORDER BY created_at DESC");
     $requisitions = $stmt->fetchAll(PDO::FETCH_ASSOC);
     $statTitle = "";
 }
 
-$itemsQuery = $pdo->query("SELECT ri.requisition_id, ri.quantity, ri.item_code, i.item_name, i.unit, i.quantity as current_stock 
+$itemsQuery = $pdo->query("SELECT ri.requisition_id, ri.quantity, ri.item_code, i.item_name, i.unit, i.quantity as current_stock,
+                                  COALESCE(p.total_pending, 0) as total_pending,
+                                  p.pending_details
                            FROM requisition_items ri 
-                           LEFT JOIN inventory i ON ri.item_code = i.item_code");
+                           LEFT JOIN inventory i ON ri.item_code = i.item_code
+                           LEFT JOIN (
+                               SELECT ri2.item_code, SUM(ri2.quantity) as total_pending,
+                                      GROUP_CONCAT(CONCAT(r2.project_name, ' [', ri2.quantity, 'x by ', r2.requestor_name, ']') SEPARATOR '; ') as pending_details
+                               FROM requisition_items ri2
+                               JOIN requisitions r2 ON ri2.requisition_id = r2.id
+                               WHERE r2.status = 'Pending Approval'
+                               GROUP BY ri2.item_code
+                           ) p ON ri.item_code = p.item_code");
 $allItems = $itemsQuery->fetchAll(PDO::FETCH_ASSOC);
 $rsItemsGrouped = [];
 foreach ($allItems as $item) {
@@ -116,6 +129,22 @@ include 'layout/header.php';
             display: none;
         }
     }
+    
+    /* Touch-friendly details dropdown styles for PWA */
+    summary {
+        list-style: none;
+    }
+    summary::-webkit-details-marker {
+        display: none;
+    }
+    .border-bottom-dashed {
+        border-bottom: 1px dashed #dee2e6;
+    }
+    .border-bottom-dashed:last-child {
+        border-bottom: none !important;
+        margin-bottom: 0 !important;
+        padding-bottom: 0 !important;
+    }
 </style>
 
 <div class="container-fluid px-3 px-md-4 py-4">
@@ -194,10 +223,18 @@ include 'layout/header.php';
                         </ul>
                     </div>
 
-                    <?php if (in_array($role, ['requestor', 'warehouse', 'admin'])): ?>
+                    <?php if ($role === 'requestor' || $role === 'admin'): ?>
                         <div>
                             <button class="btn btn-brand btn-sm fw-bold text-nowrap shadow-sm px-3" data-bs-toggle="modal" data-bs-target="#rsModal">
                                 <i class="bi bi-plus-lg me-1"></i> Create RS
+                            </button>
+                        </div>
+                    <?php endif; ?>
+
+                    <?php if ($role === 'warehouse' || $role === 'admin'): ?>
+                        <div>
+                            <button class="btn btn-outline-primary btn-sm fw-bold text-nowrap shadow-sm px-3" data-bs-toggle="modal" data-bs-target="#restockModal">
+                                <i class="bi bi-box-seam me-1"></i> Request Restock
                             </button>
                         </div>
                     <?php endif; ?>
@@ -225,13 +262,22 @@ include 'layout/header.php';
                         <?php foreach ($requisitions as $rs): ?>
                             <tr class="rs-row">
                                 <td class="fw-bold text-primary rs-no col-rs-no" data-label="RS Number"><?= htmlspecialchars($rs['rs_no']) ?></td>
-                                <td class="fw-bold rs-project col-project text-dark" data-label="Project / Purpose"><?= htmlspecialchars($rs['project_name']) ?></td>
+                                <td class="fw-bold rs-project col-project text-dark" data-label="Project / Purpose">
+                                    <?php if (($rs['type'] ?? 'project') === 'restock'): ?>
+                                        <span class="badge bg-info text-dark shadow-sm px-2 py-1.5"><i class="bi bi-box-seam me-1"></i> Warehouse Restock</span>
+                                    <?php else: ?>
+                                        <?= htmlspecialchars($rs['project_name']) ?>
+                                    <?php endif; ?>
+                                </td>
 
                                 <!-- Aligned left for PC, but the td's flex layout handles right-alignment on mobile -->
                                 <td class="col-requestor" data-label="Requested By">
                                     <div class="d-flex align-items-center justify-content-start">
                                         <i class="bi bi-person me-1 text-muted"></i>
                                         <span class="rs-requestor fw-bold text-dark"><?= htmlspecialchars($rs['requestor_name']) ?></span>
+                                        <?php if ((int)$rs['requestor_id'] === (int)$userId): ?>
+                                            <span class="badge bg-primary ms-2 px-2 py-1 shadow-sm" style="font-size: 0.65rem;">You</span>
+                                        <?php endif; ?>
                                     </div>
                                 </td>
 
@@ -298,5 +344,5 @@ include 'layout/header.php';
 </div>
 
 <?php include 'components/requisition_modals.php'; ?>
-<script src="assets/js/requisitions.js"></script>
+<script src="assets/js/requisitions.js?v=<?= time() ?>"></script>
 <?php include 'layout/footer.php'; ?>
