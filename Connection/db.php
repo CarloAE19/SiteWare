@@ -109,6 +109,7 @@ try {
             urgency VARCHAR(50) DEFAULT 'Normal',
             remarks TEXT,
             status VARCHAR(50) DEFAULT 'Pending Approval',
+            type VARCHAR(50) DEFAULT 'project',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     ");
@@ -229,6 +230,13 @@ try {
 
     if ($pdo->query("SELECT COUNT(*) FROM projects")->fetchColumn() == 0) {
         $pdo->exec("INSERT INTO projects (project_name, description, status) VALUES ('Main Headquarters Construction', 'General construction of the main building', 'active')");
+    }
+
+    // AUTO-PATCH: Ensure the requisitions table has the type column and migrate existing restocking records
+    try {
+        $pdo->exec("ALTER TABLE requisitions ADD COLUMN type VARCHAR(50) DEFAULT 'project'");
+        $pdo->exec("UPDATE requisitions SET type = 'restock' WHERE project_name = 'General Restocking'");
+    } catch (PDOException $e) { /* Column already exists or table is not populated */
     }
 
 } catch (PDOException $e) {
