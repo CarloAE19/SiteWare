@@ -133,8 +133,11 @@ elseif ($action === 'fetch_rs_data') {
 
 // --- REQUISITIONS (RS) ---
 elseif ($action === 'create_rs') {
-    $stmt = $pdo->prepare("INSERT INTO requisitions (rs_no, requestor_id, requestor_name, project_name, urgency, remarks, status) VALUES (?, ?, ?, ?, ?, ?, 'Pending Approval')");
-    $stmt->execute([$_POST['rs_no'], $_POST['requestor_id'], $_POST['requestor_name'], $_POST['project_name'], $_POST['urgency'], $_POST['remarks']]);
+    $type = $_POST['type'] ?? 'project';
+    $projectName = ($type === 'restock') ? 'Warehouse Restock' : $_POST['project_name'];
+
+    $stmt = $pdo->prepare("INSERT INTO requisitions (rs_no, requestor_id, requestor_name, project_name, urgency, remarks, status, type) VALUES (?, ?, ?, ?, ?, ?, 'Pending Approval', ?)");
+    $stmt->execute([$_POST['rs_no'], $_POST['requestor_id'], $_POST['requestor_name'], $projectName, $_POST['urgency'], $_POST['remarks'], $type]);
     $requisition_id = $pdo->lastInsertId();
 
     $items = $_POST['items'];
@@ -146,11 +149,76 @@ elseif ($action === 'create_rs') {
         }
     }
     
-    $notif = $pdo->prepare("INSERT INTO notifications (target_role, title, message) VALUES ('management', 'New Requisition Pending', ?)");
-    $notif->execute(["{$_POST['requestor_name']} submitted {$_POST['rs_no']} for {$_POST['project_name']}."]);
-    sendPushNotification($pdo, 'New Requisition Pending', "{$_POST['requestor_name']} submitted {$_POST['rs_no']} for {$_POST['project_name']}.", 'management', null);
+    // Conflict Check Engine
+    $conflicts = [];
+    $conflictItems = [];
+    if ($type !== 'restock') {
+        $conflictStmt = $pdo->prepare("
+            SELECT ri.item_code, i.item_name, i.quantity as current_stock,
+                   COALESCE(p.total_pending, 0) as total_pending
+            FROM requisition_items ri
+            LEFT JOIN inventory i ON ri.item_code = i.item_code
+            LEFT JOIN (
+                SELECT ri2.item_code, SUM(ri2.quantity) as total_pending
+                FROM requisition_items ri2
+                JOIN requisitions r2 ON ri2.requisition_id = r2.id
+                WHERE r2.status = 'Pending Approval'
+                GROUP BY ri2.item_code
+            ) p ON ri.item_code = p.item_code
+            WHERE ri.requisition_id = ? AND COALESCE(p.total_pending, 0) > i.quantity
+        ");
+        $conflictStmt->execute([$requisition_id]);
+        $conflicts = $conflictStmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        foreach ($conflicts as $c) {
+            $conflictItems[] = $c['item_name'];
+        }
+    }
 
-    $_SESSION['message'] = "Requisition created successfully and sent to Management for approval.";
+    $conflictWarning = "";
+    if (!empty($conflictItems)) {
+        $conflictWarning = " ⚠️ Conflict alert: Stock deficit for " . implode(', ', $conflictItems) . ".";
+    }
+    
+    $notif = $pdo->prepare("INSERT INTO notifications (target_role, title, message) VALUES ('management', 'New Requisition Pending', ?)");
+    $notifText = ($type === 'restock') 
+        ? "{$_POST['requestor_name']} submitted a Warehouse Restock request ({$_POST['rs_no']})."
+        : "{$_POST['requestor_name']} submitted {$_POST['rs_no']} for {$projectName}." . $conflictWarning;
+        
+    $notif->execute([$notifText]);
+    sendPushNotification($pdo, 'New Requisition Pending', $notifText, 'management', null);
+
+    // If there is a conflict, notify the submitting requestor and other affected requestors
+    if (!empty($conflicts)) {
+        // 1. Notify self
+        $msgToSelf = "Requisition submitted, but warning: stock conflicts detected for " . implode(', ', $conflictItems) . ".";
+        $pdo->prepare("INSERT INTO notifications (target_user_id, title, message) VALUES (?, 'Requisition Conflict Warning', ?)")
+            ->execute([$_POST['requestor_id'], $msgToSelf]);
+        sendPushNotification($pdo, 'Requisition Conflict Warning', $msgToSelf, null, (int)$_POST['requestor_id']);
+
+        // 2. Notify other requestors who also have pending requests for the same items
+        foreach ($conflicts as $c) {
+            $otherReqStmt = $pdo->prepare("
+                SELECT DISTINCT r.requestor_id, r.requestor_name, r.rs_no, r.project_name
+                FROM requisition_items ri
+                JOIN requisitions r ON ri.requisition_id = r.id
+                WHERE ri.item_code = ? AND r.status = 'Pending Approval' AND r.id != ?
+            ");
+            $otherReqStmt->execute([$c['item_code'], $requisition_id]);
+            $otherRequestors = $otherReqStmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            foreach ($otherRequestors as $other) {
+                $msgToOther = "Conflict Alert: {$_POST['requestor_name']} requested {$c['item_name']} for {$projectName}, which conflicts with your pending request {$other['rs_no']} for {$other['project_name']}.";
+                $pdo->prepare("INSERT INTO notifications (target_user_id, title, message) VALUES (?, 'Requisition Conflict Alert', ?)")
+                    ->execute([$other['requestor_id'], $msgToOther]);
+                sendPushNotification($pdo, 'Requisition Conflict Alert', $msgToOther, null, (int)$other['requestor_id']);
+            }
+        }
+    }
+
+    $_SESSION['message'] = ($type === 'restock') 
+        ? "Restock request created successfully and sent to Management for approval."
+        : "Requisition created successfully and sent to Management for approval.";
     $_SESSION['msg_type'] = "success";
     header("Location: ../requisitions");
     exit;
