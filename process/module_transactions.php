@@ -214,6 +214,12 @@ elseif ($action === 'create_rs') {
                 sendPushNotification($pdo, 'Requisition Conflict Alert', $msgToOther, null, (int)$other['requestor_id']);
             }
         }
+
+        // 3. Notify Admin of the conflict
+        $msgToAdmin = "Conflict Alert: Requisition {$_POST['rs_no']} submitted by {$_POST['requestor_name']} for {$projectName} has stock conflicts: " . implode(', ', $conflictItems) . ".";
+        $pdo->prepare("INSERT INTO notifications (target_role, title, message) VALUES ('admin', 'Requisition Conflict Alert', ?)")
+            ->execute([$msgToAdmin]);
+        sendPushNotification($pdo, 'Requisition Conflict Alert', $msgToAdmin, 'admin', null);
     }
 
     $_SESSION['message'] = ($type === 'restock') 
