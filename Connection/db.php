@@ -1,20 +1,56 @@
 <?php
 // ==========================================
-// DATABASE SETUP
+// SECURE DATABASE SETUP
 // ==========================================
-$host = 'localhost';
-$user = 'root';
-$pass = ''; // Default XAMPP password
-$dbname = 'construction_inventory';
+
+// 1. Load the secure environment variables (.env)
+if (!function_exists('loadEnv')) {
+    function loadEnv($filePath) {
+        if (!file_exists($filePath)) {
+            die("Critical Error: .env file is missing. The system cannot start securely.");
+        }
+
+        $lines = file($filePath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+        
+        foreach ($lines as $line) {
+            // Skip comments
+            if (strpos(trim($line), '#') === 0) continue;
+
+            // Split "KEY=VALUE"
+            list($name, $value) = explode('=', $line, 2);
+            $name = trim($name);
+            $value = trim($value);
+
+            // Inject into PHP's global environment variables
+            if (!array_key_exists($name, $_SERVER) && !array_key_exists($name, $_ENV)) {
+                putenv(sprintf('%s=%s', $name, $value));
+                $_ENV[$name] = $value;
+                $_SERVER[$name] = $value;
+            }
+        }
+    }
+}
+
+// Load .env automatically from the root folder
+loadEnv(__DIR__ . '/../.env');
+
+// 3. Define the AI Key globally so analytics.php can see it securely
+if (!defined('AI_API_KEY') && isset($_ENV['AI_API_KEY'])) {
+    define('AI_API_KEY', $_ENV['AI_API_KEY']);
+}
+if (!defined('AI_SYSTEM_PROMPT') && isset($_ENV['AI_SYSTEM_PROMPT'])) {
+    define('AI_SYSTEM_PROMPT', trim($_ENV['AI_SYSTEM_PROMPT'], '"\''));
+}
 
 try {
-    $pdo = new PDO("mysql:host=$host", $user, $pass);
+    // Connect to MySQL server (Without DB name first, to allow creation)
+    $pdo = new PDO("mysql:host=" . $_ENV['DB_HOST'], $_ENV['DB_USER'], $_ENV['DB_PASS']);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-    $pdo->exec("CREATE DATABASE IF NOT EXISTS `$dbname`");
-    $pdo->exec("USE `$dbname`");
+    $pdo->exec("CREATE DATABASE IF NOT EXISTS `" . $_ENV['DB_NAME'] . "`");
+    $pdo->exec("USE `" . $_ENV['DB_NAME'] . "`");
 
-    // 1. Create Users Table (UPDATED to use 'username' instead of 'email')
+    // 1. Create Users Table
     $pdo->exec("
         CREATE TABLE IF NOT EXISTS users (
             id INT AUTO_INCREMENT PRIMARY KEY,
@@ -28,7 +64,6 @@ try {
 
     if ($pdo->query("SELECT COUNT(*) FROM users")->fetchColumn() == 0) {
         $hashed_password = password_hash('password123', PASSWORD_DEFAULT);
-        // Changed default admin login to 'admin'
         $stmt = $pdo->prepare("INSERT INTO users (name, username, password, role) VALUES (?, ?, ?, ?)");
         $stmt->execute(['System Admin', 'admin', $hashed_password, 'admin']);
     }
@@ -74,6 +109,7 @@ try {
             urgency VARCHAR(50) DEFAULT 'Normal',
             remarks TEXT,
             status VARCHAR(50) DEFAULT 'Pending Approval',
+            type VARCHAR(50) DEFAULT 'project',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     ");
@@ -179,6 +215,29 @@ try {
             FOREIGN KEY (audit_id) REFERENCES inventory_audits(id) ON DELETE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     ");
+
+    // 13. Create Projects Table
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS projects (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            project_code VARCHAR(50) UNIQUE,
+            project_name VARCHAR(150) NOT NULL UNIQUE,
+            description TEXT,
+            status ENUM('active', 'inactive') DEFAULT 'active',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    ");
+
+    if ($pdo->query("SELECT COUNT(*) FROM projects")->fetchColumn() == 0) {
+        $pdo->exec("INSERT INTO projects (project_name, description, status) VALUES ('Main Headquarters Construction', 'General construction of the main building', 'active')");
+    }
+
+    // AUTO-PATCH: Ensure the requisitions table has the type column and migrate existing restocking records
+    try {
+        $pdo->exec("ALTER TABLE requisitions ADD COLUMN type VARCHAR(50) DEFAULT 'project'");
+        $pdo->exec("UPDATE requisitions SET type = 'restock' WHERE project_name = 'General Restocking'");
+    } catch (PDOException $e) { /* Column already exists or table is not populated */
+    }
 
 } catch (PDOException $e) {
     die("Database Error: " . $e->getMessage());

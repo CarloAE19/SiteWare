@@ -1,12 +1,11 @@
 /* ==========================================================
- * GB INVENTORY - FIREBASE CLOUD MESSAGING (FRONTEND)
- * Apple iOS Compliant - Requires User Gesture for Permission
+ * GB INVENTORY - FIREBASE CLOUD MESSAGING
+ * Active Service Worker Hard Reset Fix
  * ========================================================== */
 
 if (typeof firebase === 'undefined') {
     console.error("🔥 FIREBASE ERROR: The Firebase scripts did not load.");
 } else {
-    // 1. Initialize Firebase with your exact config
     const firebaseConfig = {
       apiKey: "AIzaSyAGR4gLzookR7GCva3RwlfBITu5KRhvnt0",
       authDomain: "siteware-9fb2f.firebaseapp.com",
@@ -18,98 +17,88 @@ if (typeof firebase === 'undefined') {
 
     firebase.initializeApp(firebaseConfig);
     const messaging = firebase.messaging();
+    
+    // 🚨 REPLACE THIS WITH YOUR NEW VAPID KEY FROM FIREBASE CONSOLE 🚨
+    const VAPID_KEY = "BAlVWwzuZaN7XIH7UTpW5vTEqyCAnRnHFTWoILHRo-akfvn2SqKu3MtwNdAQQv11RMt6XQdwCIuAbxV_G1TfAcA"; 
 
-    // Your actual VAPID KEY
-    const VAPID_KEY = "BBRBVfnmWYg0_panaR-Un_rjJTS32gI4HWwwrcgN8x-OJoGtUbUCnTfYPGxWZ6robct9svwqOcArRz0B-LzCVFE"; 
+    messaging.onMessage((payload) => {
+        console.log('Message received in foreground: ', payload);
+        new Audio('assets/sounds/success.mp3').play().catch(e => {}); 
+        
+        navigator.serviceWorker.getRegistration('/CIMS/').then(reg => {
+            if (reg) {
+                reg.showNotification(payload.notification.title, {
+                    body: payload.notification.body,
+                    icon: '/CIMS/assets/LogoGB.png'
+                });
+            } else {
+                alert(`📢 ${payload.notification.title}\n\n${payload.notification.body}`);
+            }
+        });
+    });
 
     async function requestNotificationPermission() {
         try {
-            console.log("Asking browser for permission (Triggered by User)...");
+            console.log("1. Requesting user permission...");
             const permission = await Notification.requestPermission();
             
             if (permission === 'granted') {
-                console.log("Permission granted! Registering Service Worker...");
-
-                const swRegistration = await navigator.serviceWorker.register('./firebase-messaging-sw.js', { scope: './' });
+                console.log("2. Permission granted! Registering Service Worker...");
                 
-                // Get the unique Device Token
+                // Force an update with a random version number to kill the ghost worker
+                const swPath = `/CIMS/firebase-messaging-sw.js?v=${new Date().getTime()}`;
+                const swRegistration = await navigator.serviceWorker.register(swPath, { scope: '/CIMS/' });
+                
+                // THE FIX: Aggressively wait for the worker to become 'active'
+                console.log("3. Waiting for Service Worker to become active...");
+                await navigator.serviceWorker.ready;
+                console.log("4. Service Worker is ACTIVE! Fetching FCM Token...");
+                
+                // Get the token using the verified active worker
                 const currentToken = await messaging.getToken({ 
-                    vapidKey: VAPID_KEY,
-                    serviceWorkerRegistration: swRegistration
+                    vapidKey: VAPID_KEY, 
+                    serviceWorkerRegistration: swRegistration 
                 });
                 
                 if (currentToken) {
-                    console.log("✅ SUCCESS! Your FCM Token is:", currentToken);
+                    console.log("✅ 5. Token Generated Successfully!", currentToken);
                     saveTokenToDatabase(currentToken);
-                } else {
-                    console.error("❌ Failed to generate token.");
                 }
             } else {
-                console.warn("User or Browser blocked the notification popup.");
+                console.warn("❌ User denied notification permissions.");
             }
         } catch (error) {
-            console.error("CRITICAL ERROR during token generation:", error);
+            console.error("❌ Token Error:", error);
         }
     }
 
-    // Handle incoming messages when the app is OPEN on the screen
-    messaging.onMessage((payload) => {
-        console.log('Message received in foreground: ', payload);
-        new Audio('assets/sounds/success.mp3').play().catch(e => {});
-        alert(`📢 ${payload.notification.title}\n\n${payload.notification.body}`);
-    });
-
-    // Function to send token to your PHP backend
     async function saveTokenToDatabase(token) {
         let formData = new FormData();
         formData.append('action', 'save_fcm_token');
         formData.append('fcm_token', token);
-        
         try {
-            await fetch('process/process_notif.php', { method: 'POST', body: formData });
-            console.log("Token successfully saved to database!");
-        } catch(e) {
-            console.error("Failed to reach process_notif.php", e);
-        }
+            let response = await fetch('process/process_notif.php', { method: 'POST', body: formData });
+            let data = await response.json();
+            if (data.status === 'success') {
+                console.log("✅ 6. DATABASE SUCCESS: Token Saved!");
+            }
+        } catch(e) { }
     }
 
-    // Trigger on load
     document.addEventListener("DOMContentLoaded", () => {
-        // Silence default install prompt on Dashboard
         window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); });
-
-        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-        const isStandalone = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
-
-        if (isIOS && !isStandalone) {
-            setTimeout(() => {
-                alert("🍎 iPhone Detected!\n\nTo receive real-time push notifications, you must add this app to your Home Screen.\n\n1. Tap the 'Share' icon at the bottom of Safari.\n2. Tap 'Add to Home Screen'.\n3. Open the new app!");
-            }, 1500);
-            return; 
-        }
-
-        // =========================================================================
-        // THE APPLE FIX: Require a physical button tap if permission is 'default'
-        // =========================================================================
+        
         if (Notification.permission === 'granted') {
-            // Already approved previously, silently fetch the token in the background
             requestNotificationPermission();
-        } 
-        else if (Notification.permission === 'default') {
-            // Create a sleek floating button asking the user to subscribe
+        } else if (Notification.permission === 'default') {
             const enableBtn = document.createElement('button');
             enableBtn.innerHTML = '<i class="bi bi-bell-fill me-2"></i> Enable Push Notifications';
             enableBtn.className = 'btn btn-primary position-fixed bottom-0 start-50 translate-middle-x mb-4 shadow-lg';
             enableBtn.style.zIndex = '9999';
-            enableBtn.style.borderRadius = '50px';
-            enableBtn.style.fontWeight = 'bold';
-            
-            // When tapped, iOS sees the "User Gesture" and allows the prompt!
-            enableBtn.onclick = async () => {
-                await requestNotificationPermission();
-                enableBtn.remove(); // Hide button after clicking
+            enableBtn.onclick = async () => { 
+                await requestNotificationPermission(); 
+                enableBtn.remove(); 
             };
-            
             document.body.appendChild(enableBtn);
         }
     });

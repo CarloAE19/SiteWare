@@ -228,3 +228,108 @@ body {
     }
     #sidebar.active { margin-left: 0; }
 }
+
+/* ==========================================================
+ * 📱 MOBILE & TABLET RESPONSIVE POLISH
+ * ========================================================== */
+
+/* 1. FLUID TYPOGRAPHY */
+html {
+    font-size: 16px;
+}
+
+@media (max-width: 768px) {
+    html {
+        /* Automatically shrinks all text, padding, and margins that use 'rem' units */
+        font-size: 14px; 
+    }
+    h4, .h4 {
+        font-size: 1.25rem !important;
+    }
+    /* Tighter spacing for the main dashboard content on mobile */
+    #content {
+        padding: 15px !important;
+    }
+    .card-body {
+        padding: 1rem !important;
+    }
+}
+
+/* 2. SLEEK TABLE OVERFLOWS */
+.table-responsive {
+    border-radius: 0.5rem;
+    border: 1px solid #e2e8f0;
+    /* Forces incredibly smooth scrolling on iPhones/iPads */
+    -webkit-overflow-scrolling: touch;
+    margin-bottom: 0;
+}
+
+/* Beautiful thin scrollbar specifically for table overflows */
+.table-responsive::-webkit-scrollbar {
+    height: 6px;
+}
+.table-responsive::-webkit-scrollbar-track {
+    background: #f8fafc;
+    border-bottom-left-radius: 0.5rem;
+    border-bottom-right-radius: 0.5rem;
+}
+.table-responsive::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 10px;
+}
+.table-responsive::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
+/* 3. MOBILE TABLE CELL COMPACTING */
+@media (max-width: 768px) {
+    .table td, .table th {
+        padding: 0.6rem 0.5rem !important; /* Tighter cells */
+        vertical-align: middle;
+        font-size: 0.9rem; /* Slightly smaller text to fit more data */
+        white-space: nowrap; /* Prevents text from squishing into tall blocks */
+    }
+    
+    /* 4. PERFECT BUTTONS & BADGES */
+    /* Prevent Action buttons from stacking weirdly */
+    .table .btn-group, 
+    .table .d-flex {
+        flex-wrap: nowrap !important;
+        gap: 4px;
+    }
+    
+    .table .btn-sm {
+        padding: 0.3rem 0.5rem;
+        font-size: 0.8rem;
+    }
+    
+    /* Ensure status badges don't break into two lines */
+    .badge {
+        white-space: nowrap;
+        padding: 0.5em 0.7em;
+    }
+}
+
+/* 5. FIX MODALS ON TINY SCREENS */
+@media (max-width: 576px) {
+    .modal-dialog {
+        margin: 0.5rem;
+    }
+    .modal-body {
+        padding: 1rem;
+    }
+}
+
+/* ==========================================================
+ * 📱 MOBILE NOTIFICATION DROPDOWN FIX
+ * ========================================================== */
+@media (max-width: 576px) {
+    /* Forces the dropdown to fit exactly inside the mobile screen */
+    .notif-menu {
+        width: 90vw !important; /* 90% of the screen width */
+        max-width: 350px;
+        position: absolute !important;
+        right: -50px !important; /* Centers it nicely under the bell */
+        left: auto !important;
+    }
+}

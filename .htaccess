@@ -1,9 +1,43 @@
-RewriteEngine On
+# ==========================================================
+# GB INVENTORY - SERVER SECURITY FIREWALL
+# ==========================================================
 
-# Unless it's a directory or an existing file...
+# 1. DISABLE DIRECTORY BROWSING (Crucial!)
+# Prevents hackers from seeing a list of files in folders that don't have an index.php
+Options -Indexes
+
+# 2. BLOCK SENSITIVE FILES
+# Prevents anyone from downloading your database credentials or server config
+<FilesMatch "(^\\.env$|^\\.htaccess$|\\.ini$|\\.log$|\.git)">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# 3. CLEAN URLS (Hide .php extensions)
+# Your existing logic: Allows users to visit /dashboard instead of /dashboard.php
+RewriteEngine On
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteCond %{REQUEST_FILENAME} !-f
-
-# ...check if adding .php makes it a valid file, and route it silently
 RewriteCond %{REQUEST_FILENAME}.php -f
 RewriteRule ^([^\.]+)$ $1.php [NC,L]
+
+# 4. INJECT SECURITY HEADERS (Anti-Hacking)
+<IfModule mod_headers.c>
+    # Prevents "Clickjacking" (Hackers embedding your site in a fake iframe)
+    Header always set X-Frame-Options "SAMEORIGIN"
+    
+    # Forces browsers to block Cross-Site Scripting (XSS) attacks
+    Header always set X-XSS-Protection "1; mode=block"
+    
+    # Prevents browsers from "guessing" file types (Stops malicious file uploads from executing)
+    Header always set X-Content-Type-Options "nosniff"
+    
+    # Don't send sensitive referrer data to external websites
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>
+
+# 5. PREVENT DEFAULT CACHING FOR PHP FILES (Keeps your SPA fresh)
+<FilesMatch "\.(php)$">
+    Header set Cache-Control "no-store, no-cache, must-revalidate, max-age=0"
+    Header set Pragma "no-cache"
+</FilesMatch>

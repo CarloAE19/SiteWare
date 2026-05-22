@@ -14,41 +14,141 @@ $userId = $_SESSION['user_id'];
 $itemStmt = $pdo->query("SELECT item_code, item_name, unit FROM inventory WHERE status != 'Out of Stock' ORDER BY item_name ASC");
 $inventoryItems = $itemStmt->fetchAll(PDO::FETCH_ASSOC);
 
+// Fetch Active Projects
+$activeProjects = $pdo->query("SELECT project_name FROM projects WHERE status = 'active' ORDER BY project_name ASC")->fetchAll(PDO::FETCH_ASSOC);
+
 // ========================================================
 // ROLE-BASED DATA FETCHING
 // ========================================================
 if ($role === 'requestor') {
-    $stmt = $pdo->prepare("SELECT * FROM requisitions WHERE requestor_id = ? ORDER BY created_at DESC");
-    $stmt->execute([$userId]);
+    $stmt = $pdo->query("SELECT * FROM requisitions WHERE type = 'project' ORDER BY created_at DESC");
     $requisitions = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    $statTitle = "My";
+    $statTitle = "Project ";
+} elseif ($role === 'warehouse') {
+    $stmt = $pdo->query("SELECT * FROM requisitions WHERE type = 'restock' ORDER BY created_at DESC");
+    $requisitions = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $statTitle = "Warehouse ";
 } else {
     $stmt = $pdo->query("SELECT * FROM requisitions ORDER BY created_at DESC");
     $requisitions = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    $statTitle = "System";
+    $statTitle = "";
 }
 
-// FETCH REQUISITION ITEMS (To display in the View Details Modal)
-$itemsQuery = $pdo->query("SELECT ri.requisition_id, ri.quantity, ri.item_code, i.item_name, i.unit 
+$itemsQuery = $pdo->query("SELECT ri.requisition_id, ri.quantity, ri.item_code, i.item_name, i.unit, i.quantity as current_stock,
+                                  COALESCE(p.total_pending, 0) as total_pending,
+                                  p.pending_details
                            FROM requisition_items ri 
-                           LEFT JOIN inventory i ON ri.item_code = i.item_code");
+                           LEFT JOIN inventory i ON ri.item_code = i.item_code
+                           LEFT JOIN (
+                               SELECT ri2.item_code, SUM(ri2.quantity) as total_pending,
+                                      GROUP_CONCAT(CONCAT(r2.project_name, ' [', ri2.quantity, 'x by ', r2.requestor_name, ']') SEPARATOR '; ') as pending_details
+                               FROM requisition_items ri2
+                               JOIN requisitions r2 ON ri2.requisition_id = r2.id
+                               WHERE r2.status = 'Pending Approval'
+                               GROUP BY ri2.item_code
+                           ) p ON ri.item_code = p.item_code");
 $allItems = $itemsQuery->fetchAll(PDO::FETCH_ASSOC);
 $rsItemsGrouped = [];
-foreach($allItems as $item) {
+foreach ($allItems as $item) {
     $rsItemsGrouped[$item['requisition_id']][] = $item;
 }
 
-// Calculate Stats dynamically
 $totalRS = count($requisitions);
 $pendingRS = count(array_filter($requisitions, fn($r) => $r['status'] === 'Pending Approval'));
-$approvedRS = count(array_filter($requisitions, fn($r) => $r['status'] === 'Approved'));
+$approvedRS = count(array_filter($requisitions, fn($r) => in_array($r['status'], ['Approved', 'PO Created'])));
 
 include 'layout/header.php';
 ?>
 
-<div class="container-fluid px-4 py-4">
+<style>
+    @media (max-width: 767.98px) {
+
+        /* FIXED: Added .rs-table-wrapper class so this CSS DOES NOT break the Modal's table! */
+        .rs-table-wrapper {
+            overflow-x: visible !important;
+            border: none !important;
+            box-shadow: none !important;
+            background: transparent !important;
+        }
+
+        #rsTable {
+            white-space: normal !important;
+            background: transparent !important;
+        }
+
+        #rsTable thead {
+            display: none;
+        }
+
+        #rsTable tbody tr {
+            display: block;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            background: #fff;
+            padding: 8px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+        }
+
+        #rsTable tbody td {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            text-align: right;
+            padding: 8px 10px;
+            border: none;
+            border-bottom: 1px solid #f4f7f6;
+        }
+
+        #rsTable tbody td.d-none {
+            display: none !important;
+        }
+
+        #rsTable tbody td:last-child {
+            border-bottom: none;
+            justify-content: flex-end;
+            gap: 8px;
+            padding-top: 12px;
+            background-color: #f8f9fa;
+            border-radius: 0 0 8px 8px;
+            margin: 0 -8px -8px -8px;
+            padding-right: 15px;
+        }
+
+        #rsTable tbody td::before {
+            content: attr(data-label);
+            font-weight: 700;
+            font-size: 0.75rem;
+            color: #6c757d;
+            text-transform: uppercase;
+            text-align: left;
+            margin-right: 15px;
+        }
+
+        #rsTable tbody td:last-child::before {
+            display: none;
+        }
+    }
     
-    <!-- Flash Messages -->
+    /* Touch-friendly details dropdown styles for PWA */
+    summary {
+        list-style: none;
+    }
+    summary::-webkit-details-marker {
+        display: none;
+    }
+    .border-bottom-dashed {
+        border-bottom: 1px dashed #dee2e6;
+    }
+    .border-bottom-dashed:last-child {
+        border-bottom: none !important;
+        margin-bottom: 0 !important;
+        padding-bottom: 0 !important;
+    }
+</style>
+
+<div class="container-fluid px-3 px-md-4 py-4">
+
     <?php if (isset($_SESSION['message'])): ?>
         <div class="alert alert-<?= $_SESSION['msg_type'] ?> alert-dismissible fade show shadow-sm" role="alert">
             <?= $_SESSION['message'] ?>
@@ -57,36 +157,35 @@ include 'layout/header.php';
         <?php unset($_SESSION['message'], $_SESSION['msg_type']); ?>
     <?php endif; ?>
 
-    <!-- Role-Based Requisition Stats -->
-    <div class="row mb-4">
-        <div class="col-xl-4 col-md-6 mb-3">
-            <div class="card stat-card bg-white h-100 p-3" style="border-left-color: var(--gb-blue);">
+    <div class="row mb-4 g-3">
+        <div class="col-12 col-md-4">
+            <div class="card stat-card bg-white h-100 p-3 shadow-sm border-0" style="border-left: 4px solid var(--gb-blue) !important;">
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
-                        <h6 class="text-muted text-uppercase mb-1"><?= $statTitle ?> Total Requisitions</h6>
-                        <h2 class="mb-0 fw-bold"><?= $totalRS ?></h2>
+                        <h6 class="text-muted text-uppercase mb-1" style="font-size:0.8rem;"><?= $statTitle ?>Total Requisitions</h6>
+                        <h3 class="mb-0 fw-bold"><?= $totalRS ?></h3>
                     </div>
                     <div class="fs-1 text-primary" style="color: var(--gb-blue) !important;"><i class="bi bi-file-earmark-text"></i></div>
                 </div>
             </div>
         </div>
-        <div class="col-xl-4 col-md-6 mb-3">
-            <div class="card stat-card bg-white h-100 p-3" style="border-left-color: var(--gb-yellow);">
+        <div class="col-12 col-md-4">
+            <div class="card stat-card bg-white h-100 p-3 shadow-sm border-0" style="border-left: 4px solid var(--gb-yellow) !important;">
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
-                        <h6 class="text-muted text-uppercase mb-1"><?= $statTitle ?> Pending Approval</h6>
-                        <h2 class="mb-0 fw-bold"><?= $pendingRS ?></h2>
+                        <h6 class="text-muted text-uppercase mb-1" style="font-size:0.8rem;"><?= $statTitle ?>Pending Approval</h6>
+                        <h3 class="mb-0 fw-bold"><?= $pendingRS ?></h3>
                     </div>
                     <div class="fs-1 text-warning"><i class="bi bi-hourglass-split"></i></div>
                 </div>
             </div>
         </div>
-        <div class="col-xl-4 col-md-6 mb-3">
-            <div class="card stat-card bg-white h-100 p-3" style="border-left-color: #198754;">
+        <div class="col-12 col-md-4">
+            <div class="card stat-card bg-white h-100 p-3 shadow-sm border-0" style="border-left: 4px solid #198754 !important;">
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
-                        <h6 class="text-muted text-uppercase mb-1"><?= $statTitle ?> Approved (Ready)</h6>
-                        <h2 class="mb-0 fw-bold"><?= $approvedRS ?></h2>
+                        <h6 class="text-muted text-uppercase mb-1" style="font-size:0.8rem;"><?= $statTitle ?>Approved (Ready)</h6>
+                        <h3 class="mb-0 fw-bold"><?= $approvedRS ?></h3>
                     </div>
                     <div class="fs-1 text-success"><i class="bi bi-check2-all"></i></div>
                 </div>
@@ -94,98 +193,148 @@ include 'layout/header.php';
         </div>
     </div>
 
-    <!-- Main Table Area -->
-    <div class="table-container">
-        <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
-            <h4 class="mb-0 fw-bold text-dark"><i class="bi bi-ui-checks me-2"></i>Requisition Slips (RS)</h4>
-            
-            <div class="d-flex gap-2">
-                <div class="input-group">
-                    <span class="input-group-text bg-light"><i class="bi bi-search"></i></span>
-                    <input type="text" class="form-control" placeholder="Search RS No or Project...">
+    <div class="card border-0 shadow-sm p-3 p-md-4 bg-white">
+        <div class="row align-items-center mb-4 g-3">
+            <div class="col-12 col-xl-4 text-center text-xl-start">
+                <h4 class="mb-0 fw-bold text-dark"><i class="bi bi-ui-checks me-2 text-primary"></i>Requisition Slips</h4>
+            </div>
+
+            <div class="col-12 col-xl-8">
+                <div class="d-flex flex-wrap justify-content-start justify-content-xl-end align-items-center gap-2 w-100">
+
+                    <div class="input-group shadow-sm flex-grow-1 flex-md-grow-0" style="max-width: 320px; min-width: 200px;">
+                        <span class="input-group-text bg-white border-end-0 text-muted"><i class="bi bi-search"></i></span>
+                        <input type="text" id="searchRs" class="form-control border-start-0 ps-0 bg-white" placeholder="Search RS No or Project...">
+                    </div>
+
+                    <div class="dropdown">
+                        <button class="btn btn-sm btn-outline-secondary fw-bold shadow-sm px-3" type="button" id="columnToggleBtn" data-bs-toggle="dropdown" aria-expanded="false" data-bs-auto-close="outside">
+                            <i class="bi bi-funnel-fill me-1 text-primary"></i> Filter
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-md-end shadow-lg border-0 p-2" aria-labelledby="columnToggleBtn" style="min-width: 250px;">
+                            <li>
+                                <h6 class="dropdown-header fw-bold text-uppercase small text-muted">Filter Columns</h6>
+                            </li>
+                            <li><label class="dropdown-item d-flex align-items-center rounded py-2 text-dark fw-bold" style="cursor:pointer;"><input class="form-check-input col-toggle me-3 mt-0 border-secondary" type="checkbox" style="transform: scale(1.2);" value="col-project" checked> Project / Purpose</label></li>
+                            <li><label class="dropdown-item d-flex align-items-center rounded py-2 text-dark fw-bold" style="cursor:pointer;"><input class="form-check-input col-toggle me-3 mt-0 border-secondary" type="checkbox" style="transform: scale(1.2);" value="col-requestor" checked> Requested By</label></li>
+                            <li><label class="dropdown-item d-flex align-items-center rounded py-2 text-dark fw-bold" style="cursor:pointer;"><input class="form-check-input col-toggle me-3 mt-0 border-secondary" type="checkbox" style="transform: scale(1.2);" value="col-date" checked> Date Requested</label></li>
+                            <li><label class="dropdown-item d-flex align-items-center rounded py-2 text-dark fw-bold" style="cursor:pointer;"><input class="form-check-input col-toggle me-3 mt-0 border-secondary" type="checkbox" style="transform: scale(1.2);" value="col-urgency" checked> Urgency</label></li>
+                            <li><label class="dropdown-item d-flex align-items-center rounded py-2 text-dark fw-bold" style="cursor:pointer;"><input class="form-check-input col-toggle me-3 mt-0 border-secondary" type="checkbox" style="transform: scale(1.2);" value="col-status" checked> Status</label></li>
+                        </ul>
+                    </div>
+
+                    <?php if ($role === 'requestor' || $role === 'admin'): ?>
+                        <div>
+                            <button class="btn btn-brand btn-sm fw-bold text-nowrap shadow-sm px-3" data-bs-toggle="modal" data-bs-target="#rsModal">
+                                <i class="bi bi-plus-lg me-1"></i> Create RS
+                            </button>
+                        </div>
+                    <?php endif; ?>
+
+                    <?php if ($role === 'warehouse' || $role === 'admin'): ?>
+                        <div>
+                            <button class="btn btn-outline-primary btn-sm fw-bold text-nowrap shadow-sm px-3" data-bs-toggle="modal" data-bs-target="#restockModal">
+                                <i class="bi bi-box-seam me-1"></i> Request Restock
+                            </button>
+                        </div>
+                    <?php endif; ?>
+
                 </div>
-                
-                <?php if (in_array($role, ['requestor', 'warehouse'])): ?>
-                <button class="btn btn-brand" data-bs-toggle="modal" data-bs-target="#rsModal">
-                    <i class="bi bi-plus-lg me-1"></i> Create RS
-                </button>
-                <?php endif; ?>
             </div>
         </div>
 
-        <div class="table-responsive">
-            <table class="table table-hover align-middle">
-                <thead>
+        <!-- FIXED: Added rs-table-wrapper class here -->
+        <div class="table-responsive rs-table-wrapper border rounded shadow-sm mt-3 bg-white">
+            <table class="table table-hover align-middle mb-0 text-nowrap" id="rsTable">
+                <thead class="table-dark">
                     <tr>
-                        <th scope="col">RS Number</th>
-                        <th scope="col">Project / Purpose</th>
-                        <th scope="col">Requested By</th>
-                        <th scope="col">Date Requested</th>
-                        <th scope="col">Urgency</th>
-                        <th scope="col">Status</th>
-                        <th scope="col" class="text-end">Actions</th>
+                        <th scope="col" class="col-rs-no py-3">RS Number</th>
+                        <th scope="col" class="col-project py-3">Project / Purpose</th>
+                        <th scope="col" class="col-requestor py-3">Requested By</th>
+                        <th scope="col" class="col-date py-3">Date</th>
+                        <th scope="col" class="col-urgency py-3">Urgency</th>
+                        <th scope="col" class="col-status py-3">Status</th>
+                        <th scope="col" class="text-end py-3">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <?php if(count($requisitions) > 0): ?>
+                    <?php if (count($requisitions) > 0): ?>
                         <?php foreach ($requisitions as $rs): ?>
-                            <tr>
-                                <td class="fw-bold text-primary"><?= htmlspecialchars($rs['rs_no']) ?></td>
-                                <td class="fw-bold"><?= htmlspecialchars($rs['project_name']) ?></td>
-                                <td><i class="bi bi-person me-1 text-muted"></i><?= htmlspecialchars($rs['requestor_name']) ?></td>
-                                <td class="text-muted small"><?= date('M d, Y', strtotime($rs['created_at'])) ?></td>
-                                <td>
-                                    <?php 
-                                        $urgencyClass = 'bg-secondary';
-                                        if($rs['urgency'] == 'High') $urgencyClass = 'bg-warning text-dark';
-                                        if($rs['urgency'] == 'Urgent') $urgencyClass = 'bg-danger';
-                                    ?>
-                                    <span class="badge <?= $urgencyClass ?>"><?= htmlspecialchars($rs['urgency']) ?></span>
+                            <tr class="rs-row">
+                                <td class="fw-bold text-primary rs-no col-rs-no" data-label="RS Number"><?= htmlspecialchars($rs['rs_no']) ?></td>
+                                <td class="fw-bold rs-project col-project text-dark" data-label="Project / Purpose">
+                                    <?php if (($rs['type'] ?? 'project') === 'restock'): ?>
+                                        <span class="badge bg-info text-dark shadow-sm px-2 py-1.5"><i class="bi bi-box-seam me-1"></i> Warehouse Restock</span>
+                                    <?php else: ?>
+                                        <?= htmlspecialchars($rs['project_name']) ?>
+                                    <?php endif; ?>
                                 </td>
-                                <td>
-                                    <?php 
-                                        $statusClass = 'bg-secondary';
-                                        if($rs['status'] == 'Pending Approval') $statusClass = 'bg-warning text-dark';
-                                        if($rs['status'] == 'Approved') $statusClass = 'bg-primary';
-                                        if($rs['status'] == 'Rejected') $statusClass = 'bg-danger';
-                                        if($rs['status'] == 'PO Created') $statusClass = 'bg-success';
-                                    ?>
-                                    <span class="badge <?= $statusClass ?>"><?= htmlspecialchars($rs['status']) ?></span>
+
+                                <!-- Aligned left for PC, but the td's flex layout handles right-alignment on mobile -->
+                                <td class="col-requestor" data-label="Requested By">
+                                    <div class="d-flex align-items-center justify-content-start">
+                                        <i class="bi bi-person me-1 text-muted"></i>
+                                        <span class="rs-requestor fw-bold text-dark"><?= htmlspecialchars($rs['requestor_name']) ?></span>
+                                        <?php if ((int)$rs['requestor_id'] === (int)$userId): ?>
+                                            <span class="badge bg-primary ms-2 px-2 py-1 shadow-sm" style="font-size: 0.65rem;">You</span>
+                                        <?php endif; ?>
+                                    </div>
                                 </td>
-                                <td class="text-end">
-                                    
-                                    <!-- VIEW DETAILS BUTTON (With JSON Data injected for the Modal) -->
-                                    <?php $currentItemsJson = htmlspecialchars(json_encode($rsItemsGrouped[$rs['id']] ?? []), ENT_QUOTES, 'UTF-8'); ?>
-                                    <button class="btn btn-sm btn-outline-secondary me-1" title="View Details" 
-                                            onclick="viewRsDetails('<?= $rs['rs_no'] ?>', '<?= addslashes($rs['project_name']) ?>', '<?= addslashes($rs['remarks']) ?>', '<?= $currentItemsJson ?>')">
-                                        <i class="bi bi-eye"></i>
+
+                                <td class="text-muted small fw-bold col-date" data-label="Date"><?= date('M d, Y', strtotime($rs['created_at'])) ?></td>
+                                <td class="col-urgency" data-label="Urgency">
+                                    <?php
+                                    $urgencyClass = 'bg-secondary';
+                                    if ($rs['urgency'] == 'High') $urgencyClass = 'bg-warning text-dark';
+                                    if ($rs['urgency'] == 'Urgent') $urgencyClass = 'bg-danger';
+                                    ?>
+                                    <span class="badge <?= $urgencyClass ?> shadow-sm"><?= htmlspecialchars($rs['urgency']) ?></span>
+                                </td>
+                                <td class="col-status" data-label="Status">
+                                    <?php
+                                    $statusClass = 'bg-secondary';
+                                    if ($rs['status'] == 'Pending Approval') $statusClass = 'bg-warning text-dark';
+                                    if ($rs['status'] == 'Approved') $statusClass = 'bg-primary';
+                                    if ($rs['status'] == 'Rejected') $statusClass = 'bg-danger';
+                                    if ($rs['status'] == 'PO Created') $statusClass = 'bg-success';
+                                    ?>
+                                    <span class="badge <?= $statusClass ?> shadow-sm"><?= htmlspecialchars($rs['status']) ?></span>
+                                </td>
+                                <td class="text-end" data-label="Actions">
+
+                                    <?php
+                                    $cleanProject = str_replace(["\r", "\n"], ["\\r", "\\n"], addslashes($rs['project_name']));
+                                    $cleanRemarks = str_replace(["\r", "\n"], ["\\r", "\\n"], addslashes($rs['remarks']));
+                                    $cleanRequestor = addslashes($rs['requestor_name']);
+                                    $itemsB64 = base64_encode(json_encode($rsItemsGrouped[$rs['id']] ?? []));
+                                    ?>
+
+                                    <button class="btn btn-sm btn-outline-secondary fw-bold shadow-sm me-1" title="View Details"
+                                        onclick="viewRsDetails('<?= $rs['rs_no'] ?>', '<?= $cleanProject ?>', '<?= $cleanRemarks ?>', '<?= $rs['status'] ?>', '<?= $cleanRequestor ?>', '<?= date('M d, Y', strtotime($rs['created_at'])) ?>', '<?= $itemsB64 ?>')">
+                                        <i class="bi bi-file-earmark-text me-1"></i> View
                                     </button>
-                                    
-                                    <?php if ($role === 'management' && $rs['status'] === 'Pending Approval'): ?>
+
+                                    <?php if (in_array($role, ['management', 'admin']) && $rs['status'] === 'Pending Approval'): ?>
                                         <form method="POST" action="process/process.php" class="d-inline">
                                             <input type="hidden" name="action" value="approve_rs">
                                             <input type="hidden" name="rs_id" value="<?= $rs['id'] ?>">
-                                            <button class="btn btn-sm btn-outline-success me-1" title="Approve RS"><i class="bi bi-check-lg"></i></button>
+                                            <button class="btn btn-sm btn-success shadow-sm me-1" title="Approve RS"><i class="bi bi-check-lg"></i></button>
                                         </form>
-                                        <form method="POST" action="process/process.php" class="d-inline">
-                                            <input type="hidden" name="action" value="reject_rs">
-                                            <input type="hidden" name="rs_id" value="<?= $rs['id'] ?>">
-                                            <button class="btn btn-sm btn-outline-danger" title="Reject RS"><i class="bi bi-x-lg"></i></button>
-                                        </form>
+
+                                        <button type="button" class="btn btn-sm btn-danger shadow-sm" title="Reject RS" onclick="openRejectModal(<?= $rs['id'] ?>, '<?= $rs['rs_no'] ?>')">
+                                            <i class="bi bi-x-lg"></i>
+                                        </button>
                                     <?php endif; ?>
 
                                     <?php if ($role === 'purchasing' && $rs['status'] === 'Approved'): ?>
-                                        <button class="btn btn-sm btn-outline-primary" title="Generate Purchase Order"><i class="bi bi-file-earmark-plus"></i> PO</button>
+                                        <button class="btn btn-sm btn-outline-primary shadow-sm" title="Generate Purchase Order"><i class="bi bi-file-earmark-plus"></i> PO</button>
                                     <?php endif; ?>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
                     <?php else: ?>
                         <tr>
-                            <td colspan="7" class="text-center py-5 text-muted">
-                                <i class="bi bi-folder-x fs-1 d-block mb-2"></i>
-                                No Requisition Slips found.
-                            </td>
+                            <td colspan="7" class="text-center py-5 text-muted"><i class="bi bi-folder-x fs-1 d-block mb-2"></i>No Requisition Slips found.</td>
                         </tr>
                     <?php endif; ?>
                 </tbody>
@@ -194,210 +343,6 @@ include 'layout/header.php';
     </div>
 </div>
 
-<!-- ======================================================== -->
-<!-- MODAL: VIEW DETAILS (FOR MANAGEMENT / EVERYONE)          -->
-<!-- ======================================================== -->
-<div class="modal fade" id="viewRsModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content border-0">
-            <div class="modal-header" style="background-color: var(--gb-dark); color: white;">
-                <h5 class="modal-title"><i class="bi bi-card-list me-2" style="color: var(--gb-yellow);"></i>Requisition Details</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body bg-light">
-                <div class="mb-3">
-                    <h6 class="fw-bold text-primary mb-0" id="viewRsNo">RS-0000</h6>
-                    <small class="text-muted" id="viewRsProject">Project Name</small>
-                </div>
-                
-                <h6 class="fw-bold border-bottom pb-2">Requested Items:</h6>
-                <div class="table-responsive mb-3">
-                    <table class="table table-sm table-bordered bg-white">
-                        <thead class="table-light">
-                            <tr>
-                                <th>Item Code</th>
-                                <th>Item Name</th>
-                                <th>Qty Requested</th>
-                            </tr>
-                        </thead>
-                        <tbody id="viewRsItemsBody">
-                            <!-- Injected by JavaScript -->
-                        </tbody>
-                    </table>
-                </div>
-
-                <div class="mb-2">
-                    <h6 class="fw-bold mb-1">Remarks:</h6>
-                    <p class="text-muted small border p-2 bg-white rounded" id="viewRsRemarks" style="min-height: 50px;">No remarks.</p>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-
-<!-- ======================================================== -->
-<!-- MODAL: CREATE RS (ONLY REQUESTORS & WAREHOUSE)           -->
-<!-- ======================================================== -->
-<?php if (in_array($role, ['requestor', 'warehouse'])): ?>
-<div class="modal fade" id="rsModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-lg">
-        <div class="modal-content border-0">
-            <div class="modal-header" style="background-color: var(--gb-dark); color: white;">
-                <h5 class="modal-title"><i class="bi bi-file-earmark-plus me-2" style="color: var(--gb-yellow);"></i>Create Requisition Slip (RS)</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-            
-            <form method="POST" action="process/process.php" id="rsForm">
-                <div class="modal-body bg-light">
-                    <input type="hidden" name="action" value="create_rs">
-                    <input type="hidden" name="requestor_id" value="<?= $_SESSION['user_id'] ?>">
-                    <input type="hidden" name="requestor_name" value="<?= htmlspecialchars($_SESSION['user_name']) ?>">
-                    
-                    <div class="row mb-3">
-                        <div class="col-md-4">
-                            <label class="form-label fw-bold">RS Number</label>
-                            <input type="text" class="form-control text-primary fw-bold" name="rs_no" value="RS-<?= date('Y') ?>-<?= rand(1000,9999) ?>" readonly>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label fw-bold">Date</label>
-                            <input type="text" class="form-control" value="<?= date('M d, Y') ?>" readonly>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label fw-bold">Urgency</label>
-                            <select class="form-select" name="urgency" required>
-                                <option value="Normal">Normal</option>
-                                <option value="High">High</option>
-                                <option value="Urgent">Urgent</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label fw-bold">Project Name / Purpose <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control" name="project_name" required placeholder="e.g. City Hall Renovation Phase 1">
-                    </div>
-
-                    <div class="card border-0 shadow-sm mb-3">
-                        <div class="card-header bg-white fw-bold text-dark d-flex justify-content-between align-items-center">
-                            <span><i class="bi bi-box-seam me-2"></i>Requested Materials</span>
-                            <button type="button" class="btn btn-sm btn-outline-primary" id="addMaterialBtn">
-                                <i class="bi bi-plus-circle"></i> Add Item
-                            </button>
-                        </div>
-                        <div class="card-body p-2" id="materialsContainer">
-                            <div class="row g-2 material-row mb-2 align-items-center">
-                                <div class="col-md-7">
-                                    <select class="form-select" name="items[]" required>
-                                        <option value="">Select Material from Inventory...</option>
-                                        <?php foreach ($inventoryItems as $item): ?>
-                                            <option value="<?= $item['item_code'] ?>">
-                                                [<?= $item['item_code'] ?>] <?= htmlspecialchars($item['item_name']) ?>
-                                            </option>
-                                        <?php endforeach; ?>
-                                    </select>
-                                </div>
-                                <div class="col-md-3">
-                                    <input type="number" class="form-control" name="quantities[]" placeholder="Qty" required min="1">
-                                </div>
-                                <div class="col-md-2 text-center">
-                                    <button type="button" class="btn btn-outline-danger btn-sm remove-row" disabled><i class="bi bi-trash"></i></button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label fw-bold">Remarks / Notes</label>
-                        <textarea class="form-control" name="remarks" rows="2" placeholder="Optional details for management or purchasing..."></textarea>
-                    </div>
-
-                </div>
-                <div class="modal-footer border-top-0 bg-light">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-brand">Submit Requisition</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-<?php endif; ?>
-
-<!-- JavaScript for Viewing Details and Adding Dynamic Rows -->
-<script>
-// Logic for "View Details" Modal
-function viewRsDetails(rsNo, project, remarks, itemsJson) {
-    document.getElementById('viewRsNo').innerText = rsNo;
-    document.getElementById('viewRsProject').innerText = project;
-    document.getElementById('viewRsRemarks').innerText = remarks ? remarks : 'No remarks provided.';
-    
-    const tbody = document.getElementById('viewRsItemsBody');
-    tbody.innerHTML = ''; // Clear previous items
-    
-    try {
-        const items = JSON.parse(itemsJson);
-        if (items.length > 0) {
-            items.forEach(item => {
-                const itemName = item.item_name ? item.item_name : '<span class="text-danger">Item deleted from inventory</span>';
-                const unit = item.unit ? item.unit : '';
-                
-                tbody.innerHTML += `
-                    <tr>
-                        <td class="text-muted">${item.item_code}</td>
-                        <td class="fw-bold">${itemName}</td>
-                        <td>${item.quantity} ${unit}</td>
-                    </tr>
-                `;
-            });
-        } else {
-            tbody.innerHTML = `<tr><td colspan="3" class="text-center text-muted">No items found.</td></tr>`;
-        }
-    } catch (e) {
-        tbody.innerHTML = `<tr><td colspan="3" class="text-center text-danger">Error loading items.</td></tr>`;
-    }
-    
-    new bootstrap.Modal(document.getElementById('viewRsModal')).show();
-}
-
-// Logic for Dynamic Rows (Create RS)
-document.addEventListener('DOMContentLoaded', function() {
-    const container = document.getElementById('materialsContainer');
-    const addBtn = document.getElementById('addMaterialBtn');
-
-    if(addBtn && container) {
-        addBtn.addEventListener('click', function() {
-            const firstRow = container.querySelector('.material-row');
-            const newRow = firstRow.cloneNode(true);
-            newRow.querySelector('select').value = '';
-            newRow.querySelector('input[type="number"]').value = '';
-            newRow.querySelector('.remove-row').disabled = false;
-            container.appendChild(newRow);
-            updateDeleteButtons();
-        });
-
-        container.addEventListener('click', function(e) {
-            if (e.target.closest('.remove-row')) {
-                const rowToRemove = e.target.closest('.material-row');
-                if (container.querySelectorAll('.material-row').length > 1) {
-                    rowToRemove.remove();
-                    updateDeleteButtons();
-                }
-            }
-        });
-
-        function updateDeleteButtons() {
-            const rows = container.querySelectorAll('.material-row');
-            if (rows.length === 1) {
-                rows[0].querySelector('.remove-row').disabled = true;
-            } else {
-                rows.forEach(row => row.querySelector('.remove-row').disabled = false);
-            }
-        }
-    }
-});
-</script>
-
+<?php include 'components/requisition_modals.php'; ?>
+<script src="assets/js/requisitions.js?v=<?= time() ?>"></script>
 <?php include 'layout/footer.php'; ?>

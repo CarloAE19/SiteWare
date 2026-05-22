@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>You're Offline — GB Inventory</title>
+    <meta name="description" content="No internet connection detected. Please check your network and try again.">
+    <link rel="icon" type="image/png" href="assets/LogoGB.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+
+    <link rel="stylesheet" href="assets/css/offline.css">
+</head>
+
+<body>
+
+    <!-- Ambient colour orbs -->
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+
+    <!-- ── Card ── -->
+    <div class="card" role="main">
+
+        <!-- Shimmer accent bar -->
+        <div class="card-accent"></div>
+
+        <div class="card-body">
+
+            <!-- Brand header -->
+            <div class="brand">
+                <img src="assets/LogoGB.png" alt="GB Logo" class="brand-logo"
+                    onerror="this.replaceWith(document.createTextNode(''))">
+                <span class="brand-name">GB Inventory</span>
+                <div class="brand-divider"></div>
+                <!-- <span class="brand-badge">v2.0</span> -->
+            </div>
+
+            <!-- Icon -->
+            <div class="icon-wrap">
+                <div class="icon-ring">
+                    <!-- Wifi-off SVG -->
+                    <svg class="wifi-icon" xmlns="http://www.w3.org/2000/svg" width="38" height="38" viewBox="0 0 24 24"
+                        fill="none" stroke="#ef4444" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"
+                        aria-label="No Wi-Fi signal">
+                        <line x1="1" y1="1" x2="23" y2="23" />
+                        <path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55" />
+                        <path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39" />
+                        <path d="M10.71 5.05A16 16 0 0 1 22.56 9" />
+                        <path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88" />
+                        <path d="M8.53 16.11a6 6 0 0 1 6.95 0" />
+                        <line x1="12" y1="20" x2="12.01" y2="20" stroke-width="2.5" />
+                    </svg>
+                </div>
+            </div>
+
+            <!-- Heading & body copy -->
+            <h1 class="headline">Opps!-You're Offline</h1>
+            <p class="subtext">
+                No internet connection detected. Check your Wi-Fi or mobile data, then try reconnecting.
+            </p>
+
+            <!-- Status pills -->
+            <!-- <div class="status-row" aria-label="Connection status">
+                <div class="pill pill-offline">
+                    <div class="dot"></div>
+                    No Internet
+                </div>
+                <div class="pill pill-cached">
+                    <div class="dot"></div>
+                    App Cached
+                </div>
+                <div class="pill pill-system">
+                    <div class="dot"></div>
+                    System Ready
+                </div>
+            </div> -->
+
+            <!-- Divider -->
+            <div class="hr"></div>
+
+            <!-- Retry button -->
+            <button class="btn-retry" id="retryBtn" onclick="handleRetry()">
+                <svg class="btn-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"
+                    viewBox="0 0 16 16" aria-hidden="true">
+                    <path fill-rule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2z" />
+                    <path
+                        d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466" />
+                </svg>
+                <span id="retryLabel">Try Again</span>
+            </button>
+
+        </div><!-- /card-body -->
+
+        <!-- Card footer -->
+        <div class="card-footer">
+            <span class="footer-brand">
+                &copy;
+                <script>document.write(new Date().getFullYear())</script>
+                <strong>Genetian Builders &amp; Enterprises Inc.</strong>
+            </span>
+            <div class="footer-sep"></div>
+            <span style="opacity: 0.8;">Powered by The MedYas</span>
+            <!-- <span class="footer-system">Inventory Management System</span> -->
+        </div>
+
+    </div><!-- /card -->
+
+    <script src="assets/js/offline.js"></script>
+
+</body>
+
+</html>

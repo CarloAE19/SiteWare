@@ -1,0 +1,38 @@
+/* ---------------------------------------------------
+    DYNAMIC COLUMN HIDING CLASSES
+    Controlled by the Checkbox Filter
+--------------------------------------------------- */
+table.hide-col-1 th:nth-child(1), table.hide-col-1 td:nth-child(1) { display: none !important; }
+table.hide-col-2 th:nth-child(2), table.hide-col-2 td:nth-child(2) { display: none !important; }
+table.hide-col-3 th:nth-child(3), table.hide-col-3 td:nth-child(3) { display: none !important; }
+table.hide-col-4 th:nth-child(4), table.hide-col-4 td:nth-child(4) { display: none !important; }
+table.hide-col-5 th:nth-child(5), table.hide-col-5 td:nth-child(5) { display: none !important; }
+table.hide-col-6 th:nth-child(6), table.hide-col-6 td:nth-child(6) { display: none !important; }
+
+/* ---------------------------------------------------
+    MOBILE CARD TABLE UI
+    Completely eliminates horizontal scrolling
+--------------------------------------------------- */
+@media (max-width: 767.98px) {
+    .inventory-table-wrapper { overflow-x: hidden !important; border: none !important; box-shadow: none !important; background: transparent !important; }
+    .table-responsive { overflow-x: hidden !important; }
+    #inventoryTable { display: block; width: 100%; background: transparent !important; }
+    #inventoryTable thead { display: none; }
+    #inventoryTable tbody { display: block; width: 100%; }
+    #inventoryTable tbody tr.item-row { 
+        display: flex; flex-direction: column; border: 1px solid #e0e4e8; border-radius: 12px; 
+        margin-bottom: 1rem; background: #fff; padding: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.02); 
+    }
+    #inventoryTable tbody td { 
+        display: flex; justify-content: space-between; align-items: center; text-align: right; 
+        padding: 10px 4px; border: none; border-bottom: 1px dashed #e9ecef; white-space: normal !important; word-break: break-word; 
+    }
+    #inventoryTable tbody td:last-child { 
+        border-bottom: none; justify-content: center !important; gap: 10px; padding-top: 16px; margin-top: 4px; 
+    }
+    #inventoryTable tbody td::before { 
+        content: attr(data-label); font-weight: 700; font-size: 0.75rem; color: #6c757d; 
+        text-transform: uppercase; text-align: left; padding-right: 15px; flex-shrink: 0; 
+    }
+    #inventoryTable tbody td:last-child::before { display: none; }
+}

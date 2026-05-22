@@ -1,0 +1,6 @@
+# Block all direct HTTP access to files in this folder
+# PHP files are served by Apache, raw files (json, sql) are not
+<FilesMatch "\.(json|sql|env|ini|log|key|pem)$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
