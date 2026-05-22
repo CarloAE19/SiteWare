@@ -11,7 +11,7 @@ An enterprise-grade, cloud-ready Construction Inventory Management System (CIMS)
 * **📈 Supplier Performance Tracking:** View detailed supplier delivery performance, distinguishing correctly delivered items versus discrepancies to evaluate vendor reliability.
 * **📜 Historical Supplier Insights:** Requisition items automatically display previous suppliers, helping Purchasing Officers make informed reordering decisions.
 * **✉️ Dynamic SMS Blaster Integration:** Automated SMS dispatching for Purchase Order tracking, dynamically generating exact item lists within the SMS payload.  
-* **📊 Discrepancy Auditing:** Automated monthly physical count module that recalculates inventory and alerts administration of stock discrepancies.
+* **📊 Discrepancy Auditing:** Automated weekly physical count module that recalculates inventory and alerts administration of stock discrepancies.
 * **⚙️ Automated Schema Provisioning:** Zero-touch database setup! The centralized configuration automatically checks and generates missing tables upon initialization.
 
 ## **👥 Role-Based Access Control (RBAC)**
@@ -31,7 +31,7 @@ The system features 5 distinct user workspaces, each with specific authorization
 * **Database:** MySQL / MariaDB.  
 * **APIs & Integrations:**
   * Firebase Cloud Messaging (FCM API v1)  
-  * Google Gemini AI API  
+  * AI-Powered Analytics API  
   * HTML5-QRCode Library  
   * QRServer API
 
@@ -87,6 +87,6 @@ Browsers require HTTPS for Service Workers and Push Notifications. To test on a 
 
 Project Manager: Jahzeel James Jakosalem
 
-Developer: Angelo Carlo Pedrosa
+Developer/Programmer: Angelo Carlo Pedrosa
 
-Quality Assurance: LJ Caballero
+System Quality Assurance: LJ Caballero
