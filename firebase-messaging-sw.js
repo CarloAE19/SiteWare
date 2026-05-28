@@ -107,13 +107,26 @@ self.addEventListener('fetch', (event) => {
     if (event.request.method !== 'GET') return;
     if (!event.request.url.startsWith('http')) return;
 
-    /* Page navigation → network-first, fallback to offline.html */
+    /* Page navigation → network-first, cache dynamically, fallback to cached page or offline.html */
     if (event.request.mode === 'navigate') {
         event.respondWith(
-            fetch(event.request).catch(() => {
-                console.log('[SW] Navigation failed — serving offline.html');
-                return caches.match('/CIMS/offline.html');
-            })
+            fetch(event.request)
+                .then((response) => {
+                    /* If the response is valid and same-origin, cache a clone */
+                    if (response.ok && event.request.url.startsWith(self.location.origin)) {
+                        const clone = response.clone();
+                        caches.open(OFFLINE_CACHE).then((cache) => {
+                            cache.put(event.request, clone);
+                        });
+                    }
+                    return response;
+                })
+                .catch(() => {
+                    console.log('[SW] Navigation failed — serving cached page fallback');
+                    return caches.match(event.request).then((cachedResponse) => {
+                        return cachedResponse || caches.match('/CIMS/offline.html');
+                    });
+                })
         );
         return;
     }

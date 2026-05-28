@@ -30,29 +30,37 @@ if (isset($_SESSION['user_id'])) {
 }
 
 $error = '';
+if (defined('DB_OFFLINE')) {
+    $error = "Can't connect to database. You're offline.";
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $username = trim($_POST['username'] ?? '');
-    $password = $_POST['password'] ?? '';
-
-    if (empty($username) || empty($password)) {
-        $error = 'Please enter both username and password.';
-    } elseif (preg_match('/[^a-zA-Z0-9]/', $username)) {
-        $error = 'Special characters not allowed in username';
+    if (defined('DB_OFFLINE')) {
+        $error = "Can't connect to database. You're offline.";
     } else {
-        // 🛡️ SQL Injection Prevention (Prepared Statements)
-        $stmt = $pdo->prepare("SELECT * FROM users WHERE username = ?");
-        $stmt->execute([$username]);
-        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+        $username = trim($_POST['username'] ?? '');
+        $password = $_POST['password'] ?? '';
 
-        // 🛡️ Bcrypt Password Verification + Session Hijacking Prevention
-        if ($user && password_verify($password, $user['password'])) {
-            session_regenerate_id(true);
-            $_SESSION['user_id']   = $user['id'];
-            $_SESSION['user_name'] = $user['name'];
-            $_SESSION['user_role'] = $user['role'];
-            redirectUserByRole($user['role']);
+        if (empty($username) || empty($password)) {
+            $error = 'Please enter both username and password.';
+        } elseif (preg_match('/[^a-zA-Z0-9]/', $username)) {
+            $error = 'Special characters not allowed in username';
         } else {
-            $error = 'Invalid username or password.';
+            // 🛡️ SQL Injection Prevention (Prepared Statements)
+            $stmt = $pdo->prepare("SELECT * FROM users WHERE username = ?");
+            $stmt->execute([$username]);
+            $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            // 🛡️ Bcrypt Password Verification + Session Hijacking Prevention
+            if ($user && password_verify($password, $user['password'])) {
+                session_regenerate_id(true);
+                $_SESSION['user_id']   = $user['id'];
+                $_SESSION['user_name'] = $user['name'];
+                $_SESSION['user_role'] = $user['role'];
+                redirectUserByRole($user['role']);
+            } else {
+                $error = 'Invalid username or password.';
+            }
         }
     }
 }
@@ -134,7 +142,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <h2>Welcome back</h2>
                 <p class="subtitle">Sign in to your workspace to continue.</p>
 
-                <?php if ($error && $error !== 'Special characters not allowed in username'): ?>
+                 <?php if (defined('DB_OFFLINE')): ?>
+                    <div class="alert alert-danger d-flex align-items-center gap-3 border-0 shadow-sm mb-4 px-3 py-3" style="background-color: #fef2f2; border-left: 4px solid var(--gb-red) !important; border-radius: 8px;">
+                        <i class="bi bi-wifi-off text-danger fs-5 animate-pulse-login"></i>
+                        <div class="text-start">
+                            <strong class="text-danger d-block">Can't Connect, You're Offline</strong>
+                            <small class="text-muted d-block" style="font-size: 0.75rem; line-height: 1.3;">Database connection is offline. Sign-in is temporarily disabled.</small>
+                        </div>
+                    </div>
+                    <style>
+                        @keyframes pulseLogin {
+                            0%, 100% { opacity: 1; }
+                            50% { opacity: 0.4; }
+                        }
+                        .animate-pulse-login {
+                            animation: pulseLogin 2s infinite ease-in-out;
+                        }
+                    </style>
+                <?php elseif ($error && $error !== 'Special characters not allowed in username'): ?>
                     <div class="login-error" id="phpErrorBlock">
                         <i class="bi bi-exclamation-circle-fill" style="font-size:1.1rem; color:var(--gb-red); flex-shrink:0;"></i>
                         <?= htmlspecialchars($error) ?>
@@ -183,7 +208,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         Install GB Inventory App
                     </button>
 
-                    <button type="submit" class="btn-signin" id="signInBtn" <?= ($error === 'Special characters not allowed in username') ? 'disabled' : '' ?>>
+                     <button type="submit" class="btn-signin" id="signInBtn" <?= (defined('DB_OFFLINE') || $error === 'Special characters not allowed in username') ? 'disabled' : '' ?>>
                         <i class="bi bi-box-arrow-in-right"></i> Sign In
                     </button>
 

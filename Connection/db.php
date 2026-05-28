@@ -240,6 +240,81 @@ try {
     }
 
 } catch (PDOException $e) {
-    die("Database Error: " . $e->getMessage());
+    // 1. Define global constant to signify DB offline status
+    if (!defined('DB_OFFLINE')) {
+        define('DB_OFFLINE', true);
+    }
+    $pdo = null;
+
+    // 2. Start session if not already started
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
+
+    // 3. Detect AJAX / API / process requests
+    $is_ajax_or_process = (
+        (isset($_SERVER['SCRIPT_NAME']) && strpos($_SERVER['SCRIPT_NAME'], '/process/') !== false) ||
+        (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest') ||
+        (isset($_SERVER['HTTP_ACCEPT']) && strpos($_SERVER['HTTP_ACCEPT'], 'application/json') !== false)
+    );
+
+    if ($is_ajax_or_process) {
+        // If it's a standard Form POST in process/ (not AJAX), redirect back with flash message
+        if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'POST' && (!isset($_SERVER['HTTP_X_REQUESTED_WITH']) || strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) !== 'xmlhttprequest')) {
+            $_SESSION['message'] = "Can't connect to the database. You're offline.";
+            $_SESSION['msg_type'] = "danger";
+            header("Location: " . ($_SERVER['HTTP_REFERER'] ?? '../index'));
+            exit;
+        }
+        
+        // Otherwise, it is an AJAX query expecting JSON
+        header('Content-Type: application/json');
+        echo json_encode([
+            'status' => 'error',
+            'message' => "Can't connect to the database. You're offline."
+        ]);
+        exit;
+    }
+
+    // 4. Check if the user is logged in
+    if (isset($_SESSION['user_id'])) {
+        $rootDir = dirname(__DIR__);
+        
+        // Include layout/header.php which knows DB_OFFLINE is true and will render sidebar + top navigation
+        include_once $rootDir . '/layout/header.php';
+        ?>
+        <div class="container-fluid px-3 px-md-4 py-5 text-center">
+            <div class="card border-0 shadow-sm p-5 mx-auto bg-white" style="max-width: 600px; border-radius: 16px;">
+                <div class="icon-wrap mb-4 d-flex justify-content-center">
+                    <div class="d-flex align-items-center justify-content-center bg-danger-subtle rounded-circle" style="width: 80px; height: 80px;">
+                        <i class="bi bi-database-exclamation text-danger fs-1 animate-pulse-db"></i>
+                    </div>
+                </div>
+                <h3 class="fw-bold text-dark mb-2">Can't Connect, You're Offline</h3>
+                <p class="text-muted mb-4">
+                    The database server is currently offline. You can still navigate using the sidebar to other sections, but database read/write actions are disabled.
+                </p>
+                <button class="btn btn-brand fw-bold px-4 py-2 shadow-sm" onclick="window.location.reload()">
+                    <i class="bi bi-arrow-clockwise me-1"></i> Retry Connection
+                </button>
+            </div>
+        </div>
+        <style>
+            @keyframes pulseDb {
+                0%, 100% { transform: scale(1); }
+                50% { transform: scale(1.08); }
+            }
+            .animate-pulse-db {
+                animation: pulseDb 2s infinite ease-in-out;
+                display: inline-block;
+            }
+        </style>
+        <?php
+        include_once $rootDir . '/layout/footer.php';
+        exit;
+    }
+    
+    // If not logged in, return cleanly and let login.php handle its own error reporting
+    return;
 }
 ?>

@@ -1,7 +1,9 @@
 <?php
 // DB Auto-Patch
-try { $pdo->exec("ALTER TABLE notifications ADD COLUMN is_read TINYINT(1) DEFAULT 0"); } catch (PDOException $e) { }
-try { $pdo->exec("ALTER TABLE users ADD COLUMN fcm_token TEXT DEFAULT NULL"); } catch (PDOException $e) { }
+if (!defined('DB_OFFLINE') && isset($pdo) && $pdo !== null) {
+    try { $pdo->exec("ALTER TABLE notifications ADD COLUMN is_read TINYINT(1) DEFAULT 0"); } catch (PDOException $e) { }
+    try { $pdo->exec("ALTER TABLE users ADD COLUMN fcm_token TEXT DEFAULT NULL"); } catch (PDOException $e) { }
+}
 
 function time_elapsed_string($datetime, $full = false) {
     $now = new DateTime; $ago = new DateTime($datetime); $diff = $now->diff($ago);
@@ -15,11 +17,13 @@ function time_elapsed_string($datetime, $full = false) {
 $currentUserRole = $_SESSION['user_role'] ?? 'requestor';
 $currentUserId = $_SESSION['user_id'] ?? 0;
 
-$notifStmt = $pdo->prepare("SELECT * FROM notifications WHERE target_user_id = ? OR target_role = ? ORDER BY created_at DESC LIMIT 10");
-$notifStmt->execute([$currentUserId, $currentUserRole]);
-$notifications = $notifStmt->fetchAll(PDO::FETCH_ASSOC);
-
-$unreadCount = 0; foreach ($notifications as $n) { if ($n['is_read'] == 0) $unreadCount++; }
+$notifications = [];
+$unreadCount = 0;
+if (!defined('DB_OFFLINE') && isset($pdo) && $pdo !== null) {
+    $notifStmt = $pdo->prepare("SELECT * FROM notifications WHERE target_user_id = ? OR target_role = ? ORDER BY created_at DESC LIMIT 10");
+    $notifStmt->execute([$currentUserId, $currentUserRole]);
+    $notifications = $notifStmt->fetchAll(PDO::FETCH_ASSOC);
+}
 
 $headerRoles = [
     'admin' => ['label' => 'Admin', 'class' => 'bg-danger'],
@@ -287,4 +291,27 @@ foreach ($notifications as $n) {
                     </div>
                 </div>
             </nav>
+            <?php if (defined('DB_OFFLINE')): ?>
+                <div class="alert alert-danger border-0 rounded-0 m-0 d-flex align-items-center justify-content-between px-4 py-3 shadow-sm" role="alert" style="background-color: #fef2f2; border-bottom: 1px solid #fca5a5 !important;">
+                    <div class="d-flex align-items-center gap-2">
+                        <i class="bi bi-database-fill-slash text-danger fs-5 animate-pulse-db-header"></i>
+                        <div>
+                            <strong class="text-danger">Can't Connect, You're Offline</strong>
+                            <span class="text-danger-emphasis ms-2 d-none d-md-inline" style="color: #991b1b;">The database is currently offline. Viewing page shell and cached elements only.</span>
+                        </div>
+                    </div>
+                    <button class="btn btn-sm btn-outline-danger fw-bold border-2" onclick="window.location.reload()">
+                        <i class="bi bi-arrow-clockwise me-1"></i> Retry
+                    </button>
+                </div>
+                <style>
+                    @keyframes pulseDbHeader {
+                        0%, 100% { opacity: 1; }
+                        50% { opacity: 0.4; }
+                    }
+                    .animate-pulse-db-header {
+                        animation: pulseDbHeader 2s infinite ease-in-out;
+                    }
+                </style>
+            <?php endif; ?>
             <!-- Content wrapper opens here, closes in footer.php -->
