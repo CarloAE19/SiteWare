@@ -215,7 +215,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </form>
 
                 <div class="form-footer">
-                    &copy; <?= date('Y') ?> Genetian Builders &amp; Enterprises Inc. &nbsp;|&nbsp; Powered by The MedYas
+                    &copy; <?= date('Y') ?> Genetian Builders &amp; Enterprises Inc. &nbsp;|&nbsp; Powered by <a href="about" class="text-decoration-none fw-bold" style="color: var(--gb-blue) !important;">The Medyas</a>
                 </div>
 
             </div>
