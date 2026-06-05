@@ -62,9 +62,41 @@ document.addEventListener("DOMContentLoaded", () => {
     updateOfflineUI();
 });
 
+// Helper: Check if our specific app server is actually reachable
+async function checkServerStatus() {
+    if (!navigator.onLine) {
+        return false;
+    }
+    try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
+        
+        // Dynamically build ping URL based on current base path segment
+        const pathSegments = window.location.pathname.split('/');
+        const basePath = pathSegments[1] ? '/' + pathSegments[1] : '';
+        const pingUrl = basePath + '/manifest.json?ping=' + Date.now();
+        
+        const response = await fetch(pingUrl, {
+            method: 'HEAD',
+            signal: controller.signal,
+            cache: 'no-store'
+        });
+        clearTimeout(timeoutId);
+        return response.ok;
+    } catch (e) {
+        return false; // Server unreachable
+    }
+}
+
 // Dynamic Offline UI update
-function updateOfflineUI() {
-    const isOnline = navigator.onLine;
+async function updateOfflineUI() {
+    let isOnline = navigator.onLine;
+    
+    // Double check actual server reachability if navigator says we are online
+    if (isOnline) {
+        isOnline = await checkServerStatus();
+    }
+    
     let networkBanner = document.getElementById('network-offline-banner');
 
     if (!isOnline) {
@@ -174,3 +206,10 @@ function updateOfflineUI() {
 // Window Event Listeners for real-time online/offline toggle
 window.addEventListener('online', updateOfflineUI);
 window.addEventListener('offline', updateOfflineUI);
+
+// Run a check every 10 seconds if tab is active to detect connection state drops/recovery in real-time
+setInterval(() => {
+    if (document.visibilityState === 'visible') {
+        updateOfflineUI();
+    }
+}, 10000);
