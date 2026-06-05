@@ -1,17 +1,66 @@
 <?php
 session_start();
-if (!isset($_SESSION['user_id'])) {
-    header("Location: login");
-    exit;
+$is_logged_in = isset($_SESSION['user_id']);
+
+if ($is_logged_in) {
+    require_once 'Connection/db.php';
+    $role = $_SESSION['user_role'] ?? 'requestor';
+    include 'layout/header.php';
+} else {
+    ?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>About The Medyas — GB Inventory System</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <!-- Google Font: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="assets/css/style.css">
+    <link rel="stylesheet" href="assets/css/custom.css">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f4f7f6;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: auto !important;
+            height: auto !important;
+        }
+        .guest-navbar {
+            background-color: #ffffff;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            border-bottom: 1px solid #e0e4e8;
+            padding: 12px 20px;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar guest-navbar">
+        <div class="container d-flex justify-content-between align-items-center">
+            <a class="navbar-brand fw-bold text-dark d-flex align-items-center m-0" href="login" style="text-decoration: none;">
+                <img src="assets/LogoGB.png" alt="GB Logo" class="me-2" style="height: 32px; width: auto; object-fit: contain;">
+                <span style="font-size: 1.15rem; font-weight: 700; letter-spacing: -0.5px;">GB Inventory</span>
+            </a>
+            <a href="login" class="btn btn-outline-primary fw-bold d-flex align-items-center gap-2 px-3 py-2" style="border-radius: 8px; font-size: 0.9rem;">
+                <i class="bi bi-box-arrow-in-right"></i> Sign In
+            </a>
+        </div>
+    </nav>
+    <?php
 }
-require_once 'Connection/db.php';
-
-$role = $_SESSION['user_role'] ?? 'requestor';
-
-include 'layout/header.php';
 ?>
 
-<div class="container-fluid px-3 px-md-4 py-4">
+<?php
+if ($is_logged_in) {
+    echo '<div class="container-fluid px-3 px-md-4 py-4">';
+} else {
+    echo '<div class="container py-5 flex-grow-1 d-flex flex-column justify-content-center">';
+}
+?>
     <div class="card border-0 shadow-sm p-4 p-md-5 bg-white text-center mb-4" style="border-top: 5px solid var(--gb-yellow) !important;">
 
         <!-- Two Logos Placeholder (Replace src attributes with your actual logo paths) -->
@@ -102,4 +151,22 @@ include 'layout/header.php';
     </style>
 </div>
 
-<?php include 'layout/footer.php'; ?>
+<?php
+if ($is_logged_in) {
+    include 'layout/footer.php';
+} else {
+    ?>
+    <!-- Footer for Guest -->
+    <footer class="bg-white py-4 mt-auto border-top">
+        <div class="container text-center text-muted small">
+            <span class="fw-bold">Copyright &copy; <?= date('Y') ?> Genetian Builders & Enterprises Inc.</span>
+            <span style="opacity: 0.8;"> | Powered by <a href="about" class="text-decoration-none fw-bold" style="color: var(--gb-blue);">The Medyas</a> &bull; Capstone Project</span>
+        </div>
+    </footer>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
+    <?php
+}
+?>
