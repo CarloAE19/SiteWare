@@ -137,6 +137,66 @@ include 'layout/header.php';
                     </form>
                 </div>
             </div>
+
+            <?php if (in_array($_SESSION['user_role'], ['admin', 'management'])): ?>
+                <?php
+                // Fetch current login background setting
+                $bg_path = 'assets/img/default_login_bg.png';
+                if (isset($pdo)) {
+                    try {
+                        $stmt = $pdo->prepare("SELECT setting_value FROM system_settings WHERE setting_key = 'login_background'");
+                        $stmt->execute();
+                        $db_bg = $stmt->fetchColumn();
+                        if ($db_bg) $bg_path = $db_bg;
+                    } catch (Exception $e) {}
+                }
+                $bg_version = file_exists($bg_path) ? filemtime($bg_path) : time();
+                // Build a root-relative URL to the background image
+                $profile_app_base = rtrim(str_replace('\\', '/', dirname($_SERVER['PHP_SELF'])), '/');
+                $bg_preview_url = $profile_app_base . '/' . ltrim($bg_path, '/') . '?v=' . $bg_version;
+                ?>
+                <div class="card border-0 shadow-sm mt-4">
+                    <div class="card-header bg-white fw-bold py-3">
+                        <i class="bi bi-image text-primary me-2"></i>Login Page Customization
+                    </div>
+                    <div class="card-body p-4">
+                        <h6 class="fw-bold mb-3 border-bottom pb-2">Custom Login Background</h6>
+                        
+                        <div class="row align-items-center">
+                            <div class="col-12 col-md-5 mb-3 mb-md-0">
+                                <label class="d-block fw-bold mb-2">Current Background Preview</label>
+                                <div class="position-relative border rounded overflow-hidden bg-light" style="height: 140px;">
+                                    <img src="<?= htmlspecialchars($bg_preview_url) ?>" alt="Current Login Background" class="w-100 h-100" style="object-fit: cover;">
+                                </div>
+                            </div>
+                            
+                            <div class="col-12 col-md-7">
+                                <form method="POST" action="process/process.php" enctype="multipart/form-data" class="mb-3">
+                                    <input type="hidden" name="action" value="update_login_bg">
+                                    <label class="form-label fw-bold">Upload New Background Image</label>
+                                    <div class="input-group mb-2">
+                                        <input type="file" class="form-control" name="login_bg" accept="image/*" required>
+                                        <button class="btn btn-brand fw-bold px-3" type="submit">
+                                            <i class="bi bi-upload me-1"></i> Upload
+                                        </button>
+                                    </div>
+                                    <small class="text-muted d-block"><i class="bi bi-info-circle me-1"></i> Supported formats: JPG, PNG, WEBP, GIF. Max file size: 5MB.</small>
+                                </form>
+                                
+                                <?php if ($bg_path !== 'assets/img/default_login_bg.png'): ?>
+                                    <form method="POST" action="process/process.php">
+                                        <input type="hidden" name="action" value="reset_login_bg">
+                                        <button class="btn btn-outline-danger btn-sm fw-bold w-100" type="submit" onclick="return confirm('Are you sure you want to reset the background image to default?');">
+                                            <i class="bi bi-arrow-counterclockwise me-1"></i> Reset to Default Image
+                                        </button>
+                                    </form>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            <?php endif; ?>
+
         </div>
     </div>
 </div>
