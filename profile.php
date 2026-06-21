@@ -47,7 +47,7 @@ include 'layout/header.php';
         <!-- LEFT COLUMN: Profile Overview -->
         <!-- FIXED: Added col-12 so it takes full width on phones -->
         <div class="col-12 col-xl-4">
-            <div class="card border-0 shadow-sm text-center h-100">
+            <div class="card border-0 shadow-sm text-center">
                 <div class="card-body py-5">
                     <div class="mb-3">
                         <div class="d-inline-flex align-items-center justify-content-center bg-light text-primary rounded-circle shadow-sm" style="width: 120px; height: 120px; font-size: 3rem;">
@@ -80,7 +80,7 @@ include 'layout/header.php';
         <!-- RIGHT COLUMN: Edit Settings -->
         <!-- FIXED: Added col-12 so it takes full width on phones -->
         <div class="col-12 col-xl-8">
-            <div class="card border-0 shadow-sm h-100">
+            <div class="card border-0 shadow-sm">
                 <div class="card-header bg-white fw-bold py-3">
                     <i class="bi bi-gear-fill text-primary me-2"></i>Account Settings
                 </div>
