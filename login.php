@@ -45,6 +45,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error = 'Please enter both username and password.';
         } elseif (preg_match('/[^a-zA-Z0-9]/', $username)) {
             $error = 'Special characters not allowed in username';
+        } elseif (strlen($password) < 8) {
+            $error = 'Invalid username or password.';
         } else {
             // 🛡️ SQL Injection Prevention (Prepared Statements)
             $stmt = $pdo->prepare("SELECT * FROM users WHERE username = ?");
@@ -54,7 +56,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // 🛡️ Bcrypt Password Verification + Session Hijacking Prevention
             if ($user && password_verify($password, $user['password'])) {
                 session_regenerate_id(true);
-                $_SESSION['user_id']   = $user['id'];
+                $_SESSION['user_id'] = $user['id'];
                 $_SESSION['user_name'] = $user['name'];
                 $_SESSION['user_role'] = $user['role'];
                 redirectUserByRole($user['role']);
@@ -106,7 +108,8 @@ $bg_image_url = $app_base . '/' . ltrim($bg_image, '/') . '?v=' . $bg_version;
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
 
     <!-- Google Font: Inter -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
+        rel="stylesheet">
 
     <!-- Login Styles -->
     <link rel="stylesheet" href="assets/css/login.css?v=<?= time() ?>">
@@ -131,37 +134,47 @@ $bg_image_url = $app_base . '/' . ltrim($bg_image, '/') . '?v=' . $bg_version;
             <h2>Login</h2>
 
             <?php if (defined('DB_OFFLINE')): ?>
-                <div class="alert alert-danger d-flex align-items-center gap-3 border-0 shadow-sm mb-4 px-3 py-3" style="background-color: #fef2f2; border-left: 4px solid var(--gb-red) !important; border-radius: 8px;">
+                <div class="alert alert-danger d-flex align-items-center gap-3 border-0 shadow-sm mb-4 px-3 py-3"
+                    style="background-color: #fef2f2; border-left: 4px solid var(--gb-red) !important; border-radius: 8px;">
                     <i class="bi bi-wifi-off text-danger fs-5 animate-pulse-login"></i>
                     <div class="text-start">
                         <strong class="text-danger d-block">Can't Connect, You're Offline</strong>
-                        <small class="text-muted d-block" style="font-size: 0.75rem; line-height: 1.3;">Database connection is offline. Sign-in is temporarily disabled.</small>
+                        <small class="text-muted d-block" style="font-size: 0.75rem; line-height: 1.3;">Database connection
+                            is offline. Sign-in is temporarily disabled.</small>
                     </div>
                 </div>
                 <style>
                     @keyframes pulseLogin {
-                        0%, 100% { opacity: 1; }
-                        50% { opacity: 0.4; }
+
+                        0%,
+                        100% {
+                            opacity: 1;
+                        }
+
+                        50% {
+                            opacity: 0.4;
+                        }
                     }
+
                     .animate-pulse-login {
                         animation: pulseLogin 2s infinite ease-in-out;
                     }
                 </style>
             <?php elseif ($error && $error !== 'Special characters not allowed in username'): ?>
                 <div class="login-error" id="phpErrorBlock">
-                    <i class="bi bi-exclamation-circle-fill" style="font-size:1.1rem; color:var(--gb-red); flex-shrink:0;"></i>
+                    <i class="bi bi-exclamation-circle-fill"
+                        style="font-size:1.1rem; color:var(--gb-red); flex-shrink:0;"></i>
                     <?= htmlspecialchars($error) ?>
                 </div>
             <?php endif; ?>
 
             <form method="POST" action="" autocomplete="on">
 
-                <div class="input-float <?= ($error === 'Special characters not allowed in username') ? 'has-error' : '' ?>" id="usernameFloat">
+                <div class="input-float <?= ($error === 'Special characters not allowed in username') ? 'has-error' : '' ?>"
+                    id="usernameFloat">
                     <label for="usernameField">Username</label>
-                    <input type="text" id="usernameField" name="username"
-                        placeholder="John Doe"
-                        value="<?= htmlspecialchars($_POST['username'] ?? '') ?>"
-                        autocomplete="username" required>
+                    <input type="text" id="usernameField" name="username" placeholder="Enter you username"
+                        value="<?= htmlspecialchars($_POST['username'] ?? '') ?>" autocomplete="username" required>
                     <i class="bi bi-person field-icon"></i>
                 </div>
 
@@ -179,8 +192,7 @@ $bg_image_url = $app_base . '/' . ltrim($bg_image, '/') . '?v=' . $bg_version;
 
                 <div class="input-float">
                     <label for="passwordField">Password</label>
-                    <input type="password" id="passwordField" name="password"
-                        placeholder="Enter at least 8+ characters"
+                    <input type="password" id="passwordField" name="password" placeholder="Enter your password"
                         autocomplete="current-password" required>
                     <i class="bi bi-lock field-icon"></i>
                     <button type="button" class="toggle-pass" onclick="togglePass()" aria-label="Toggle password">
@@ -205,7 +217,8 @@ $bg_image_url = $app_base . '/' . ltrim($bg_image, '/') . '?v=' . $bg_version;
         </div>
 
         <div class="form-footer">
-            &copy; <?= date('Y') ?> Genetian Builders &amp; Enterprises Inc. &nbsp;|&nbsp; Powered by <a href="about" class="text-decoration-none fw-bold" style="color: var(--gb-blue) !important;">The Medyas</a>
+            &copy; <?= date('Y') ?> Genetian Builders &amp; Enterprises Inc. &nbsp;|&nbsp; Powered by <a href="about"
+                class="text-decoration-none fw-bold" style="color: var(--gb-blue) !important;">The Medyas</a>
         </div>
     </div>
 
