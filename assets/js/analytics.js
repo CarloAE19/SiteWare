@@ -10,19 +10,37 @@ let countdown = 60;
 let timerInterval;
 
 document.addEventListener("DOMContentLoaded", () => {
-    if (!document.getElementById('aiOutput')) return;
+    const aiOutput = document.getElementById('aiOutput');
+    if (!aiOutput) return;
 
-    const savedPrediction = localStorage.getItem('gb_ai_prediction');
-    const savedTime = localStorage.getItem('gb_ai_timestamp');
+    let updatedTextEl = document.getElementById('lastUpdatedText');
     
-    if (savedPrediction && savedTime && (Date.now() - savedTime < 300000)) {
-        document.getElementById('aiOutput').innerHTML = savedPrediction;
-        const date = new Date(parseInt(savedTime));
-        let updatedTextEl = document.getElementById('lastUpdatedText');
-        if (updatedTextEl) updatedTextEl.innerText = "Last Updated: " + date.toLocaleTimeString();
-    } else {
-        generateAIPrediction(false);
+    // Format the database timestamp in the user's local timezone
+    if (updatedTextEl) {
+        const dbTimestamp = updatedTextEl.getAttribute('data-timestamp');
+        if (dbTimestamp) {
+            const date = new Date(parseInt(dbTimestamp));
+            updatedTextEl.innerText = "Last Updated: " + date.toLocaleTimeString();
+        }
     }
+
+    // Check if the database loaded a prediction (not the default placeholder icon)
+    const hasDbPrediction = aiOutput.querySelector('.bi-cpu') === null;
+
+    if (!hasDbPrediction) {
+        // Fallback to localStorage if database had no prediction
+        const savedPrediction = localStorage.getItem('gb_ai_prediction');
+        const savedTime = localStorage.getItem('gb_ai_timestamp');
+        if (savedPrediction && savedTime) {
+            aiOutput.innerHTML = savedPrediction;
+            const date = new Date(parseInt(savedTime));
+            if (updatedTextEl) {
+                updatedTextEl.innerText = "Last Updated: " + date.toLocaleTimeString();
+            }
+        }
+    }
+    
+    // We no longer trigger generateAIPrediction(false) on page load.
     startTimer();
 });
 
@@ -74,8 +92,26 @@ window.generateAIPrediction = async function(isManualClick) {
             localStorage.setItem('gb_ai_prediction', aiText);
             localStorage.setItem('gb_ai_timestamp', Date.now());
             
-            let updatedTextEl = document.getElementById('lastUpdatedText');
-            if (updatedTextEl) updatedTextEl.innerText = "Last Updated: " + new Date().toLocaleTimeString();
+            // Post update to database to keep in sync
+            try {
+                const dbSaveResponse = await fetch('analytics.php?action=save_ai_report', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prediction: aiText })
+                });
+                const dbSaveResult = await dbSaveResponse.json();
+                if (dbSaveResult.status === 'success') {
+                    let updatedTextEl = document.getElementById('lastUpdatedText');
+                    if (updatedTextEl) {
+                        updatedTextEl.setAttribute('data-timestamp', dbSaveResult.timestamp);
+                        updatedTextEl.innerText = "Last Updated: " + new Date(dbSaveResult.timestamp).toLocaleTimeString();
+                    }
+                }
+            } catch (dbError) {
+                console.error("Failed to save report to database:", dbError);
+                let updatedTextEl = document.getElementById('lastUpdatedText');
+                if (updatedTextEl) updatedTextEl.innerText = "Last Updated: " + new Date().toLocaleTimeString();
+            }
         } else if (data.error) {
             output.innerHTML = `<div class='alert alert-danger'><strong>Google API Error:</strong> ${data.error.message}</div>`;
         }

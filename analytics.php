@@ -5,6 +5,47 @@ if (!in_array($_SESSION['user_role'], ['admin', 'management', 'purchasing'])) { 
 
 require_once 'Connection/db.php';
 
+// Fetch last saved AI prediction and timestamp
+$lastPrediction = null;
+$lastTimestamp = null;
+try {
+    $stmt = $pdo->prepare("SELECT setting_value FROM system_settings WHERE setting_key = 'last_ai_prediction'");
+    $stmt->execute();
+    $lastPrediction = $stmt->fetchColumn();
+
+    $stmt = $pdo->prepare("SELECT setting_value FROM system_settings WHERE setting_key = 'last_ai_timestamp'");
+    $stmt->execute();
+    $lastTimestamp = $stmt->fetchColumn();
+} catch (Exception $e) {
+    // Database connection or table issue
+}
+
+// Handle AJAX Save Request
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['action']) && $_GET['action'] === 'save_ai_report') {
+    header('Content-Type: application/json');
+    $input = json_decode(file_get_contents('php://input'), true);
+    if (isset($input['prediction'])) {
+        $prediction = $input['prediction'];
+        $timestamp = time() * 1000; // milliseconds
+        
+        try {
+            $stmt = $pdo->prepare("INSERT INTO system_settings (setting_key, setting_value) VALUES ('last_ai_prediction', ?) ON DUPLICATE KEY UPDATE setting_value = ?");
+            $stmt->execute([$prediction, $prediction]);
+            
+            $stmt = $pdo->prepare("INSERT INTO system_settings (setting_key, setting_value) VALUES ('last_ai_timestamp', ?) ON DUPLICATE KEY UPDATE setting_value = ?");
+            $stmt->execute([$timestamp, $timestamp]);
+            
+            echo json_encode(['status' => 'success', 'timestamp' => $timestamp]);
+        } catch (Exception $e) {
+            echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
+        }
+    } else {
+        echo json_encode(['status' => 'error', 'message' => 'Missing prediction content']);
+    }
+    exit;
+}
+
+
 // ==========================================
 // 1. DATA CALCULATION ENGINE
 // ==========================================
@@ -167,7 +208,12 @@ include 'layout/header.php';
     <div class="card border-0 shadow-sm rounded-3" style="border-top: 5px solid var(--gb-blue) !important;">
         <div class="card-header bg-white fw-bold py-3 d-flex justify-content-between align-items-center border-bottom-0">
             <span class="fs-5 text-dark"><i class="bi bi-stars text-warning me-2"></i>AI POWERED ANALYTICS</span>
-            <div>
+            <div class="d-flex align-items-center gap-3">
+                <small id="lastUpdatedText" class="text-muted fw-semibold" data-timestamp="<?= $lastTimestamp ?: '' ?>">
+                    <?php if ($lastTimestamp): ?>
+                        Last Updated: <?= date('h:i:s A', $lastTimestamp / 1000) ?>
+                    <?php endif; ?>
+                </small>
                 <button class="btn btn-sm btn-brand fw-bold shadow-sm px-3" id="generateAiBtn" onclick="generateAIPrediction(true)">
                     <i class="bi bi-arrow-clockwise me-1"></i> Analyze Now
                 </button>
@@ -179,7 +225,11 @@ include 'layout/header.php';
                 <small class="fw-bold text-primary blink-text">AI is calculating optimal restock dates...</small>
             </div>
             <div id="aiOutput" class="p-3 bg-white border rounded shadow-sm" style="font-size: 1rem; line-height: 1.7; color: #333;">
-                <div class="text-center text-muted py-4"><i class="bi bi-cpu fs-2 d-block mb-2"></i>Click "Analyze Now" to generate AI Restock Predictions.</div>
+                <?php if ($lastPrediction): ?>
+                    <?= $lastPrediction ?>
+                <?php else: ?>
+                    <div class="text-center text-muted py-4"><i class="bi bi-cpu fs-2 d-block mb-2"></i>Click "Analyze Now" to generate AI Restock Predictions.</div>
+                <?php endif; ?>
             </div>
         </div>
     </div>
