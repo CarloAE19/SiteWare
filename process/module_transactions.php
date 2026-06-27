@@ -473,37 +473,65 @@ elseif ($action === 'create_po') {
     
     $po_id = $_POST['po_id'];
     $po_no = $_POST['po_no'];
-    $company = $_POST['company'];
+    $supplier_id = $_POST['supplier_id'] ?? null;
+    $smsMessage = $_POST['message'] ?? '';
     $phone = $_POST['contact_number'] ?? '';
     
-    // 1. Fetch Items for the SMS
-    $stmt = $pdo->prepare("SELECT pi.quantity, i.item_name FROM po_items pi JOIN inventory i ON pi.item_code = i.item_code WHERE pi.po_id = ?");
-    $stmt->execute([$po_id]);
-    $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-    $itemList = "";
-    foreach ($items as $item) {
-        $itemList .= "- {$item['quantity']}x {$item['item_name']}\n";
+    // Update the PO supplier in the database if new one is selected
+    if ($supplier_id) {
+        $updateStmt = $pdo->prepare("UPDATE purchase_orders SET supplier_id = ? WHERE id = ?");
+        $updateStmt->execute([$supplier_id, $po_id]);
+    }
+    
+    // Fetch company name of the target supplier
+    $company = '';
+    if ($supplier_id) {
+        $compStmt = $pdo->prepare("SELECT company_name FROM suppliers WHERE id = ?");
+        $compStmt->execute([$supplier_id]);
+        $company = $compStmt->fetchColumn();
+    }
+    if (empty($company)) {
+        $company = $_POST['company'] ?? 'Supplier';
     }
 
-    $smsMessage = "GB Construction PO: {$po_no}\nItems to purchase:\n{$itemList}\nIf you have any concerns or clarifications text or email here";
+    $smsSent = false;
+    $errorMessage = "";
 
-    // 2. Generic API implementation placeholder (cURL to SMS API)
-    // Configure this section with your actual SMS Blaster API details!
-    /*
-    $ch = curl_init('https://api.smsblaster.example/send'); // Replace with actual API endpoint
-    curl_setopt($ch, CURLOPT_POST, 1);
-    curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query([
-        'api_key' => 'YOUR_API_KEY', // Check .env if necessary
-        'number' => $phone,
-        'message' => $smsMessage
-    ]));
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    $response = curl_exec($ch);
-    curl_close($ch);
-    */
+    $apiKey = defined('SMS_API_KEY') ? SMS_API_KEY : '';
+    if (!empty($apiKey) && $apiKey !== 'YOUR_SMS_API_KEY') {
+        $ch = curl_init('https://api.semaphore.co/api/v4/messages');
+        curl_setopt($ch, CURLOPT_POST, 1);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query([
+            'apikey' => $apiKey,
+            'number' => $phone,
+            'message' => $smsMessage
+        ]));
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
 
-    usleep(1500000); // Simulate SMS processing delay
+        if ($httpCode >= 200 && $httpCode < 300) {
+            $smsSent = true;
+        } else {
+            $resData = json_decode($response, true);
+            if (is_array($resData)) {
+                $errorMessage = $resData['message'] ?? ($resData[0]['message'] ?? "HTTP Code {$httpCode}");
+            } else {
+                $errorMessage = "HTTP Code {$httpCode}";
+            }
+        }
+    } else {
+        // Simulation Mode (when API key is not configured yet)
+        usleep(1500000); // Simulate SMS processing delay
+        $smsSent = true;
+    }
+
+    if (!$smsSent) {
+        echo json_encode(['status' => 'error', 'message' => 'SMS Gateway Error: ' . $errorMessage]);
+        exit;
+    }
     
     $pdo->prepare("UPDATE purchase_orders SET status = 'SMS Sent' WHERE id = ?")->execute([$po_id]);
     
@@ -511,6 +539,30 @@ elseif ($action === 'create_po') {
     $notif->execute(["Automated SMS was sent to {$company} for {$po_no} with verified item list."]);
 
     echo json_encode(['status' => 'success']);
+    exit;
+
+} elseif ($action === 'fetch_po_sms_preview') {
+    if (!in_array($_SESSION['user_role'], ['purchasing', 'admin'])) {
+        echo json_encode(['status' => 'error', 'message' => 'Unauthorized']); exit;
+    }
+    
+    $po_id = $_POST['po_id'] ?? 0;
+    
+    // Fetch items
+    $stmt = $pdo->prepare("SELECT pi.quantity, i.item_name FROM po_items pi JOIN inventory i ON pi.item_code = i.item_code WHERE pi.po_id = ?");
+    $stmt->execute([$po_id]);
+    $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    $itemList = "";
+    foreach ($items as $item) {
+        $itemList .= "- {$item['quantity']}x {$item['item_name']}\n";
+    }
+    
+    echo json_encode([
+        'status' => 'success',
+        'items' => $items,
+        'item_list' => $itemList
+    ]);
     exit;
 
 } elseif ($action === 'log_po_delay') {
