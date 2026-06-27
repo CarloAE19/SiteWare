@@ -348,6 +348,6 @@ if (document.readyState !== "loading") {
 <?php include 'components/withdrawal_modal.php'; ?>
 
 <!-- Preserved your scanner and entry logic safely here -->
-<script src="assets/js/withdrawals.js"></script>
+<script src="assets/js/withdrawals.js?v=<?= time() ?>"></script>
 
 <?php include 'layout/footer.php'; ?>
