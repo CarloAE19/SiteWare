@@ -107,6 +107,18 @@ window.startRsScanner = function() {
                     document.getElementById('wdProjectName').value = data.project_name;
                     document.getElementById('wdRemarks').value = "Auto-filled via QR Scanner for " + data.rs_no;
                     
+                    // Defensively create/get hidden rs_no input to bypass any HTML caching
+                    let rsNoField = document.getElementById('wdRsNo');
+                    if (!rsNoField) {
+                        rsNoField = document.createElement('input');
+                        rsNoField.type = 'hidden';
+                        rsNoField.name = 'rs_no';
+                        rsNoField.id = 'wdRsNo';
+                        const form = document.getElementById('withdrawalForm');
+                        if (form) form.appendChild(rsNoField);
+                    }
+                    if (rsNoField) rsNoField.value = data.rs_no;
+                    
                     const container = document.getElementById('wdMaterialsContainer');
                     const templateRow = container.querySelector('.wd-material-row').cloneNode(true);
                     container.innerHTML = ''; // Clear container
@@ -161,6 +173,47 @@ window.stopRsScanner = function() {
     if (window.html5RsScanner) {
         window.html5RsScanner.clear().then(() => { window.html5RsScanner = null; }).catch(e=>{});
     }
+}
+
+// Reset form and container on modal hidden (SPA Router Safe)
+function setupWithdrawalModalListeners() {
+    const withdrawModalEl = document.getElementById('withdrawModal');
+    if (withdrawModalEl) {
+        if (withdrawModalEl.dataset.listenerAttached) return; // avoid duplicate binding
+        withdrawModalEl.dataset.listenerAttached = "true";
+
+        const container = document.getElementById('wdMaterialsContainer');
+        let wdRowTemplate = null;
+        if (container) {
+            const firstRow = container.querySelector('.wd-material-row');
+            if (firstRow) {
+                wdRowTemplate = firstRow.cloneNode(true);
+                wdRowTemplate.querySelector('select').value = '';
+                wdRowTemplate.querySelector('input[type="number"]').value = '';
+                wdRowTemplate.querySelector('.remove-wd-row').disabled = true;
+            }
+        }
+
+        withdrawModalEl.addEventListener('hidden.bs.modal', function () {
+            const form = document.getElementById('withdrawalForm');
+            if (form) form.reset();
+            const rsNoField = document.getElementById('wdRsNo');
+            if (rsNoField) rsNoField.value = '';
+            
+            // Restore default template row in materials container
+            if (container && wdRowTemplate) {
+                container.innerHTML = '';
+                container.appendChild(wdRowTemplate.cloneNode(true));
+                window.updateWdDeleteButtons(container);
+            }
+        });
+    }
+}
+
+if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", setupWithdrawalModalListeners);
+} else {
+    setupWithdrawalModalListeners();
 }
 
 // 4. INITIALIZE PAGE
