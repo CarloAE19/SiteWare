@@ -347,6 +347,7 @@ include 'layout/header.php';
                                     if ($rs['status'] == 'Approved') $statusClass = 'bg-primary';
                                     if ($rs['status'] == 'Rejected') $statusClass = 'bg-danger';
                                     if ($rs['status'] == 'PO Created') $statusClass = 'bg-success';
+                                    if ($rs['status'] == 'Released') $statusClass = 'bg-dark';
                                     ?>
                                     <span class="badge <?= $statusClass ?> shadow-sm"><?= htmlspecialchars($rs['status']) ?></span>
                                 </td>
