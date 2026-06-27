@@ -12,6 +12,7 @@
             <form method="POST" action="process/process.php" id="withdrawalForm">
                 <div class="modal-body bg-light p-4">
                     <input type="hidden" name="action" value="create_withdrawal">
+                    <input type="hidden" name="rs_no" id="wdRsNo" value="">
                     
                     <div class="row mb-3">
                         <div class="col-md-6 mb-3 mb-md-0">
