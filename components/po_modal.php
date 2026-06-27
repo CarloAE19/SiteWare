@@ -5,6 +5,7 @@ $suppliers = $pdo->query("
     SELECT
         s.id,
         s.company_name,
+        s.contact_number,
         COUNT(p.id)                                                               AS total_po,
         SUM(CASE WHEN p.status LIKE '%Delayed%' THEN 1 ELSE 0 END)               AS delayed_count,
         SUM(CASE WHEN p.status LIKE '%Discrepancy%' THEN 1 ELSE 0 END)           AS discrepancy_count
@@ -14,7 +15,12 @@ $suppliers = $pdo->query("
     GROUP BY s.id
     ORDER BY s.company_name ASC
 ")->fetchAll(PDO::FETCH_ASSOC);
-$approvedRS = $pdo->query("SELECT id, rs_no, project_name FROM requisitions WHERE status = 'Approved'")->fetchAll(PDO::FETCH_ASSOC);
+$poModalRole = $_SESSION['user_role'] ?? '';
+if ($poModalRole === 'purchasing') {
+    $approvedRS = $pdo->query("SELECT id, rs_no, project_name FROM requisitions WHERE status = 'Approved' AND type = 'restock'")->fetchAll(PDO::FETCH_ASSOC);
+} else {
+    $approvedRS = $pdo->query("SELECT id, rs_no, project_name FROM requisitions WHERE status = 'Approved'")->fetchAll(PDO::FETCH_ASSOC);
+}
 ?>
 
 <!-- ==========================================
@@ -217,6 +223,82 @@ $approvedRS = $pdo->query("SELECT id, rs_no, project_name FROM requisitions WHER
             <div class="modal-footer bg-light border-0">
                 <button type="button" class="btn btn-secondary fw-bold px-4 shadow-sm" data-bs-dismiss="modal">Close</button>
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==========================================
+  5. MODAL: REVIEW AND SEND SMS ORDER
+=========================================== -->
+<div class="modal fade" id="smsPreviewModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 shadow-lg border-top border-success border-4">
+            <div class="modal-header bg-white">
+                <h5 class="modal-title text-success fw-bold"><i class="bi bi-chat-text-fill me-2"></i>Review & Send SMS Order</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="smsPreviewForm">
+                <div class="modal-body p-4 bg-light">
+                    <!-- PO Details Info -->
+                    <div class="row g-3 mb-4">
+                        <div class="col-12 col-md-6">
+                            <label class="form-label fw-bold small text-muted text-uppercase">Purchase Order Number</label>
+                            <input type="text" id="smsPoNo" class="form-control fw-bold bg-white text-primary shadow-sm" readonly>
+                            <input type="hidden" id="smsPoId">
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <label class="form-label fw-bold small text-muted text-uppercase">Recipient Phone Number</label>
+                            <div class="input-group shadow-sm">
+                                <span class="input-group-text bg-white text-muted"><i class="bi bi-telephone-fill"></i></span>
+                                <input type="text" id="smsPhone" class="form-control fw-bold bg-white text-dark" placeholder="Enter recipient phone number..." required>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Select Supplier Dropdown -->
+                    <div class="mb-4">
+                        <label class="form-label fw-bold small text-muted text-uppercase">Select Supplier <span class="text-danger">*</span></label>
+                        <select class="form-select fw-bold shadow-sm" id="smsSupplierSelect" required>
+                            <option value="" disabled>-- Select Supplier --</option>
+                            <?php foreach ($suppliers as $sup): ?>
+                                <option value="<?= $sup['id'] ?>" data-phone="<?= htmlspecialchars($sup['contact_number'] ?? '') ?>">
+                                    <?= htmlspecialchars($sup['company_name']) ?> (<?= htmlspecialchars($sup['contact_number'] ?: 'No Phone') ?>)
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                        <small class="text-muted d-block mt-2"><i class="bi bi-info-circle me-1"></i>Changing the supplier will send the order to the selected supplier and update this PO's record.</small>
+                    </div>
+
+                    <!-- Materials to Buy List Preview -->
+                    <div class="mb-4">
+                        <label class="form-label fw-bold small text-muted text-uppercase">Materials to Buy Preview</label>
+                        <div class="table-responsive border rounded shadow-sm bg-white" style="max-height: 200px; overflow-y: auto;">
+                            <table class="table table-sm table-hover align-middle mb-0 text-nowrap" style="font-size: 0.85rem;">
+                                <thead class="table-light text-muted">
+                                    <tr>
+                                        <th>Item Name</th>
+                                        <th class="text-center">Quantity</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="smsItemsBody">
+                                    <!-- Populated dynamically via JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- SMS Message Editor -->
+                    <div class="mb-2">
+                        <label class="form-label fw-bold small text-muted text-uppercase">Edit SMS Message Content</label>
+                        <textarea class="form-control fw-bold text-dark shadow-sm" id="smsMessageText" rows="6" style="font-family: monospace; font-size: 0.9rem;" required></textarea>
+                        <small class="text-muted d-block mt-2"><i class="bi bi-info-circle me-1"></i>You can review and modify the message above before sending.</small>
+                    </div>
+                </div>
+                <div class="modal-footer bg-white border-top-0 justify-content-between p-3">
+                    <button type="button" class="btn btn-light text-muted fw-bold px-4" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" id="sendSmsSubmitBtn" class="btn btn-success fw-bold px-4 shadow-sm"><i class="bi bi-send me-1"></i> Send SMS Order</button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
