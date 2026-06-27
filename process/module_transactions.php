@@ -109,12 +109,22 @@ elseif ($action === 'fetch_rs_data') {
 
     $rs_no = str_replace('REQ-DATA:', '', $_POST['rs_no']); 
     
-    $stmt = $pdo->prepare("SELECT id, project_name FROM requisitions WHERE rs_no = ? AND status IN ('Approved', 'PO Created')");
+    $stmt = $pdo->prepare("SELECT id, project_name, status FROM requisitions WHERE rs_no = ?");
     $stmt->execute([$rs_no]);
     $rs = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if (!$rs) {
-        echo json_encode(['status' => 'error', 'message' => 'Invalid QR Code, or this RS has not been Approved yet.']);
+        echo json_encode(['status' => 'error', 'message' => 'Invalid QR Code. Requisition Slip not found.']);
+        exit;
+    }
+
+    if ($rs['status'] === 'Released') {
+        echo json_encode(['status' => 'error', 'message' => 'This Requisition Slip (QR Code) has already been released and is expired.']);
+        exit;
+    }
+
+    if (!in_array($rs['status'], ['Approved', 'PO Created'])) {
+        echo json_encode(['status' => 'error', 'message' => 'This Requisition Slip has not been Approved yet. Current status: ' . $rs['status']]);
         exit;
     }
 
@@ -574,6 +584,28 @@ elseif ($action === 'create_withdrawal') {
             $wdItemStmt->execute([$withdrawal_id, $items[$i], $quantities[$i]]);
             $deductStmt->execute([$quantities[$i], $items[$i]]);
             $updateStatusStmt->execute([$items[$i]]); 
+        }
+    }
+
+    // If this withdrawal was created via QR scan of an Approved Requisition Slip, expire it
+    if (!empty($_POST['rs_no'])) {
+        $rs_no = $_POST['rs_no'];
+        
+        // Fetch requisition info to notify the requestor
+        $rsStmt = $pdo->prepare("SELECT id, requestor_id FROM requisitions WHERE rs_no = ?");
+        $rsStmt->execute([$rs_no]);
+        $rsData = $rsStmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($rsData) {
+            // Update status of requisition to 'Released'
+            $updateRsStmt = $pdo->prepare("UPDATE requisitions SET status = 'Released' WHERE id = ?");
+            $updateRsStmt->execute([$rsData['id']]);
+            
+            // Notify the requestor
+            $notifMsg = "Materials for your requisition {$rs_no} have been released from the warehouse.";
+            $pdo->prepare("INSERT INTO notifications (target_user_id, title, message) VALUES (?, 'Requisition Released', ?)")
+                ->execute([$rsData['requestor_id'], $notifMsg]);
+            sendPushNotification($pdo, 'Requisition Released', $notifMsg, null, (int)$rsData['requestor_id']);
         }
     }
 
