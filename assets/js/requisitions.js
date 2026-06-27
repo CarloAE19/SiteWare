@@ -7,6 +7,25 @@ window.viewRsDetails = function(rsNo, project, remarks, status, requestor, date,
     document.getElementById('viewRsNo').innerText = rsNo;
     document.getElementById('viewRsProject').innerText = project;
     
+    const statusEl = document.getElementById('viewRsStatus');
+    if (statusEl) {
+        statusEl.innerText = status;
+        statusEl.className = 'badge shadow-sm';
+        if (status === 'Pending Approval') {
+            statusEl.classList.add('bg-warning', 'text-dark');
+        } else if (status === 'Approved') {
+            statusEl.classList.add('bg-primary');
+        } else if (status === 'Rejected') {
+            statusEl.classList.add('bg-danger');
+        } else if (status === 'PO Created') {
+            statusEl.classList.add('bg-success');
+        } else if (status === 'Released') {
+            statusEl.classList.add('bg-dark');
+        } else {
+            statusEl.classList.add('bg-secondary');
+        }
+    }
+    
     const remarksEl = document.getElementById('viewRsRemarks');
     remarksEl.innerText = remarks ? remarks : 'No remarks provided.';
     remarksEl.style.whiteSpace = 'pre-wrap'; 
