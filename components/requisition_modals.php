@@ -17,7 +17,10 @@
 
                 <div class="d-flex justify-content-between align-items-start mb-4 border-bottom pb-3">
                     <div>
-                        <h4 class="fw-bold text-primary mb-0" id="viewRsNo">RS-0000</h4>
+                        <h4 class="fw-bold text-primary mb-0 d-flex align-items-center gap-2 flex-wrap">
+                            <span id="viewRsNo">RS-0000</span>
+                            <span id="viewRsStatus" class="badge shadow-sm" style="font-size: 0.75rem;">Pending Approval</span>
+                        </h4>
                         <div class="text-muted fw-bold text-uppercase small" id="viewRsProject">Project Name</div>
                         <div class="mt-2 text-muted small">
                             Requested By: <strong id="viewRsRequestor" class="text-dark">User</strong><br>
