@@ -24,10 +24,10 @@ if ($role === 'requestor') {
     $stmt = $pdo->query("SELECT * FROM requisitions WHERE type = 'project' ORDER BY created_at DESC");
     $requisitions = $stmt->fetchAll(PDO::FETCH_ASSOC);
     $statTitle = "Project ";
-} elseif ($role === 'warehouse') {
+} elseif ($role === 'warehouse' || $role === 'purchasing') {
     $stmt = $pdo->query("SELECT * FROM requisitions WHERE type = 'restock' ORDER BY created_at DESC");
     $requisitions = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    $statTitle = "Warehouse ";
+    $statTitle = ($role === 'warehouse') ? "Warehouse " : "Restock ";
 } else {
     $stmt = $pdo->query("SELECT * FROM requisitions ORDER BY created_at DESC");
     $requisitions = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -361,7 +361,7 @@ include 'layout/header.php';
                                     ?>
 
                                     <button class="btn btn-sm btn-outline-secondary fw-bold shadow-sm me-1" title="View Details"
-                                        onclick="viewRsDetails('<?= $rs['rs_no'] ?>', '<?= $cleanProject ?>', '<?= $cleanRemarks ?>', '<?= $rs['status'] ?>', '<?= $cleanRequestor ?>', '<?= date('M d, Y', strtotime($rs['created_at'])) ?>', '<?= $itemsB64 ?>')">
+                                        onclick="viewRsDetails('<?= $rs['rs_no'] ?>', '<?= $cleanProject ?>', '<?= $cleanRemarks ?>', '<?= $rs['status'] ?>', '<?= $cleanRequestor ?>', '<?= date('M d, Y', strtotime($rs['created_at'])) ?>', '<?= $itemsB64 ?>', '<?= $rs['type'] ?? 'project' ?>')">
                                         <i class="bi bi-file-earmark-text me-1"></i> View
                                     </button>
 
