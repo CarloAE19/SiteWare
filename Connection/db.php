@@ -41,6 +41,9 @@ if (!defined('AI_API_KEY') && isset($_ENV['AI_API_KEY'])) {
 if (!defined('AI_SYSTEM_PROMPT') && isset($_ENV['AI_SYSTEM_PROMPT'])) {
     define('AI_SYSTEM_PROMPT', trim($_ENV['AI_SYSTEM_PROMPT'], '"\''));
 }
+if (!defined('SMS_API_KEY') && isset($_ENV['SMS_API_KEY'])) {
+    define('SMS_API_KEY', $_ENV['SMS_API_KEY']);
+}
 
 try {
     // Connect to MySQL server (Without DB name first, to allow creation)
