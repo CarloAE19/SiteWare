@@ -3,7 +3,7 @@
  * ========================================================== */
 
 // 1. SPA-Safe Modal Trigger 
-window.viewRsDetails = function(rsNo, project, remarks, status, requestor, date, itemsB64) {
+window.viewRsDetails = function(rsNo, project, remarks, status, requestor, date, itemsB64, type = 'project') {
     document.getElementById('viewRsNo').innerText = rsNo;
     document.getElementById('viewRsProject').innerText = project;
     
@@ -62,10 +62,18 @@ window.viewRsDetails = function(rsNo, project, remarks, status, requestor, date,
                 const totalPending = parseInt(item.total_pending) || 0;
                 
                 let stockDisplay = '';
-                if (curStock < reqQty) {
-                    stockDisplay = `<span class="badge bg-danger fs-6 shadow-sm"><i class="bi bi-exclamation-triangle-fill me-1"></i>${curStock} (Short)</span>`;
+                if (type === 'restock') {
+                    if (curStock === 0) {
+                        stockDisplay = `<span class="badge bg-danger fs-6 shadow-sm">0 (Out of Stock)</span>`;
+                    } else {
+                        stockDisplay = `<span class="badge bg-success fs-6 shadow-sm">${curStock}</span>`;
+                    }
                 } else {
-                    stockDisplay = `<span class="badge bg-success fs-6 shadow-sm">${curStock}</span>`;
+                    if (curStock < reqQty) {
+                        stockDisplay = `<span class="badge bg-danger fs-6 shadow-sm"><i class="bi bi-exclamation-triangle-fill me-1"></i>${curStock} (Short)</span>`;
+                    } else {
+                        stockDisplay = `<span class="badge bg-success fs-6 shadow-sm">${curStock}</span>`;
+                    }
                 }
                 
                 let pendingDisplay = '';
@@ -96,7 +104,7 @@ window.viewRsDetails = function(rsNo, project, remarks, status, requestor, date,
                     }
 
                     const badgeClass = totalPending > curStock ? 'bg-warning text-dark' : 'bg-light text-dark border';
-                    const label = totalPending > curStock ? (totalPending > reqQty ? ' (Conflict)' : ' (Deficit)') : '';
+                    const label = type === 'restock' ? '' : (totalPending > curStock ? (totalPending > reqQty ? ' (Conflict)' : ' (Deficit)') : '');
                     
                     pendingDisplay = `
                         <div class="d-flex flex-column align-items-center">
