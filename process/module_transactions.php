@@ -497,20 +497,42 @@ elseif ($action === 'create_po') {
     $smsSent = false;
     $errorMessage = "";
 
+    // 1. Check Semaphore API Key
     $apiKey = defined('SMS_API_KEY') ? SMS_API_KEY : '';
     if (!empty($apiKey) && $apiKey !== 'YOUR_SMS_API_KEY') {
-        $ch = curl_init('https://api.semaphore.co/api/v4/messages');
-        curl_setopt($ch, CURLOPT_POST, 1);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query([
+        $url = 'https://api.semaphore.co/api/v4/messages';
+        $postData = http_build_query([
             'apikey' => $apiKey,
             'number' => $phone,
             'message' => $smsMessage
-        ]));
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 10);
-        $response = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
+        ]);
+
+        $options = [
+            'http' => [
+                'method'  => 'POST',
+                'header'  => "Content-type: application/x-www-form-urlencoded\r\n",
+                'content' => $postData,
+                'ignore_errors' => true,
+                'timeout' => 10
+            ],
+            'ssl' => [
+                'verify_peer' => true,
+                'verify_peer_name' => true
+            ]
+        ];
+
+        $context = stream_context_create($options);
+        $response = @file_get_contents($url, false, $context);
+
+        $httpCode = 0;
+        if (isset($http_response_header) && is_array($http_response_header)) {
+            foreach ($http_response_header as $header) {
+                if (preg_match('/^HTTP\/\d\.\d\s+(\d+)/i', $header, $matches)) {
+                    $httpCode = intval($matches[1]);
+                    break;
+                }
+            }
+        }
 
         if ($httpCode >= 200 && $httpCode < 300) {
             $smsSent = true;
@@ -523,7 +545,7 @@ elseif ($action === 'create_po') {
             }
         }
     } else {
-        // Simulation Mode (when API key is not configured yet)
+        // Simulation Mode (when Semaphore is not configured yet)
         usleep(1500000); // Simulate SMS processing delay
         $smsSent = true;
     }
