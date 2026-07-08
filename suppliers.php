@@ -251,7 +251,7 @@ include 'layout/header.php';
                                 <td class="text-center" data-label="Actions">
                                     <button class="btn btn-sm btn-outline-primary shadow-sm me-1" data-bs-toggle="modal"
                                         data-bs-target="#supplierModal"
-                                        onclick="openEditSupplierModal(<?= $sup['id'] ?>, '<?= $sup['supplier_code'] ?>', '<?= addslashes($sup['company_name']) ?>', '<?= addslashes($sup['contact_person']) ?>', '<?= $sup['contact_number'] ?>', '<?= addslashes($sup['email']) ?>', '<?= addslashes($sup['address']) ?>', '<?= $sup['status'] ?>')">
+                                        onclick="openEditSupplierModal(<?= $sup['id'] ?>, <?= htmlspecialchars(json_encode($sup['supplier_code'] ?? '')) ?>, <?= htmlspecialchars(json_encode($sup['company_name'] ?? '')) ?>, <?= htmlspecialchars(json_encode($sup['contact_person'] ?? '')) ?>, <?= htmlspecialchars(json_encode($sup['contact_number'] ?? '')) ?>, <?= htmlspecialchars(json_encode($sup['email'] ?? '')) ?>, <?= htmlspecialchars(json_encode($sup['address'] ?? '')) ?>, <?= htmlspecialchars(json_encode($sup['status'] ?? '')) ?>)">
                                         <i class="bi bi-pencil-square"></i> Edit
                                     </button>
 
