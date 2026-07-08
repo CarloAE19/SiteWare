@@ -66,57 +66,37 @@ window.generateAIPrediction = async function(isManualClick) {
         btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Syncing...'; 
     }
 
-    const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-
-    let systemPrompt = window.systemPrompt || '';
-    systemPrompt = systemPrompt.replace(/\\n/g, '\n').replace('{TODAY}', today);
-
-    const userMessage = JSON.stringify(window.aiPayload); 
-    const apiKey = window.apiKey; 
-    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
-
     try {
-        const response = await fetch(apiUrl, {
+        const response = await fetch('analytics.php?action=generate_ai_report', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ contents: [{ parts: [{ text: systemPrompt + "\n\nData: " + userMessage }] }] })
+            headers: { 'Content-Type': 'application/json' }
         });
 
         const data = await response.json();
         
-        if (response.ok && data.candidates) {
-            let aiText = data.candidates[0].content.parts[0].text;
-            aiText = aiText.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/```html/g, '').replace(/```/g, '');
+        if (response.ok && data.status === 'success') {
+            let aiText = data.prediction;
+            // Clean up bold/markdown if any was returned by the LLM
+            aiText = aiText.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
 
             output.innerHTML = aiText;
             localStorage.setItem('gb_ai_prediction', aiText);
-            localStorage.setItem('gb_ai_timestamp', Date.now());
+            localStorage.setItem('gb_ai_timestamp', data.timestamp);
             
-            // Post update to database to keep in sync
-            try {
-                const dbSaveResponse = await fetch('analytics.php?action=save_ai_report', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ prediction: aiText })
-                });
-                const dbSaveResult = await dbSaveResponse.json();
-                if (dbSaveResult.status === 'success') {
-                    let updatedTextEl = document.getElementById('lastUpdatedText');
-                    if (updatedTextEl) {
-                        updatedTextEl.setAttribute('data-timestamp', dbSaveResult.timestamp);
-                        updatedTextEl.innerText = "Last Updated: " + new Date(dbSaveResult.timestamp).toLocaleTimeString();
-                    }
-                }
-            } catch (dbError) {
-                console.error("Failed to save report to database:", dbError);
-                let updatedTextEl = document.getElementById('lastUpdatedText');
-                if (updatedTextEl) updatedTextEl.innerText = "Last Updated: " + new Date().toLocaleTimeString();
+            let updatedTextEl = document.getElementById('lastUpdatedText');
+            if (updatedTextEl) {
+                updatedTextEl.setAttribute('data-timestamp', data.timestamp);
+                updatedTextEl.innerText = "Last Updated: " + new Date(data.timestamp).toLocaleTimeString();
             }
+            if (updatedTextEl) updatedTextEl.innerText = "Last Updated: " + new Date().toLocaleTimeString();
         } else if (data.error) {
-            output.innerHTML = `<div class='alert alert-danger'><strong>Google API Error:</strong> ${data.error.message}</div>`;
+            output.innerHTML = `<div class='alert alert-danger'><strong>AI API Error:</strong> ${data.error}</div>`;
+        } else {
+            output.innerHTML = `<div class='alert alert-danger'><strong>AI API Error:</strong> Failed to fetch analysis details.</div>`;
         }
     } catch (error) {
         console.error("AI Error:", error);
+        output.innerHTML = `<div class='alert alert-danger'><strong>Connection Error:</strong> Could not connect to backend AI module.</div>`;
     } finally {
         loading.style.setProperty('display', 'none', 'important');
         if (isManualClick && btn) { 
