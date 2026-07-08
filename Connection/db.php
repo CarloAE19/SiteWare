@@ -38,6 +38,9 @@ loadEnv(__DIR__ . '/../.env');
 if (!defined('AI_API_KEY') && isset($_ENV['AI_API_KEY'])) {
     define('AI_API_KEY', $_ENV['AI_API_KEY']);
 }
+if (!defined('AI_MODEL') && isset($_ENV['AI_MODEL'])) {
+    define('AI_MODEL', $_ENV['AI_MODEL']);
+}
 if (!defined('AI_SYSTEM_PROMPT') && isset($_ENV['AI_SYSTEM_PROMPT'])) {
     define('AI_SYSTEM_PROMPT', trim($_ENV['AI_SYSTEM_PROMPT'], '"\''));
 }
