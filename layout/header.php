@@ -59,8 +59,8 @@ foreach ($notifications as $n) {
     
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-    <link rel="stylesheet" href="assets/css/style.css">
-    <link rel="stylesheet" href="assets/css/custom.css">
+    <link rel="stylesheet" href="assets/css/style.css?v=<?= time() ?>">
+    <link rel="stylesheet" href="assets/css/custom.css?v=<?= time() ?>">
 
     <style>
         #content {
@@ -279,7 +279,6 @@ foreach ($notifications as $n) {
                                 <i class="bi bi-person-circle fs-4 me-2"></i> 
                                 <div class="text-start user-role-text">
                                     <span class="fw-bold d-block lh-1" style="font-size: 0.95rem;"><?= htmlspecialchars($_SESSION['user_name'] ?? 'User') ?></span>
-                                    <span class="badge <?= $userBadgeClass ?> rounded-pill" style="font-size: 0.65rem;"><?= mb_strtoupper($userBadgeLabel) ?></span>
                                 </div>
                             </a>
                             <ul class="dropdown-menu dropdown-menu-end shadow" aria-labelledby="dropdownUser1">
