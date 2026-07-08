@@ -43,3 +43,8 @@
         border-radius: 8px;
     }
 }
+
+/* Disable double-tap/pinch-zoom for native app feel */
+html, body {
+    touch-action: manipulation;
+}
