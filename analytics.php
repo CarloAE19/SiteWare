@@ -20,27 +20,139 @@ try {
     // Database connection or table issue
 }
 
-// Handle AJAX Save Request
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['action']) && $_GET['action'] === 'save_ai_report') {
+// Handle AJAX Generate Request (Proxy to NVIDIA NIM API)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['action']) && $_GET['action'] === 'generate_ai_report') {
+    ini_set('display_errors', 0);
+    error_reporting(0);
     header('Content-Type: application/json');
-    $input = json_decode(file_get_contents('php://input'), true);
-    if (isset($input['prediction'])) {
-        $prediction = $input['prediction'];
-        $timestamp = time() * 1000; // milliseconds
+    
+    if (!defined('AI_API_KEY') || empty(AI_API_KEY) || AI_API_KEY === 'YOUR_NVIDIA_API_KEY') {
+        echo json_encode(['status' => 'error', 'message' => 'NVIDIA API Key is not configured in .env']);
+        exit;
+    }
+    
+    try {
+        // 1. Fetch latest data to construct the payload
+        $query = "
+            SELECT i.item_code, i.item_name, i.quantity as current_stock, i.unit,
+                COALESCE((SELECT SUM(wi.quantity) FROM withdrawal_items wi JOIN withdrawals w ON wi.withdrawal_id = w.id WHERE wi.item_code = i.item_code AND w.date_withdrawn >= DATE_SUB(NOW(), INTERVAL 30 DAY)), 0) as total_consumed
+            FROM inventory i ORDER BY current_stock ASC
+        ";
+        $consumptionData = $pdo->query($query)->fetchAll(PDO::FETCH_ASSOC);
+
+        $projQuery = "
+            SELECT wi.item_code, w.project_name, SUM(wi.quantity) as project_consumed
+            FROM withdrawal_items wi JOIN withdrawals w ON wi.withdrawal_id = w.id
+            WHERE w.date_withdrawn >= DATE_SUB(NOW(), INTERVAL 30 DAY) GROUP BY wi.item_code, w.project_name ORDER BY wi.item_code, project_consumed DESC
+        ";
+        $projData = $pdo->query($projQuery)->fetchAll(PDO::FETCH_ASSOC);
+
+        $projectBreakdown = [];
+        foreach($projData as $row) {
+            $projectBreakdown[$row['item_code']][] = $row['project_name'] . " (" . $row['project_consumed'] . ")";
+        }
+
+        $aiPayload = [];
+        foreach ($consumptionData as $item) {
+            $dailyBurn = $item['total_consumed'] / 30;
+            if ($item['current_stock'] <= 0) { $daysLeft = 0; } 
+            elseif ($dailyBurn > 0) { $daysLeft = floor($item['current_stock'] / $dailyBurn); } 
+            else { $daysLeft = 999; }
+            
+            $topProjects = isset($projectBreakdown[$item['item_code']]) ? implode(", ", $projectBreakdown[$item['item_code']]) : "No recent projects";
+
+            $aiPayload[] = [
+                'Item' => $item['item_name'], 'Unit' => $item['unit'], 'Current_Stock' => $item['current_stock'],
+                'Used_Last_30_Days' => $item['total_consumed'], 'Daily_Burn_Rate' => round($dailyBurn, 2),
+                'Est_Days_Left' => $daysLeft, 'Consuming_Projects' => $topProjects 
+            ];
+        }
+        usort($aiPayload, fn($a, $b) => $a['Est_Days_Left'] <=> $b['Est_Days_Left']);
+
+        $today = date('F d, Y');
+        $systemPrompt = defined('AI_SYSTEM_PROMPT') ? AI_SYSTEM_PROMPT : '';
+        $systemPrompt = str_replace(['\n', '{TODAY}'], ["\n", $today], $systemPrompt);
+
+        $userMessage = json_encode($aiPayload);
+
+        // NVIDIA NIM API Details
+        $apiUrl = 'https://integrate.api.nvidia.com/v1/chat/completions';
+        $model = defined('AI_MODEL') ? AI_MODEL : 'meta/llama-3.1-8b-instruct';
+
+        $postData = [
+            'model' => $model,
+            'messages' => [
+                ['role' => 'system', 'content' => $systemPrompt],
+                ['role' => 'user', 'content' => "Data: " . $userMessage]
+            ],
+            'temperature' => 0.2,
+            'max_tokens' => 2048
+        ];
+
+        $options = [
+            'http' => [
+                'method'  => 'POST',
+                'header'  => "Content-Type: application/json\r\n" .
+                             "Authorization: Bearer " . AI_API_KEY . "\r\n",
+                'content' => json_encode($postData),
+                'ignore_errors' => true,
+                'timeout' => 30
+            ],
+            'ssl' => [
+                'verify_peer' => true,
+                'verify_peer_name' => true
+            ]
+        ];
+
+        $context = stream_context_create($options);
+        $response = @file_get_contents($apiUrl, false, $context);
         
-        try {
+        if ($response === false) {
+            $error_err = error_get_last();
+            $error_msg = isset($error_err['message']) ? $error_err['message'] : 'Unknown connection error';
+            echo json_encode(['status' => 'error', 'message' => 'HTTP Request Failed: ' . $error_msg]);
+            exit;
+        }
+
+        $httpCode = 0;
+        if (isset($http_response_header) && is_array($http_response_header)) {
+            foreach ($http_response_header as $header) {
+                if (preg_match('/^HTTP\/\d\.\d\s+(\d+)/i', $header, $matches)) {
+                    $httpCode = intval($matches[1]);
+                    break;
+                }
+            }
+        }
+
+        if ($httpCode !== 200) {
+            $errData = json_decode($response, true);
+            $errMessage = isset($errData['error']['message']) ? $errData['error']['message'] : 'HTTP Code ' . $httpCode;
+            echo json_encode(['status' => 'error', 'message' => 'NVIDIA API Error: ' . $errMessage]);
+            exit;
+        }
+
+        $resData = json_decode($response, true);
+        if (isset($resData['choices'][0]['message']['content'])) {
+            $aiText = $resData['choices'][0]['message']['content'];
+            
+            // Un-escape markdown wrapper in content if model output it
+            $aiText = preg_replace('/^```html\s*|\s*```$/i', '', $aiText);
+            
+            $timestamp = time() * 1000; // milliseconds
+
+            // Save prediction to database
             $stmt = $pdo->prepare("INSERT INTO system_settings (setting_key, setting_value) VALUES ('last_ai_prediction', ?) ON DUPLICATE KEY UPDATE setting_value = ?");
-            $stmt->execute([$prediction, $prediction]);
+            $stmt->execute([$aiText, $aiText]);
             
             $stmt = $pdo->prepare("INSERT INTO system_settings (setting_key, setting_value) VALUES ('last_ai_timestamp', ?) ON DUPLICATE KEY UPDATE setting_value = ?");
             $stmt->execute([$timestamp, $timestamp]);
-            
-            echo json_encode(['status' => 'success', 'timestamp' => $timestamp]);
-        } catch (Exception $e) {
-            echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
+
+            echo json_encode(['status' => 'success', 'prediction' => $aiText, 'timestamp' => $timestamp]);
+        } else {
+            echo json_encode(['status' => 'error', 'message' => 'Invalid response format from NVIDIA NIM API']);
         }
-    } else {
-        echo json_encode(['status' => 'error', 'message' => 'Missing prediction content']);
+    } catch (Exception $e) {
+        echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
     }
     exit;
 }
@@ -244,8 +356,6 @@ include 'layout/header.php';
 <!-- PASS PHP DATA TO JAVASCRIPT EXTERNALLY -->
 <script>
     window.aiPayload = <?= json_encode($aiPayload) ?>;
-    window.apiKey = "<?= defined('AI_API_KEY') ? AI_API_KEY : '' ?>"; 
-    window.systemPrompt = <?= defined('AI_SYSTEM_PROMPT') ? json_encode(AI_SYSTEM_PROMPT) : '""' ?>; 
     
     window.chartData = {
         chartLabels: <?= json_encode($chartLabels) ?>,
