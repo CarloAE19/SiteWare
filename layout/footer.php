@@ -9,7 +9,12 @@
     </div>
 </footer>
 
+<script>
+    window.cimsBasePath = '<?= rtrim(dirname($_SERVER['PHP_SELF']), "/\\") ?>';
+</script>
+
 </div> <!-- End #content wrapper opened in header.php -->
+
 </div> <!-- End .wrapper opened in header.php -->
 
 <!-- Bootstrap 5 JS Bundle with Popper -->
@@ -28,6 +33,331 @@
 <!-- Notification Scripts -->
 <script src="assets/js/notifications.js"></script>
 <script src="assets/js/fcm.js"></script>
+
+<!-- DYNAMIC ROLE-BASED CHATBOT WIDGET -->
+<style>
+    #cims-chatbot-container {
+        position: fixed;
+        bottom: 25px;
+        right: 25px;
+        z-index: 10000;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    #cims-chatbot-trigger {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, var(--gb-blue, #0033CC) 0%, #0d6efd 100%);
+        border: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        box-shadow: 0 8px 24px rgba(13, 110, 253, 0.4);
+        position: relative;
+    }
+
+    #cims-chatbot-trigger:hover {
+        transform: scale(1.1) rotate(5deg);
+        box-shadow: 0 10px 30px rgba(13, 110, 253, 0.6);
+    }
+
+    #cims-chatbot-trigger i {
+        animation: bounceSlow 3s infinite;
+    }
+
+    @keyframes bounceSlow {
+
+        0%,
+        100% {
+            transform: translateY(0);
+        }
+
+        50% {
+            transform: translateY(-3px);
+        }
+    }
+
+    .pulse-badge {
+        animation: badgePulse 2s infinite;
+    }
+
+    @keyframes badgePulse {
+        0% {
+            box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.7);
+        }
+
+        70% {
+            box-shadow: 0 0 0 8px rgba(220, 53, 69, 0);
+        }
+
+        100% {
+            box-shadow: 0 0 0 0 rgba(220, 53, 69, 0);
+        }
+    }
+
+    #cims-chatbot-panel {
+        position: fixed;
+        bottom: 95px;
+        right: 25px;
+        width: 380px;
+        height: 520px;
+        max-height: 80vh;
+        max-width: 90vw;
+        border-radius: 16px;
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        box-shadow: 0 15px 40px rgba(0, 0, 0, 0.15);
+        transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.25);
+        transform-origin: bottom right;
+    }
+
+    #cims-chatbot-panel.d-none {
+        display: none !important;
+    }
+
+    #cims-chatbot-panel .card-header {
+        background: linear-gradient(135deg, var(--gb-dark, #0A111F) 0%, #15253F 100%);
+        border-bottom: 2px solid var(--gb-yellow, #FFD700);
+    }
+
+    .chatbot-avatar-container {
+        width: 32px;
+        height: 32px;
+    }
+
+    .chatbot-avatar {
+        width: 32px;
+        height: 32px;
+        font-size: 1.1rem;
+    }
+
+    .chatbot-suggestions-bar {
+        scrollbar-width: none;
+    }
+
+    .chatbot-suggestions-bar::-webkit-scrollbar {
+        display: none;
+    }
+
+    .chatbot-chip {
+        font-size: 0.75rem;
+        padding: 6px 12px;
+        border-radius: 50px;
+        background-color: #f1f3f5;
+        border: 1px solid #e9ecef;
+        color: #495057;
+        cursor: pointer;
+        transition: all 0.2s;
+        font-weight: 600;
+    }
+
+    .chatbot-chip:hover {
+        background-color: var(--gb-blue, #0033CC);
+        color: #ffffff;
+        border-color: var(--gb-blue, #0033CC);
+        transform: translateY(-1px);
+    }
+
+    #cims-chatbot-messages {
+        flex: 1;
+        scrollbar-width: thin;
+    }
+
+    #cims-chatbot-messages::-webkit-scrollbar {
+        width: 5px;
+    }
+
+    #cims-chatbot-messages::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    #cims-chatbot-messages::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 10px;
+    }
+
+    .chatbot-msg {
+        max-width: 85%;
+        clear: both;
+        margin-bottom: 12px;
+        line-height: 1.5;
+        font-size: 0.9rem;
+        word-wrap: break-word;
+        border-radius: 12px;
+        animation: messageFadeIn 0.25s ease-out;
+    }
+
+    @keyframes messageFadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(5px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .chatbot-msg.user {
+        float: right;
+        background: linear-gradient(135deg, var(--gb-blue, #0033CC) 0%, #0d6efd 100%);
+        color: white;
+        border-top-right-radius: 2px;
+        padding: 10px 14px;
+        box-shadow: 0 4px 10px rgba(13, 110, 253, 0.15);
+    }
+
+    .chatbot-msg.assistant {
+        float: left;
+        background-color: #ffffff;
+        color: #212529;
+        border-top-left-radius: 2px;
+        border: 1px solid #e9ecef;
+        padding: 12px 14px;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.02);
+    }
+
+    .chatbot-msg.assistant ul,
+    .chatbot-msg.assistant ol {
+        padding-left: 20px;
+        margin-bottom: 0;
+        margin-top: 5px;
+    }
+
+    .chatbot-msg.assistant li {
+        margin-bottom: 4px;
+    }
+
+    #cims-chatbot-form .form-control {
+        font-size: 0.9rem;
+    }
+
+    .chatbot-loading-bubble {
+        float: left;
+        background-color: #ffffff;
+        border: 1px solid #e9ecef;
+        padding: 12px 20px;
+        border-radius: 12px;
+        border-top-left-radius: 2px;
+        margin-bottom: 12px;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.02);
+    }
+
+    .chatbot-loading-dots {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        height: 12px;
+    }
+
+    .chatbot-loading-dots span {
+        width: 6px;
+        height: 6px;
+        background-color: #6c757d;
+        border-radius: 50%;
+        animation: bounceDot 1.4s infinite ease-in-out both;
+    }
+
+    .chatbot-loading-dots span:nth-child(1) {
+        animation-delay: -0.32s;
+    }
+
+    .chatbot-loading-dots span:nth-child(2) {
+        animation-delay: -0.16s;
+    }
+
+    @keyframes bounceDot {
+
+        0%,
+        80%,
+        100% {
+            transform: scale(0);
+        }
+
+        40% {
+            transform: scale(1.0);
+        }
+    }
+
+    @media (max-width: 576px) {
+        #cims-chatbot-panel {
+            bottom: 85px;
+            right: 15px;
+            left: 15px;
+            width: calc(100vw - 30px);
+            height: 480px;
+        }
+
+        #cims-chatbot-container {
+            bottom: 15px;
+            right: 15px;
+        }
+    }
+</style>
+<div id="cims-chatbot-container">
+    <!-- Floating Trigger Button -->
+    <button id="cims-chatbot-trigger" class="btn shadow-lg" title="CIMS AI Assistant">
+        <i class="bi bi-chat-dots-fill text-white fs-4"></i>
+        <span
+            class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger border border-light pulse-badge"
+            style="font-size: 0.55rem; padding: 0.35em 0.5em;">AI</span>
+    </button>
+
+    <!-- Chat Panel -->
+    <div id="cims-chatbot-panel" class="card shadow-lg d-none">
+        <!-- Header -->
+        <div class="card-header text-white d-flex align-items-center justify-content-between py-3 border-0">
+            <div class="d-flex align-items-center">
+                <div class="chatbot-avatar-container me-2">
+                    <div
+                        class="chatbot-avatar bg-white text-primary d-flex align-items-center justify-content-center rounded-circle fw-bold">
+                        <i class="bi bi-robot"></i>
+                    </div>
+                </div>
+                <div>
+                    <h6 class="mb-0 fw-bold lh-1" style="font-size: 0.95rem;">SiteWare Assistant</h6>
+                </div>
+            </div>
+            <button type="button" id="cims-chatbot-close" class="btn-close btn-close-white" aria-label="Close"></button>
+        </div>
+
+        <!-- Action Suggestion Chips -->
+        <div class="chatbot-suggestions-bar border-bottom py-2 px-3 bg-light d-flex gap-2 overflow-x-auto text-nowrap">
+            <!-- Loaded dynamically via JS depending on role -->
+        </div>
+
+        <!-- Chat messages container -->
+        <div id="cims-chatbot-messages" class="card-body overflow-y-auto bg-light p-3">
+            <div class="chatbot-msg assistant border rounded-3 p-3 mb-2 shadow-sm">
+                Hi <strong><?= htmlspecialchars($_SESSION['user_name'] ?? 'User') ?></strong>! I am your
+                <strong><?= htmlspecialchars($userBadgeLabel) ?></strong> assistant. How can I help you manage the
+                system today?
+            </div>
+        </div>
+
+        <!-- Chat input area -->
+        <div class="card-footer bg-white border-top p-2">
+            <form id="cims-chatbot-form" class="input-group">
+                <input type="text" id="cims-chatbot-input"
+                    class="form-control border-0 bg-light rounded-start-pill py-2 px-3 shadow-none"
+                    placeholder="Ask me something..." autocomplete="off" required>
+                <button type="submit" class="btn btn-brand rounded-end-pill px-3 shadow-none"><i
+                        class="bi bi-send-fill"></i></button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script src="assets/js/chatbot.js?v=<?= time() ?>"></script>
 
 </body>
 
