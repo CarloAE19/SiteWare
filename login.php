@@ -92,7 +92,7 @@ $bg_image_url = $app_base . '/' . ltrim($bg_image, '/') . '?v=' . $bg_version;
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Sign In — GB Inventory System</title>
     <meta name="description" content="GB Construction & Enterprise Smart Inventory & Logistics System — Secure Login">
 
