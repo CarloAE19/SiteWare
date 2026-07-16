@@ -9,6 +9,18 @@
 let countdown = 60;
 let timerInterval;
 
+function formatDateTime(date) {
+    return date.toLocaleString('en-US', {
+        month: 'short',
+        day: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true
+    });
+}
+
 document.addEventListener("DOMContentLoaded", () => {
     const aiOutput = document.getElementById('aiOutput');
     if (!aiOutput) return;
@@ -20,7 +32,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const dbTimestamp = updatedTextEl.getAttribute('data-timestamp');
         if (dbTimestamp) {
             const date = new Date(parseInt(dbTimestamp));
-            updatedTextEl.innerText = "Last Updated: " + date.toLocaleTimeString();
+            updatedTextEl.innerText = "Last Updated: " + formatDateTime(date);
         }
     }
 
@@ -35,7 +47,7 @@ document.addEventListener("DOMContentLoaded", () => {
             aiOutput.innerHTML = savedPrediction;
             const date = new Date(parseInt(savedTime));
             if (updatedTextEl) {
-                updatedTextEl.innerText = "Last Updated: " + date.toLocaleTimeString();
+                updatedTextEl.innerText = "Last Updated: " + formatDateTime(date);
             }
         }
     }
@@ -86,9 +98,9 @@ window.generateAIPrediction = async function(isManualClick) {
             let updatedTextEl = document.getElementById('lastUpdatedText');
             if (updatedTextEl) {
                 updatedTextEl.setAttribute('data-timestamp', data.timestamp);
-                updatedTextEl.innerText = "Last Updated: " + new Date(data.timestamp).toLocaleTimeString();
+                updatedTextEl.innerText = "Last Updated: " + formatDateTime(new Date(data.timestamp));
             }
-            if (updatedTextEl) updatedTextEl.innerText = "Last Updated: " + new Date().toLocaleTimeString();
+            if (updatedTextEl) updatedTextEl.innerText = "Last Updated: " + formatDateTime(new Date());
         } else if (data.error) {
             output.innerHTML = `<div class='alert alert-danger'><strong>AI API Error:</strong> ${data.error}</div>`;
         } else {
