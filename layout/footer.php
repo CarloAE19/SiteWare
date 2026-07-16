@@ -325,6 +325,8 @@
                 </div>
                 <div>
                     <h6 class="mb-0 fw-bold lh-1" style="font-size: 0.95rem;">SiteWare Assistant</h6>
+                    <span class="badge rounded-pill mt-1"
+                        style="font-size: 0.6rem; background-color: #f1f3f5; color: #4f5d75; font-weight: 700; letter-spacing: 0.5px; padding: 0.3em 0.6em; display: inline-block;">BETA</span>
                 </div>
             </div>
             <button type="button" id="cims-chatbot-close" class="btn-close btn-close-white" aria-label="Close"></button>
