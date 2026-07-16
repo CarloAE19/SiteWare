@@ -323,7 +323,7 @@ include 'layout/header.php';
             <div class="d-flex align-items-center gap-3">
                 <small id="lastUpdatedText" class="text-muted fw-semibold" data-timestamp="<?= $lastTimestamp ?: '' ?>">
                     <?php if ($lastTimestamp): ?>
-                        Last Updated: <?= date('h:i:s A', $lastTimestamp / 1000) ?>
+                        Last Updated: <?= date('M d, Y h:i:s A', $lastTimestamp / 1000) ?>
                     <?php endif; ?>
                 </small>
                 <button class="btn btn-sm btn-brand fw-bold shadow-sm px-3" id="generateAiBtn" onclick="generateAIPrediction(true)">
