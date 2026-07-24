@@ -287,6 +287,17 @@ if ($poModalRole === 'purchasing') {
                         </div>
                     </div>
 
+                    <!-- Recent Supplier SMS Replies Preview -->
+                    <div class="mb-4 d-none" id="smsPoConversationSection">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <label class="form-label fw-bold small text-muted text-uppercase mb-0"><i class="bi bi-chat-left-dots text-primary me-1"></i> Supplier SMS Conversation History</label>
+                            <button type="button" class="btn btn-sm btn-link p-0 text-decoration-none text-primary fw-bold" style="font-size: 0.8rem;" onclick="openSmsInboxModal()"><i class="bi bi-box-arrow-up-right me-1"></i>Open Full Inbox</button>
+                        </div>
+                        <div class="border rounded p-3 bg-white overflow-auto shadow-sm" id="smsPoConversationThread" style="max-height: 160px; font-size: 0.85rem;">
+                            <!-- Populated dynamically via JS -->
+                        </div>
+                    </div>
+
                     <!-- SMS Message Editor -->
                     <div class="mb-2">
                         <label class="form-label fw-bold small text-muted text-uppercase">Edit SMS Message Content</label>
