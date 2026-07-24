@@ -132,6 +132,14 @@ window.buildTheCharts = function() {
 
     if (!pctCtx && !daysCtx && !pieCtx) return;
 
+    const isDark = document.documentElement.getAttribute('data-bs-theme') === 'dark';
+    if (window.Chart) {
+        Chart.defaults.color = isDark ? '#adbac7' : '#666666';
+        Chart.defaults.borderColor = isDark ? '#30363d' : '#e0e0e0';
+    }
+    const gridColor = isDark ? '#21262d' : '#f0f0f0';
+    const pieBorder = isDark ? '#161b22' : '#ffffff';
+
     if (window.pctChartInstance) { window.pctChartInstance.destroy(); window.pctChartInstance = null; }
     if (window.daysChartInstance) { window.daysChartInstance.destroy(); window.daysChartInstance = null; }
     if (window.pieChartInstance) { window.pieChartInstance.destroy(); window.pieChartInstance = null; }
@@ -161,7 +169,7 @@ window.buildTheCharts = function() {
                 responsive: true, maintainAspectRatio: false, 
                 animation: { duration: 1500, easing: 'easeOutQuart' },
                 plugins: { legend: { display: false }, tooltip: { callbacks: { label: function(context) { return context.raw + '% (' + context.dataset.rawValues[context.dataIndex] + ' units used)'; } } } },
-                scales: { x: { grid: { display: false } }, y: { beginAtZero: true, max: 100, border: { dash: [4, 4] }, grid: { color: '#f0f0f0' }, ticks: { callback: function(value) { return value + '%'; } } } }
+                scales: { x: { grid: { display: false } }, y: { beginAtZero: true, max: 100, border: { dash: [4, 4] }, grid: { color: gridColor }, ticks: { callback: function(value) { return value + '%'; } } } }
             }
         });
     }
@@ -176,7 +184,7 @@ window.buildTheCharts = function() {
                 datasets: [{
                     data: zeroPieData, // Init with zeros for animation
                     backgroundColor: window.chartData.pieColors,
-                    borderWidth: 2, borderColor: '#ffffff', hoverOffset: 6 
+                    borderWidth: 2, borderColor: pieBorder, hoverOffset: 6 
                 }]
             },
             options: {
@@ -207,7 +215,7 @@ window.buildTheCharts = function() {
                 responsive: true, maintainAspectRatio: false, indexAxis: 'y', 
                 animation: { duration: 1500, easing: 'easeOutQuart' },
                 plugins: { legend: { display: false } },
-                scales: { y: { grid: { display: false } }, x: { beginAtZero: true, border: { dash: [4, 4] }, grid: { color: '#f0f0f0' } } }
+                scales: { y: { grid: { display: false } }, x: { beginAtZero: true, border: { dash: [4, 4] }, grid: { color: gridColor } } }
             }
         });
     }
