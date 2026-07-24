@@ -287,3 +287,369 @@
 html, body {
     touch-action: manipulation;
 }
+
+/* ==========================================================
+ * HIGH-END PROFESSIONAL DARK THEME DESIGN SYSTEM
+ * Elegant GitHub / Linear / VS Code style dark aesthetics
+ * ========================================================== */
+[data-bs-theme="dark"] {
+    --gb-dark-bg: #0d1117;
+    --gb-dark-surface: #161b22;
+    --gb-dark-hover: #21262d;
+    --gb-dark-border: #30363d;
+    --gb-dark-text-main: #f0f6fc;
+    --gb-dark-text-muted: #8b949e;
+    --gb-dark-accent: #58a6ff;
+}
+
+[data-bs-theme="dark"] #content {
+    background-color: var(--gb-dark-bg) !important;
+    color: var(--gb-dark-text-main) !important;
+}
+
+[data-bs-theme="dark"] .top-navbar {
+    background-color: var(--gb-dark-surface) !important;
+    border-bottom: 1px solid var(--gb-dark-border) !important;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3) !important;
+}
+
+[data-bs-theme="dark"] .app-footer {
+    background-color: var(--gb-dark-surface) !important;
+    border-top: 1px solid var(--gb-dark-border) !important;
+    color: var(--gb-dark-text-muted) !important;
+}
+
+/* Force utility override for inline bg-white, bg-light, text-dark */
+[data-bs-theme="dark"] .bg-white {
+    background-color: var(--gb-dark-surface) !important;
+    color: var(--gb-dark-text-main) !important;
+}
+
+[data-bs-theme="dark"] .bg-light {
+    background-color: var(--gb-dark-bg) !important;
+    color: var(--gb-dark-text-main) !important;
+}
+
+[data-bs-theme="dark"] .text-dark {
+    color: var(--gb-dark-text-main) !important;
+}
+
+[data-bs-theme="dark"] .text-muted,
+[data-bs-theme="dark"] .text-secondary {
+    color: var(--gb-dark-text-muted) !important;
+}
+
+/* Cards & Containers */
+[data-bs-theme="dark"] .card {
+    background-color: var(--gb-dark-surface) !important;
+    border: 1px solid var(--gb-dark-border) !important;
+    color: var(--gb-dark-text-main) !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2) !important;
+}
+
+[data-bs-theme="dark"] .card-header {
+    background-color: var(--gb-dark-surface) !important;
+    border-bottom: 1px solid var(--gb-dark-border) !important;
+    color: var(--gb-dark-text-main) !important;
+}
+
+[data-bs-theme="dark"] .card-footer {
+    background-color: var(--gb-dark-surface) !important;
+    border-top: 1px solid var(--gb-dark-border) !important;
+}
+
+/* AI Analytics Dashboard Box & Output Styling */
+#aiOutput ul {
+    list-style-type: none !important;
+    padding-left: 0 !important;
+    margin-bottom: 0 !important;
+}
+
+#aiOutput li {
+    margin-bottom: 14px !important;
+    padding: 14px 18px !important;
+    border-radius: 8px !important;
+    background-color: #ffffff !important;
+    border: 1px solid #e2e8f0 !important;
+    border-left: 4px solid #dc3545 !important;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04) !important;
+    color: #334155 !important;
+    line-height: 1.6 !important;
+}
+
+[data-bs-theme="dark"] #aiOutput {
+    background-color: var(--gb-dark-bg) !important;
+    border: 1px solid var(--gb-dark-border) !important;
+    color: #e6edf3 !important;
+}
+
+[data-bs-theme="dark"] #aiOutput ul {
+    list-style-type: none !important;
+    padding-left: 0 !important;
+    margin-bottom: 0 !important;
+}
+
+[data-bs-theme="dark"] #aiOutput li {
+    background-color: var(--gb-dark-surface) !important;
+    border: 1px solid var(--gb-dark-border) !important;
+    border-left: 4px solid #f85149 !important;
+    color: #c9d1d9 !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4) !important;
+    border-radius: 8px !important;
+    margin-bottom: 14px !important;
+    padding: 14px 18px !important;
+}
+
+[data-bs-theme="dark"] #aiOutput li span {
+    color: #ff7b72 !important;
+}
+
+[data-bs-theme="dark"] #aiOutput li strong {
+    color: #f0f6fc !important;
+}
+
+[data-bs-theme="dark"] #aiLoading {
+    background-color: rgba(13, 17, 23, 0.9) !important;
+    color: var(--gb-dark-accent) !important;
+}
+
+/* SiteWare Assistant Chatbot Widget Dark Overrides */
+[data-bs-theme="dark"] #cims-chatbot-panel {
+    background-color: var(--gb-dark-surface) !important;
+    border: 1px solid var(--gb-dark-border) !important;
+    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.6) !important;
+}
+
+[data-bs-theme="dark"] #cims-chatbot-panel .card-header {
+    background: linear-gradient(135deg, #0d1117 0%, #161b22 100%) !important;
+    border-bottom: 2px solid var(--gb-dark-accent) !important;
+}
+
+[data-bs-theme="dark"] .chatbot-suggestions-bar {
+    background-color: var(--gb-dark-bg) !important;
+    border-bottom: 1px solid var(--gb-dark-border) !important;
+}
+
+[data-bs-theme="dark"] .chatbot-chip {
+    background-color: var(--gb-dark-hover) !important;
+    border: 1px solid var(--gb-dark-border) !important;
+    color: var(--gb-dark-text-main) !important;
+}
+
+[data-bs-theme="dark"] .chatbot-chip:hover {
+    background-color: var(--gb-dark-border) !important;
+    color: #ffffff !important;
+}
+
+[data-bs-theme="dark"] #cims-chatbot-messages {
+    background-color: var(--gb-dark-bg) !important;
+}
+
+[data-bs-theme="dark"] .chatbot-msg.assistant {
+    background-color: var(--gb-dark-surface) !important;
+    border: 1px solid var(--gb-dark-border) !important;
+    color: var(--gb-dark-text-main) !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+}
+
+[data-bs-theme="dark"] .chatbot-msg.assistant strong {
+    color: var(--gb-dark-accent) !important;
+}
+
+[data-bs-theme="dark"] .chatbot-msg.user {
+    background-color: #1f6feb !important;
+    color: #ffffff !important;
+}
+
+[data-bs-theme="dark"] #cims-chatbot-panel .card-footer {
+    background-color: var(--gb-dark-surface) !important;
+    border-top: 1px solid var(--gb-dark-border) !important;
+}
+
+[data-bs-theme="dark"] #cims-chatbot-input {
+    background-color: var(--gb-dark-bg) !important;
+    color: var(--gb-dark-text-main) !important;
+    border: 1px solid var(--gb-dark-border) !important;
+}
+
+[data-bs-theme="dark"] #cims-chatbot-input::placeholder {
+    color: var(--gb-dark-text-muted) !important;
+}
+
+/* Modals & Dialogs */
+[data-bs-theme="dark"] .modal-content {
+    background-color: var(--gb-dark-surface) !important;
+    border: 1px solid var(--gb-dark-border) !important;
+    color: var(--gb-dark-text-main) !important;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.6) !important;
+}
+
+[data-bs-theme="dark"] .modal-header {
+    background-color: var(--gb-dark-surface) !important;
+    border-bottom: 1px solid var(--gb-dark-border) !important;
+    color: var(--gb-dark-text-main) !important;
+}
+
+[data-bs-theme="dark"] .modal-footer {
+    background-color: var(--gb-dark-surface) !important;
+    border-top: 1px solid var(--gb-dark-border) !important;
+}
+
+[data-bs-theme="dark"] .btn-close {
+    filter: invert(1) grayscale(100%) brightness(200%);
+}
+
+/* Dropdowns & Popovers */
+[data-bs-theme="dark"] .dropdown-menu {
+    background-color: var(--gb-dark-surface) !important;
+    border: 1px solid var(--gb-dark-border) !important;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5) !important;
+}
+
+[data-bs-theme="dark"] .dropdown-item {
+    color: var(--gb-dark-text-main) !important;
+}
+
+[data-bs-theme="dark"] .dropdown-item:hover,
+[data-bs-theme="dark"] .dropdown-item:focus {
+    background-color: var(--gb-dark-hover) !important;
+    color: #ffffff !important;
+}
+
+[data-bs-theme="dark"] .dropdown-divider {
+    border-color: var(--gb-dark-border) !important;
+}
+
+[data-bs-theme="dark"] .dropdown-header {
+    color: var(--gb-dark-text-muted) !important;
+}
+
+[data-bs-theme="dark"] .theme-option.active {
+    background-color: var(--gb-dark-hover) !important;
+    color: var(--gb-dark-accent) !important;
+}
+
+/* Tables */
+[data-bs-theme="dark"] .table {
+    --bs-table-bg: transparent;
+    --bs-table-striped-bg: rgba(255, 255, 255, 0.02);
+    --bs-table-hover-bg: rgba(255, 255, 255, 0.04);
+    color: var(--gb-dark-text-main) !important;
+    border-color: var(--gb-dark-border) !important;
+}
+
+[data-bs-theme="dark"] .table th {
+    background-color: var(--gb-dark-surface) !important;
+    color: var(--gb-dark-text-main) !important;
+    border-color: var(--gb-dark-border) !important;
+}
+
+[data-bs-theme="dark"] .table td {
+    background-color: transparent !important;
+    color: var(--gb-dark-text-main) !important;
+    border-color: var(--gb-dark-border) !important;
+}
+
+/* Form Controls & Inputs */
+[data-bs-theme="dark"] .form-control,
+[data-bs-theme="dark"] .form-select,
+[data-bs-theme="dark"] .input-group-text {
+    background-color: var(--gb-dark-bg) !important;
+    border-color: var(--gb-dark-border) !important;
+    color: var(--gb-dark-text-main) !important;
+}
+
+[data-bs-theme="dark"] .form-control:focus,
+[data-bs-theme="dark"] .form-select:focus {
+    background-color: var(--gb-dark-bg) !important;
+    border-color: var(--gb-dark-accent) !important;
+    color: #ffffff !important;
+    box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.25) !important;
+}
+
+/* Notifications Dropdown Overrides */
+[data-bs-theme="dark"] .notif-menu .bg-light {
+    background-color: #1c2128 !important;
+}
+
+[data-bs-theme="dark"] .notif-menu .bg-white {
+    background-color: var(--gb-dark-surface) !important;
+}
+
+/* ==========================================================
+ * MOBILE RESPONSIVE CARD TABLES (Phone / Tablet Dark Mode)
+ * Target: #inventoryTable, #withdrawalsTable, #historyTable, #projectsTable, etc.
+ * ========================================================== */
+@media (max-width: 767.98px) {
+    [data-bs-theme="dark"] .table-responsive,
+    [data-bs-theme="dark"] .inventory-table-wrapper {
+        background: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+    }
+
+    [data-bs-theme="dark"] table tbody tr,
+    [data-bs-theme="dark"] #inventoryTable tbody tr,
+    [data-bs-theme="dark"] #inventoryTable tbody tr.item-row,
+    [data-bs-theme="dark"] #withdrawalsTable tbody tr,
+    [data-bs-theme="dark"] #withdrawalsTable tbody tr.withdrawal-row,
+    [data-bs-theme="dark"] #historyTable tbody tr,
+    [data-bs-theme="dark"] #projectsTable tbody tr {
+        background-color: var(--gb-dark-surface, #161b22) !important;
+        border: 1px solid var(--gb-dark-border, #30363d) !important;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4) !important;
+        color: var(--gb-dark-text-main, #f0f6fc) !important;
+        border-radius: 12px !important;
+        margin-bottom: 1rem !important;
+        padding: 12px !important;
+    }
+
+    [data-bs-theme="dark"] table tbody td,
+    [data-bs-theme="dark"] #inventoryTable tbody td,
+    [data-bs-theme="dark"] #withdrawalsTable tbody td,
+    [data-bs-theme="dark"] #historyTable tbody td,
+    [data-bs-theme="dark"] #projectsTable tbody td {
+        border-bottom: 1px dashed var(--gb-dark-border, #30363d) !important;
+        color: var(--gb-dark-text-main, #f0f6fc) !important;
+    }
+
+    [data-bs-theme="dark"] table tbody td:last-child,
+    [data-bs-theme="dark"] #inventoryTable tbody td:last-child,
+    [data-bs-theme="dark"] #withdrawalsTable tbody td:last-child {
+        border-bottom: none !important;
+    }
+
+    /* Column Headers / Data Label Prefix (td::before) */
+    [data-bs-theme="dark"] table tbody td::before,
+    [data-bs-theme="dark"] #inventoryTable tbody td::before,
+    [data-bs-theme="dark"] #withdrawalsTable tbody td::before,
+    [data-bs-theme="dark"] #historyTable tbody td::before,
+    [data-bs-theme="dark"] #projectsTable tbody td::before {
+        color: var(--gb-dark-text-muted, #8b949e) !important;
+        font-weight: 700 !important;
+    }
+
+    /* Mobile Action Buttons (QR, Edit, Delete) */
+    [data-bs-theme="dark"] table tbody td .btn-outline-secondary,
+    [data-bs-theme="dark"] table tbody td .btn-outline-primary,
+    [data-bs-theme="dark"] table tbody td .btn-outline-danger,
+    [data-bs-theme="dark"] table tbody td .btn-outline-success,
+    [data-bs-theme="dark"] table tbody td .btn-outline-info,
+    [data-bs-theme="dark"] table tbody td .btn-light {
+        background-color: var(--gb-dark-bg, #0d1117) !important;
+        border-color: var(--gb-dark-border, #30363d) !important;
+        color: var(--gb-dark-text-main, #f0f6fc) !important;
+    }
+
+    /* Muted and badge text inside mobile cards */
+    [data-bs-theme="dark"] table tbody td .text-muted,
+    [data-bs-theme="dark"] table tbody td small {
+        color: var(--gb-dark-text-muted, #8b949e) !important;
+    }
+
+    [data-bs-theme="dark"] table tbody td .badge.bg-light {
+        background-color: #21262d !important;
+        color: #c9d1d9 !important;
+        border: 1px solid #30363d !important;
+    }
+}
