@@ -336,9 +336,15 @@ include 'layout/header.php';
                 <div class="spinner-border text-primary mb-2" role="status"></div>
                 <small class="fw-bold text-primary blink-text">AI is calculating optimal restock dates...</small>
             </div>
-            <div id="aiOutput" class="p-3 bg-white border rounded shadow-sm" style="font-size: 1rem; line-height: 1.7; color: #333;">
+            <div id="aiOutput" class="p-3 rounded shadow-sm" style="font-size: 1rem; line-height: 1.7;">
                 <?php if ($lastPrediction): ?>
-                    <?= $lastPrediction ?>
+                    <?php 
+                        $cleanPrediction = preg_replace('/background-color:\s*#fff(?:fff)?;?/i', '', $lastPrediction);
+                        $cleanPrediction = preg_replace('/background:\s*#fff(?:fff)?;?/i', '', $cleanPrediction);
+                        $cleanPrediction = preg_replace('/background-color:\s*white;?/i', '', $cleanPrediction);
+                        $cleanPrediction = preg_replace('/background:\s*white;?/i', '', $cleanPrediction);
+                    ?>
+                    <?= $cleanPrediction ?>
                 <?php else: ?>
                     <div class="text-center text-muted py-4"><i class="bi bi-cpu fs-2 d-block mb-2"></i>Click "Analyze Now" to generate AI Restock Predictions.</div>
                 <?php endif; ?>
