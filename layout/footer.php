@@ -359,7 +359,270 @@
     </div>
 </div>
 
+<!-- Include SMS Inbox Modal -->
+<?php include_once __DIR__ . '/../components/sms_inbox_modal.php'; ?>
+
 <script src="assets/js/chatbot.js?v=<?= time() ?>"></script>
+
+<script>
+// ==========================================
+// SMS INBOX & SUPPLIER CHAT JS LOGIC
+// ==========================================
+let activeSmsPhone = '';
+let smsThreadsData = [];
+
+function openSmsInboxModal() {
+    // Automatically close the PO SMS Preview modal if open
+    var poModalEl = document.getElementById('smsPreviewModal');
+    if (poModalEl) {
+        var poModal = bootstrap.Modal.getInstance(poModalEl);
+        if (poModal) poModal.hide();
+    }
+
+    var modalEl = document.getElementById('smsInboxModal');
+    var modal = bootstrap.Modal.getInstance(modalEl);
+    if (!modal) modal = new bootstrap.Modal(modalEl);
+    modal.show();
+    loadSmsThreads();
+}
+
+async function loadSmsThreads() {
+    const container = document.getElementById('smsThreadListContainer');
+    if (!container) return;
+
+    try {
+        const formData = new FormData();
+        formData.append('action', 'fetch_sms_threads');
+
+        const res = await fetch('process/process.php', { method: 'POST', body: formData });
+        const data = await res.json();
+
+        if (data.status === 'success') {
+            smsThreadsData = data.threads || [];
+            updateSmsUnreadBadge(data.total_unread || 0);
+            renderSmsThreads(smsThreadsData);
+        } else {
+            container.innerHTML = `<div class="p-3 text-center text-danger small">${data.message || 'Failed to load threads.'}</div>`;
+        }
+    } catch (err) {
+        console.error('Error fetching SMS threads:', err);
+    }
+}
+
+function updateSmsUnreadBadge(unreadCount) {
+    const badge = document.getElementById('smsGlobalUnreadBadge');
+    if (badge) {
+        if (unreadCount > 0) {
+            badge.textContent = unreadCount > 99 ? '99+' : unreadCount;
+            badge.classList.remove('d-none');
+        } else {
+            badge.classList.add('d-none');
+        }
+    }
+}
+
+function renderSmsThreads(threads) {
+    const container = document.getElementById('smsThreadListContainer');
+    if (!container) return;
+
+    if (threads.length === 0) {
+        container.innerHTML = `
+            <div class="text-center text-muted p-4 my-4">
+                <i class="bi bi-chat-square-dots fs-1 opacity-50 mb-2 d-block"></i>
+                <p class="mb-0 small fw-bold">No supplier messages yet</p>
+                <small class="text-muted">Incoming SMS replies from suppliers will appear here.</small>
+            </div>
+        `;
+        return;
+    }
+
+    let html = '';
+    threads.forEach(t => {
+        const isActive = activeSmsPhone === t.sender_number ? 'active' : '';
+        const unreadPill = t.unread_count > 0 
+            ? `<span class="badge bg-danger rounded-pill float-end ms-2">${t.unread_count}</span>` 
+            : '';
+        
+        const initial = (t.company_name || '?').charAt(0).toUpperCase();
+        const snippet = t.last_message ? escapeSmsHtml(t.last_message) : 'No message history';
+        const timeAgo = t.last_message_at ? formatSmsTime(t.last_message_at) : '';
+
+        html += `
+            <div class="sms-thread-item p-3 border-bottom bg-white ${isActive}" data-phone="${escapeSmsHtml(t.sender_number)}" data-supplier-id="${t.supplier_id || ''}" data-company="${escapeSmsHtml(t.company_name)}" onclick="onSmsThreadClick(this)">
+                <div class="d-flex align-items-center">
+                    <div class="rounded-circle bg-success text-white fw-bold d-flex align-items-center justify-content-center me-3 flex-shrink-0" style="width: 38px; height: 38px;">
+                        ${initial}
+                    </div>
+                    <div class="flex-grow-1 overflow-hidden">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <h6 class="fw-bold mb-0 text-dark text-truncate" style="max-width: 170px;">${escapeSmsHtml(t.company_name)}</h6>
+                            <small class="text-muted" style="font-size: 0.7rem;">${timeAgo}</small>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <p class="mb-0 text-muted small text-truncate" style="max-width: 180px;">${snippet}</p>
+                            ${unreadPill}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+
+    container.innerHTML = html;
+}
+
+function onSmsThreadClick(el) {
+    if (!el) return;
+    const phone = el.getAttribute('data-phone') || '';
+    const supplierId = el.getAttribute('data-supplier-id') || '';
+    const company = el.getAttribute('data-company') || '';
+    openSmsChatThread(phone, supplierId, company);
+}
+
+function filterSmsThreads() {
+    const q = (document.getElementById('smsThreadSearch').value || '').toLowerCase();
+    if (!q) {
+        renderSmsThreads(smsThreadsData);
+        return;
+    }
+    const filtered = smsThreadsData.filter(t => 
+        (t.company_name && t.company_name.toLowerCase().includes(q)) ||
+        (t.sender_number && t.sender_number.includes(q)) ||
+        (t.last_message && t.last_message.toLowerCase().includes(q))
+    );
+    renderSmsThreads(filtered);
+}
+
+async function openSmsChatThread(phone, supplierId, companyName) {
+    activeSmsPhone = phone;
+    if (document.getElementById('smsActivePhone')) document.getElementById('smsActivePhone').value = phone;
+    if (document.getElementById('smsActiveSupplierId')) document.getElementById('smsActiveSupplierId').value = supplierId || '';
+    
+    if (document.getElementById('smsActiveTitle')) document.getElementById('smsActiveTitle').textContent = companyName || phone;
+    if (document.getElementById('smsActiveSubtitle')) document.getElementById('smsActiveSubtitle').textContent = `Phone: ${phone}`;
+    if (document.getElementById('smsActiveAvatar')) document.getElementById('smsActiveAvatar').textContent = (companyName || '?').charAt(0).toUpperCase();
+
+    // Enable inputs
+    if (document.getElementById('smsReplyText')) document.getElementById('smsReplyText').disabled = false;
+    if (document.getElementById('smsSendReplyBtn')) document.getElementById('smsSendReplyBtn').disabled = false;
+
+    // Highlight active thread
+    renderSmsThreads(smsThreadsData);
+
+    // Load messages
+    const container = document.getElementById('smsMessagesContainer');
+    container.innerHTML = '<div class="text-center text-muted p-4"><div class="spinner-border spinner-border-sm text-success me-2"></div> Loading conversation...</div>';
+
+    try {
+        const formData = new FormData();
+        formData.append('action', 'fetch_sms_messages');
+        formData.append('sender_number', phone);
+        if (supplierId) formData.append('supplier_id', supplierId);
+
+        const res = await fetch('process/process.php', { method: 'POST', body: formData });
+        const data = await res.json();
+
+        if (data.status === 'success') {
+            renderSmsMessages(data.messages || []);
+            // Refresh thread list unread count
+            loadSmsThreads();
+        } else {
+            container.innerHTML = `<div class="p-3 text-center text-danger">${data.message || 'Error loading messages'}</div>`;
+        }
+    } catch (err) {
+        console.error('Error fetching SMS messages:', err);
+    }
+}
+
+function renderSmsMessages(messages) {
+    const container = document.getElementById('smsMessagesContainer');
+    if (!container) return;
+
+    if (messages.length === 0) {
+        container.innerHTML = '<div class="text-center text-muted p-4">No messages in this conversation. Type a message below to start chatting.</div>';
+        return;
+    }
+
+    let html = '<div class="d-flex flex-column">';
+    messages.forEach(m => {
+        const isInbound = m.direction === 'inbound';
+        const bubbleClass = isInbound ? 'chat-bubble-inbound' : 'chat-bubble-outbound';
+        const alignClass = isInbound ? 'align-self-start' : 'align-self-end';
+        const senderLabel = isInbound ? (m.company_name || m.sender_number) : 'CIMS (You)';
+        const formattedTime = formatSmsTime(m.created_at);
+
+        html += `
+            <div class="chat-bubble ${bubbleClass} ${alignClass} shadow-sm">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                    <strong style="font-size: 0.75rem;" class="${isInbound ? 'text-primary' : 'text-white-50'}">${escapeSmsHtml(senderLabel)}</strong>
+                    <small style="font-size: 0.65rem;" class="ms-3 ${isInbound ? 'text-muted' : 'text-white-50'}">${formattedTime}</small>
+                </div>
+                <div>${escapeSmsHtml(m.message_text)}</div>
+            </div>
+        `;
+    });
+    html += '</div>';
+
+    container.innerHTML = html;
+    container.scrollTop = container.scrollHeight;
+}
+
+async function handleSendSmsReply(event) {
+    event.preventDefault();
+    const phone = document.getElementById('smsActivePhone').value;
+    const supplierId = document.getElementById('smsActiveSupplierId').value;
+    const textInput = document.getElementById('smsReplyText');
+    const sendBtn = document.getElementById('smsSendReplyBtn');
+    const message = (textInput.value || '').trim();
+
+    if (!phone || !message) return;
+
+    sendBtn.disabled = true;
+    sendBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Sending...';
+
+    try {
+        const formData = new FormData();
+        formData.append('action', 'send_supplier_reply_sms');
+        formData.append('phone', phone);
+        if (supplierId) formData.append('supplier_id', supplierId);
+        formData.append('message', message);
+
+        const res = await fetch('process/process.php', { method: 'POST', body: formData });
+        const data = await res.json();
+
+        if (data.status === 'success') {
+            textInput.value = '';
+            // Reload message thread
+            openSmsChatThread(phone, supplierId, document.getElementById('smsActiveTitle').textContent);
+        } else {
+            alert('Failed to send SMS: ' + (data.message || 'Unknown error'));
+        }
+    } catch (err) {
+        console.error('Error sending SMS reply:', err);
+        alert('Connection error while sending SMS.');
+    } finally {
+        sendBtn.disabled = false;
+        sendBtn.innerHTML = '<i class="bi bi-send-fill me-2"></i> Send SMS';
+    }
+}
+
+function escapeSmsHtml(str) {
+    if (!str) return '';
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function formatSmsTime(dateTimeStr) {
+    if (!dateTimeStr) return '';
+    const date = new Date(dateTimeStr);
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+// Poll for unread SMS every 30 seconds
+document.addEventListener('DOMContentLoaded', () => {
+    loadSmsThreads();
+    setInterval(loadSmsThreads, 30000);
+});
+</script>
 
 </body>
 
