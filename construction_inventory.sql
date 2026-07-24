@@ -579,6 +579,7 @@ CREATE TABLE `units` (
   `id` int(11) NOT NULL,
   `unit_name` varchar(50) NOT NULL,
   `abbreviation` varchar(20) NOT NULL,
+  `reorder_level` int(11) NOT NULL DEFAULT 10,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
@@ -586,14 +587,14 @@ CREATE TABLE `units` (
 -- Dumping data for table `units`
 --
 
-INSERT INTO `units` (`id`, `unit_name`, `abbreviation`, `created_at`) VALUES
-(1, 'Pieces', 'pcs', '2026-02-27 23:26:59'),
-(2, 'Bags', 'bags', '2026-02-27 23:26:59'),
-(3, 'Units', 'units', '2026-02-27 23:26:59'),
-(4, 'Kilograms', 'kg', '2026-02-27 23:26:59'),
-(5, 'Liters', 'L', '2026-02-27 23:26:59'),
-(6, 'Meters', 'm', '2026-02-27 23:26:59'),
-(7, 'Cubic Meters', 'm3', '2026-02-27 23:31:00');
+INSERT INTO `units` (`id`, `unit_name`, `abbreviation`, `reorder_level`, `created_at`) VALUES
+(1, 'Pieces', 'pcs', 10, '2026-02-27 23:26:59'),
+(2, 'Bags', 'bags', 10, '2026-02-27 23:26:59'),
+(3, 'Units', 'units', 5, '2026-02-27 23:26:59'),
+(4, 'Kilograms', 'kg', 20, '2026-02-27 23:26:59'),
+(5, 'Liters', 'L', 5, '2026-02-27 23:26:59'),
+(6, 'Meters', 'm', 15, '2026-02-27 23:26:59'),
+(7, 'Cubic Meters', 'm3', 5, '2026-02-27 23:31:00');
 
 -- --------------------------------------------------------
 
@@ -687,6 +688,41 @@ INSERT INTO `withdrawal_items` (`id`, `withdrawal_id`, `item_code`, `quantity`) 
 (10, 8, 'ITM-8782', 11),
 (11, 9, 'ITM-3', 20),
 (12, 10, 'ITM-4', 30);
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `projects`
+--
+
+CREATE TABLE `projects` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `project_code` varchar(50) DEFAULT NULL,
+  `project_name` varchar(150) NOT NULL UNIQUE,
+  `description` text DEFAULT NULL,
+  `status` enum('active','inactive') DEFAULT 'active',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+INSERT INTO `projects` (`id`, `project_name`, `description`, `status`) VALUES
+(1, 'Main Headquarters Construction', 'General construction of the main building', 'active');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `system_settings`
+--
+
+CREATE TABLE `system_settings` (
+  `setting_key` varchar(50) NOT NULL,
+  `setting_value` text DEFAULT NULL,
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`setting_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+INSERT INTO `system_settings` (`setting_key`, `setting_value`) VALUES
+('login_background', 'assets/img/default_login_bg.png');
 
 --
 -- Indexes for dumped tables
