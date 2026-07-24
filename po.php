@@ -560,6 +560,9 @@ include 'layout/header.php';
 
                 const msg = `Genetian Builders Construction PO: ${poNo}\nItems to purchase:\n${data.item_list}If you have any concerns or clarifications text or email here`;
                 document.getElementById('smsMessageText').value = msg;
+
+                // Load recent SMS history for this supplier / PO
+                loadPoSmsConversation(poId, phone, supplierId);
             } else {
                 tbody.innerHTML = '<tr><td colspan="2" class="text-center text-danger py-2">Failed to load items.</td></tr>';
                 document.getElementById('smsMessageText').value = 'Error loading items template.';
@@ -569,6 +572,48 @@ include 'layout/header.php';
             document.getElementById('smsMessageText').value = 'Network error loading template.';
         }
     };
+
+    async function loadPoSmsConversation(poId, phone, supplierId) {
+        const section = document.getElementById('smsPoConversationSection');
+        const container = document.getElementById('smsPoConversationThread');
+        if (!section || !container) return;
+
+        section.classList.remove('d-none');
+        container.innerHTML = '<div class="text-center text-muted py-2"><span class="spinner-border spinner-border-sm me-2"></span>Loading SMS thread...</div>';
+
+        try {
+            const formData = new FormData();
+            formData.append('action', 'fetch_sms_messages');
+            formData.append('po_id', poId);
+            if (phone) formData.append('sender_number', phone);
+            if (supplierId) formData.append('supplier_id', supplierId);
+
+            const res = await fetch('process/process.php', { method: 'POST', body: formData });
+            const data = await res.json();
+
+            if (data.status === 'success' && data.messages && data.messages.length > 0) {
+                let html = '';
+                data.messages.forEach(m => {
+                    const isInbound = m.direction === 'inbound';
+                    const badge = isInbound ? '<span class="badge bg-primary me-1">Supplier Reply</span>' : '<span class="badge bg-success me-1">Sent PO SMS</span>';
+                    html += `
+                        <div class="mb-2 pb-2 border-bottom">
+                            <div class="d-flex justify-content-between text-muted small mb-1">
+                                <span>${badge} <strong>${isInbound ? (m.company_name || m.sender_number) : 'CIMS'}</strong></span>
+                                <span>${m.created_at}</span>
+                            </div>
+                            <div class="text-dark">${escapeSmsHtml(m.message_text)}</div>
+                        </div>
+                    `;
+                });
+                container.innerHTML = html;
+            } else {
+                container.innerHTML = '<div class="text-muted text-center py-2">No previous SMS replies from this supplier yet.</div>';
+            }
+        } catch (err) {
+            container.innerHTML = '<div class="text-muted text-center py-2">Could not load conversation history.</div>';
+        }
+    }
 
     // Attach form and select change listeners
     document.addEventListener('DOMContentLoaded', function () {
