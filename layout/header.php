@@ -62,6 +62,18 @@ foreach ($notifications as $n) {
     <link rel="stylesheet" href="assets/css/style.css?v=<?= time() ?>">
     <link rel="stylesheet" href="assets/css/custom.css?v=<?= time() ?>">
 
+    <!-- EARLY THEME INITIALIZATION (Prevents Flash of Unstyled Content) -->
+    <script>
+        (function() {
+            const storedTheme = localStorage.getItem('cims_theme_preference') || 'system';
+            function getSystemTheme() {
+                return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+            }
+            const effectiveTheme = storedTheme === 'system' ? getSystemTheme() : storedTheme;
+            document.documentElement.setAttribute('data-bs-theme', effectiveTheme);
+        })();
+    </script>
+
     <style>
         #content {
             padding: 0 !important; 
@@ -143,38 +155,102 @@ foreach ($notifications as $n) {
         }
     </style>
 
-    <!-- ABSOLUTE FAIL-PROOF SIDEBAR JS -->
+    <!-- CIMS THEME & SIDEBAR SCRIPTS -->
     <script>
-        document.addEventListener("DOMContentLoaded", function() {
-            const sidebar = document.getElementById('sidebar');
-            const collapseBtn = document.getElementById('sidebarCollapse');
-            const closeBtn = document.getElementById('sidebarClose');
-
-            // Toggle Button (Hamburger)
-            if (collapseBtn && sidebar) {
-                collapseBtn.addEventListener('click', function(e) {
-                    e.stopPropagation();
-                    sidebar.classList.toggle('active');
-                });
+        (function() {
+            function getSystemTheme() {
+                return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
             }
 
-            // Close Button (Mobile X)
-            if (closeBtn && sidebar) {
-                closeBtn.addEventListener('click', function(e) {
-                    e.stopPropagation();
-                    sidebar.classList.remove('active');
-                });
-            }
+            function applyCimsTheme(pref) {
+                const effectiveTheme = pref === 'system' ? getSystemTheme() : pref;
+                document.documentElement.setAttribute('data-bs-theme', effectiveTheme);
+                updateThemeDropdownUI(pref);
 
-            // Auto-Close when clicking outside on mobile
-            document.body.addEventListener('click', function(e) {
-                if (window.innerWidth <= 768 && sidebar && sidebar.classList.contains('active')) {
-                    if (!sidebar.contains(e.target) && !collapseBtn.contains(e.target)) {
-                        sidebar.classList.remove('active');
-                    }
+                // Dynamically sync Chart.js text & grid colors
+                if (window.Chart) {
+                    const isDark = effectiveTheme === 'dark';
+                    Chart.defaults.color = isDark ? '#adbac7' : '#666666';
+                    Chart.defaults.borderColor = isDark ? '#30363d' : '#e0e0e0';
+                    ['pctChartInstance', 'pieChartInstance', 'daysChartInstance'].forEach(inst => {
+                        if (window[inst]) {
+                            if (window[inst].options.scales) {
+                                if (window[inst].options.scales.x && window[inst].options.scales.x.grid) {
+                                    window[inst].options.scales.x.grid.color = isDark ? '#21262d' : '#f0f0f0';
+                                }
+                                if (window[inst].options.scales.y && window[inst].options.scales.y.grid) {
+                                    window[inst].options.scales.y.grid.color = isDark ? '#21262d' : '#f0f0f0';
+                                }
+                            }
+                            window[inst].update();
+                        }
+                    });
                 }
+            }
+
+            function updateThemeDropdownUI(pref) {
+                document.querySelectorAll('.theme-option').forEach(el => {
+                    const mode = el.getAttribute('data-theme-value');
+                    const check = el.querySelector('.theme-check-icon');
+                    if (mode === pref) {
+                        el.classList.add('active', 'fw-bold');
+                        if (check) check.classList.remove('d-none');
+                    } else {
+                        el.classList.remove('active', 'fw-bold');
+                        if (check) check.classList.add('d-none');
+                    }
+                });
+            }
+
+            window.setCimsTheme = function(pref) {
+                localStorage.setItem('cims_theme_preference', pref);
+                applyCimsTheme(pref);
+            };
+
+            // Listen for OS theme changes if in system mode
+            try {
+                window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function() {
+                    const currentPref = localStorage.getItem('cims_theme_preference') || 'system';
+                    if (currentPref === 'system') {
+                        applyCimsTheme('system');
+                    }
+                });
+            } catch (e) {}
+
+            document.addEventListener("DOMContentLoaded", function() {
+                const currentPref = localStorage.getItem('cims_theme_preference') || 'system';
+                applyCimsTheme(currentPref);
+
+                const sidebar = document.getElementById('sidebar');
+                const collapseBtn = document.getElementById('sidebarCollapse');
+                const closeBtn = document.getElementById('sidebarClose');
+
+                // Toggle Button (Hamburger)
+                if (collapseBtn && sidebar) {
+                    collapseBtn.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        sidebar.classList.toggle('active');
+                    });
+                }
+
+                // Close Button (Mobile X)
+                if (closeBtn && sidebar) {
+                    closeBtn.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        sidebar.classList.remove('active');
+                    });
+                }
+
+                // Auto-Close when clicking outside on mobile
+                document.body.addEventListener('click', function(e) {
+                    if (window.innerWidth <= 768 && sidebar && sidebar.classList.contains('active')) {
+                        if (!sidebar.contains(e.target) && !collapseBtn.contains(e.target)) {
+                            sidebar.classList.remove('active');
+                        }
+                    }
+                });
             });
-        });
+        })();
     </script>
 </head>
 <body>
@@ -225,6 +301,16 @@ foreach ($notifications as $n) {
                     <button type="button" id="sidebarCollapse" class="btn btn-brand"><i class="bi bi-list fs-5"></i></button>
                     
                     <div class="d-flex align-items-center ms-auto">
+                        <!-- SMS Inbox Quick Button -->
+                        <?php if (in_array($currentUserRole, ['admin', 'purchasing', 'management'])): ?>
+                        <div class="me-3 position-relative">
+                            <button type="button" class="btn btn-link text-muted p-0 position-relative text-decoration-none" onclick="openSmsInboxModal()" title="Supplier SMS Inbox">
+                                <i class="bi bi-chat-left-text fs-5"></i>
+                                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-success d-none" id="smsGlobalUnreadBadge" style="font-size: 0.65rem;">0</span>
+                            </button>
+                        </div>
+                        <?php endif; ?>
+
                         <div class="dropdown me-3">
                             <a href="#" class="text-muted position-relative d-flex align-items-center text-decoration-none" id="dropdownNotif" data-bs-toggle="dropdown" aria-expanded="false">
                                 <i class="bi bi-bell fs-5"></i>
@@ -275,16 +361,36 @@ foreach ($notifications as $n) {
                         </div>
 
                         <div class="dropdown">
-                            <a href="#" class="d-flex align-items-center text-decoration-none dropdown-toggle text-dark" id="dropdownUser1" data-bs-toggle="dropdown" aria-expanded="false">
+                            <a href="#" class="d-flex align-items-center text-decoration-none dropdown-toggle text-body" id="dropdownUser1" data-bs-toggle="dropdown" aria-expanded="false">
                                 <i class="bi bi-person-circle fs-4 me-2"></i> 
                                 <div class="text-start user-role-text">
                                     <span class="fw-bold d-block lh-1" style="font-size: 0.95rem;"><?= htmlspecialchars($_SESSION['user_name'] ?? 'User') ?></span>
                                 </div>
                             </a>
-                            <ul class="dropdown-menu dropdown-menu-end shadow" aria-labelledby="dropdownUser1">
-                                <li><a class="dropdown-item" href="profile"><i class="bi bi-person-circle me-2 text-muted"></i>Profile</a></li>
+                            <ul class="dropdown-menu dropdown-menu-end shadow" aria-labelledby="dropdownUser1" style="min-width: 200px;">
+                                <li><a class="dropdown-item py-2 d-flex align-items-center" href="profile"><i class="bi bi-person-circle me-2 text-muted fs-6"></i>Profile</a></li>
                                 <li><hr class="dropdown-divider"></li>
-                                <li><a class="dropdown-item text-danger" href="logout"><i class="bi bi-box-arrow-right me-2"></i>Sign out</a></li>
+                                <li><h6 class="dropdown-header text-uppercase fs-7 fw-bold opacity-75">Theme Preference</h6></li>
+                                <li>
+                                    <button type="button" class="dropdown-item py-2 d-flex align-items-center justify-content-between theme-option" data-theme-value="light" onclick="setCimsTheme('light')">
+                                        <span class="d-flex align-items-center"><i class="bi bi-sun-fill me-2 text-warning"></i> Light</span>
+                                        <i class="bi bi-check2 theme-check-icon d-none text-primary fw-bold"></i>
+                                    </button>
+                                </li>
+                                <li>
+                                    <button type="button" class="dropdown-item py-2 d-flex align-items-center justify-content-between theme-option" data-theme-value="dark" onclick="setCimsTheme('dark')">
+                                        <span class="d-flex align-items-center"><i class="bi bi-moon-stars-fill me-2 text-info"></i> Dark</span>
+                                        <i class="bi bi-check2 theme-check-icon d-none text-primary fw-bold"></i>
+                                    </button>
+                                </li>
+                                <li>
+                                    <button type="button" class="dropdown-item py-2 d-flex align-items-center justify-content-between theme-option" data-theme-value="system" onclick="setCimsTheme('system')">
+                                        <span class="d-flex align-items-center"><i class="bi bi-display me-2 text-secondary"></i> System</span>
+                                        <i class="bi bi-check2 theme-check-icon d-none text-primary fw-bold"></i>
+                                    </button>
+                                </li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item py-2 text-danger d-flex align-items-center" href="logout"><i class="bi bi-box-arrow-right me-2"></i>Sign out</a></li>
                             </ul>
                         </div>
                     </div>
