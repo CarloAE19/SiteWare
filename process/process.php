@@ -26,7 +26,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } elseif (in_array($action, ['add_user', 'edit_user', 'delete_user', 'update_profile'])) {
             require 'module_users.php';
         }
-        elseif (in_array($action, ['create_rs', 'approve_rs', 'reject_rs', 'create_po', 'mark_po_delivered', 'send_po_sms', 'log_po_delay', 'create_withdrawal', 'fetch_rs_data', 'fetch_rs_with_history', 'fetch_po_items', 'fetch_supplier_delivery_history', 'fetch_po_sms_preview'])) {
+        elseif (in_array($action, ['create_rs', 'approve_rs', 'reject_rs', 'create_po', 'mark_po_delivered', 'send_po_sms', 'log_po_delay', 'create_withdrawal', 'fetch_rs_data', 'fetch_rs_with_history', 'fetch_po_items', 'fetch_supplier_delivery_history', 'fetch_po_sms_preview', 'fetch_sms_threads', 'fetch_sms_messages', 'send_supplier_reply_sms', 'mark_sms_thread_read'])) {
             require 'module_transactions.php';
         } elseif ($action === 'submit_audit') {
             require 'module_audit.php';
