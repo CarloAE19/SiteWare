@@ -45,7 +45,13 @@ if (!defined('AI_SYSTEM_PROMPT') && isset($_ENV['AI_SYSTEM_PROMPT'])) {
     define('AI_SYSTEM_PROMPT', trim($_ENV['AI_SYSTEM_PROMPT'], '"\''));
 }
 if (!defined('SMS_API_KEY') && isset($_ENV['SMS_API_KEY'])) {
-    define('SMS_API_KEY', $_ENV['SMS_API_KEY']);
+    define('SMS_API_KEY', trim($_ENV['SMS_API_KEY']));
+}
+if (!defined('SMS_FROM_NUMBER') && isset($_ENV['SMS_FROM_NUMBER'])) {
+    define('SMS_FROM_NUMBER', $_ENV['SMS_FROM_NUMBER']);
+}
+if (!defined('SMS_GATEWAY_URL') && isset($_ENV['SMS_GATEWAY_URL'])) {
+    define('SMS_GATEWAY_URL', $_ENV['SMS_GATEWAY_URL']);
 }
 
 try {
@@ -141,6 +147,23 @@ try {
             message TEXT NOT NULL,
             is_read TINYINT(1) DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    ");
+
+    // 6b. Create Supplier SMS Replies Table
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS supplier_sms_replies (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            supplier_id INT NULL,
+            po_id INT NULL,
+            direction ENUM('inbound', 'outbound') NOT NULL DEFAULT 'inbound',
+            sender_number VARCHAR(50) NOT NULL,
+            receiver_number VARCHAR(50) NOT NULL,
+            message_text TEXT NOT NULL,
+            is_read TINYINT(1) DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (supplier_id) REFERENCES suppliers(id) ON DELETE SET NULL,
+            FOREIGN KEY (po_id) REFERENCES purchase_orders(id) ON DELETE SET NULL
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     ");
 
@@ -250,6 +273,43 @@ try {
     // Seed default login background if not exists
     $stmt = $pdo->prepare("INSERT IGNORE INTO system_settings (setting_key, setting_value) VALUES ('login_background', 'assets/img/default_login_bg.png')");
     $stmt->execute();
+
+    // 15. Create Categories Table
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS categories (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            category_name VARCHAR(100) NOT NULL UNIQUE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    ");
+
+    if ($pdo->query("SELECT COUNT(*) FROM categories")->fetchColumn() == 0) {
+        $pdo->exec("INSERT INTO categories (category_name) VALUES ('Materials'), ('Tools'), ('Safety Equipment'), ('Heavy Machinery')");
+    }
+
+    // 16. Create Units Table
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS units (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            unit_name VARCHAR(50) NOT NULL,
+            abbreviation VARCHAR(20) NOT NULL,
+            reorder_level INT NOT NULL DEFAULT 10,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    ");
+
+    try {
+        $pdo->exec("ALTER TABLE units ADD COLUMN reorder_level INT NOT NULL DEFAULT 10");
+        $pdo->exec("UPDATE units SET reorder_level = 5 WHERE unit_name IN ('Cubic Meters', 'Liters')");
+        $pdo->exec("UPDATE units SET reorder_level = 20 WHERE unit_name IN ('Kilograms')");
+        $pdo->exec("UPDATE units SET reorder_level = 15 WHERE unit_name IN ('Meters')");
+    } catch (PDOException $e) { /* Column already exists or table freshly created */ }
+
+    if ($pdo->query("SELECT COUNT(*) FROM units")->fetchColumn() == 0) {
+        $pdo->exec("INSERT INTO units (unit_name, abbreviation, reorder_level) VALUES 
+            ('Pieces', 'pcs', 10), ('Bags', 'bags', 10), ('Units', 'units', 5), 
+            ('Kilograms', 'kg', 20), ('Liters', 'L', 5), ('Meters', 'm', 15)");
+    }
 
     // AUTO-PATCH: Ensure the requisitions table has the type column and migrate existing restocking records
     try {
