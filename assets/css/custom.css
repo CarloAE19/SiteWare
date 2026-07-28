@@ -653,3 +653,139 @@ html, body {
         border: 1px solid #30363d !important;
     }
 }
+
+/* ==========================================================
+ * TABLE CONTAINER & DESKTOP TABLE DARK MODE OVERRIDES
+ * Target: units.php, categories.php, users.php, projects.php, etc.
+ * ========================================================== */
+[data-bs-theme="dark"] .table-container {
+    background-color: var(--gb-dark-surface, #161b22) !important;
+    border: 1px solid var(--gb-dark-border, #30363d) !important;
+    color: var(--gb-dark-text-main, #f0f6fc) !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+}
+
+[data-bs-theme="dark"] .table-container h4,
+[data-bs-theme="dark"] .table-container h5,
+[data-bs-theme="dark"] .table-container h6,
+[data-bs-theme="dark"] .table-container .text-dark {
+    color: var(--gb-dark-text-main, #f0f6fc) !important;
+}
+
+[data-bs-theme="dark"] .table-container .text-muted {
+    color: var(--gb-dark-text-muted, #8b949e) !important;
+}
+
+/* Table Header (table-light in dark mode) */
+[data-bs-theme="dark"] .table thead.table-light,
+[data-bs-theme="dark"] .table thead.table-light th,
+[data-bs-theme="dark"] .table thead th {
+    background-color: #21262d !important;
+    color: #f0f6fc !important;
+    border-bottom: 2px solid #30363d !important;
+}
+
+/* Table Body Cells & Row Colors */
+[data-bs-theme="dark"] .table tbody tr {
+    background-color: transparent !important;
+    color: #f0f6fc !important;
+}
+
+[data-bs-theme="dark"] .table tbody td {
+    color: #f0f6fc !important;
+    border-color: #30363d !important;
+}
+
+[data-bs-theme="dark"] .table tbody td.text-muted {
+    color: #8b949e !important;
+}
+
+/* Table Action Buttons */
+[data-bs-theme="dark"] .table .btn-outline-primary {
+    color: #58a6ff !important;
+    border-color: #388bfd !important;
+    background-color: rgba(56, 139, 253, 0.1) !important;
+}
+
+[data-bs-theme="dark"] .table .btn-outline-primary:hover {
+    background-color: #1f6feb !important;
+    color: #ffffff !important;
+}
+
+[data-bs-theme="dark"] .table .btn-outline-danger {
+    color: #f85149 !important;
+    border-color: #f85149 !important;
+    background-color: rgba(248, 81, 73, 0.1) !important;
+}
+
+[data-bs-theme="dark"] .table .btn-outline-danger:hover {
+    background-color: #da3633 !important;
+    color: #ffffff !important;
+}
+
+/* Badges in Dark Mode */
+[data-bs-theme="dark"] .badge.bg-secondary {
+    background-color: #30363d !important;
+    color: #f0f6fc !important;
+    border: 1px solid #484f58 !important;
+}
+
+[data-bs-theme="dark"] .badge.bg-warning,
+[data-bs-theme="dark"] .badge.bg-warning.text-dark {
+    background-color: #4d3800 !important;
+    color: #ffc107 !important;
+    border: 1px solid #9e6a03 !important;
+}
+
+/* ==========================================================
+ * SMS INBOX & SUPPLIER CHAT THREAD DARK MODE OVERRIDES
+ * ========================================================== */
+[data-bs-theme="dark"] .sms-thread-item {
+    background-color: #161b22 !important;
+    border-bottom-color: #30363d !important;
+}
+
+[data-bs-theme="dark"] .sms-thread-item h6,
+[data-bs-theme="dark"] .sms-thread-item .text-dark {
+    color: #f0f6fc !important;
+}
+
+[data-bs-theme="dark"] .sms-thread-item .text-muted,
+[data-bs-theme="dark"] .sms-thread-item p,
+[data-bs-theme="dark"] .sms-thread-item small {
+    color: #8b949e !important;
+}
+
+[data-bs-theme="dark"] .sms-thread-item:hover {
+    background-color: #21262d !important;
+}
+
+[data-bs-theme="dark"] .sms-thread-item.active {
+    background-color: #21262d !important;
+    border-left-color: #2ea043 !important;
+}
+
+[data-bs-theme="dark"] .sms-thread-item.active h6,
+[data-bs-theme="dark"] .sms-thread-item.active .text-dark {
+    color: #ffffff !important;
+}
+
+[data-bs-theme="dark"] .sms-thread-item.active .text-muted,
+[data-bs-theme="dark"] .sms-thread-item.active p,
+[data-bs-theme="dark"] .sms-thread-item.active small {
+    color: #c9d1d9 !important;
+}
+
+[data-bs-theme="dark"] #smsMessagesContainer {
+    background-color: #0d1117 !important;
+}
+
+[data-bs-theme="dark"] .chat-bubble-inbound {
+    background-color: #21262d !important;
+    color: #f0f6fc !important;
+    border-color: #30363d !important;
+}
+
+[data-bs-theme="dark"] .chat-bubble-inbound strong {
+    color: #58a6ff !important;
+}
