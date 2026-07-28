@@ -288,7 +288,7 @@ include 'layout/header.php';
                 </h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body p-0 bg-light">
+            <div class="modal-body p-0">
 
                 <!-- Loading State -->
                 <div id="historyLoading" class="text-center py-5">
@@ -320,7 +320,7 @@ include 'layout/header.php';
                     </div>
                 </div>
             </div>
-            <div class="modal-footer bg-white border-top-0">
+            <div class="modal-footer border-top-0">
                 <button type="button" class="btn btn-secondary fw-bold px-4 shadow-sm"
                     data-bs-dismiss="modal">Close</button>
             </div>
@@ -390,6 +390,39 @@ include 'layout/header.php';
         margin-top: 6px;
         color: #991b1b;
     }
+
+    /* DARK MODE ADAPTIVE STYLES */
+    [data-bs-theme="dark"] .stat-card {
+        background-color: var(--gb-dark-surface, #161b22) !important;
+        border-color: var(--gb-dark-border, #30363d) !important;
+        color: var(--gb-dark-text-main, #f0f6fc) !important;
+    }
+
+    [data-bs-theme="dark"] .stat-card .stat-label {
+        color: var(--gb-dark-text-muted, #8b949e) !important;
+    }
+
+    [data-bs-theme="dark"] .history-card {
+        background-color: var(--gb-dark-surface, #161b22) !important;
+        border-color: var(--gb-dark-border, #30363d) !important;
+        color: var(--gb-dark-text-main, #f0f6fc) !important;
+    }
+
+    [data-bs-theme="dark"] .item-pill {
+        background-color: var(--gb-dark-hover, #21262d) !important;
+        border-color: var(--gb-dark-border, #30363d) !important;
+        color: var(--gb-dark-text-main, #c9d1d9) !important;
+    }
+
+    [data-bs-theme="dark"] .item-pill .text-muted {
+        color: var(--gb-dark-text-muted, #8b949e) !important;
+    }
+
+    [data-bs-theme="dark"] .discrepancy-detail {
+        background-color: rgba(220, 53, 69, 0.15) !important;
+        border-color: rgba(220, 53, 69, 0.35) !important;
+        color: #f87171 !important;
+    }
 </style>
 
 <script>
@@ -410,8 +443,14 @@ include 'layout/header.php';
         formData.append('action', 'fetch_supplier_delivery_history');
         formData.append('supplier_id', supplierId);
 
-        fetch('process/process.php', { method: 'POST', body: formData })
-            .then(function (r) { return r.json(); })
+        fetch('process/process.php', {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            body: formData
+        })
+            .then(function (r) {
+                return r.json();
+            })
             .then(function (data) {
                 if (data.status !== 'success') {
                     alert(data.message || 'Failed to load history.');
@@ -513,7 +552,7 @@ include 'layout/header.php';
             })
             .catch(function (err) {
                 console.error(err);
-                alert('Network error. Please try again.');
+                alert(err.message || 'Error loading supplier history. Please try again.');
                 bsModal.hide();
             });
     }
