@@ -176,6 +176,7 @@ try {
             supplier_id INT NOT NULL,
             prepared_by INT NOT NULL,
             status VARCHAR(50) DEFAULT 'Pending Delivery',
+            delay_remarks TEXT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (rs_id) REFERENCES requisitions(id),
             FOREIGN KEY (supplier_id) REFERENCES suppliers(id),
@@ -311,12 +312,27 @@ try {
             ('Kilograms', 'kg', 20), ('Liters', 'L', 5), ('Meters', 'm', 15)");
     }
 
-    // AUTO-PATCH: Ensure the requisitions table has the type column and migrate existing restocking records
+    // AUTO-PATCH: Ensure missing columns are automatically added for existing databases
     try {
         $pdo->exec("ALTER TABLE requisitions ADD COLUMN type VARCHAR(50) DEFAULT 'project'");
         $pdo->exec("UPDATE requisitions SET type = 'restock' WHERE project_name = 'General Restocking'");
-    } catch (PDOException $e) { /* Column already exists or table is not populated */
-    }
+    } catch (PDOException $e) { }
+
+    try {
+        $pdo->exec("ALTER TABLE purchase_orders ADD COLUMN delay_remarks TEXT NULL");
+    } catch (PDOException $e) { }
+
+    try {
+        $pdo->exec("ALTER TABLE users ADD COLUMN fcm_token TEXT DEFAULT NULL");
+    } catch (PDOException $e) { }
+
+    try {
+        $pdo->exec("ALTER TABLE projects ADD COLUMN project_code VARCHAR(50) NULL");
+    } catch (PDOException $e) { }
+
+    try {
+        $pdo->exec("ALTER TABLE notifications ADD COLUMN is_read TINYINT(1) DEFAULT 0");
+    } catch (PDOException $e) { }
 
 } catch (PDOException $e) {
     // 1. Define global constant to signify DB offline status
