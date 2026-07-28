@@ -117,12 +117,23 @@
     }
 
     .sms-thread-item:hover {
-        background-color: #e9ecef !important;
+        background-color: #f1f5f9 !important;
     }
 
     .sms-thread-item.active {
         background-color: #e2e8f0 !important;
         border-left-color: #198754 !important;
+    }
+
+    .sms-thread-item.active h6,
+    .sms-thread-item.active .text-dark {
+        color: #0f172a !important;
+    }
+
+    .sms-thread-item.active .text-muted,
+    .sms-thread-item.active p,
+    .sms-thread-item.active small {
+        color: #475569 !important;
     }
 
     .chat-bubble {
@@ -148,5 +159,80 @@
         color: #ffffff;
         border-bottom-right-radius: 4px;
         align-self: flex-end;
+    }
+
+    /* DARK MODE OVERRIDES FOR SMS INBOX MODAL */
+    [data-bs-theme="dark"] #smsInboxModal .modal-content {
+        background-color: #161b22 !important;
+        border: 1px solid #30363d !important;
+    }
+
+    [data-bs-theme="dark"] .sms-thread-item {
+        background-color: #161b22 !important;
+        border-bottom-color: #30363d !important;
+    }
+
+    [data-bs-theme="dark"] .sms-thread-item h6,
+    [data-bs-theme="dark"] .sms-thread-item .text-dark {
+        color: #f0f6fc !important;
+    }
+
+    [data-bs-theme="dark"] .sms-thread-item .text-muted,
+    [data-bs-theme="dark"] .sms-thread-item p,
+    [data-bs-theme="dark"] .sms-thread-item small {
+        color: #8b949e !important;
+    }
+
+    [data-bs-theme="dark"] .sms-thread-item:hover {
+        background-color: #21262d !important;
+    }
+
+    [data-bs-theme="dark"] .sms-thread-item.active {
+        background-color: #21262d !important;
+        border-left-color: #2ea043 !important;
+    }
+
+    [data-bs-theme="dark"] .sms-thread-item.active h6,
+    [data-bs-theme="dark"] .sms-thread-item.active .text-dark {
+        color: #ffffff !important;
+    }
+
+    [data-bs-theme="dark"] .sms-thread-item.active .text-muted,
+    [data-bs-theme="dark"] .sms-thread-item.active p,
+    [data-bs-theme="dark"] .sms-thread-item.active small {
+        color: #c9d1d9 !important;
+    }
+
+    [data-bs-theme="dark"] #smsMessagesContainer {
+        background-color: #0d1117 !important;
+    }
+
+    [data-bs-theme="dark"] .chat-bubble-inbound {
+        background-color: #21262d !important;
+        color: #f0f6fc !important;
+        border-color: #30363d !important;
+    }
+
+    [data-bs-theme="dark"] .chat-bubble-inbound strong {
+        color: #58a6ff !important;
+    }
+
+    [data-bs-theme="dark"] .chat-bubble-outbound {
+        background-color: #198754 !important;
+        color: #ffffff !important;
+    }
+
+    [data-bs-theme="dark"] #smsActiveChatHeader,
+    [data-bs-theme="dark"] #smsInputArea,
+    [data-bs-theme="dark"] #smsThreadSearch {
+        background-color: #161b22 !important;
+        color: #f0f6fc !important;
+        border-color: #30363d !important;
+    }
+
+    [data-bs-theme="dark"] #smsReplyText {
+        background-color: #0d1117 !important;
+        color: #f0f6fc !important;
+        border-color: #30363d !important;
     }
 </style>
