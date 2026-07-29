@@ -15,12 +15,8 @@ $suppliers = $pdo->query("
     GROUP BY s.id
     ORDER BY s.company_name ASC
 ")->fetchAll(PDO::FETCH_ASSOC);
-$poModalRole = $_SESSION['user_role'] ?? '';
-if ($poModalRole === 'purchasing') {
-    $approvedRS = $pdo->query("SELECT id, rs_no, project_name FROM requisitions WHERE status = 'Approved' AND type = 'restock'")->fetchAll(PDO::FETCH_ASSOC);
-} else {
-    $approvedRS = $pdo->query("SELECT id, rs_no, project_name FROM requisitions WHERE status = 'Approved'")->fetchAll(PDO::FETCH_ASSOC);
-}
+// Fetch only Approved Restock Requisitions meant for supplier Purchase Orders (excluding site project stock-out requests)
+$approvedRS = $pdo->query("SELECT id, rs_no, project_name FROM requisitions WHERE status = 'Approved' AND (type = 'restock' OR project_name = 'Warehouse Restock') ORDER BY created_at DESC")->fetchAll(PDO::FETCH_ASSOC);
 ?>
 
 <!-- ==========================================
@@ -98,6 +94,12 @@ if ($poModalRole === 'purchasing') {
                             <?php endforeach; ?>
                         </select>
                         <small class="text-muted d-block mt-2" style="font-size: 0.75rem;"><i class="bi bi-bar-chart-line me-1"></i>Performance score based on delivery history. 🟢 Excellent ≥90% &nbsp; 🟡 Average ≥70% &nbsp; 🔴 Poor &lt;70%</small>
+                    </div>
+
+                    <div class="mb-3 mt-3">
+                        <label class="form-label fw-bold small text-muted text-uppercase">Expected Time of Arrival (Warehouse ETA)</label>
+                        <input type="date" class="form-control fw-bold shadow-sm" name="expected_delivery_date" min="<?= date('Y-m-d') ?>" value="<?= date('Y-m-d', strtotime('+3 days')) ?>">
+                        <small class="text-muted d-block mt-1" style="font-size: 0.75rem;"><i class="bi bi-calendar-event me-1"></i>Target date supplies are expected to arrive at the warehouse.</small>
                     </div>
                 </div>
                 <!-- Clean white footer -->
@@ -314,7 +316,95 @@ if ($poModalRole === 'purchasing') {
     </div>
 </div>
 
+<!-- ==========================================
+  MODAL: UPDATE PO ETA (Warehouse Delivery Target)
+=========================================== -->
+<div class="modal fade" id="editEtaModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-dark text-white">
+                <h5 class="modal-title fw-bold"><i class="bi bi-calendar2-week me-2" style="color: var(--gb-yellow);"></i>Update Warehouse Supply ETA</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="editEtaForm" onsubmit="handleUpdatePoEta(event)">
+                <div class="modal-body bg-light p-4">
+                    <input type="hidden" id="editEtaPoId" name="po_id" value="">
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-muted text-uppercase">Purchase Order No.</label>
+                        <input type="text" class="form-control fw-bold text-primary bg-white shadow-sm" id="editEtaPoNo" readonly>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-muted text-uppercase">Expected Time of Arrival (Warehouse ETA) <span class="text-danger">*</span></label>
+                        <input type="date" class="form-control fw-bold shadow-sm" id="editEtaInputDate" name="expected_delivery_date" required>
+                        <small class="text-muted d-block mt-1" style="font-size: 0.75rem;"><i class="bi bi-info-circle me-1"></i>Updating this ETA will alert the Warehouse In-charge & Management in real-time.</small>
+                    </div>
+                </div>
+                <div class="modal-footer justify-content-between bg-white border-top-0">
+                    <button type="button" class="btn btn-light text-muted fw-bold px-4" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary fw-bold px-4 shadow-sm"><i class="bi bi-check2-circle me-1"></i> Save Updated ETA</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <script>
+    window.openEditEtaModal = function(id, po_no, currentEta) {
+        document.getElementById('editEtaPoId').value = id;
+        document.getElementById('editEtaPoNo').value = po_no;
+        if (currentEta) {
+            document.getElementById('editEtaInputDate').value = currentEta;
+        } else {
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('editEtaInputDate').value = today;
+        }
+
+        var myModalEl = document.getElementById('editEtaModal');
+        var editEtaModal = bootstrap.Modal.getInstance(myModalEl);
+        if (!editEtaModal) {
+            editEtaModal = new bootstrap.Modal(myModalEl);
+        }
+        editEtaModal.show();
+    };
+
+    window.handleUpdatePoEta = function(event) {
+        event.preventDefault();
+        const poId = document.getElementById('editEtaPoId').value;
+        const etaDate = document.getElementById('editEtaInputDate').value;
+
+        const formData = new FormData();
+        formData.append('action', 'update_po_eta');
+        formData.append('po_id', poId);
+        formData.append('expected_delivery_date', etaDate);
+
+        fetch('process/process.php', {
+            method: 'POST',
+            body: formData,
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'success') {
+                var myModalEl = document.getElementById('editEtaModal');
+                var editEtaModal = bootstrap.Modal.getInstance(myModalEl);
+                if (editEtaModal) editEtaModal.hide();
+
+                if (typeof loadCombinedAlerts === 'function') loadCombinedAlerts();
+
+                // Reload or update DOM
+                location.reload();
+            } else {
+                alert(data.message || 'Failed to update ETA');
+            }
+        })
+        .catch(err => {
+            console.error('Error updating ETA:', err);
+            alert('An error occurred while updating ETA.');
+        });
+    };
+
     // ==========================================================
     // DELAY MODAL LOGIC (SPA-Proofed & Cache Bypassed)
     // ==========================================================
