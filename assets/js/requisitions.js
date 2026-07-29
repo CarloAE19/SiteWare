@@ -305,6 +305,21 @@ function initializeRequisitionsPage() {
     nextBtn.addEventListener('click', () => { const totalPages = Math.ceil(filteredRows.length / rowsPerPage); if (currentPage < totalPages) { currentPage++; updatePagination(); } });
 
     updatePagination();
+
+    // Check URL parameters for shortcut auto-open modals
+    const urlParams = new URLSearchParams(window.location.search);
+    const action = urlParams.get('action');
+    if (action === 'new') {
+        const rsModalEl = document.getElementById('rsModal');
+        if (rsModalEl) {
+            new bootstrap.Modal(rsModalEl).show();
+        }
+    } else if (action === 'restock') {
+        const restockModalEl = document.getElementById('restockModal');
+        if (restockModalEl) {
+            new bootstrap.Modal(restockModalEl).show();
+        }
+    }
 }
 
 if (document.readyState === "loading") { document.addEventListener("DOMContentLoaded", initializeRequisitionsPage); } else { initializeRequisitionsPage(); }
