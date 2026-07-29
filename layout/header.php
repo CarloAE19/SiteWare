@@ -266,9 +266,12 @@ foreach ($notifications as $n) {
             </div>
 
             <ul class="list-unstyled components">
+                <li class="<?= $currentPage == 'dashboard.php' ? 'active' : '' ?>">
+                    <a href="dashboard"><i class="bi bi-speedometer2"></i> Dashboard</a>
+                </li>
                 <?php if (in_array($_SESSION['user_role'], ['admin', 'management', 'purchasing'])): ?>
-                <li class="<?= $currentPage == 'analytics.php' || $currentPage == 'dashboard.php' ? 'active' : '' ?>">
-                    <a href="analytics"><i class="bi bi-speedometer2"></i> Dashboard</a>
+                <li class="<?= $currentPage == 'analytics.php' ? 'active' : '' ?>">
+                    <a href="analytics"><i class="bi bi-bar-chart-line"></i> Analytics & AI</a>
                 </li>
                 <?php endif; ?>
 
