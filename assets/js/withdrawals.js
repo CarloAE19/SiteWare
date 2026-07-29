@@ -267,6 +267,15 @@ function initWithdrawalsPage() {
     prev.addEventListener('click', () => { if (currentPage > 1) showPage(currentPage - 1); });
     next.addEventListener('click', () => { if (currentPage < totalPages) showPage(currentPage + 1); });
     showPage(1);
+
+    // Check URL parameters for shortcut auto-open modals
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('action') === 'new') {
+        const withdrawModalEl = document.getElementById('withdrawModal');
+        if (withdrawModalEl) {
+            new bootstrap.Modal(withdrawModalEl).show();
+        }
+    }
 }
 
 if (document.readyState === "loading") { document.addEventListener("DOMContentLoaded", initWithdrawalsPage); } else { initWithdrawalsPage(); }
