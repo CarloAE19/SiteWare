@@ -45,22 +45,37 @@ if (document.readyState === "loading") {
     initProjectPagination(); 
 }
 
+window.generateAutoProjectCode = function() {
+    const year = new Date().getFullYear();
+    const randNum = Math.floor(100 + Math.random() * 900);
+    const autoCode = `PRJ-${year}-${randNum}`;
+    const input = document.getElementById('projectCode');
+    if (input) input.value = autoCode;
+};
+
 window.openAddProjectModal = function() {
     document.getElementById('projectModalTitle').innerText = 'Add New Project';
     document.getElementById('projectFormAction').value = 'add_project';
     document.getElementById('projectId').value = '';
-    document.getElementById('projectCode').value = '';
+    
+    // Auto-generate a suggested Project ID
+    generateAutoProjectCode();
+
     document.getElementById('projectName').value = '';
+    const addrInput = document.getElementById('projectAddress');
+    if (addrInput) addrInput.value = '';
     document.getElementById('projectDesc').value = '';
     document.getElementById('projectStatus').value = 'active';
 };
 
-window.openEditProjectModal = function(id, code, name, desc, status) {
+window.openEditProjectModal = function(id, code, name, address, desc, status) {
     document.getElementById('projectModalTitle').innerText = 'Edit Project';
     document.getElementById('projectFormAction').value = 'edit_project';
     document.getElementById('projectId').value = id;
     document.getElementById('projectCode').value = code;
     document.getElementById('projectName').value = name;
+    const addrInput = document.getElementById('projectAddress');
+    if (addrInput) addrInput.value = address || '';
     document.getElementById('projectDesc').value = desc;
     document.getElementById('projectStatus').value = status;
     new bootstrap.Modal(document.getElementById('projectModal')).show();
