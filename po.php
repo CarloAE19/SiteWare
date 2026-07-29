@@ -260,6 +260,7 @@ include 'layout/header.php';
                         <th class="py-3">Linked RS / Project</th>
                         <th class="py-3">Supplier</th>
                         <th class="py-3">Status</th>
+                        <th class="py-3">Warehouse ETA</th>
                         <th class="text-center py-3">Logistics Actions</th>
                     </tr>
                 </thead>
@@ -278,6 +279,29 @@ include 'layout/header.php';
                                 $statusClass = 'bg-danger';
                             if ($po['status'] === 'Delivered')
                                 $statusClass = 'bg-info text-dark';
+
+                            // Compute ETA Badges
+                            $etaBadge = '<span class="text-muted small">Not Set</span>';
+                            $etaDateStr = $po['expected_delivery_date'] ?? null;
+                            if ($etaDateStr) {
+                                $formattedEta = date('M d, Y', strtotime($etaDateStr));
+                                if (in_array($po['status'], ['Delivered', 'Delivered (Discrepancy)'])) {
+                                    $etaBadge = '<span class="badge bg-light text-muted border shadow-sm"><i class="bi bi-check2-circle me-1 text-success"></i>' . $formattedEta . '</span>';
+                                } else {
+                                    $todayTs = strtotime(date('Y-m-d'));
+                                    $etaTs = strtotime($etaDateStr);
+                                    $daysDiff = (int)(($etaTs - $todayTs) / 86400);
+
+                                    if ($daysDiff == 0) {
+                                        $etaBadge = '<span class="badge bg-warning text-dark shadow-sm"><i class="bi bi-truck-flatbed me-1"></i>Arriving Today</span>';
+                                    } elseif ($daysDiff < 0) {
+                                        $overdueDays = abs($daysDiff);
+                                        $etaBadge = '<span class="badge bg-danger shadow-sm"><i class="bi bi-exclamation-triangle-fill me-1"></i>Overdue (' . $overdueDays . 'd)</span>';
+                                    } else {
+                                        $etaBadge = '<span class="badge bg-success shadow-sm"><i class="bi bi-calendar-check me-1"></i>In ' . $daysDiff . 'd (' . date('M d', $etaTs) . ')</span>';
+                                    }
+                                }
+                            }
                             ?>
                             <tr class="po-row">
                                 <td class="fw-bold text-dark po-no" data-label="PO Number"><?= htmlspecialchars($po['po_no']) ?>
@@ -308,6 +332,17 @@ include 'layout/header.php';
                                             style="font-size: 0.75rem; white-space: normal;"><i
                                                 class="bi bi-exclamation-triangle-fill me-1"></i><?= htmlspecialchars($po['delay_remarks']) ?></small>
                                     <?php endif; ?>
+                                </td>
+
+                                <td data-label="Warehouse ETA">
+                                    <div class="d-flex align-items-center gap-1">
+                                        <?= $etaBadge ?>
+                                        <?php if (in_array($role, ['admin', 'purchasing'])): ?>
+                                            <button type="button" class="btn btn-sm btn-link text-muted p-0 ms-1 text-decoration-none" title="Update ETA" onclick="openEditEtaModal(<?= $po['id'] ?>, '<?= $po['po_no'] ?>', '<?= $po['expected_delivery_date'] ?? '' ?>')">
+                                                <i class="bi bi-pencil-square fs-6 text-primary"></i>
+                                            </button>
+                                        <?php endif; ?>
+                                    </div>
                                 </td>
 
                                 <td class="text-center" data-label="Actions">
