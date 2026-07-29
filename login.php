@@ -5,22 +5,8 @@ require_once 'Connection/db.php';
 // Smart Router: Decides where a user goes based on their role
 function redirectUserByRole($role)
 {
-    switch ($role) {
-        case 'admin':
-        case 'management':
-            header("Location: analytics");
-            break;
-        case 'purchasing':
-            header("Location: po");
-            break;
-        case 'requestor':
-            header("Location: requisitions");
-            break;
-        case 'warehouse':
-        default:
-            header("Location: index");
-            break;
-    }
+    // All roles now land on the unified role-aware dashboard
+    header("Location: dashboard");
     exit;
 }
 
