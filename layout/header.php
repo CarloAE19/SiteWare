@@ -5,13 +5,15 @@ if (!defined('DB_OFFLINE') && isset($pdo) && $pdo !== null) {
     try { $pdo->exec("ALTER TABLE users ADD COLUMN fcm_token TEXT DEFAULT NULL"); } catch (PDOException $e) { }
 }
 
-function time_elapsed_string($datetime, $full = false) {
-    $now = new DateTime; $ago = new DateTime($datetime); $diff = $now->diff($ago);
-    $weeks = floor($diff->d / 7); $days = $diff->d - ($weeks * 7);
-    $values = ['y' => $diff->y, 'm' => $diff->m, 'w' => $weeks, 'd' => $days, 'h' => $diff->h, 'i' => $diff->i, 's' => $diff->s];
-    $string = ['y' => 'year', 'm' => 'month', 'w' => 'week', 'd' => 'day', 'h' => 'hour', 'i' => 'minute', 's' => 'second'];
-    $parts = []; foreach ($string as $k => $v) { if ($values[$k]) $parts[] = $values[$k] . ' ' . $v . ($values[$k] > 1 ? 's' : ''); }
-    if (!$full) $parts = array_slice($parts, 0, 1); return $parts ? implode(', ', $parts) . ' ago' : 'just now';
+if (!function_exists('time_elapsed_string')) {
+    function time_elapsed_string($datetime, $full = false) {
+        $now = new DateTime; $ago = new DateTime($datetime); $diff = $now->diff($ago);
+        $weeks = floor($diff->d / 7); $days = $diff->d - ($weeks * 7);
+        $values = ['y' => $diff->y, 'm' => $diff->m, 'w' => $weeks, 'd' => $days, 'h' => $diff->h, 'i' => $diff->i, 's' => $diff->s];
+        $string = ['y' => 'year', 'm' => 'month', 'w' => 'week', 'd' => 'day', 'h' => 'hour', 'i' => 'minute', 's' => 'second'];
+        $parts = []; foreach ($string as $k => $v) { if ($values[$k]) $parts[] = $values[$k] . ' ' . $v . ($values[$k] > 1 ? 's' : ''); }
+        if (!$full) $parts = array_slice($parts, 0, 1); return $parts ? implode(', ', $parts) . ' ago' : 'just now';
+    }
 }
 
 $currentUserRole = $_SESSION['user_role'] ?? 'requestor';
@@ -252,6 +254,7 @@ foreach ($notifications as $n) {
             });
         })();
     </script>
+    <script> window.currentUserRole = '<?= $currentUserRole ?>'; </script>
 </head>
 <body>
     <?php // include_once 'components/splash_screen.php'; ?>
@@ -301,7 +304,7 @@ foreach ($notifications as $n) {
                     <button type="button" id="sidebarCollapse" class="btn btn-brand"><i class="bi bi-list fs-5"></i></button>
                     
                     <div class="d-flex align-items-center ms-auto">
-                        <!-- SMS Inbox Quick Button -->
+                        <!-- 1. SMS Inbox Quick Button -->
                         <?php if (in_array($currentUserRole, ['admin', 'purchasing', 'management'])): ?>
                         <div class="me-3 position-relative">
                             <button type="button" class="btn btn-link text-muted p-0 position-relative text-decoration-none" onclick="openSmsInboxModal()" title="Supplier SMS Inbox">
@@ -311,20 +314,66 @@ foreach ($notifications as $n) {
                         </div>
                         <?php endif; ?>
 
+                        <!-- 2. DEDICATED SUPPLY LOGISTICS UPDATES & ETAS DROPDOWN -->
                         <div class="dropdown me-3">
-                            <a href="#" class="text-muted position-relative d-flex align-items-center text-decoration-none" id="dropdownNotif" data-bs-toggle="dropdown" aria-expanded="false">
-                                <i class="bi bi-bell fs-5"></i>
+                            <a href="#" class="text-muted position-relative d-flex align-items-center text-decoration-none" id="dropdownSupplyUpdates" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false" title="Supply Deliveries & ETAs" onclick="loadSupplyUpdates()">
+                                <i class="bi bi-exclamation-triangle fs-5 text-muted" id="supplyTruckIcon"></i>
+                                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none" id="supplyUpdatesBadge" style="font-size: 0.65rem;">0</span>
+                            </a>
+                            
+                            <div class="dropdown-menu dropdown-menu-end shadow-lg border-0 rounded-3 notif-menu p-0" aria-labelledby="dropdownSupplyUpdates" style="width: 360px; max-width: 90vw;">
+                                <div class="p-3 bg-dark text-white rounded-top-3 d-flex justify-content-between align-items-center">
+                                    <div class="d-flex align-items-center">
+                                        <i class="bi bi-exclamation-triangle-fill text-warning me-2 fs-5"></i>
+                                        <div>
+                                            <h6 class="fw-bold mb-0 text-white">Supply Deliveries & ETAs</h6>
+                                            <small class="text-white-50" style="font-size: 0.72rem;">Warehouse arrival schedules & supplier tracking</small>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Filter Tabs for Supplies -->
+                                <div class="bg-light border-bottom px-2 py-1 d-flex gap-1 overflow-auto">
+                                    <button type="button" class="btn btn-sm btn-primary rounded-pill px-2 py-0 fw-bold text-nowrap supply-tab-btn active" onclick="event.stopPropagation(); filterSupplyUpdates('all', this)" style="font-size: 0.72rem;">All Deliveries</button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-2 py-0 fw-bold text-nowrap supply-tab-btn" onclick="event.stopPropagation(); filterSupplyUpdates('arriving_today', this)" style="font-size: 0.72rem;">🟡 Today</button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-2 py-0 fw-bold text-nowrap supply-tab-btn" onclick="event.stopPropagation(); filterSupplyUpdates('overdue', this)" style="font-size: 0.72rem;">🔴 Overdue</button>
+                                </div>
+
+                                <!-- Supply Updates Container -->
+                                <div class="overflow-auto" style="max-height: 360px;" id="supplyUpdatesContainer">
+                                    <div class="text-center text-muted py-4">
+                                        <div class="spinner-border spinner-border-sm text-primary mb-2" role="status"></div>
+                                        <p class="small mb-0">Loading supply updates...</p>
+                                    </div>
+                                </div>
+                                
+                                <div class="p-2 border-top bg-light text-center">
+                                    <a href="po" class="text-primary fw-bold text-decoration-none small"><i class="bi bi-box-arrow-up-right me-1"></i>Open Purchase Orders Panel</a>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 3. DEDICATED SYSTEM NOTIFICATIONS DROPDOWN -->
+                        <div class="dropdown me-3">
+                            <a href="#" class="text-muted position-relative d-flex align-items-center text-decoration-none" id="dropdownNotif" data-bs-toggle="dropdown" aria-expanded="false" title="System Notifications">
+                                <i class="bi bi-bell fs-5 text-dark" id="systemBellIcon"></i>
                                 <?php if($unreadCount > 0): ?>
-                                    <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="font-size: 0.65rem;"><?= $unreadCount ?></span>
+                                    <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" id="systemNotifBadge" style="font-size: 0.65rem;"><?= $unreadCount ?></span>
                                 <?php endif; ?>
                             </a>
                             
-                            <ul class="dropdown-menu dropdown-menu-end shadow notif-menu" aria-labelledby="dropdownNotif">
+                            <ul class="dropdown-menu dropdown-menu-end shadow-lg border-0 rounded-3 notif-menu p-0" aria-labelledby="dropdownNotif" style="width: 340px; max-width: 90vw;">
                                 <li>
-                                    <div class="dropdown-header d-flex justify-content-between align-items-center border-bottom pb-2">
-                                        <h6 class="fw-bold mb-0 text-dark">Notifications</h6>
+                                    <div class="p-3 bg-dark text-white rounded-top-3 d-flex justify-content-between align-items-center">
+                                        <div class="d-flex align-items-center">
+                                            <i class="bi bi-bell-fill text-warning me-2 fs-5"></i>
+                                            <div>
+                                                <h6 class="fw-bold mb-0 text-white">System Notifications</h6>
+                                                <small class="text-white-50" style="font-size: 0.72rem;">Requisitions, Audits & Alerts</small>
+                                            </div>
+                                        </div>
                                         <?php if($unreadCount > 0): ?>
-                                            <button class="btn btn-sm btn-link text-decoration-none p-0 text-primary fw-bold" onclick="markAllNotifsRead()" style="font-size: 0.8rem;">Mark all as read</button>
+                                            <button class="btn btn-sm btn-link text-white-50 text-decoration-none p-0 fw-bold" onclick="markAllNotifsRead()" style="font-size: 0.75rem;"><i class="bi bi-check2-all me-1"></i>Mark read</button>
                                         <?php endif; ?>
                                     </div>
                                 </li>
@@ -341,20 +390,20 @@ foreach ($notifications as $n) {
                                                 $targetLink = 'audit';
                                             }
                                             $bgClass = $notif['is_read'] == 0 ? 'bg-light border-start border-primary border-4' : 'bg-white';
-                                            $iconClass = $notif['is_read'] == 0 ? 'text-primary' : 'text-muted';
+                                            $iconClass = $notif['is_read'] == 0 ? 'text-primary font-semibold' : 'text-muted';
                                         ?>
                                             <li>
                                                 <a class="dropdown-item py-3 border-bottom <?= $bgClass ?>" href="<?= $targetLink ?>" style="white-space: normal;">
-                                                    <div class="d-flex w-100 justify-content-between align-items-start">
-                                                        <strong class="mb-1 <?= $iconClass ?>" style="font-size: 0.9rem;"><?= htmlspecialchars($notif['title']) ?></strong>
-                                                        <small class="text-muted" style="font-size: 0.7rem; min-width: 60px; text-align: right;"><?= time_elapsed_string($notif['created_at']) ?></small>
+                                                    <div class="d-flex w-100 justify-content-between align-items-start mb-1">
+                                                        <strong class="mb-0 <?= $iconClass ?>" style="font-size: 0.85rem;"><?= htmlspecialchars($notif['title']) ?></strong>
+                                                        <small class="text-muted text-nowrap ms-2" style="font-size: 0.68rem;"><?= time_elapsed_string($notif['created_at']) ?></small>
                                                     </div>
-                                                    <p class="mb-0 text-muted" style="font-size: 0.8rem; line-height: 1.4;"><?= htmlspecialchars($notif['message']) ?></p>
+                                                    <p class="mb-0 text-muted" style="font-size: 0.78rem; line-height: 1.35;"><?= htmlspecialchars($notif['message']) ?></p>
                                                 </a>
                                             </li>
                                         <?php endforeach; ?>
                                     <?php else: ?>
-                                        <li><span class="dropdown-item text-muted small text-center py-4"><i class="bi bi-bell-slash d-block fs-3 mb-2"></i>No new notifications.</span></li>
+                                        <li><span class="dropdown-item text-muted small text-center py-4"><i class="bi bi-bell-slash d-block fs-3 mb-2 opacity-50"></i>No new system notifications.</span></li>
                                     <?php endif; ?>
                                 </div>
                             </ul>
