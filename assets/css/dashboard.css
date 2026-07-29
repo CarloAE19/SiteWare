@@ -1,0 +1,334 @@
+/* ==========================================
+   CIMS ROLE-BASED DASHBOARD STYLESHEET
+   ========================================== */
+
+/* ==========================================
+   WELCOME HEADER
+   ========================================== */
+.dashboard-welcome {
+    background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+    border-radius: 16px;
+    padding: 24px;
+    border: 1px solid #e9ecef;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+    position: relative;
+    overflow: hidden;
+}
+
+.dashboard-welcome::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, var(--gb-blue, #0033CC) 0%, var(--gb-red, #D80000) 50%, var(--gb-yellow, #FFD700) 100%);
+}
+
+.welcome-avatar {
+    width: 56px;
+    height: 56px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, var(--gb-blue, #0033CC) 0%, #0d6efd 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    box-shadow: 0 4px 12px rgba(0, 51, 204, 0.25);
+}
+
+.welcome-avatar i {
+    font-size: 1.5rem;
+    color: #ffffff;
+}
+
+.welcome-title {
+    font-size: 1.4rem;
+    color: #1a1a2e;
+}
+
+/* ==========================================
+   QUICK ACTIONS CARD
+   ========================================== */
+.quick-actions-card {
+    border-radius: 16px;
+    overflow: hidden;
+}
+
+.shortcut-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 20px 12px;
+    border-radius: 14px;
+    border: 1px solid #e9ecef;
+    background: #ffffff;
+    text-decoration: none !important;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    min-height: 120px;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+}
+
+.shortcut-btn::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: transparent;
+    transition: background 0.25s ease;
+    border-radius: 14px 14px 0 0;
+}
+
+.shortcut-btn:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+    border-color: transparent;
+}
+
+.shortcut-btn:hover::after {
+    background: linear-gradient(90deg, var(--gb-blue, #0033CC), #0d6efd);
+}
+
+.shortcut-btn:active {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.shortcut-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 10px;
+    font-size: 1.2rem;
+    transition: transform 0.25s ease;
+}
+
+.shortcut-btn:hover .shortcut-icon {
+    transform: scale(1.1);
+}
+
+.shortcut-label {
+    font-weight: 700;
+    font-size: 0.82rem;
+    color: #1a1a2e;
+    line-height: 1.2;
+    margin-bottom: 2px;
+}
+
+.shortcut-desc {
+    font-size: 0.7rem;
+    color: #6c757d;
+    font-weight: 600;
+}
+
+/* Pulse animation for shortcuts requiring action */
+.shortcut-pulse {
+    animation: shortcutPulse 2.5s ease-in-out infinite;
+}
+
+@keyframes shortcutPulse {
+    0%, 100% {
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+        border-color: #e9ecef;
+    }
+    50% {
+        box-shadow: 0 4px 20px rgba(255, 193, 7, 0.3);
+        border-color: #ffc107;
+    }
+}
+
+/* ==========================================
+   STAT CARDS
+   ========================================== */
+.stat-card-dash {
+    border-radius: 14px;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    overflow: hidden;
+}
+
+.stat-card-dash:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08) !important;
+}
+
+.stat-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: #6c757d;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+}
+
+.stat-value {
+    font-size: 1.6rem;
+    font-weight: 800;
+    color: #1a1a2e;
+    line-height: 1.1;
+}
+
+.stat-icon-circle {
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.15rem;
+    flex-shrink: 0;
+}
+
+/* Attention state for cards */
+.stat-attention {
+    border-left: 4px solid #ffc107 !important;
+    animation: statGlow 3s ease-in-out infinite;
+}
+
+@keyframes statGlow {
+    0%, 100% { box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06); }
+    50% { box-shadow: 0 4px 16px rgba(255, 193, 7, 0.2); }
+}
+
+/* ==========================================
+   ACTIVITY FEED & TIMELINE
+   ========================================== */
+.timeline-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-top: 5px;
+    flex-shrink: 0;
+}
+
+.activity-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #dee2e6;
+    margin-top: 6px;
+    flex-shrink: 0;
+}
+
+.activity-item {
+    transition: background 0.2s ease;
+    padding: 4px 8px;
+    border-radius: 8px;
+    margin-left: -8px;
+    margin-right: -8px;
+}
+
+.activity-item:hover {
+    background: rgba(0, 0, 0, 0.02);
+}
+
+/* ==========================================
+   MOBILE RESPONSIVE
+   ========================================== */
+@media (max-width: 767.98px) {
+    .dashboard-welcome {
+        padding: 18px;
+    }
+
+    .welcome-title {
+        font-size: 1.15rem;
+    }
+
+    .welcome-avatar {
+        width: 44px;
+        height: 44px;
+        border-radius: 10px;
+    }
+
+    .welcome-avatar i {
+        font-size: 1.2rem;
+    }
+
+    .shortcut-btn {
+        padding: 14px 8px;
+        min-height: 100px;
+    }
+
+    .shortcut-icon {
+        width: 36px;
+        height: 36px;
+        font-size: 1rem;
+        margin-bottom: 8px;
+    }
+
+    .shortcut-label {
+        font-size: 0.73rem;
+    }
+
+    .shortcut-desc {
+        font-size: 0.65rem;
+    }
+
+    .stat-value {
+        font-size: 1.3rem;
+    }
+
+    .stat-icon-circle {
+        width: 34px;
+        height: 34px;
+        font-size: 0.95rem;
+    }
+}
+
+/* ==========================================
+   DARK THEME OVERRIDES
+   ========================================== */
+[data-bs-theme="dark"] .dashboard-welcome {
+    background: linear-gradient(135deg, #1e1e2e 0%, #161625 100%);
+    border-color: #2d2d44;
+}
+
+[data-bs-theme="dark"] .welcome-title {
+    color: #e0e0e0;
+}
+
+[data-bs-theme="dark"] .shortcut-btn {
+    background: #1e1e2e;
+    border-color: #2d2d44;
+}
+
+[data-bs-theme="dark"] .shortcut-btn:hover {
+    border-color: transparent;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+[data-bs-theme="dark"] .shortcut-label {
+    color: #e0e0e0;
+}
+
+[data-bs-theme="dark"] .shortcut-desc {
+    color: #8b8ba3;
+}
+
+[data-bs-theme="dark"] .stat-card-dash {
+    background: #1e1e2e !important;
+}
+
+[data-bs-theme="dark"] .stat-value {
+    color: #e0e0e0;
+}
+
+[data-bs-theme="dark"] .activity-item:hover {
+    background: rgba(255, 255, 255, 0.04);
+}
+
+[data-bs-theme="dark"] .quick-actions-card {
+    background: #161625 !important;
+}
+
+[data-bs-theme="dark"] .quick-actions-card .card-body h5 {
+    color: #e0e0e0 !important;
+}
