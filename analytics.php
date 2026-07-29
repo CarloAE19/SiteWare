@@ -231,6 +231,25 @@ foreach ($consumedData as $val) {
     $rawHoverData[] = $val; 
 }
 
+// Fetch Incoming Warehouse Supply ETAs for Analytics Card
+$todayStr = date('Y-m-d');
+$incomingSupplyStmt = $pdo->prepare("
+    SELECT p.*, s.company_name 
+    FROM purchase_orders p
+    LEFT JOIN suppliers s ON p.supplier_id = s.id
+    WHERE p.status NOT IN ('Delivered', 'Delivered (Discrepancy)', 'Cancelled')
+    ORDER BY 
+        CASE 
+            WHEN p.expected_delivery_date = ? THEN 1
+            WHEN p.expected_delivery_date < ? THEN 2
+            ELSE 3 
+        END,
+        p.expected_delivery_date ASC
+    LIMIT 6
+");
+$incomingSupplyStmt->execute([$todayStr, $todayStr]);
+$incomingSupplies = $incomingSupplyStmt->fetchAll(PDO::FETCH_ASSOC);
+
 // ==========================================
 // 2. AJAX REAL-TIME ENDPOINT
 // ==========================================
@@ -263,18 +282,68 @@ include 'layout/header.php';
 
     <div class="row mb-4 g-3">
         
-        <!-- PERCENTAGE BAR CHART -->
+        <!-- INCOMING SUPPLY DELIVERIES & WAREHOUSE ETAS -->
         <div class="col-12 col-lg-4">
             <div class="card border-0 shadow-sm h-100 rounded-3">
-                <div class="card-header bg-white fw-bold py-3 text-dark border-bottom-0">
-                    <i class="bi bi-bar-chart-fill text-primary me-2"></i>Consumption Share (%)
+                <div class="card-header bg-white fw-bold py-3 text-dark border-bottom-0 d-flex justify-content-between align-items-center">
+                    <div>
+                        <i class="bi bi-truck text-primary me-2"></i>Incoming Supply Deliveries & ETAs
+                    </div>
+                    <a href="po" class="btn btn-xs btn-outline-primary fw-bold px-2 py-0" style="font-size:0.72rem;">View All</a>
                 </div>
-                <div class="card-body position-relative d-flex justify-content-center align-items-center" style="height: 300px; width: 100%;">
-                    <?php if (count($chartLabels) > 0): ?>
-                        <canvas id="pctConsumptionChart" style="max-height: 100%; max-width: 100%;"></canvas>
+                <div class="card-body p-3 overflow-auto" style="height: 300px;">
+                    <?php if (count($incomingSupplies) > 0): ?>
+                        <div class="d-flex flex-column gap-2">
+                            <?php foreach ($incomingSupplies as $inPo): ?>
+                                <?php
+                                $etaStr = $inPo['expected_delivery_date'];
+                                $etaBadgeClass = 'bg-secondary';
+                                $etaText = 'ETA Not Set';
+                                $iconClass = 'bi-calendar-event';
+
+                                if (!empty($etaStr)) {
+                                    $daysDiff = (int) ((strtotime($etaStr) - strtotime($todayStr)) / 86400);
+                                    if ($daysDiff == 0) {
+                                        $etaBadgeClass = 'bg-warning text-dark';
+                                        $etaText = 'Arriving TODAY';
+                                        $iconClass = 'bi-truck-flatbed';
+                                    } elseif ($daysDiff < 0) {
+                                        $etaBadgeClass = 'bg-danger';
+                                        $etaText = 'Overdue by ' . abs($daysDiff) . 'd';
+                                        $iconClass = 'bi-exclamation-triangle-fill';
+                                    } else {
+                                        $etaBadgeClass = 'bg-success';
+                                        $etaText = 'In ' . $daysDiff . 'd (' . date('M d', strtotime($etaStr)) . ')';
+                                        $iconClass = 'bi-clock-history';
+                                    }
+                                }
+                                ?>
+                                <div class="p-2 border rounded-3 bg-light d-flex flex-column justify-content-between">
+                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                        <span class="fw-bold text-primary small"><?= htmlspecialchars($inPo['po_no']) ?></span>
+                                        <span class="badge <?= $etaBadgeClass ?>" style="font-size:0.65rem;">
+                                            <i class="bi <?= $iconClass ?> me-1"></i><?= $etaText ?>
+                                        </span>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <small class="text-dark fw-semibold" style="font-size:0.78rem;">
+                                            <i class="bi bi-building me-1 text-muted"></i><?= htmlspecialchars($inPo['company_name'] ?: 'Supplier') ?>
+                                        </small>
+                                        <?php if (in_array($_SESSION['user_role'], ['admin', 'purchasing'])): ?>
+                                            <button type="button" class="btn btn-xs btn-link text-primary p-0 text-decoration-none fw-bold" style="font-size:0.72rem;" onclick="openEditEtaModal(<?= $inPo['id'] ?>, '<?= $inPo['po_no'] ?>', '<?= $inPo['expected_delivery_date'] ?? '' ?>')">
+                                                <i class="bi bi-pencil-square me-1"></i>ETA
+                                            </button>
+                                        <?php endif; ?>
+                                    </div>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
                     <?php else: ?>
-                        <div class="text-center text-muted py-5" id="noDataPct"><i class="bi bi-clipboard-x fs-1 d-block mb-2"></i>No consumption recorded in the last 30 days.</div>
-                        <canvas id="pctConsumptionChart" style="display:none;"></canvas>
+                        <div class="text-center text-muted py-5">
+                            <i class="bi bi-truck display-6 opacity-25 d-block mb-2 text-primary"></i>
+                            <p class="small mb-0 fw-semibold">No pending supply deliveries</p>
+                            <small class="text-muted" style="font-size: 0.72rem;">All orders fulfilled!</small>
+                        </div>
                     <?php endif; ?>
                 </div>
             </div>
