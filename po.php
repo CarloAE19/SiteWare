@@ -257,6 +257,7 @@ include 'layout/header.php';
                 <thead class="table-dark">
                     <tr>
                         <th class="py-3">PO Number</th>
+                        <th class="py-3">Date & Time Created</th>
                         <th class="py-3">Linked RS / Project</th>
                         <th class="py-3">Supplier</th>
                         <th class="py-3">Status</th>
@@ -305,6 +306,15 @@ include 'layout/header.php';
                             ?>
                             <tr class="po-row">
                                 <td class="fw-bold text-dark po-no" data-label="PO Number"><?= htmlspecialchars($po['po_no']) ?>
+                                </td>
+
+                                <td data-label="Date & Time Created">
+                                    <span class="d-block text-dark fw-semibold small">
+                                        <i class="bi bi-calendar3 me-1 text-muted"></i><?= !empty($po['created_at']) ? date('M d, Y', strtotime($po['created_at'])) : 'N/A' ?>
+                                    </span>
+                                    <small class="text-muted" style="font-size:0.73rem;">
+                                        <i class="bi bi-clock me-1 text-primary"></i><?= !empty($po['created_at']) ? date('g:i A', strtotime($po['created_at'])) : '' ?>
+                                    </small>
                                 </td>
 
                                 <td data-label="Linked RS / Project">
@@ -385,7 +395,7 @@ include 'layout/header.php';
                         <?php endforeach; ?>
                     <?php else: ?>
                         <tr>
-                            <td colspan="5" class="text-center py-5 text-muted"><i
+                            <td colspan="7" class="text-center py-5 text-muted"><i
                                     class="bi bi-folder-x fs-1 d-block mb-2"></i>No Purchase Orders found.</td>
                         </tr>
                     <?php endif; ?>
@@ -748,6 +758,15 @@ include 'layout/header.php';
                 const phone = selectedOption.getAttribute('data-phone');
                 document.getElementById('smsPhone').value = phone || '';
             });
+        }
+
+        // Check URL parameters for shortcut auto-open modals
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('action') === 'new') {
+            const poModalEl = document.getElementById('poModal');
+            if (poModalEl) {
+                new bootstrap.Modal(poModalEl).show();
+            }
         }
     });
 </script>
