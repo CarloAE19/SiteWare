@@ -21,7 +21,8 @@ $stmt = $pdo->query("
         s.*,
         COUNT(p.id)                                                               AS total_po,
         SUM(CASE WHEN p.status LIKE '%Delayed%' THEN 1 ELSE 0 END)               AS delayed_count,
-        SUM(CASE WHEN p.status LIKE '%Discrepancy%' THEN 1 ELSE 0 END)           AS discrepancy_count
+        SUM(CASE WHEN p.status LIKE '%Discrepancy%' THEN 1 ELSE 0 END)           AS discrepancy_count,
+        MIN(CASE WHEN p.status NOT IN ('Delivered', 'Delivered (Discrepancy)', 'Cancelled') AND p.expected_delivery_date IS NOT NULL THEN p.expected_delivery_date END) AS next_eta
     FROM suppliers s
     LEFT JOIN purchase_orders p ON p.supplier_id = s.id
     GROUP BY s.id
@@ -151,6 +152,7 @@ include 'layout/header.php';
                         <th class="py-3">Contact Details</th>
                         <th class="py-3">Contact Number</th>
                         <th class="py-3">Status</th>
+                        <th class="py-3">Next Supply ETA</th>
                         <th class="py-3">Performance</th>
                         <?php if (in_array($role, ['admin', 'purchasing'])): ?>
                             <th class="text-center py-3">Actions</th><?php endif; ?>
@@ -181,6 +183,22 @@ include 'layout/header.php';
                             $tierBadge = 'bg-danger';
                             $scoreText = $score . '%';
                         }
+
+                        // Next ETA Badge
+                        $supEtaBadge = '<span class="text-muted small">No Active Shipments</span>';
+                        if (!empty($sup['next_eta'])) {
+                            $nextEtaTs = strtotime($sup['next_eta']);
+                            $todayTs = strtotime(date('Y-m-d'));
+                            $daysDiff = (int) (($nextEtaTs - $todayTs) / 86400);
+
+                            if ($daysDiff == 0) {
+                                $supEtaBadge = '<span class="badge bg-warning text-dark shadow-sm"><i class="bi bi-truck-flatbed me-1"></i>Arriving TODAY</span>';
+                            } elseif ($daysDiff < 0) {
+                                $supEtaBadge = '<span class="badge bg-danger shadow-sm"><i class="bi bi-exclamation-triangle-fill me-1"></i>Overdue (' . abs($daysDiff) . 'd)</span>';
+                            } else {
+                                $supEtaBadge = '<span class="badge bg-success shadow-sm"><i class="bi bi-calendar-check me-1"></i>' . date('M d, Y', $nextEtaTs) . ' (in ' . $daysDiff . 'd)</span>';
+                            }
+                        }
                         ?>
                         <tr>
                             <td class="text-muted fw-bold" data-label="Supplier Code">
@@ -209,6 +227,10 @@ include 'layout/header.php';
                                 <?php else: ?>
                                     <span class="badge bg-danger px-3 py-2 shadow-sm">INACTIVE</span>
                                 <?php endif; ?>
+                            </td>
+
+                            <td data-label="Next Supply ETA">
+                                <?= $supEtaBadge ?>
                             </td>
 
                             <!-- ===== PERFORMANCE RANKING COLUMN ===== -->
