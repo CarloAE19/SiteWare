@@ -25,6 +25,9 @@ try {
     try {
         $pdo->exec("ALTER TABLE projects ADD COLUMN project_code VARCHAR(50) UNIQUE AFTER id");
     } catch (PDOException $e) {}
+    try {
+        $pdo->exec("ALTER TABLE projects ADD COLUMN address TEXT NULL AFTER project_name");
+    } catch (PDOException $e) {}
 } catch (PDOException $e) {
 }
 
@@ -66,6 +69,7 @@ include 'layout/header.php';
                         <tr>
                             <th style="width: 80px;">ID</th>
                             <th>Project Name</th>
+                            <th>Location / Address</th>
                             <th>Description</th>
                             <th>Status</th>
                             <th class="text-end">Actions</th>
@@ -77,6 +81,13 @@ include 'layout/header.php';
                                 <tr>
                                     <td class="text-muted fw-bold" data-label="ID"><?= htmlspecialchars($proj['project_code'] ?? '#'.$proj['id']) ?></td>
                                     <td class="fw-bold text-primary" data-label="Project Name"><?= htmlspecialchars($proj['project_name']) ?></td>
+                                    <td class="text-dark fw-semibold small" data-label="Location / Address">
+                                        <?php if (!empty($proj['address'])): ?>
+                                            <i class="bi bi-geo-alt me-1 text-danger"></i><?= htmlspecialchars($proj['address']) ?>
+                                        <?php else: ?>
+                                            <span class="text-muted opacity-75">Not specified</span>
+                                        <?php endif; ?>
+                                    </td>
                                     <td class="text-muted text-wrap" style="max-width: 250px;" data-label="Description"><?= htmlspecialchars($proj['description'] ?? 'No description provided.') ?></td>
                                     <td data-label="Status">
                                         <?php if ($proj['status'] === 'active'): ?>
@@ -86,7 +97,7 @@ include 'layout/header.php';
                                         <?php endif; ?>
                                     </td>
                                     <td class="text-end" data-label="Actions">
-                                        <button class="btn btn-sm btn-outline-primary me-1" onclick="openEditProjectModal(<?= $proj['id'] ?>, '<?= addslashes(htmlspecialchars($proj['project_code'] ?? '')) ?>', '<?= addslashes(htmlspecialchars($proj['project_name'])) ?>', '<?= addslashes(htmlspecialchars($proj['description'] ?? '')) ?>', '<?= $proj['status'] ?>')">
+                                        <button class="btn btn-sm btn-outline-primary me-1" onclick="openEditProjectModal(<?= $proj['id'] ?>, '<?= addslashes(htmlspecialchars($proj['project_code'] ?? '')) ?>', '<?= addslashes(htmlspecialchars($proj['project_name'])) ?>', '<?= addslashes(htmlspecialchars($proj['address'] ?? '')) ?>', '<?= addslashes(htmlspecialchars($proj['description'] ?? '')) ?>', '<?= $proj['status'] ?>')">
                                             <i class="bi bi-pencil-square"></i> Edit
                                         </button>
                                         <form method="POST" action="process/process.php" class="d-inline" onsubmit="return confirm('Delete this project?');">
@@ -99,7 +110,7 @@ include 'layout/header.php';
                             <?php endforeach; ?>
                         <?php else: ?>
                             <tr>
-                                <td colspan="5" class="text-center py-4 text-muted">No projects found.</td>
+                                <td colspan="6" class="text-center py-4 text-muted">No projects found.</td>
                             </tr>
                         <?php endif; ?>
                     </tbody>
@@ -123,13 +134,24 @@ include 'layout/header.php';
                     <input type="hidden" name="project_id" id="projectId">
 
                     <div class="mb-3">
-                        <label class="form-label fw-bold">Project ID <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control form-control-lg fw-bold" name="project_code" id="projectCode" placeholder="e.g. 20JE0010" required>
+                        <label class="form-label fw-bold">Project ID <small class="text-muted fw-normal">(Optional - leave blank to auto-generate)</small></label>
+                        <div class="input-group">
+                            <input type="text" class="form-control form-control-lg fw-bold" name="project_code" id="projectCode" placeholder="e.g. 20JE0010 or PRJ-2026-001">
+                            <button type="button" class="btn btn-outline-primary fw-bold px-3" onclick="generateAutoProjectCode()" title="Auto-Generate Project ID">
+                                <i class="bi bi-magic me-1"></i>Auto
+                            </button>
+                        </div>
+                        <small class="text-muted" style="font-size:0.75rem;">Leave blank or click "Auto" to generate a Project ID automatically.</small>
                     </div>
 
                     <div class="mb-3">
                         <label class="form-label fw-bold">Project Name <span class="text-danger">*</span></label>
                         <input type="text" class="form-control form-control-lg fw-bold" name="project_name" id="projectName" placeholder="e.g. Phase 1 Building" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Location / Address</label>
+                        <input type="text" class="form-control" name="address" id="projectAddress" placeholder="e.g. Brgy. San Jose, Malaybalay City, Bukidnon">
                     </div>
 
                     <div class="mb-3">
