@@ -266,7 +266,7 @@ include 'layout/header.php';
                                 </li>
                                 <li><label class="dropdown-item d-flex align-items-center rounded py-2 text-dark fw-bold" style="cursor:pointer;"><input class="form-check-input col-toggle me-3 mt-0 border-secondary" type="checkbox" style="transform: scale(1.2);" value="col-project" checked> Project / Purpose</label></li>
                                 <li><label class="dropdown-item d-flex align-items-center rounded py-2 text-dark fw-bold" style="cursor:pointer;"><input class="form-check-input col-toggle me-3 mt-0 border-secondary" type="checkbox" style="transform: scale(1.2);" value="col-requestor" checked> Requested By</label></li>
-                                <li><label class="dropdown-item d-flex align-items-center rounded py-2 text-dark fw-bold" style="cursor:pointer;"><input class="form-check-input col-toggle me-3 mt-0 border-secondary" type="checkbox" style="transform: scale(1.2);" value="col-date" checked> Date Requested</label></li>
+                                <li><label class="dropdown-item d-flex align-items-center rounded py-2 text-dark fw-bold" style="cursor:pointer;"><input class="form-check-input col-toggle me-3 mt-0 border-secondary" type="checkbox" style="transform: scale(1.2);" value="col-date" checked> Date Log</label></li>
                                 <li><label class="dropdown-item d-flex align-items-center rounded py-2 text-dark fw-bold" style="cursor:pointer;"><input class="form-check-input col-toggle me-3 mt-0 border-secondary" type="checkbox" style="transform: scale(1.2);" value="col-urgency" checked> Urgency</label></li>
                                 <li><label class="dropdown-item d-flex align-items-center rounded py-2 text-dark fw-bold" style="cursor:pointer;"><input class="form-check-input col-toggle me-3 mt-0 border-secondary" type="checkbox" style="transform: scale(1.2);" value="col-status" checked> Status</label></li>
                             </ul>
@@ -301,7 +301,7 @@ include 'layout/header.php';
                         <th scope="col" class="col-rs-no py-3">RS Number</th>
                         <th scope="col" class="col-project py-3">Project / Purpose</th>
                         <th scope="col" class="col-requestor py-3">Requested By</th>
-                        <th scope="col" class="col-date py-3">Date</th>
+                        <th scope="col" class="col-date py-3">Date Log</th>
                         <th scope="col" class="col-urgency py-3">Urgency</th>
                         <th scope="col" class="col-status py-3">Status</th>
                         <th scope="col" class="text-end py-3">Actions</th>
@@ -331,7 +331,15 @@ include 'layout/header.php';
                                     </div>
                                 </td>
 
-                                <td class="text-muted small fw-bold col-date" data-label="Date"><?= date('M d, Y', strtotime($rs['created_at'])) ?></td>
+                                <td class="col-date" data-label="Date Log">
+                                    <span class="d-block text-dark fw-semibold small">
+                                        <i class="bi bi-calendar3 me-1 text-muted"></i><?= date('M d, Y', strtotime($rs['created_at'])) ?>
+                                    </span>
+                                    <small class="text-muted" style="font-size:0.73rem;">
+                                        <i class="bi bi-clock me-1 text-primary"></i><?= date('g:i A', strtotime($rs['created_at'])) ?> 
+                                        <span class="text-secondary opacity-75">(<?= time_elapsed_string($rs['created_at']) ?>)</span>
+                                    </small>
+                                </td>
                                 <td class="col-urgency" data-label="Urgency">
                                     <?php
                                     $urgencyClass = 'bg-secondary';
@@ -358,10 +366,11 @@ include 'layout/header.php';
                                     $cleanRemarks = str_replace(["\r", "\n"], ["\\r", "\\n"], addslashes($rs['remarks']));
                                     $cleanRequestor = addslashes($rs['requestor_name']);
                                     $itemsB64 = base64_encode(json_encode($rsItemsGrouped[$rs['id']] ?? []));
+                                    $formattedDateLog = date('M d, Y g:i A', strtotime($rs['created_at'])) . ' (' . time_elapsed_string($rs['created_at']) . ')';
                                     ?>
 
                                     <button class="btn btn-sm btn-outline-secondary fw-bold shadow-sm me-1" title="View Details"
-                                        onclick="viewRsDetails('<?= $rs['rs_no'] ?>', '<?= $cleanProject ?>', '<?= $cleanRemarks ?>', '<?= $rs['status'] ?>', '<?= $cleanRequestor ?>', '<?= date('M d, Y', strtotime($rs['created_at'])) ?>', '<?= $itemsB64 ?>', '<?= $rs['type'] ?? 'project' ?>')">
+                                        onclick="viewRsDetails('<?= $rs['rs_no'] ?>', '<?= $cleanProject ?>', '<?= $cleanRemarks ?>', '<?= $rs['status'] ?>', '<?= $cleanRequestor ?>', '<?= $formattedDateLog ?>', '<?= $itemsB64 ?>', '<?= $rs['type'] ?? 'project' ?>')">
                                         <i class="bi bi-file-earmark-text me-1"></i> View
                                     </button>
 
