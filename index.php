@@ -33,6 +33,25 @@ $healthyStockPercentage = 100 - $lowStockPercentage;
 $dynamicUnits = $pdo->query("SELECT unit_name FROM units ORDER BY unit_name ASC")->fetchAll(PDO::FETCH_ASSOC);
 $dynamicCategories = $pdo->query("SELECT category_name FROM categories ORDER BY category_name ASC")->fetchAll(PDO::FETCH_ASSOC);
 
+// Fetch Incoming Warehouse Supply ETAs
+$todayStr = date('Y-m-d');
+$incomingSupplyStmt = $pdo->prepare("
+    SELECT p.*, s.company_name 
+    FROM purchase_orders p
+    LEFT JOIN suppliers s ON p.supplier_id = s.id
+    WHERE p.status NOT IN ('Delivered', 'Delivered (Discrepancy)', 'Cancelled')
+    ORDER BY 
+        CASE 
+            WHEN p.expected_delivery_date = ? THEN 1
+            WHEN p.expected_delivery_date < ? THEN 2
+            ELSE 3 
+        END,
+        p.expected_delivery_date ASC
+    LIMIT 4
+");
+$incomingSupplyStmt->execute([$todayStr, $todayStr]);
+$incomingSupplies = $incomingSupplyStmt->fetchAll(PDO::FETCH_ASSOC);
+
 include 'layout/header.php';
 ?>
 
@@ -116,6 +135,81 @@ include 'layout/header.php';
                         <div class="progress-bar bg-success" role="progressbar" style="width: <?= $healthyStockPercentage ?>%"></div>
                     </div>
                     <small class="text-muted mt-2 d-block fw-bold"><?= $totalItems - $lowStockCount ?> out of <?= $totalItems ?> items are well-stocked</small>
+                </div>
+            <?php endif; ?>
+        </div>
+    </div>
+
+    <!-- INCOMING SUPPLY ETAS & WAREHOUSE ARRIVALS -->
+    <div class="card border-0 shadow-sm p-3 mb-4 bg-white rounded-3">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <div class="d-flex align-items-center">
+                <div class="bg-primary text-white rounded-circle p-2 me-2 d-flex align-items-center justify-content-center" style="width: 36px; height: 36px;">
+                    <i class="bi bi-truck fs-5"></i>
+                </div>
+                <div>
+                    <h6 class="fw-bold mb-0 text-dark">Incoming Supply Deliveries & Warehouse ETAs</h6>
+                    <small class="text-muted" style="font-size:0.75rem;">Real-time tracking of supplier shipments arriving at warehouse</small>
+                </div>
+            </div>
+            <a href="po" class="btn btn-sm btn-outline-primary fw-bold px-3" style="font-size:0.78rem;">
+                <i class="bi bi-box-arrow-up-right me-1"></i>View All POs
+            </a>
+        </div>
+
+        <div class="row g-2">
+            <?php if (count($incomingSupplies) > 0): ?>
+                <?php foreach ($incomingSupplies as $inPo): ?>
+                    <?php
+                    $etaStr = $inPo['expected_delivery_date'];
+                    $etaBadgeClass = 'bg-secondary';
+                    $etaText = 'ETA Not Set';
+                    $iconClass = 'bi-calendar-event';
+
+                    if (!empty($etaStr)) {
+                        $daysDiff = (int) ((strtotime($etaStr) - strtotime($todayStr)) / 86400);
+                        if ($daysDiff == 0) {
+                            $etaBadgeClass = 'bg-warning text-dark';
+                            $etaText = 'Arriving TODAY';
+                            $iconClass = 'bi-truck-flatbed';
+                        } elseif ($daysDiff < 0) {
+                            $etaBadgeClass = 'bg-danger';
+                            $etaText = 'Overdue by ' . abs($daysDiff) . 'd';
+                            $iconClass = 'bi-exclamation-triangle-fill';
+                        } else {
+                            $etaBadgeClass = 'bg-success';
+                            $etaText = 'In ' . $daysDiff . ' days (' . date('M d', strtotime($etaStr)) . ')';
+                            $iconClass = 'bi-clock-history';
+                        }
+                    }
+                    ?>
+                    <div class="col-12 col-md-6 col-xl-3">
+                        <div class="p-3 border rounded-3 bg-light h-100 d-flex flex-column justify-content-between">
+                            <div>
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <span class="fw-bold text-primary" style="font-size:0.85rem;"><?= htmlspecialchars($inPo['po_no']) ?></span>
+                                    <span class="badge <?= $etaBadgeClass ?>" style="font-size:0.68rem;">
+                                        <i class="bi <?= $iconClass ?> me-1"></i><?= $etaText ?>
+                                    </span>
+                                </div>
+                                <div class="text-dark fw-semibold small mb-1">
+                                    <i class="bi bi-building me-1 text-muted"></i><?= htmlspecialchars($inPo['company_name'] ?: 'Supplier') ?>
+                                </div>
+                            </div>
+                            <div class="pt-2 border-top mt-2 d-flex justify-content-between align-items-center">
+                                <small class="text-muted" style="font-size:0.7rem;">Status: <strong class="text-dark"><?= htmlspecialchars($inPo['status']) ?></strong></small>
+                                <?php if (in_array($role, ['admin', 'purchasing'])): ?>
+                                    <button type="button" class="btn btn-xs btn-link text-primary p-0 text-decoration-none fw-bold" style="font-size:0.75rem;" onclick="openEditEtaModal(<?= $inPo['id'] ?>, '<?= $inPo['po_no'] ?>', '<?= $inPo['expected_delivery_date'] ?? '' ?>')">
+                                        <i class="bi bi-pencil-square me-1"></i>ETA
+                                    </button>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+            <?php else: ?>
+                <div class="col-12 text-center text-muted py-3">
+                    <small><i class="bi bi-check2-all text-success me-1"></i>No active pending supplier deliveries at this time.</small>
                 </div>
             <?php endif; ?>
         </div>
