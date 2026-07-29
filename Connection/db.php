@@ -1,7 +1,15 @@
 <?php
-// ==========================================
-// SECURE DATABASE SETUP
-// ==========================================
+// Helper: Human-readable time elapsed string
+if (!function_exists('time_elapsed_string')) {
+    function time_elapsed_string($datetime, $full = false) {
+        $now = new DateTime; $ago = new DateTime($datetime); $diff = $now->diff($ago);
+        $weeks = floor($diff->d / 7); $days = $diff->d - ($weeks * 7);
+        $values = ['y' => $diff->y, 'm' => $diff->m, 'w' => $weeks, 'd' => $days, 'h' => $diff->h, 'i' => $diff->i, 's' => $diff->s];
+        $string = ['y' => 'year', 'm' => 'month', 'w' => 'week', 'd' => 'day', 'h' => 'hour', 'i' => 'minute', 's' => 'second'];
+        $parts = []; foreach ($string as $k => $v) { if ($values[$k]) $parts[] = $values[$k] . ' ' . $v . ($values[$k] > 1 ? 's' : ''); }
+        if (!$full) $parts = array_slice($parts, 0, 1); return $parts ? implode(', ', $parts) . ' ago' : 'just now';
+    }
+}
 
 // 1. Load the secure environment variables (.env)
 if (!function_exists('loadEnv')) {
@@ -176,6 +184,7 @@ try {
             supplier_id INT NOT NULL,
             prepared_by INT NOT NULL,
             status VARCHAR(50) DEFAULT 'Pending Delivery',
+            expected_delivery_date DATE NULL,
             delay_remarks TEXT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (rs_id) REFERENCES requisitions(id),
@@ -320,6 +329,10 @@ try {
 
     try {
         $pdo->exec("ALTER TABLE purchase_orders ADD COLUMN delay_remarks TEXT NULL");
+    } catch (PDOException $e) { }
+
+    try {
+        $pdo->exec("ALTER TABLE purchase_orders ADD COLUMN expected_delivery_date DATE NULL");
     } catch (PDOException $e) { }
 
     try {
