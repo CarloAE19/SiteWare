@@ -3,9 +3,9 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Mar 19, 2026 at 11:39 AM
+-- Generation Time: Jul 29, 2026 at 02:47 AM
 -- Server version: 10.4.32-MariaDB
--- PHP Version: 8.4.16
+-- PHP Version: 8.5.6
 
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 START TRANSACTION;
@@ -20,8 +20,6 @@ SET time_zone = "+00:00";
 --
 -- Database: `construction_inventory`
 --
-CREATE DATABASE IF NOT EXISTS `construction_inventory` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
-USE `construction_inventory`;
 
 -- --------------------------------------------------------
 
@@ -37,152 +35,6 @@ CREATE TABLE `audit_items` (
   `physical_qty` int(11) NOT NULL,
   `discrepancy` int(11) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Dumping data for table `audit_items`
---
-
-INSERT INTO `audit_items` (`id`, `audit_id`, `item_code`, `system_qty`, `physical_qty`, `discrepancy`) VALUES
-(1, 1, 'ITM-3', 5, 5, 0),
-(2, 1, 'ITM-4', 45, 45, 0),
-(3, 1, 'ITM-8787', 0, 0, 0),
-(4, 1, 'ITM-2', 500, 500, 0),
-(5, 2, 'ITM-3', 5, 5, 0),
-(6, 2, 'ITM-4', 45, 45, 0),
-(7, 2, 'ITM-8787', 0, 0, 0),
-(8, 2, 'ITM-2', 500, 500, 0),
-(9, 3, 'ITM-3', 5, 6, 1),
-(10, 3, 'ITM-4', 39, 39, 0),
-(11, 3, 'ITM-8787', 5, 5, 0),
-(12, 3, 'ITM-2', 500, 500, 0),
-(13, 4, 'ITM-3', 6, 6, 0),
-(14, 4, 'ITM-4', 39, 35, -4),
-(15, 4, 'ITM-8787', 5, 5, 0),
-(16, 4, 'ITM-2', 500, 500, 0),
-(17, 5, 'ITM-3', 15, 14, -1),
-(18, 5, 'ITM-4', 40, 40, 0),
-(19, 5, 'ITM-8787', 5, 5, 0),
-(20, 5, 'ITM-2', 500, 500, 0),
-(21, 6, 'ITM-9411', 5, 4, -1),
-(22, 6, 'ITM-3', 20, 20, 0),
-(23, 6, 'ITM-4', 40, 40, 0),
-(24, 6, 'ITM-4130', 501, 501, 0),
-(25, 6, 'ITM-8787', 15, 15, 0),
-(26, 6, 'ITM-2', 500, 500, 0),
-(27, 7, 'ITM-9411', 4, 5, 1),
-(28, 7, 'ITM-3', 30, 30, 0),
-(29, 7, 'ITM-4', 40, 40, 0),
-(30, 7, 'ITM-4130', 501, 500, -1),
-(31, 7, 'ITM-8787', 25, 20, -5),
-(32, 7, 'ITM-2', 500, 500, 0),
-(33, 8, 'ITM-9411', 5, 10, 5),
-(34, 8, 'ITM-3', 30, 30, 0),
-(35, 8, 'ITM-4', 40, 40, 0),
-(36, 8, 'ITM-4130', 500, 500, 0),
-(37, 8, 'ITM-8787', 20, 20, 0),
-(38, 8, 'ITM-2', 500, 500, 0),
-(39, 9, 'ITM-9411', 10, 10, 0),
-(40, 9, 'ITM-3', 30, 30, 0),
-(41, 9, 'ITM-4', 40, 40, 0),
-(42, 9, 'ITM-4130', 500, 500, 0),
-(43, 9, 'ITM-8787', 20, 25, 5),
-(44, 9, 'ITM-2', 500, 500, 0),
-(45, 10, 'ITM-9411', 20, 20, 0),
-(46, 10, 'ITM-3', 30, 30, 0),
-(47, 10, 'ITM-4', 40, 40, 0),
-(48, 10, 'ITM-4130', 500, 500, 0),
-(49, 10, 'ITM-8787', 25, 25, 0),
-(50, 10, 'ITM-2', 500, 500, 0),
-(51, 11, 'ITM-9411', 20, 20, 0),
-(52, 11, 'ITM-3', 30, 30, 0),
-(53, 11, 'ITM-4', 40, 40, 0),
-(54, 11, 'ITM-4130', 500, 500, 0),
-(55, 11, 'ITM-8787', 25, 25, 0),
-(56, 11, 'ITM-2', 500, 500, 0),
-(57, 12, 'ITM-9411', 20, 20, 0),
-(58, 12, 'ITM-3', 30, 30, 0),
-(59, 12, 'ITM-4', 40, 40, 0),
-(60, 12, 'ITM-4130', 500, 500, 0),
-(61, 12, 'ITM-8787', 25, 25, 0),
-(62, 12, 'ITM-2', 500, 500, 0),
-(63, 13, 'ITM-9411', 20, 20, 0),
-(64, 13, 'ITM-3', 30, 30, 0),
-(65, 13, 'ITM-4', 40, 40, 0),
-(66, 13, 'ITM-4130', 500, 500, 0),
-(67, 13, 'ITM-8787', 25, 25, 0),
-(68, 13, 'ITM-2', 500, 600, 100),
-(69, 14, 'ITM-9411', 20, 20, 0),
-(70, 14, 'ITM-3', 30, 30, 0),
-(71, 14, 'ITM-4', 40, 40, 0),
-(72, 14, 'ITM-4130', 500, 500, 0),
-(73, 14, 'ITM-8787', 25, 25, 0),
-(74, 14, 'ITM-2', 600, 600, 0),
-(75, 15, 'ITM-9411', 20, 20, 0),
-(76, 15, 'ITM-3', 30, 30, 0),
-(77, 15, 'ITM-4', 40, 40, 0),
-(78, 15, 'ITM-4130', 500, 500, 0),
-(79, 15, 'ITM-8787', 25, 25, 0),
-(80, 15, 'ITM-2', 600, 600, 0),
-(81, 16, 'ITM-9411', 20, 20, 0),
-(82, 16, 'ITM-3', 30, 30, 0),
-(83, 16, 'ITM-4', 40, 40, 0),
-(84, 16, 'ITM-4130', 500, 500, 0),
-(85, 16, 'ITM-8787', 25, 25, 0),
-(86, 16, 'ITM-2', 600, 600, 0),
-(87, 17, 'ITM-9411', 20, 20, 0),
-(88, 17, 'ITM-3', 30, 30, 0),
-(89, 17, 'ITM-4', 40, 40, 0),
-(90, 17, 'ITM-4130', 500, 500, 0),
-(91, 17, 'ITM-8787', 25, 25, 0),
-(92, 17, 'ITM-2', 600, 600, 0),
-(93, 18, 'ITM-9411', 20, 20, 0),
-(94, 18, 'ITM-3', 30, 30, 0),
-(95, 18, 'ITM-4', 40, 40, 0),
-(96, 18, 'ITM-4130', 500, 500, 0),
-(97, 18, 'ITM-8787', 25, 25, 0),
-(98, 18, 'ITM-2', 600, 600, 0),
-(99, 19, 'ITM-9411', 20, 20, 0),
-(100, 19, 'ITM-3', 30, 30, 0),
-(101, 19, 'ITM-4', 40, 40, 0),
-(102, 19, 'ITM-4130', 500, 500, 0),
-(103, 19, 'ITM-8787', 25, 25, 0),
-(104, 19, 'ITM-2', 600, 600, 0),
-(105, 20, 'ITM-9411', 20, 20, 0),
-(106, 20, 'ITM-3', 30, 30, 0),
-(107, 20, 'ITM-4', 40, 40, 0),
-(108, 20, 'ITM-4130', 500, 500, 0),
-(109, 20, 'ITM-8787', 25, 25, 0),
-(110, 20, 'ITM-2', 600, 600, 0),
-(111, 21, 'ITM-9411', 20, 20, 0),
-(112, 21, 'ITM-3', 30, 30, 0),
-(113, 21, 'ITM-4', 40, 40, 0),
-(114, 21, 'ITM-4130', 500, 500, 0),
-(115, 21, 'ITM-8787', 25, 25, 0),
-(116, 21, 'ITM-2', 600, 500, -100),
-(117, 22, 'ITM-9411', 20, 20, 0),
-(118, 22, 'ITM-3', 35, 35, 0),
-(119, 22, 'ITM-4', 40, 40, 0),
-(120, 22, 'ITM-4130', 500, 500, 0),
-(121, 22, 'ITM-8787', 25, 25, 0),
-(122, 22, 'ITM-2', 500, 500, 0),
-(123, 23, 'ITM-9411', 20, 20, 0),
-(124, 23, 'ITM-3', 35, 35, 0),
-(125, 23, 'ITM-4', 40, 40, 0),
-(126, 23, 'ITM-4130', 500, 500, 0),
-(127, 23, 'ITM-8787', 25, 25, 0),
-(128, 23, 'ITM-2', 500, 500, 0),
-(129, 24, 'ITM-9411', 20, 20, 0),
-(130, 24, 'ITM-3', 35, 35, 0),
-(131, 24, 'ITM-4', 40, 40, 0),
-(132, 24, 'ITM-4130', 500, 500, 0),
-(133, 24, 'ITM-8787', 25, 25, 0),
-(134, 24, 'ITM-2', 500, 500, 0),
-(135, 25, 'ITM-9411', 19, 19, 0),
-(136, 25, 'ITM-8782', 4, 4, 0),
-(137, 25, 'ITM-3', 10, 10, 0),
-(138, 25, 'ITM-4', 10, 10, 0),
-(139, 25, 'ITM-4130', 500, 500, 0),
-(140, 25, 'ITM-2', 500, 500, 0);
 
 -- --------------------------------------------------------
 
@@ -201,10 +53,10 @@ CREATE TABLE `categories` (
 --
 
 INSERT INTO `categories` (`id`, `category_name`, `created_at`) VALUES
-(1, 'Materials', '2026-03-07 01:08:24'),
-(2, 'Tools', '2026-03-07 01:08:24'),
-(3, 'Safety Equipment', '2026-03-07 01:08:24'),
-(5, 'Electrical Supplies', '2026-03-07 01:11:14');
+(1, 'Materials', '2026-07-24 08:32:28'),
+(2, 'Tools', '2026-07-24 08:32:28'),
+(3, 'Safety Equipment', '2026-07-24 08:32:28'),
+(4, 'Heavy Machinery', '2026-07-24 08:32:28');
 
 -- --------------------------------------------------------
 
@@ -214,7 +66,7 @@ INSERT INTO `categories` (`id`, `category_name`, `created_at`) VALUES
 
 CREATE TABLE `inventory` (
   `id` int(11) NOT NULL,
-  `item_code` varchar(50) DEFAULT NULL,
+  `item_code` varchar(50) NOT NULL,
   `item_name` varchar(255) NOT NULL,
   `category` varchar(100) NOT NULL,
   `quantity` int(11) NOT NULL DEFAULT 0,
@@ -250,37 +102,6 @@ CREATE TABLE `inventory_audits` (
   `remarks` text DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Dumping data for table `inventory_audits`
---
-
-INSERT INTO `inventory_audits` (`id`, `audit_month`, `conducted_by`, `total_discrepancy_items`, `remarks`, `created_at`) VALUES
-(1, 'February 2026', 1, 0, '', '2026-02-26 04:59:54'),
-(2, 'February 2026', 2, 0, '', '2026-02-26 05:26:06'),
-(3, 'February 2026', 1, 1, 'Subra isa', '2026-02-26 12:22:32'),
-(4, 'February 2026', 1, 1, '5 missing', '2026-02-26 12:22:55'),
-(5, 'February 2026', 1, 1, '', '2026-02-27 07:44:02'),
-(6, 'February 2026', 10, 1, '', '2026-02-28 02:23:21'),
-(7, 'March 2026', 2, 3, '', '2026-03-01 23:06:11'),
-(8, 'March 2026', 2, 1, '', '2026-03-01 23:10:40'),
-(9, 'March 2026', 2, 1, '', '2026-03-01 23:49:02'),
-(10, 'March 2026', 2, 0, '', '2026-03-03 11:37:49'),
-(11, 'March 2026', 2, 0, '', '2026-03-03 11:38:15'),
-(12, 'March 2026', 2, 0, '', '2026-03-03 11:41:32'),
-(13, 'March 2026', 2, 1, '', '2026-03-03 11:45:22'),
-(14, 'March 2026', 2, 0, '', '2026-03-03 11:54:57'),
-(15, 'March 2026', 2, 0, '', '2026-03-03 11:56:26'),
-(16, 'March 2026', 2, 0, '', '2026-03-03 12:08:38'),
-(17, 'March 2026', 2, 0, '', '2026-03-03 12:12:03'),
-(18, 'March 2026', 2, 0, '', '2026-03-03 12:42:49'),
-(19, 'March 2026', 2, 0, '', '2026-03-03 13:04:59'),
-(20, 'March 2026', 2, 0, '', '2026-03-03 23:11:40'),
-(21, 'March 2026', 2, 1, '', '2026-03-05 02:38:22'),
-(22, 'March 2026', 2, 0, '', '2026-03-05 06:09:34'),
-(23, 'March 2026', 2, 0, '', '2026-03-05 06:10:11'),
-(24, 'March 2026', 2, 0, '', '2026-03-05 07:25:36'),
-(25, 'Week 11 — Mar 9–15, 2026', 1, 0, '', '2026-03-15 22:46:43');
 
 -- --------------------------------------------------------
 
@@ -415,7 +236,30 @@ INSERT INTO `notifications` (`id`, `target_user_id`, `target_role`, `title`, `me
 (110, NULL, 'warehouse', 'Incoming Delivery Expected', 'PO PO-20260319-611 has been generated. Prepare space to receive materials.', 0, '2026-03-19 03:10:44'),
 (111, NULL, 'purchasing', 'PO Discrepancy Found', 'DISCREPANCY ALERT for PO-20260319-611: Order arrived physically with missing or excess items!\n- Concrete Nails [Code: ITM-9411]: Expected 15, Received 14', 0, '2026-03-19 03:18:45'),
 (112, NULL, 'management', 'PO Receiving Discrepancy', 'DISCREPANCY ALERT for PO-20260319-611: Order arrived physically with missing or excess items!\n- Concrete Nails [Code: ITM-9411]: Expected 15, Received 14', 0, '2026-03-19 03:18:45'),
-(113, NULL, 'admin', 'PO Discrepancy Alert', 'DISCREPANCY ALERT for PO-20260319-611: Order arrived physically with missing or excess items!\n- Concrete Nails [Code: ITM-9411]: Expected 15, Received 14', 0, '2026-03-19 03:18:45');
+(113, NULL, 'admin', 'PO Discrepancy Alert', 'DISCREPANCY ALERT for PO-20260319-611: Order arrived physically with missing or excess items!\n- Concrete Nails [Code: ITM-9411]: Expected 15, Received 14', 0, '2026-03-19 03:18:45'),
+(114, NULL, 'management', 'New Requisition Pending', 'System Admin submitted a Warehouse Restock request (RS-2026-1949).', 0, '2026-07-24 08:34:54'),
+(115, 1, NULL, 'Requisition Approved', 'Your request RS-2026-1949 has been approved.', 0, '2026-07-24 08:34:57'),
+(116, NULL, 'purchasing', 'Ready for PO', 'RS-2026-1949 was approved. Please generate a PO.', 0, '2026-07-24 08:34:57'),
+(117, NULL, 'warehouse', 'Incoming Delivery Expected', 'PO PO-20260724-574 has been generated. Prepare space to receive materials.', 0, '2026-07-24 08:35:44'),
+(118, NULL, 'management', 'SMS Order Sent', 'Automated SMS was sent to City Hardware for PO-20260724-574 with verified item list.', 0, '2026-07-24 08:40:12'),
+(119, NULL, 'management', 'SMS Order Sent', 'Automated SMS was sent to City Hardware for PO-20260724-574 with verified item list.', 0, '2026-07-24 08:41:19'),
+(120, NULL, 'purchasing', '📩 SMS Reply: Unknown Supplier', 'Supplier (+639098702199) sent: \"Hello CIMS, we have 40 bags of Holcim cement available for immediate delivery.\"', 0, '2026-07-24 08:51:22'),
+(121, NULL, 'admin', '📩 SMS Reply: Unknown Supplier', 'Supplier (+639098702199) sent: \"Hello CIMS, we have 40 bags of Holcim cement available for immediate delivery.\"', 0, '2026-07-24 08:51:22'),
+(122, NULL, 'management', 'SMS Order Sent', 'Automated SMS was sent to City Hardware for PO-20260724-574 with verified item list.', 0, '2026-07-24 08:54:28'),
+(123, NULL, 'purchasing', '📩 SMS Reply: Unknown Supplier', 'Supplier (+639098702199) sent: \"Hello CIMS, this is an automated supplier test response!\"', 0, '2026-07-24 09:11:17'),
+(124, NULL, 'admin', '📩 SMS Reply: Unknown Supplier', 'Supplier (+639098702199) sent: \"Hello CIMS, this is an automated supplier test response!\"', 0, '2026-07-24 09:11:17'),
+(125, NULL, 'management', 'SMS Order Sent', 'Automated SMS was sent to City Hardware for PO-20260724-574 with verified item list.', 0, '2026-07-24 09:13:37'),
+(126, NULL, 'purchasing', '📩 SMS Reply: City Hardware', 'Supplier (+639760167906) sent: \"Test\"', 0, '2026-07-24 09:20:09'),
+(127, NULL, 'admin', '📩 SMS Reply: City Hardware', 'Supplier (+639760167906) sent: \"Test\"', 0, '2026-07-24 09:20:09'),
+(128, NULL, 'purchasing', '📩 SMS Reply: City Hardware', 'Supplier (+639760167906) sent: \"Test\"', 0, '2026-07-24 09:25:38'),
+(129, NULL, 'admin', '📩 SMS Reply: City Hardware', 'Supplier (+639760167906) sent: \"Test\"', 0, '2026-07-24 09:25:38'),
+(130, NULL, 'warehouse', '🚚 Supply ETA Updated: PO-20260724-574', 'Delivery from City Hardware is now estimated to arrive at warehouse on Jul 30, 2026.', 0, '2026-07-29 00:33:41'),
+(131, NULL, 'management', '🚚 Supply ETA Updated: PO-20260724-574', 'Delivery from City Hardware is now estimated to arrive at warehouse on Jul 30, 2026.', 0, '2026-07-29 00:33:42'),
+(132, NULL, 'management', 'New Requisition Pending', 'LJ Caballero submitted a Warehouse Restock request (RS-2026-8870).', 0, '2026-07-29 00:38:36'),
+(133, 2, NULL, 'Requisition Approved', 'Your request RS-2026-8870 has been approved.', 0, '2026-07-29 00:39:05'),
+(134, NULL, 'purchasing', 'Ready for PO', 'RS-2026-8870 was approved. Please generate a PO.', 0, '2026-07-29 00:39:05'),
+(135, NULL, 'warehouse', 'Incoming Delivery Expected', 'PO PO-20260729-744 generated. Target Warehouse ETA: Jul 30, 2026. Prepare space to receive materials.', 0, '2026-07-29 00:39:26'),
+(136, NULL, 'management', 'SMS Order Sent', 'Automated SMS was sent to Holcim Philippines for PO-20260729-744 with verified item list.', 0, '2026-07-29 00:40:26');
 
 -- --------------------------------------------------------
 
@@ -436,12 +280,31 @@ CREATE TABLE `po_items` (
 --
 
 INSERT INTO `po_items` (`id`, `po_id`, `item_code`, `quantity`, `unit_price`) VALUES
-(1, 1, 'ITM-2', 15, 12.00),
-(2, 2, 'ITM-8787', 10, 500.00),
-(3, 2, 'ITM-3', 10, 120.00),
-(4, 0, 'ITM-2', 50, 12.00),
-(5, 4, 'ITM-9411', 15, 0.00),
-(6, 4, 'ITM-4130', 200, 0.00);
+(1, 1, 'ITM-8782', 50, 0.00),
+(2, 2, 'ITM-9411', 100, 0.00),
+(3, 2, 'ITM-2', 50, 12.00);
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `projects`
+--
+
+CREATE TABLE `projects` (
+  `id` int(11) NOT NULL,
+  `project_code` varchar(50) DEFAULT NULL,
+  `project_name` varchar(150) NOT NULL,
+  `description` text DEFAULT NULL,
+  `status` enum('active','inactive') DEFAULT 'active',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `projects`
+--
+
+INSERT INTO `projects` (`id`, `project_code`, `project_name`, `description`, `status`, `created_at`) VALUES
+(1, NULL, 'Main Headquarters Construction', 'General construction of the main building', 'active', '2026-07-24 08:29:27');
 
 -- --------------------------------------------------------
 
@@ -457,18 +320,17 @@ CREATE TABLE `purchase_orders` (
   `prepared_by` int(11) NOT NULL,
   `status` varchar(50) DEFAULT 'Pending Delivery',
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
-  `delay_remarks` text DEFAULT NULL
+  `delay_remarks` text DEFAULT NULL,
+  `expected_delivery_date` date DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Dumping data for table `purchase_orders`
 --
 
-INSERT INTO `purchase_orders` (`id`, `po_no`, `rs_id`, `supplier_id`, `prepared_by`, `status`, `created_at`, `delay_remarks`) VALUES
-(1, 'PO-20260228-267', 1, 1, 1, 'Delivered', '2026-02-28 02:07:24', NULL),
-(2, 'PO-20260301-344', 4, 1, 11, 'Delayed (Weather)', '2026-03-01 12:09:34', 'Weather / Typhoon - '),
-(3, 'PO-20260319-295', 5, 2, 1, 'SMS Sent', '2026-03-19 02:52:38', NULL),
-(4, 'PO-20260319-611', 13, 1, 1, 'Delivered (Discrepancy)', '2026-03-19 03:10:44', '\n\n[DELIVERY DISCREPANCY]:\n- Concrete Nails [Code: ITM-9411]: Expected 15, Received 14');
+INSERT INTO `purchase_orders` (`id`, `po_no`, `rs_id`, `supplier_id`, `prepared_by`, `status`, `created_at`, `delay_remarks`, `expected_delivery_date`) VALUES
+(1, 'PO-20260724-574', 14, 2, 1, 'SMS Sent', '2026-07-24 08:35:44', NULL, '2026-07-30'),
+(2, 'PO-20260729-744', 15, 1, 1, 'SMS Sent', '2026-07-29 00:39:26', NULL, '2026-07-30');
 
 -- --------------------------------------------------------
 
@@ -485,6 +347,7 @@ CREATE TABLE `requisitions` (
   `urgency` varchar(50) DEFAULT 'Normal',
   `remarks` text DEFAULT NULL,
   `status` varchar(50) DEFAULT 'Pending Approval',
+  `type` varchar(50) DEFAULT 'project',
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
@@ -492,20 +355,22 @@ CREATE TABLE `requisitions` (
 -- Dumping data for table `requisitions`
 --
 
-INSERT INTO `requisitions` (`id`, `rs_no`, `requestor_id`, `requestor_name`, `project_name`, `urgency`, `remarks`, `status`, `created_at`) VALUES
-(1, 'RS-2026-9297', 2, 'Jen', 'Phase 1', 'Normal', '', 'PO Created', '2026-02-24 04:36:46'),
-(2, 'RS-2026-8415', 2, 'Jen', 'basta', 'Urgent', 'Accept pls.', 'Rejected', '2026-02-24 05:21:20'),
-(3, 'RS-2026-8473', 2, 'LJ Caballero', 'City Hall', 'Normal', '', 'Approved', '2026-02-26 05:25:21'),
-(4, 'RS-2026-6380', 5, 'jahz', 'City Hall', 'High', '', 'PO Created', '2026-02-26 06:22:35'),
-(5, 'RS-2026-5584', 2, 'LJ Caballero', 'SCC Buenavista Campus', 'Urgent', '', 'PO Created', '2026-03-01 22:23:12'),
-(6, 'RS-2026-6602', 2, 'LJ Caballero', 'SCC Buenavista Campus', 'High', '', 'Rejected', '2026-03-03 12:08:53'),
-(7, 'RS-2026-6474', 2, 'LJ Caballero', 'SCC Buenavista Campus', 'High', '', 'Approved', '2026-03-03 12:11:01'),
-(8, 'RS-2026-8532', 2, 'LJ Caballero', 'SCC Buenavista Campus', 'Normal', '', 'Approved', '2026-03-08 01:56:13'),
-(9, 'RS-2026-1810', 12, 'Coco Martin', 'SCC Buenavista Campus', 'Normal', '', 'Approved', '2026-03-08 01:58:23'),
-(10, 'RS-2026-4721', 12, 'Coco Martin', 'SCC Buenavista Campus', 'Normal', '\n\n[MANAGEMENT REJECTED]: Insufficient stock from electrical tape', 'Rejected', '2026-03-08 02:10:14'),
-(11, 'RS-2026-2875', 1, 'System Admin', 'SCC Main', 'Normal', '', 'Approved', '2026-03-19 02:54:57'),
-(12, 'RS-2026-4947', 1, 'System Admin', 'SCC Main', 'High', '', 'Approved', '2026-03-19 03:03:18'),
-(13, 'RS-2026-8546', 2, 'LJ Caballero', 'General Restocking', 'Normal', '', 'PO Created', '2026-03-19 03:09:29');
+INSERT INTO `requisitions` (`id`, `rs_no`, `requestor_id`, `requestor_name`, `project_name`, `urgency`, `remarks`, `status`, `type`, `created_at`) VALUES
+(1, 'RS-2026-9297', 2, 'Jen', 'Phase 1', 'Normal', '', 'PO Created', 'project', '2026-02-24 04:36:46'),
+(2, 'RS-2026-8415', 2, 'Jen', 'basta', 'Urgent', 'Accept pls.', 'Rejected', 'project', '2026-02-24 05:21:20'),
+(3, 'RS-2026-8473', 2, 'LJ Caballero', 'City Hall', 'Normal', '', 'Approved', 'project', '2026-02-26 05:25:21'),
+(4, 'RS-2026-6380', 5, 'jahz', 'City Hall', 'High', '', 'PO Created', 'project', '2026-02-26 06:22:35'),
+(5, 'RS-2026-5584', 2, 'LJ Caballero', 'SCC Buenavista Campus', 'Urgent', '', 'PO Created', 'project', '2026-03-01 22:23:12'),
+(6, 'RS-2026-6602', 2, 'LJ Caballero', 'SCC Buenavista Campus', 'High', '', 'Rejected', 'project', '2026-03-03 12:08:53'),
+(7, 'RS-2026-6474', 2, 'LJ Caballero', 'SCC Buenavista Campus', 'High', '', 'Approved', 'project', '2026-03-03 12:11:01'),
+(8, 'RS-2026-8532', 2, 'LJ Caballero', 'SCC Buenavista Campus', 'Normal', '', 'Approved', 'project', '2026-03-08 01:56:13'),
+(9, 'RS-2026-1810', 12, 'Coco Martin', 'SCC Buenavista Campus', 'Normal', '', 'Approved', 'project', '2026-03-08 01:58:23'),
+(10, 'RS-2026-4721', 12, 'Coco Martin', 'SCC Buenavista Campus', 'Normal', '\n\n[MANAGEMENT REJECTED]: Insufficient stock from electrical tape', 'Rejected', 'project', '2026-03-08 02:10:14'),
+(11, 'RS-2026-2875', 1, 'System Admin', 'SCC Main', 'Normal', '', 'Approved', 'project', '2026-03-19 02:54:57'),
+(12, 'RS-2026-4947', 1, 'System Admin', 'SCC Main', 'High', '', 'Approved', 'project', '2026-03-19 03:03:18'),
+(13, 'RS-2026-8546', 2, 'LJ Caballero', 'General Restocking', 'Normal', '', 'PO Created', 'project', '2026-03-19 03:09:29'),
+(14, 'RS-2026-1949', 1, 'System Admin', 'Warehouse Restock', 'Normal', '', 'PO Created', 'restock', '2026-07-24 08:34:54'),
+(15, 'RS-2026-8870', 2, 'LJ Caballero', 'Warehouse Restock', 'Normal', '', 'PO Created', 'restock', '2026-07-29 00:38:36');
 
 -- --------------------------------------------------------
 
@@ -525,23 +390,9 @@ CREATE TABLE `requisition_items` (
 --
 
 INSERT INTO `requisition_items` (`id`, `requisition_id`, `item_code`, `quantity`) VALUES
-(1, 1, 'ITM-2', 15),
-(2, 2, 'ITM-4', 55),
-(3, 3, 'ITM-4', 1),
-(4, 4, 'ITM-8787', 10),
-(5, 4, 'ITM-3', 10),
-(6, 5, 'ITM-2', 50),
-(7, 6, 'ITM-9411', 50),
-(8, 7, 'ITM-3', 1),
-(9, 8, 'ITM-9411', 15),
-(10, 9, 'ITM-9411', 15),
-(11, 9, 'ITM-8782', 11),
-(12, 10, 'ITM-8782', 15),
-(13, 10, 'ITM-9411', 20),
-(14, 0, 'ITM-9411', 15),
-(15, 12, 'ITM-4130', 55),
-(16, 13, 'ITM-9411', 15),
-(17, 13, 'ITM-4130', 200);
+(14, 14, 'ITM-8782', 50),
+(15, 15, 'ITM-9411', 100),
+(16, 15, 'ITM-2', 50);
 
 -- --------------------------------------------------------
 
@@ -567,7 +418,59 @@ CREATE TABLE `suppliers` (
 
 INSERT INTO `suppliers` (`id`, `supplier_code`, `company_name`, `contact_person`, `contact_number`, `email`, `address`, `status`, `created_at`) VALUES
 (1, 'SUP-1055', 'Holcim Philippines', 'Jane', '09123456578', 'sales@holcim.com', 'F.S Pajares Ave. Pagadian City', 'Active', '2026-02-28 02:07:15'),
-(2, 'SUP-6986', 'City Hardware', 'Kate Bishop', '09551144866', 'pagadian@cityhardware.com', 'Purok Bagong Silang, Balangasan Pagadian City', 'Active', '2026-03-13 08:15:22');
+(2, 'SUP-6986', 'City Hardware', 'Angelo Carlo Pedrosa', '639760167906', 'carlopedrosa14@gmail.com', '266 Consulation Santo Niño\r\nPurok Roxas', 'Active', '2026-03-13 08:15:22');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `supplier_sms_replies`
+--
+
+CREATE TABLE `supplier_sms_replies` (
+  `id` int(11) NOT NULL,
+  `supplier_id` int(11) DEFAULT NULL,
+  `po_id` int(11) DEFAULT NULL,
+  `direction` enum('inbound','outbound') NOT NULL DEFAULT 'inbound',
+  `sender_number` varchar(50) NOT NULL,
+  `receiver_number` varchar(50) NOT NULL,
+  `message_text` text NOT NULL,
+  `is_read` tinyint(1) DEFAULT 0,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `supplier_sms_replies`
+--
+
+INSERT INTO `supplier_sms_replies` (`id`, `supplier_id`, `po_id`, `direction`, `sender_number`, `receiver_number`, `message_text`, `is_read`, `created_at`) VALUES
+(1, NULL, NULL, 'inbound', '+639098702199', '+639098702199', 'Hello CIMS, we have 40 bags of Holcim cement available for immediate delivery.', 1, '2026-07-24 08:51:22'),
+(2, NULL, NULL, 'outbound', '+639098702199', '+639098702199', 'Test', 1, '2026-07-24 09:08:37'),
+(3, NULL, NULL, 'inbound', '+639098702199', '+639098702199', 'Hello CIMS, this is an automated supplier test response!', 1, '2026-07-24 09:11:17'),
+(4, 2, 1, 'inbound', '+639760167906', '+639098702199', 'Test', 1, '2026-07-24 09:20:09'),
+(5, 2, 1, 'inbound', '+639760167906', '+639098702199', 'Test', 1, '2026-07-24 09:25:38'),
+(6, 2, NULL, 'outbound', '+639098702199', '+639760167906', 'How about the cornerstone ma\'am?', 1, '2026-07-24 09:33:39'),
+(7, 2, NULL, 'outbound', '+639098702199', '+639760167906', 'Test rani sya ha!!', 1, '2026-07-24 09:36:44');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `system_settings`
+--
+
+CREATE TABLE `system_settings` (
+  `setting_key` varchar(50) NOT NULL,
+  `setting_value` text DEFAULT NULL,
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `system_settings`
+--
+
+INSERT INTO `system_settings` (`setting_key`, `setting_value`, `updated_at`) VALUES
+('last_ai_prediction', '<!DOCTYPE html>\n<html>\n<head>\n	<title>Inventory Restock Recommendations</title>\n</head>\n<body>\n	<h1>Inventory Restock Recommendations</h1>\n	<ul>\n		<li style=\"margin-bottom: 15px; padding: 12px; border-left: 4px solid #dc3545;\">\n			<span style=\"font-size: 1.1rem;\">⚠️ <strong>Makita Power Drill</strong></span> - Runs out in 999 days.\n			<br>🏢 <strong>Top Consumer:</strong> General Stock\n			<br>👉 <strong>Recommended Restock Date:</strong> Not Applicable (999 days of stock left)\n			<br>👉 <strong>Recommended Order Qty:</strong> Not Applicable\n		</li>\n		<li style=\"margin-bottom: 15px; padding: 12px; border-left: 4px solid #dc3545;\">\n			<span style=\"font-size: 1.1rem;\">⚠️ <strong>Electrical Tape</strong></span> - Runs out in 999 days.\n			<br>🏢 <strong>Top Consumer:</strong> General Stock\n			<br>👉 <strong>Recommended Restock Date:</strong> Not Applicable (999 days of stock left)\n			<br>👉 <strong>Recommended Order Qty:</strong> Not Applicable\n		</li>\n		<li style=\"margin-bottom: 15px; padding: 12px; border-left: 4px solid #dc3545;\">\n			<span style=\"font-size: 1.1rem;\">⚠️ <strong>Safety Helmets</strong></span> - Runs out in 999 days.\n			<br>🏢 <strong>Top Consumer:</strong> General Stock\n			<br>👉 <strong>Recommended Restock Date:</strong> Not Applicable (999 days of stock left)\n			<br>👉 <strong>Recommended Order Qty:</strong> Not Applicable\n		</li>\n		<li style=\"margin-bottom: 15px; padding: 12px; border-left: 4px solid #dc3545;\">\n			<span style=\"font-size: 1.1rem;\">⚠️ <strong>Concrete Nails</strong></span> - Runs out in 999 days.\n			<br>🏢 <strong>Top Consumer:</strong> General Stock\n			<br>👉 <strong>Recommended Restock Date:</strong> Not Applicable (999 days of stock left)\n			<br>👉 <strong>Recommended Order Qty:</strong> Not Applicable\n		</li>\n		<li style=\"margin-bottom: 15px; padding: 12px; border-left: 4px solid #dc3545;\">\n			<span style=\"font-size: 1.1rem;\">⚠️ <strong>Steel Rebar (12mm)</strong></span> - Runs out in 999 days.\n			<br>🏢 <strong>Top Consumer:</strong> General Stock\n			<br>👉 <strong>Recommended Restock Date:</strong> Not Applicable (999 days of stock left)\n			<br>👉 <strong>Recommended Order Qty:</strong> Not Applicable\n		</li>\n		<li style=\"margin-bottom: 15px; padding: 12px; border-left: 4px solid #dc3545;\">\n			<span style=\"font-size: 1.1rem;\">⚠️ <strong>Sand</strong></span> - Runs out in 999 days.\n			<br>🏢 <strong>Top Consumer:</strong> General Stock\n			<br>👉 <strong>Recommended Restock Date:</strong> Not Applicable (999 days of stock left)\n			<br>👉 <strong>Recommended Order Qty:</strong> Not Applicable\n		</li>\n	</ul>\n</body>\n</html>\n\nHowever, since all items have 999 days of stock left, we can conclude that there are no critical items that require immediate restocking.', '2026-07-28 10:06:37'),
+('last_ai_timestamp', '1785233197000', '2026-07-28 10:06:37'),
+('login_background', 'assets/img/default_login_bg.png', '2026-07-24 08:29:27');
 
 -- --------------------------------------------------------
 
@@ -588,13 +491,12 @@ CREATE TABLE `units` (
 --
 
 INSERT INTO `units` (`id`, `unit_name`, `abbreviation`, `reorder_level`, `created_at`) VALUES
-(1, 'Pieces', 'pcs', 10, '2026-02-27 23:26:59'),
-(2, 'Bags', 'bags', 10, '2026-02-27 23:26:59'),
-(3, 'Units', 'units', 5, '2026-02-27 23:26:59'),
-(4, 'Kilograms', 'kg', 20, '2026-02-27 23:26:59'),
-(5, 'Liters', 'L', 5, '2026-02-27 23:26:59'),
-(6, 'Meters', 'm', 15, '2026-02-27 23:26:59'),
-(7, 'Cubic Meters', 'm3', 5, '2026-02-27 23:31:00');
+(1, 'Pieces', 'pcs', 10, '2026-07-24 08:32:28'),
+(2, 'Bags', 'bags', 10, '2026-07-24 08:32:28'),
+(3, 'Units', 'units', 5, '2026-07-24 08:32:28'),
+(4, 'Kilograms', 'kg', 20, '2026-07-24 08:32:28'),
+(5, 'Liters', 'L', 5, '2026-07-24 08:32:28'),
+(6, 'Meters', 'm', 15, '2026-07-24 08:32:28');
 
 -- --------------------------------------------------------
 
@@ -617,15 +519,9 @@ CREATE TABLE `users` (
 --
 
 INSERT INTO `users` (`id`, `name`, `username`, `password`, `role`, `created_at`, `fcm_token`) VALUES
-(1, 'System Admin', 'admin', '$2y$12$ABwZhP5WzEm6OCsvISUhFeuPHxIuDv3Co9a3wsiRTqW6lmbUTAhZa', 'admin', '2026-02-25 10:04:47', 'dERNuLXm0kxYHhExgioRSd:APA91bGV4MhcFItT3uD1V7nkS9HBu5D7ShI4J7FBQ6WOF7kpITQ7FK1Xt_vxdBhIKUqdEhvQ9VGNNWV-m5ZmC9OVkSg7AMw8w4m38BSFs53XuERk9TDHu_c'),
-(2, 'LJ Caballero', 'ljwarehouse', '$2y$12$MMfcGelpNubtownYTGP72OT1gqqnsUISpnxY0DxsFWjJlcSbDTklq', 'warehouse', '2026-02-25 22:04:41', 'dERNuLXm0kxYHhExgioRSd:APA91bGV4MhcFItT3uD1V7nkS9HBu5D7ShI4J7FBQ6WOF7kpITQ7FK1Xt_vxdBhIKUqdEhvQ9VGNNWV-m5ZmC9OVkSg7AMw8w4m38BSFs53XuERk9TDHu_c'),
-(3, 'Vjqt', 'Qt', '$2y$12$UZuGBLbT/knVBWgQ0YDYSelSoOSRSZZlk7C0TbQesvKMZAel9cDgC', 'warehouse', '2026-02-26 03:30:36', NULL),
-(10, 'Rexa Facto', 'rexafacto', '$2y$12$aJ0RySdCXMU1B4VR0zm/te1JtHEFgKL/F1JUiyZ2H1aIhkDTEJ1ki', 'warehouse', '2026-02-28 02:19:54', NULL),
-(11, 'Taylor Swift', 'taylorswift', '$2y$12$LPmBYpqB/zK1fOivyeSlB.5s/x8qZYDqvpXg3uYauO9uhFwTvgjHq', 'purchasing', '2026-03-01 11:57:25', 'ftfK1-DnHjpVJTa3MEFPEW:APA91bGRp8lJT4JPhWU9WJ-5V1GVViiexhQny0_slkWAbXrfJiW9mkQwSWhMDt-cH4akIip6cIiULP_oQrCc3urdFXOhnE0XgunXpfHg-2A-15APGr7gtn4'),
-(12, 'Coco Martin', 'cocomartin', '$2y$12$6s8Fk47Dd1s7ngPnijspfe67jDOPyde0/qOz374hqFrCUUzeNuTVG', 'requestor', '2026-03-01 22:20:13', 'dERNuLXm0kxYHhExgioRSd:APA91bGV4MhcFItT3uD1V7nkS9HBu5D7ShI4J7FBQ6WOF7kpITQ7FK1Xt_vxdBhIKUqdEhvQ9VGNNWV-m5ZmC9OVkSg7AMw8w4m38BSFs53XuERk9TDHu_c'),
-(13, 'Kendrick Lamar', 'kendrick', '$2y$12$Pn9.2z5cFm/P3xS.IY4ote9b36Klo3V/mkzN.43sMIL9ZQjtLQY8e', 'management', '2026-03-01 22:24:57', 'dERNuLXm0kxYHhExgioRSd:APA91bGV4MhcFItT3uD1V7nkS9HBu5D7ShI4J7FBQ6WOF7kpITQ7FK1Xt_vxdBhIKUqdEhvQ9VGNNWV-m5ZmC9OVkSg7AMw8w4m38BSFs53XuERk9TDHu_c'),
-(14, 'Requestor', 'requestor', '$2y$12$FGVLw5qacFkTzI1dHQNN9.EUZ3HyWnzIzO0gqA1bCw9FWkJiGIjOW', 'requestor', '2026-03-07 07:55:29', NULL),
-(15, 'Jahzeel Jakosalem', 'jahz', '$2y$12$5rCGwogIu4txHvRxHQDo8.HVN.TZB547Z.nkBGAtx2LuisagclLc.', 'admin', '2026-03-10 07:52:08', NULL);
+(1, 'Angelo Carlo Pedrosa', 'admin', '$2y$12$iJVBLTEUBCbcsVJppnWoweZkOIddOITYIiLGZL7VX9QmJD0PVmZvS', 'admin', '2026-07-24 08:29:27', 'ehnufQj-1bhv7vbkPC3VNs:APA91bFQgk6Qxk6atwBeG9dF3Kn5x12FKoaD7PluUWP-x2_lA7Ldvz0LpewP6daKRNkRhfuwrsTAkppnctdoxEye0kpU8aBO72p8Aj6ipUOoQQ6MxPFUKd4'),
+(2, 'LJ Caballero', 'ljwarehouse', '$2y$12$l6ki9jOJC0XLqSbRAoo23u.o5w4IBuJJ7kWQCXiAtvYCMKughDJK2', 'warehouse', '2026-07-29 00:26:11', 'ehnufQj-1bhv7vbkPC3VNs:APA91bFQgk6Qxk6atwBeG9dF3Kn5x12FKoaD7PluUWP-x2_lA7Ldvz0LpewP6daKRNkRhfuwrsTAkppnctdoxEye0kpU8aBO72p8Aj6ipUOoQQ6MxPFUKd4'),
+(3, 'Coco Martin', 'cocomartin', '$2y$12$vBa78toh2HCrsspKt3wBGe7eLRJUkVTdUV653ZXkZOKdmMslFhZEO', 'purchasing', '2026-07-29 00:26:50', NULL);
 
 -- --------------------------------------------------------
 
@@ -642,22 +538,6 @@ CREATE TABLE `withdrawals` (
   `date_withdrawn` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
---
--- Dumping data for table `withdrawals`
---
-
-INSERT INTO `withdrawals` (`id`, `withdrawal_no`, `project_name`, `released_by`, `remarks`, `date_withdrawn`) VALUES
-(1, 'WD-260224-945', 'Langapod', 3, 'Jorald', '2026-02-24 22:11:15'),
-(2, 'WD-260225-638', 'City Hall', 1, 'Jake Rizal', '2026-02-25 09:33:02'),
-(3, 'WD-260225-571', 'City Hall', 1, 'Jack', '2026-02-25 09:50:27'),
-(4, 'WD-260226-837', 'City Hall', 1, 'Jacob', '2026-02-26 12:13:47'),
-(5, 'WD-260226-448', 'Pagadian', 1, 'Rose', '2026-02-26 12:20:35'),
-(6, 'WD-2026-5603', 'SCC Buenavista Campus', 1, '', '2026-03-09 10:26:07'),
-(7, 'WD-2026-6678', 'City Hall', 1, '', '2026-03-09 11:00:28'),
-(8, 'WD-2026-1892', 'SCC Buenavista Campus', 1, 'Auto-filled via QR Scanner for RS-2026-1810', '2026-03-10 02:17:10'),
-(9, 'WD-2026-9794', 'SCC Buenavista Campus', 1, '', '2026-03-10 03:24:37'),
-(10, 'WD-2026-6394', 'SCC Buenavista Campus', 1, '', '2026-03-10 03:25:16');
-
 -- --------------------------------------------------------
 
 --
@@ -670,59 +550,6 @@ CREATE TABLE `withdrawal_items` (
   `item_code` varchar(50) NOT NULL,
   `quantity` int(11) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Dumping data for table `withdrawal_items`
---
-
-INSERT INTO `withdrawal_items` (`id`, `withdrawal_id`, `item_code`, `quantity`) VALUES
-(1, 1, 'ITM-5', 1),
-(2, 2, 'ITM-1', 50),
-(3, 3, 'ITM-5', 1),
-(4, 4, 'ITM-4', 5),
-(5, 5, 'ITM-4', 1),
-(6, 6, 'ITM-9411', 20),
-(7, 6, 'ITM-3', 10),
-(8, 7, 'ITM-2', 15),
-(9, 8, 'ITM-9411', 15),
-(10, 8, 'ITM-8782', 11),
-(11, 9, 'ITM-3', 20),
-(12, 10, 'ITM-4', 30);
-
--- --------------------------------------------------------
-
---
--- Table structure for table `projects`
---
-
-CREATE TABLE `projects` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `project_code` varchar(50) DEFAULT NULL,
-  `project_name` varchar(150) NOT NULL UNIQUE,
-  `description` text DEFAULT NULL,
-  `status` enum('active','inactive') DEFAULT 'active',
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
-INSERT INTO `projects` (`id`, `project_name`, `description`, `status`) VALUES
-(1, 'Main Headquarters Construction', 'General construction of the main building', 'active');
-
--- --------------------------------------------------------
-
---
--- Table structure for table `system_settings`
---
-
-CREATE TABLE `system_settings` (
-  `setting_key` varchar(50) NOT NULL,
-  `setting_value` text DEFAULT NULL,
-  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
-  PRIMARY KEY (`setting_key`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
-INSERT INTO `system_settings` (`setting_key`, `setting_value`) VALUES
-('login_background', 'assets/img/default_login_bg.png');
 
 --
 -- Indexes for dumped tables
@@ -758,7 +585,6 @@ ALTER TABLE `inventory`
 --
 ALTER TABLE `inventory_audits`
   ADD PRIMARY KEY (`id`),
-  ADD KEY `conducted_by` (`conducted_by`),
   ADD KEY `idx_audits_created_at` (`created_at`),
   ADD KEY `idx_audits_conducted_by` (`conducted_by`);
 
@@ -776,9 +602,16 @@ ALTER TABLE `notifications`
 --
 ALTER TABLE `po_items`
   ADD PRIMARY KEY (`id`),
-  ADD KEY `po_id` (`po_id`),
   ADD KEY `idx_po_items_po_id` (`po_id`),
   ADD KEY `idx_po_items_item_code` (`item_code`);
+
+--
+-- Indexes for table `projects`
+--
+ALTER TABLE `projects`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `project_name` (`project_name`),
+  ADD UNIQUE KEY `project_code` (`project_code`);
 
 --
 -- Indexes for table `purchase_orders`
@@ -786,7 +619,6 @@ ALTER TABLE `po_items`
 ALTER TABLE `purchase_orders`
   ADD PRIMARY KEY (`id`),
   ADD UNIQUE KEY `po_no` (`po_no`),
-  ADD KEY `rs_id` (`rs_id`),
   ADD KEY `supplier_id` (`supplier_id`),
   ADD KEY `prepared_by` (`prepared_by`),
   ADD KEY `idx_po_rs_id` (`rs_id`),
@@ -809,7 +641,6 @@ ALTER TABLE `requisitions`
 --
 ALTER TABLE `requisition_items`
   ADD PRIMARY KEY (`id`),
-  ADD KEY `requisition_id` (`requisition_id`),
   ADD KEY `idx_req_items_req_id` (`requisition_id`),
   ADD KEY `idx_req_items_item_code` (`item_code`);
 
@@ -819,6 +650,20 @@ ALTER TABLE `requisition_items`
 ALTER TABLE `suppliers`
   ADD PRIMARY KEY (`id`),
   ADD UNIQUE KEY `supplier_code` (`supplier_code`);
+
+--
+-- Indexes for table `supplier_sms_replies`
+--
+ALTER TABLE `supplier_sms_replies`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `supplier_id` (`supplier_id`),
+  ADD KEY `po_id` (`po_id`);
+
+--
+-- Indexes for table `system_settings`
+--
+ALTER TABLE `system_settings`
+  ADD PRIMARY KEY (`setting_key`);
 
 --
 -- Indexes for table `units`
@@ -848,7 +693,6 @@ ALTER TABLE `withdrawals`
 --
 ALTER TABLE `withdrawal_items`
   ADD PRIMARY KEY (`id`),
-  ADD KEY `withdrawal_id` (`withdrawal_id`),
   ADD KEY `idx_wd_items_withdrawal_id` (`withdrawal_id`),
   ADD KEY `idx_wd_items_item_code` (`item_code`);
 
@@ -860,13 +704,13 @@ ALTER TABLE `withdrawal_items`
 -- AUTO_INCREMENT for table `audit_items`
 --
 ALTER TABLE `audit_items`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=141;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT for table `categories`
 --
 ALTER TABLE `categories`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 
 --
 -- AUTO_INCREMENT for table `inventory`
@@ -878,37 +722,43 @@ ALTER TABLE `inventory`
 -- AUTO_INCREMENT for table `inventory_audits`
 --
 ALTER TABLE `inventory_audits`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=26;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
 -- AUTO_INCREMENT for table `notifications`
 --
 ALTER TABLE `notifications`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=114;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=137;
 
 --
 -- AUTO_INCREMENT for table `po_items`
 --
 ALTER TABLE `po_items`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+
+--
+-- AUTO_INCREMENT for table `projects`
+--
+ALTER TABLE `projects`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT for table `purchase_orders`
 --
 ALTER TABLE `purchase_orders`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
 -- AUTO_INCREMENT for table `requisitions`
 --
 ALTER TABLE `requisitions`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=14;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=16;
 
 --
 -- AUTO_INCREMENT for table `requisition_items`
 --
 ALTER TABLE `requisition_items`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=18;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=17;
 
 --
 -- AUTO_INCREMENT for table `suppliers`
@@ -917,28 +767,34 @@ ALTER TABLE `suppliers`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
+-- AUTO_INCREMENT for table `supplier_sms_replies`
+--
+ALTER TABLE `supplier_sms_replies`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
+
+--
 -- AUTO_INCREMENT for table `units`
 --
 ALTER TABLE `units`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
 
 --
 -- AUTO_INCREMENT for table `users`
 --
 ALTER TABLE `users`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=16;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
 -- AUTO_INCREMENT for table `withdrawals`
 --
 ALTER TABLE `withdrawals`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT for table `withdrawal_items`
 --
 ALTER TABLE `withdrawal_items`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=13;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- Constraints for dumped tables
@@ -949,6 +805,51 @@ ALTER TABLE `withdrawal_items`
 --
 ALTER TABLE `audit_items`
   ADD CONSTRAINT `audit_items_ibfk_1` FOREIGN KEY (`audit_id`) REFERENCES `inventory_audits` (`id`) ON DELETE CASCADE;
+
+--
+-- Constraints for table `inventory_audits`
+--
+ALTER TABLE `inventory_audits`
+  ADD CONSTRAINT `inventory_audits_ibfk_1` FOREIGN KEY (`conducted_by`) REFERENCES `users` (`id`);
+
+--
+-- Constraints for table `po_items`
+--
+ALTER TABLE `po_items`
+  ADD CONSTRAINT `po_items_ibfk_1` FOREIGN KEY (`po_id`) REFERENCES `purchase_orders` (`id`) ON DELETE CASCADE;
+
+--
+-- Constraints for table `purchase_orders`
+--
+ALTER TABLE `purchase_orders`
+  ADD CONSTRAINT `purchase_orders_ibfk_1` FOREIGN KEY (`rs_id`) REFERENCES `requisitions` (`id`),
+  ADD CONSTRAINT `purchase_orders_ibfk_2` FOREIGN KEY (`supplier_id`) REFERENCES `suppliers` (`id`),
+  ADD CONSTRAINT `purchase_orders_ibfk_3` FOREIGN KEY (`prepared_by`) REFERENCES `users` (`id`);
+
+--
+-- Constraints for table `requisition_items`
+--
+ALTER TABLE `requisition_items`
+  ADD CONSTRAINT `requisition_items_ibfk_1` FOREIGN KEY (`requisition_id`) REFERENCES `requisitions` (`id`) ON DELETE CASCADE;
+
+--
+-- Constraints for table `supplier_sms_replies`
+--
+ALTER TABLE `supplier_sms_replies`
+  ADD CONSTRAINT `supplier_sms_replies_ibfk_1` FOREIGN KEY (`supplier_id`) REFERENCES `suppliers` (`id`) ON DELETE SET NULL,
+  ADD CONSTRAINT `supplier_sms_replies_ibfk_2` FOREIGN KEY (`po_id`) REFERENCES `purchase_orders` (`id`) ON DELETE SET NULL;
+
+--
+-- Constraints for table `withdrawals`
+--
+ALTER TABLE `withdrawals`
+  ADD CONSTRAINT `withdrawals_ibfk_1` FOREIGN KEY (`released_by`) REFERENCES `users` (`id`);
+
+--
+-- Constraints for table `withdrawal_items`
+--
+ALTER TABLE `withdrawal_items`
+  ADD CONSTRAINT `withdrawal_items_ibfk_1` FOREIGN KEY (`withdrawal_id`) REFERENCES `withdrawals` (`id`) ON DELETE CASCADE;
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
