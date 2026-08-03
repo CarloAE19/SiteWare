@@ -6,9 +6,10 @@ require_once 'Connection/db.php';
 $role = $_SESSION['user_role'];
 
 // Fetch all Withdrawals
-$query = "SELECT w.*, u.name as releaser_name 
+$query = "SELECT w.*, u.name as releaser_name, r.requestor_name 
           FROM withdrawals w
           LEFT JOIN users u ON w.released_by = u.id
+          LEFT JOIN requisitions r ON (w.remarks LIKE CONCAT('%', r.rs_no, '%') AND r.rs_no != '')
           ORDER BY w.date_withdrawn DESC";
 $withdrawals = $pdo->query($query)->fetchAll(PDO::FETCH_ASSOC);
 
@@ -146,7 +147,7 @@ include 'layout/header.php';
                                 
                                 <td class="text-center" data-label="Actions">
                                     <?php $currentItemsJson = htmlspecialchars(json_encode($wdItemsGrouped[$wd['id']] ?? []), ENT_QUOTES, 'UTF-8'); ?>
-                                    <button class="btn btn-sm btn-outline-secondary fw-bold shadow-sm px-3" title="View Details" onclick="viewWdDetails('<?= $wd['withdrawal_no'] ?>', '<?= addslashes($wd['project_name']) ?>', '<?= addslashes($wd['remarks']) ?>', '<?= $currentItemsJson ?>')">
+                                    <button class="btn btn-sm btn-outline-secondary fw-bold shadow-sm px-3" title="View Details" onclick="viewWdDetails('<?= $wd['withdrawal_no'] ?>', '<?= addslashes($wd['project_name']) ?>', '<?= addslashes($wd['remarks']) ?>', '<?= $currentItemsJson ?>', '<?= addslashes($wd['releaser_name'] ?? '') ?>', '<?= addslashes($wd['requestor_name'] ?? 'N/A') ?>')">
                                         <i class="bi bi-qr-code-scan me-1"></i> View Trail
                                     </button>
                                 </td>
@@ -191,8 +192,12 @@ include 'layout/header.php';
             <div class="modal-body bg-light p-4">
                 <div class="d-flex justify-content-between align-items-start mb-4 border-bottom pb-3">
                     <div>
-                        <h4 class="fw-bold text-danger mb-0" id="viewWdNo">WD-0000</h4>
-                        <div class="text-muted fw-bold text-uppercase small" id="viewWdProject">Project Name</div>
+                        <h4 class="fw-bold text-danger mb-1" id="viewWdNo">WD-0000</h4>
+                        <div class="text-dark fw-bold text-uppercase fs-6 mb-1" id="viewWdProject">Project Name</div>
+                        <div class="text-muted small fw-bold" id="viewWdMeta">
+                            <span class="me-3"><i class="bi bi-person me-1 text-primary"></i> Requested By: <strong class="text-dark" id="viewWdRequestor">N/A</strong></span>
+                            <span><i class="bi bi-person-badge me-1 text-secondary"></i> Released By: <strong class="text-dark" id="viewWdReleaser">N/A</strong></span>
+                        </div>
                     </div>
                     <div>
                         <img id="viewWdQrCode" src="" alt="Document QR Code" class="border p-1 bg-white shadow-sm" style="width: 80px; height: 80px; border-radius: 6px;">
