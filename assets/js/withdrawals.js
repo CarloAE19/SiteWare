@@ -105,7 +105,11 @@ window.startRsScanner = function() {
                     
                     // PRE-FILL THE WITHDRAWAL FORM!
                     document.getElementById('wdProjectName').value = data.project_name;
-                    document.getElementById('wdRemarks').value = "Auto-filled via QR Scanner for " + data.rs_no;
+                    if (data.rs_status === 'Staged (Ready for Pickup)') {
+                        document.getElementById('wdRemarks').value = "Pre-picked & Staged Express Pickup for " + data.rs_no;
+                    } else {
+                        document.getElementById('wdRemarks').value = "Auto-filled via QR Scanner for " + data.rs_no;
+                    }
                     
                     // Defensively create/get hidden rs_no input to bypass any HTML caching
                     let rsNoField = document.getElementById('wdRsNo');
