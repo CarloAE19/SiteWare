@@ -117,7 +117,7 @@ $approvedRS = $pdo->query("SELECT id, rs_no, project_name FROM requisitions WHER
   2. MODAL: LOG WEATHER/LOGISTICS DELAY
 =========================================== -->
 <div class="modal fade" id="delayModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-sm">
+    <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 border-danger border-top border-4 shadow-lg">
             <div class="modal-header bg-white">
                 <h5 class="modal-title text-danger fw-bold"><i class="bi bi-cloud-lightning-rain-fill me-2"></i>Log Supply Delay</h5>
@@ -130,7 +130,7 @@ $approvedRS = $pdo->query("SELECT id, rs_no, project_name FROM requisitions WHER
                     <input type="hidden" name="po_no" id="delayPoNo">
 
                     <div class="alert alert-danger px-3 py-2 mb-4 shadow-sm" style="font-size: 0.8rem; border-left: 3px solid #dc3545;">
-                        <i class="bi bi-info-circle-fill me-1"></i> Flagging this PO will instantly notify Management.
+                        <i class="bi bi-info-circle-fill me-1"></i> Flagging this PO will instantly update the status and notify Management & Warehouse.
                     </div>
 
                     <div class="mb-3">
@@ -139,17 +139,24 @@ $approvedRS = $pdo->query("SELECT id, rs_no, project_name FROM requisitions WHER
                             <option value="Weather / Typhoon">Weather / Typhoon</option>
                             <option value="Road / Traffic Conditions">Road / Traffic Conditions</option>
                             <option value="Supplier Out of Stock">Supplier Out of Stock</option>
+                            <option value="Port / Customs Hold">Port / Customs Hold</option>
                         </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-muted text-uppercase"><i class="bi bi-calendar2-week text-primary me-1"></i> Revised Warehouse ETA <span class="text-muted">(New Arrival Date)</span></label>
+                        <input type="date" class="form-control fw-bold shadow-sm" name="new_eta" id="delayNewEta">
+                        <small class="text-muted d-block mt-1" style="font-size: 0.75rem;"><i class="bi bi-info-circle me-1"></i>Updating the ETA reschedules the warehouse delivery tracking.</small>
                     </div>
 
                     <div class="mb-1">
                         <label class="form-label fw-bold small text-muted text-uppercase">Additional Remarks</label>
-                        <textarea class="form-control fw-bold shadow-sm" name="remarks" rows="2" placeholder="e.g. Typhoon Basyang blocking port..."></textarea>
+                        <textarea class="form-control fw-bold shadow-sm" name="remarks" rows="2" placeholder="e.g. Typhoon Basyang blocking port, rescheduled arrival..."></textarea>
                     </div>
                 </div>
                 <div class="modal-footer justify-content-between bg-white p-3 border-top-0">
                     <button type="button" class="btn btn-light text-muted fw-bold btn-sm px-3" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-danger btn-sm fw-bold shadow-sm px-3"><i class="bi bi-exclamation-triangle-fill me-1"></i> Submit Alert</button>
+                    <button type="submit" class="btn btn-danger btn-sm fw-bold shadow-sm px-3"><i class="bi bi-exclamation-triangle-fill me-1"></i> Submit Delay Alert</button>
                 </div>
             </form>
         </div>
@@ -408,9 +415,18 @@ $approvedRS = $pdo->query("SELECT id, rs_no, project_name FROM requisitions WHER
     // ==========================================================
     // DELAY MODAL LOGIC (SPA-Proofed & Cache Bypassed)
     // ==========================================================
-    window.openDelayModal = function(id, po_no) {
+    window.openDelayModal = function(id, po_no, currentEta) {
         document.getElementById('delayPoId').value = id;
         document.getElementById('delayPoNo').value = po_no;
+        const etaInput = document.getElementById('delayNewEta');
+        if (etaInput) {
+            if (currentEta) {
+                etaInput.value = currentEta;
+            } else {
+                const today = new Date().toISOString().split('T')[0];
+                etaInput.value = today;
+            }
+        }
 
         // Safely retrieve or instantiate the Bootstrap modal to prevent backdrop glitches
         var myModalEl = document.getElementById('delayModal');
