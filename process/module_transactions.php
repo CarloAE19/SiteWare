@@ -123,8 +123,8 @@ elseif ($action === 'fetch_rs_data') {
         exit;
     }
 
-    if (!in_array($rs['status'], ['Approved', 'PO Created'])) {
-        echo json_encode(['status' => 'error', 'message' => 'This Requisition Slip has not been Approved yet. Current status: ' . $rs['status']]);
+    if (!in_array($rs['status'], ['Approved', 'PO Created', 'Staged (Ready for Pickup)'])) {
+        echo json_encode(['status' => 'error', 'message' => 'This Requisition Slip has not been Approved or Staged yet. Current status: ' . $rs['status']]);
         exit;
     }
 
@@ -136,6 +136,7 @@ elseif ($action === 'fetch_rs_data') {
         'status' => 'success',
         'rs_no' => $rs_no,
         'project_name' => $rs['project_name'],
+        'rs_status' => $rs['status'],
         'items' => $items
     ]);
     exit;
@@ -256,6 +257,33 @@ elseif ($action === 'create_rs') {
 
     $_SESSION['message'] = "Requisition Approved. Ready for Purchasing.";
     $_SESSION['msg_type'] = "success";
+    header("Location: ../requisitions");
+    exit;
+
+} elseif ($action === 'stage_rs_materials') {
+    if (!in_array($_SESSION['user_role'], ['warehouse', 'admin'])) throw new Exception("Unauthorized.");
+    
+    $rs_id = $_POST['rs_id'];
+    $stmt = $pdo->prepare("UPDATE requisitions SET status = 'Staged (Ready for Pickup)' WHERE id = ?");
+    $stmt->execute([$rs_id]);
+    
+    $rsData = $pdo->prepare("SELECT rs_no, requestor_id FROM requisitions WHERE id = ?");
+    $rsData->execute([$rs_id]);
+    $rs = $rsData->fetch();
+
+    if ($rs && !empty($rs['requestor_id'])) {
+        $msg = "Your requested materials for {$rs['rs_no']} have been pre-picked & staged by the Warehouse In-Charge. Ready for express pickup!";
+        $pdo->prepare("INSERT INTO notifications (target_user_id, title, message) VALUES (?, 'Materials Staged (Ready for Pickup)', ?)")->execute([$rs['requestor_id'], $msg]);
+        sendPushNotification($pdo, 'Materials Staged (Ready for Pickup)', $msg, null, (int)$rs['requestor_id']);
+    }
+
+    if (!empty($is_ajax)) {
+        echo json_encode(['status' => 'success', 'message' => "Requisition {$rs['rs_no']} marked as Staged & Ready for Pickup."]);
+        exit;
+    }
+
+    $_SESSION['message'] = "Requisition {$rs['rs_no']} marked as Staged & Ready for Express Pickup.";
+    $_SESSION['msg_type'] = "info";
     header("Location: ../requisitions");
     exit;
 
@@ -637,11 +665,24 @@ elseif ($action === 'create_po') {
     
     $po_id = $_POST['po_id'];
     $po_no = $_POST['po_no'];
-    $delayReason = $_POST['delay_type'] . " - " . $_POST['remarks'];
+    $newEta = !empty($_POST['new_eta']) ? $_POST['new_eta'] : null;
 
-    $pdo->prepare("UPDATE purchase_orders SET status = 'Delayed (Weather)', delay_remarks = ? WHERE id = ?")->execute([$delayReason, $po_id]);
+    $delayReason = $_POST['delay_type'];
+    if (!empty($_POST['remarks'])) {
+        $delayReason .= " - " . $_POST['remarks'];
+    }
+
+    if ($newEta) {
+        $pdo->prepare("UPDATE purchase_orders SET status = 'Delayed (Weather)', delay_remarks = ?, expected_delivery_date = ? WHERE id = ?")->execute([$delayReason, $newEta, $po_id]);
+    } else {
+        $pdo->prepare("UPDATE purchase_orders SET status = 'Delayed (Weather)', delay_remarks = ? WHERE id = ?")->execute([$delayReason, $po_id]);
+    }
     
     $alertMsg = "ALERT: {$po_no} is delayed. Reason: {$delayReason}";
+    if ($newEta) {
+        $alertMsg .= ". New ETA: " . date('M d, Y', strtotime($newEta));
+    }
+
     $pdo->prepare("INSERT INTO notifications (target_role, title, message) VALUES ('management', 'Supply Chain Delay', ?)")->execute([$alertMsg]);
     $pdo->prepare("INSERT INTO notifications (target_role, title, message) VALUES ('warehouse', 'Expected Delivery Delayed', ?)")->execute([$alertMsg]);
     $pdo->prepare("INSERT INTO notifications (target_role, title, message) VALUES ('admin', 'Supply Chain Delay', ?)")->execute([$alertMsg]);
@@ -650,8 +691,8 @@ elseif ($action === 'create_po') {
     sendPushNotification($pdo, 'Expected Delivery Delayed', $alertMsg, 'warehouse', null);
     sendPushNotification($pdo, 'Supply Chain Delay', $alertMsg, 'admin', null);
 
-    $_SESSION['message'] = "Logistics delay successfully logged and alerts sent.";
-    $_SESSION['msg_type'] = "danger";
+    $_SESSION['message'] = "Logistics delay & revised ETA successfully logged and alerts sent.";
+    $_SESSION['msg_type'] = "warning";
     header("Location: ../po");
     exit;
 }
