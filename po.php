@@ -271,15 +271,17 @@ include 'layout/header.php';
                             <?php
                             $statusClass = 'bg-secondary';
                             if ($po['status'] === 'Generated')
-                                $statusClass = 'bg-primary';
+                                $statusClass = 'bg-info text-dark';
                             if ($po['status'] === 'SMS Sent')
-                                $statusClass = 'bg-success';
+                                $statusClass = 'bg-info text-dark';
                             if ($po['status'] === 'Pending Delivery')
-                                $statusClass = 'bg-secondary';
-                            if ($po['status'] === 'Delayed (Weather)')
+                                $statusClass = 'bg-warning text-dark';
+                            if (strpos($po['status'], 'Delayed') !== false)
                                 $statusClass = 'bg-danger';
                             if ($po['status'] === 'Delivered')
-                                $statusClass = 'bg-info text-dark';
+                                $statusClass = 'bg-success';
+                            if ($po['status'] === 'Delivered (Discrepancy)')
+                                $statusClass = 'bg-warning text-dark';
 
                             // Compute ETA Badges
                             $etaBadge = '<span class="text-muted small">Not Set</span>';
@@ -363,7 +365,7 @@ include 'layout/header.php';
                                             <i class="bi bi-chat-text-fill"></i> <span class="d-none d-md-inline ms-1">SMS</span>
                                         </button>
                                         <button class="btn btn-sm btn-outline-danger fw-bold shadow-sm me-1"
-                                            onclick="openDelayModal(<?= $po['id'] ?>, '<?= $po['po_no'] ?>')">
+                                            onclick="openDelayModal(<?= $po['id'] ?>, '<?= $po['po_no'] ?>', '<?= $po['expected_delivery_date'] ?? '' ?>')">
                                             <i class="bi bi-cloud-lightning-rain-fill"></i> <span
                                                 class="d-none d-md-inline ms-1">Delay</span>
                                         </button>
