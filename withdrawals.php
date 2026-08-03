@@ -27,6 +27,9 @@ $inventoryItems = $pdo->query("SELECT item_code, item_name, quantity, unit FROM 
 // Fetch Active Projects
 $activeProjects = $pdo->query("SELECT project_name FROM projects WHERE status = 'active' ORDER BY project_name ASC")->fetchAll(PDO::FETCH_ASSOC);
 
+// Fetch Approved/Staged RS list for Manual Lookup
+$approvedRSList = $pdo->query("SELECT rs_no, project_name, requestor_name, status FROM requisitions WHERE status IN ('Approved', 'PO Created', 'Staged (Ready for Pickup)') ORDER BY created_at DESC")->fetchAll(PDO::FETCH_ASSOC);
+
 include 'layout/header.php';
 ?>
 
