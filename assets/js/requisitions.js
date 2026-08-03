@@ -14,13 +14,15 @@ window.viewRsDetails = function(rsNo, project, remarks, status, requestor, date,
         if (status === 'Pending Approval') {
             statusEl.classList.add('bg-warning', 'text-dark');
         } else if (status === 'Approved') {
-            statusEl.classList.add('bg-primary');
+            statusEl.classList.add('bg-success');
+        } else if (status === 'Staged (Ready for Pickup)') {
+            statusEl.classList.add('bg-info', 'text-dark');
         } else if (status === 'Rejected') {
             statusEl.classList.add('bg-danger');
         } else if (status === 'PO Created') {
-            statusEl.classList.add('bg-success');
+            statusEl.classList.add('bg-info', 'text-dark');
         } else if (status === 'Released') {
-            statusEl.classList.add('bg-dark');
+            statusEl.classList.add('bg-success');
         } else {
             statusEl.classList.add('bg-secondary');
         }
@@ -36,14 +38,18 @@ window.viewRsDetails = function(rsNo, project, remarks, status, requestor, date,
     const qrContainer = document.getElementById('rsQrContainer');
     const printBtn = document.getElementById('printRsBtn');
     
-    if (status === 'Approved' || status === 'PO Created') {
+    if ((status === 'Approved' || status === 'PO Created' || status === 'Staged (Ready for Pickup)') && type !== 'restock') {
         const qrData = encodeURIComponent(`REQ-DATA:${rsNo}`);
         document.getElementById('viewRsQrCode').src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${qrData}`;
         qrContainer.classList.remove('d-none');
         printBtn.classList.remove('d-none');
     } else {
         qrContainer.classList.add('d-none');
-        printBtn.classList.add('d-none');
+        if (status === 'Approved' || status === 'PO Created' || status === 'Staged (Ready for Pickup)') {
+            printBtn.classList.remove('d-none');
+        } else {
+            printBtn.classList.add('d-none');
+        }
     }
     
     const tbody = document.getElementById('viewRsItemsBody');
