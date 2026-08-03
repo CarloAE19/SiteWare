@@ -11,6 +11,8 @@
             
             <form method="POST" action="process/process.php" id="withdrawalForm">
                 <div class="modal-body bg-light p-4">
+                    <input type="hidden" name="action" value="create_withdrawal">
+                    <input type="hidden" name="rs_no" id="wdRsNo" value="">
                     <!-- RS Number Type & Auto-Load Section -->
                     <div class="p-3 bg-white border rounded shadow-sm mb-3" style="border-left: 4px solid var(--gb-blue, #0d6efd) !important;">
                         <label class="form-label fw-bold small text-muted text-uppercase mb-1">
@@ -24,14 +26,18 @@
                         <div id="manualRsStatusFeedback" class="mt-2 text-muted small fw-bold d-none"></div>
                     </div>
 
-                    <div class="row mb-3">
-                        <div class="col-md-6 mb-3 mb-md-0">
+                    <div class="row mb-3 g-3">
+                        <div class="col-md-4">
                             <label class="form-label fw-bold small text-muted text-uppercase">Withdrawal Slip No.</label>
                             <input type="text" class="form-control text-danger fw-bold bg-white" name="withdrawal_no" value="WD-<?= date('Y') ?>-<?= rand(1000,9999) ?>" readonly>
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold small text-muted text-uppercase">Requested By</label>
+                            <input type="text" class="form-control fw-bold bg-white text-dark shadow-sm" id="wdRequestorDisplay" placeholder="Auto-filled via RS..." readonly>
+                        </div>
+                        <div class="col-md-4">
                             <label class="form-label fw-bold small text-muted text-uppercase">Project Name / Assigned To <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control fw-bold bg-white text-dark shadow-sm" id="wdProjectNameDisplay" placeholder="Auto-filled via RS Number..." readonly>
+                            <input type="text" class="form-control fw-bold bg-white text-dark shadow-sm" id="wdProjectNameDisplay" placeholder="Auto-filled via RS..." readonly>
                             <input type="hidden" name="project_name" id="wdProjectName" required>
                         </div>
                     </div>
