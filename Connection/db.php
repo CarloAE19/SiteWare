@@ -347,6 +347,18 @@ try {
         $pdo->exec("ALTER TABLE notifications ADD COLUMN is_read TINYINT(1) DEFAULT 0");
     } catch (PDOException $e) { }
 
+    try {
+        $pdo->exec("ALTER TABLE withdrawals ADD COLUMN received_by VARCHAR(100) NULL");
+    } catch (PDOException $e) { }
+
+    try {
+        $pdo->exec("ALTER TABLE withdrawals ADD COLUMN signature_path VARCHAR(255) NULL");
+    } catch (PDOException $e) { }
+
+    try {
+        $pdo->exec("ALTER TABLE withdrawals ADD COLUMN photo_proof_path VARCHAR(255) NULL");
+    } catch (PDOException $e) { }
+
 } catch (PDOException $e) {
     // 1. Define global constant to signify DB offline status
     if (!defined('DB_OFFLINE')) {
