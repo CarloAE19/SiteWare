@@ -24,10 +24,10 @@ if ($role === 'requestor') {
     $stmt = $pdo->query("SELECT * FROM requisitions WHERE type = 'project' ORDER BY created_at DESC");
     $requisitions = $stmt->fetchAll(PDO::FETCH_ASSOC);
     $statTitle = "Project ";
-} elseif ($role === 'warehouse' || $role === 'purchasing') {
+} elseif ($role === 'purchasing') {
     $stmt = $pdo->query("SELECT * FROM requisitions WHERE type = 'restock' ORDER BY created_at DESC");
     $requisitions = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    $statTitle = ($role === 'warehouse') ? "Warehouse " : "Restock ";
+    $statTitle = "Restock ";
 } else {
     $stmt = $pdo->query("SELECT * FROM requisitions ORDER BY created_at DESC");
     $requisitions = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -55,7 +55,8 @@ foreach ($allItems as $item) {
 
 $totalRS = count($requisitions);
 $pendingRS = count(array_filter($requisitions, fn($r) => $r['status'] === 'Pending Approval'));
-$approvedRS = count(array_filter($requisitions, fn($r) => in_array($r['status'], ['Approved', 'PO Created'])));
+$approvedRS = count(array_filter($requisitions, fn($r) => in_array($r['status'], ['Approved', 'PO Created', 'Staged (Ready for Pickup)'])));
+$stagedRS = count(array_filter($requisitions, fn($r) => $r['status'] === 'Staged (Ready for Pickup)'));
 
 include 'layout/header.php';
 ?>
@@ -314,7 +315,7 @@ include 'layout/header.php';
                                 <td class="fw-bold text-primary rs-no col-rs-no" data-label="RS Number"><?= htmlspecialchars($rs['rs_no']) ?></td>
                                 <td class="fw-bold rs-project col-project text-dark" data-label="Project / Purpose">
                                     <?php if (($rs['type'] ?? 'project') === 'restock'): ?>
-                                        <span class="badge bg-info text-dark shadow-sm px-2 py-1.5"><i class="bi bi-box-seam me-1"></i> Warehouse Restock</span>
+                                        <span class="badge bg-warning text-dark shadow-sm px-2 py-1.5"><i class="bi bi-box-seam me-1"></i> Warehouse Restock</span>
                                     <?php else: ?>
                                         <?= htmlspecialchars($rs['project_name']) ?>
                                     <?php endif; ?>
@@ -352,10 +353,11 @@ include 'layout/header.php';
                                     <?php
                                     $statusClass = 'bg-secondary';
                                     if ($rs['status'] == 'Pending Approval') $statusClass = 'bg-warning text-dark';
-                                    if ($rs['status'] == 'Approved') $statusClass = 'bg-primary';
+                                    if ($rs['status'] == 'Approved') $statusClass = 'bg-success';
+                                    if ($rs['status'] == 'Staged (Ready for Pickup)') $statusClass = 'bg-info text-dark';
                                     if ($rs['status'] == 'Rejected') $statusClass = 'bg-danger';
-                                    if ($rs['status'] == 'PO Created') $statusClass = 'bg-success';
-                                    if ($rs['status'] == 'Released') $statusClass = 'bg-dark';
+                                    if ($rs['status'] == 'PO Created') $statusClass = 'bg-info text-dark';
+                                    if ($rs['status'] == 'Released') $statusClass = 'bg-success';
                                     ?>
                                     <span class="badge <?= $statusClass ?> shadow-sm"><?= htmlspecialchars($rs['status']) ?></span>
                                 </td>
@@ -384,6 +386,16 @@ include 'layout/header.php';
                                         <button type="button" class="btn btn-sm btn-danger shadow-sm" title="Reject RS" onclick="openRejectModal(<?= $rs['id'] ?>, '<?= $rs['rs_no'] ?>')">
                                             <i class="bi bi-x-lg"></i>
                                         </button>
+                                    <?php endif; ?>
+
+                                    <?php if (in_array($role, ['warehouse', 'admin']) && $rs['status'] === 'Approved'): ?>
+                                        <form method="POST" action="process/process.php" class="d-inline">
+                                            <input type="hidden" name="action" value="stage_rs_materials">
+                                            <input type="hidden" name="rs_id" value="<?= $rs['id'] ?>">
+                                            <button class="btn btn-sm btn-outline-info fw-bold shadow-sm me-1" title="Mark Materials as Staged & Ready for Express Pickup">
+                                                <i class="bi bi-box-seam me-1"></i> Stage
+                                            </button>
+                                        </form>
                                     <?php endif; ?>
 
                                     <?php if ($role === 'purchasing' && $rs['status'] === 'Approved'): ?>
