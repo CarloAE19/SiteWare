@@ -3,10 +3,12 @@
  * ========================================================== */
 
 // 1. VIEW WITHDRAWAL DETAILS MODAL
-window.viewWdDetails = function(wdNo, project, remarks, itemsJson) {
+window.viewWdDetails = function(wdNo, project, remarks, itemsJson, releaser = '', requestor = '') {
     document.getElementById('viewWdNo').innerText = wdNo;
     document.getElementById('viewWdProject').innerText = project;
     document.getElementById('viewWdRemarks').innerText = remarks ? remarks : 'No remarks.';
+    if (document.getElementById('viewWdReleaser')) document.getElementById('viewWdReleaser').innerText = releaser || 'Warehouse Staff';
+    if (document.getElementById('viewWdRequestor')) document.getElementById('viewWdRequestor').innerText = requestor || 'N/A';
     
     const qrData = encodeURIComponent(`Slip: ${wdNo} | Proj: ${project}`);
     document.getElementById('viewWdQrCode').src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${qrData}`;
@@ -252,6 +254,8 @@ window.loadRsDataToWithdrawalForm = function(rsNo, callback) {
             }
             if (rsNoField) rsNoField.value = data.rs_no;
             
+            const reqDisplay = document.getElementById('wdRequestorDisplay');
+            if (reqDisplay) reqDisplay.value = data.requestor_name || 'N/A';
             const projInput = document.getElementById('wdProjectName');
             if (projInput) projInput.value = data.project_name;
             const projDisplay = document.getElementById('wdProjectNameDisplay');
@@ -319,6 +323,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const withdrawModalEl = document.getElementById('withdrawModal');
     if (withdrawModalEl) {
         withdrawModalEl.addEventListener('hidden.bs.modal', function () {
+            const reqDisplay = document.getElementById('wdRequestorDisplay');
+            if (reqDisplay) reqDisplay.value = '';
             const projInput = document.getElementById('wdProjectName');
             if (projInput) projInput.value = '';
             const projDisplay = document.getElementById('wdProjectNameDisplay');
