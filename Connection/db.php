@@ -1,7 +1,15 @@
 <?php
-// ==========================================
-// SECURE DATABASE SETUP
-// ==========================================
+// Helper: Human-readable time elapsed string
+if (!function_exists('time_elapsed_string')) {
+    function time_elapsed_string($datetime, $full = false) {
+        $now = new DateTime; $ago = new DateTime($datetime); $diff = $now->diff($ago);
+        $weeks = floor($diff->d / 7); $days = $diff->d - ($weeks * 7);
+        $values = ['y' => $diff->y, 'm' => $diff->m, 'w' => $weeks, 'd' => $days, 'h' => $diff->h, 'i' => $diff->i, 's' => $diff->s];
+        $string = ['y' => 'year', 'm' => 'month', 'w' => 'week', 'd' => 'day', 'h' => 'hour', 'i' => 'minute', 's' => 'second'];
+        $parts = []; foreach ($string as $k => $v) { if ($values[$k]) $parts[] = $values[$k] . ' ' . $v . ($values[$k] > 1 ? 's' : ''); }
+        if (!$full) $parts = array_slice($parts, 0, 1); return $parts ? implode(', ', $parts) . ' ago' : 'just now';
+    }
+}
 
 // 1. Load the secure environment variables (.env)
 if (!function_exists('loadEnv')) {
@@ -38,8 +46,20 @@ loadEnv(__DIR__ . '/../.env');
 if (!defined('AI_API_KEY') && isset($_ENV['AI_API_KEY'])) {
     define('AI_API_KEY', $_ENV['AI_API_KEY']);
 }
+if (!defined('AI_MODEL') && isset($_ENV['AI_MODEL'])) {
+    define('AI_MODEL', $_ENV['AI_MODEL']);
+}
 if (!defined('AI_SYSTEM_PROMPT') && isset($_ENV['AI_SYSTEM_PROMPT'])) {
     define('AI_SYSTEM_PROMPT', trim($_ENV['AI_SYSTEM_PROMPT'], '"\''));
+}
+if (!defined('SMS_API_KEY') && isset($_ENV['SMS_API_KEY'])) {
+    define('SMS_API_KEY', trim($_ENV['SMS_API_KEY']));
+}
+if (!defined('SMS_FROM_NUMBER') && isset($_ENV['SMS_FROM_NUMBER'])) {
+    define('SMS_FROM_NUMBER', $_ENV['SMS_FROM_NUMBER']);
+}
+if (!defined('SMS_GATEWAY_URL') && isset($_ENV['SMS_GATEWAY_URL'])) {
+    define('SMS_GATEWAY_URL', $_ENV['SMS_GATEWAY_URL']);
 }
 
 try {
@@ -138,6 +158,23 @@ try {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     ");
 
+    // 6b. Create Supplier SMS Replies Table
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS supplier_sms_replies (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            supplier_id INT NULL,
+            po_id INT NULL,
+            direction ENUM('inbound', 'outbound') NOT NULL DEFAULT 'inbound',
+            sender_number VARCHAR(50) NOT NULL,
+            receiver_number VARCHAR(50) NOT NULL,
+            message_text TEXT NOT NULL,
+            is_read TINYINT(1) DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (supplier_id) REFERENCES suppliers(id) ON DELETE SET NULL,
+            FOREIGN KEY (po_id) REFERENCES purchase_orders(id) ON DELETE SET NULL
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    ");
+
     // 7. Create Purchase Orders (PO) Table
     $pdo->exec("
         CREATE TABLE IF NOT EXISTS purchase_orders (
@@ -147,6 +184,8 @@ try {
             supplier_id INT NOT NULL,
             prepared_by INT NOT NULL,
             status VARCHAR(50) DEFAULT 'Pending Delivery',
+            expected_delivery_date DATE NULL,
+            delay_remarks TEXT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (rs_id) REFERENCES requisitions(id),
             FOREIGN KEY (supplier_id) REFERENCES suppliers(id),
@@ -232,14 +271,170 @@ try {
         $pdo->exec("INSERT INTO projects (project_name, description, status) VALUES ('Main Headquarters Construction', 'General construction of the main building', 'active')");
     }
 
-    // AUTO-PATCH: Ensure the requisitions table has the type column and migrate existing restocking records
+    // 14. Create System Settings Table
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS system_settings (
+            setting_key VARCHAR(50) PRIMARY KEY,
+            setting_value TEXT NULL,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    ");
+
+    // Seed default login background if not exists
+    $stmt = $pdo->prepare("INSERT IGNORE INTO system_settings (setting_key, setting_value) VALUES ('login_background', 'assets/img/default_login_bg.png')");
+    $stmt->execute();
+
+    // 15. Create Categories Table
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS categories (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            category_name VARCHAR(100) NOT NULL UNIQUE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    ");
+
+    if ($pdo->query("SELECT COUNT(*) FROM categories")->fetchColumn() == 0) {
+        $pdo->exec("INSERT INTO categories (category_name) VALUES ('Materials'), ('Tools'), ('Safety Equipment'), ('Heavy Machinery')");
+    }
+
+    // 16. Create Units Table
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS units (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            unit_name VARCHAR(50) NOT NULL,
+            abbreviation VARCHAR(20) NOT NULL,
+            reorder_level INT NOT NULL DEFAULT 10,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    ");
+
+    try {
+        $pdo->exec("ALTER TABLE units ADD COLUMN reorder_level INT NOT NULL DEFAULT 10");
+        $pdo->exec("UPDATE units SET reorder_level = 5 WHERE unit_name IN ('Cubic Meters', 'Liters')");
+        $pdo->exec("UPDATE units SET reorder_level = 20 WHERE unit_name IN ('Kilograms')");
+        $pdo->exec("UPDATE units SET reorder_level = 15 WHERE unit_name IN ('Meters')");
+    } catch (PDOException $e) { /* Column already exists or table freshly created */ }
+
+    if ($pdo->query("SELECT COUNT(*) FROM units")->fetchColumn() == 0) {
+        $pdo->exec("INSERT INTO units (unit_name, abbreviation, reorder_level) VALUES 
+            ('Pieces', 'pcs', 10), ('Bags', 'bags', 10), ('Units', 'units', 5), 
+            ('Kilograms', 'kg', 20), ('Liters', 'L', 5), ('Meters', 'm', 15)");
+    }
+
+    // AUTO-PATCH: Ensure missing columns are automatically added for existing databases
     try {
         $pdo->exec("ALTER TABLE requisitions ADD COLUMN type VARCHAR(50) DEFAULT 'project'");
         $pdo->exec("UPDATE requisitions SET type = 'restock' WHERE project_name = 'General Restocking'");
-    } catch (PDOException $e) { /* Column already exists or table is not populated */
-    }
+    } catch (PDOException $e) { }
+
+    try {
+        $pdo->exec("ALTER TABLE purchase_orders ADD COLUMN delay_remarks TEXT NULL");
+    } catch (PDOException $e) { }
+
+    try {
+        $pdo->exec("ALTER TABLE purchase_orders ADD COLUMN expected_delivery_date DATE NULL");
+    } catch (PDOException $e) { }
+
+    try {
+        $pdo->exec("ALTER TABLE users ADD COLUMN fcm_token TEXT DEFAULT NULL");
+    } catch (PDOException $e) { }
+
+    try {
+        $pdo->exec("ALTER TABLE projects ADD COLUMN project_code VARCHAR(50) NULL");
+    } catch (PDOException $e) { }
+
+    try {
+        $pdo->exec("ALTER TABLE notifications ADD COLUMN is_read TINYINT(1) DEFAULT 0");
+    } catch (PDOException $e) { }
+
+    try {
+        $pdo->exec("ALTER TABLE withdrawals ADD COLUMN received_by VARCHAR(100) NULL");
+    } catch (PDOException $e) { }
+
+    try {
+        $pdo->exec("ALTER TABLE withdrawals ADD COLUMN signature_path VARCHAR(255) NULL");
+    } catch (PDOException $e) { }
+
+    try {
+        $pdo->exec("ALTER TABLE withdrawals ADD COLUMN photo_proof_path VARCHAR(255) NULL");
+    } catch (PDOException $e) { }
 
 } catch (PDOException $e) {
-    die("Database Error: " . $e->getMessage());
+    // 1. Define global constant to signify DB offline status
+    if (!defined('DB_OFFLINE')) {
+        define('DB_OFFLINE', true);
+    }
+    $pdo = null;
+
+    // 2. Start session if not already started
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
+
+    // 3. Detect AJAX / API / process requests
+    $is_ajax_or_process = (
+        (isset($_SERVER['SCRIPT_NAME']) && strpos($_SERVER['SCRIPT_NAME'], '/process/') !== false) ||
+        (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest') ||
+        (isset($_SERVER['HTTP_ACCEPT']) && strpos($_SERVER['HTTP_ACCEPT'], 'application/json') !== false)
+    );
+
+    if ($is_ajax_or_process) {
+        // If it's a standard Form POST in process/ (not AJAX), redirect back with flash message
+        if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'POST' && (!isset($_SERVER['HTTP_X_REQUESTED_WITH']) || strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) !== 'xmlhttprequest')) {
+            $_SESSION['message'] = "Can't connect to the database. You're offline.";
+            $_SESSION['msg_type'] = "danger";
+            header("Location: " . ($_SERVER['HTTP_REFERER'] ?? '../index'));
+            exit;
+        }
+        
+        // Otherwise, it is an AJAX query expecting JSON
+        header('Content-Type: application/json');
+        echo json_encode([
+            'status' => 'error',
+            'message' => "Can't connect to the database. You're offline."
+        ]);
+        exit;
+    }
+
+    // 4. Check if the user is logged in
+    if (isset($_SESSION['user_id'])) {
+        $rootDir = dirname(__DIR__);
+        
+        // Include layout/header.php which knows DB_OFFLINE is true and will render sidebar + top navigation
+        include_once $rootDir . '/layout/header.php';
+        ?>
+        <div class="container-fluid px-3 px-md-4 py-5 text-center">
+            <div class="card border-0 shadow-sm p-5 mx-auto bg-white" style="max-width: 600px; border-radius: 16px;">
+                <div class="icon-wrap mb-4 d-flex justify-content-center">
+                    <div class="d-flex align-items-center justify-content-center bg-danger-subtle rounded-circle" style="width: 80px; height: 80px;">
+                        <i class="bi bi-database-exclamation text-danger fs-1 animate-pulse-db"></i>
+                    </div>
+                </div>
+                <h3 class="fw-bold text-dark mb-2">Can't Connect, You're Offline</h3>
+                <p class="text-muted mb-4">
+                    The database server is currently offline. You can still navigate using the sidebar to other sections, but database read/write actions are disabled.
+                </p>
+                <button class="btn btn-brand fw-bold px-4 py-2 shadow-sm" onclick="window.location.reload()">
+                    <i class="bi bi-arrow-clockwise me-1"></i> Retry Connection
+                </button>
+            </div>
+        </div>
+        <style>
+            @keyframes pulseDb {
+                0%, 100% { transform: scale(1); }
+                50% { transform: scale(1.08); }
+            }
+            .animate-pulse-db {
+                animation: pulseDb 2s infinite ease-in-out;
+                display: inline-block;
+            }
+        </style>
+        <?php
+        include_once $rootDir . '/layout/footer.php';
+        exit;
+    }
+    
+    // If not logged in, return cleanly and let login.php handle its own error reporting
+    return;
 }
 ?>

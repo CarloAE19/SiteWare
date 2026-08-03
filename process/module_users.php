@@ -64,8 +64,9 @@ elseif ($action === 'update_profile') {
     $userId = $_SESSION['user_id'];
     $newName = trim($_POST['name']);
     $newUsername = trim($_POST['username']);
-    $newPassword = $_POST['new_password'];
-    $confirmPassword = $_POST['confirm_password'];
+    $currentPassword = $_POST['current_password'] ?? '';
+    $newPassword = $_POST['new_password'] ?? '';
+    $confirmPassword = $_POST['confirm_password'] ?? '';
 
     $check = $pdo->prepare("SELECT id FROM users WHERE username = ? AND id != ?");
     $check->execute([$newUsername, $userId]);
@@ -74,6 +75,16 @@ elseif ($action === 'update_profile') {
     }
 
     if (!empty($newPassword)) {
+        // Verify the current password first
+        if (empty($currentPassword)) {
+            throw new Exception("Please enter your current password to set a new one.");
+        }
+        $fetchHash = $pdo->prepare("SELECT password FROM users WHERE id = ?");
+        $fetchHash->execute([$userId]);
+        $storedHash = $fetchHash->fetchColumn();
+        if (!password_verify($currentPassword, $storedHash)) {
+            throw new Exception("Current password is incorrect. Password was not changed.");
+        }
         if ($newPassword !== $confirmPassword) {
             throw new Exception("New passwords do not match!");
         }

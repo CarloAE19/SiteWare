@@ -6,9 +6,10 @@ require_once 'Connection/db.php';
 $role = $_SESSION['user_role'];
 
 // Fetch all Withdrawals
-$query = "SELECT w.*, u.name as releaser_name 
+$query = "SELECT w.*, u.name as releaser_name, r.requestor_name 
           FROM withdrawals w
           LEFT JOIN users u ON w.released_by = u.id
+          LEFT JOIN requisitions r ON (w.remarks LIKE CONCAT('%', r.rs_no, '%') AND r.rs_no != '')
           ORDER BY w.date_withdrawn DESC";
 $withdrawals = $pdo->query($query)->fetchAll(PDO::FETCH_ASSOC);
 
@@ -26,6 +27,9 @@ $inventoryItems = $pdo->query("SELECT item_code, item_name, quantity, unit FROM 
 
 // Fetch Active Projects
 $activeProjects = $pdo->query("SELECT project_name FROM projects WHERE status = 'active' ORDER BY project_name ASC")->fetchAll(PDO::FETCH_ASSOC);
+
+// Fetch Approved/Staged RS list for Manual Lookup
+$approvedRSList = $pdo->query("SELECT rs_no, project_name, requestor_name, status FROM requisitions WHERE status IN ('Approved', 'PO Created', 'Staged (Ready for Pickup)') ORDER BY created_at DESC")->fetchAll(PDO::FETCH_ASSOC);
 
 include 'layout/header.php';
 ?>
@@ -143,7 +147,7 @@ include 'layout/header.php';
                                 
                                 <td class="text-center" data-label="Actions">
                                     <?php $currentItemsJson = htmlspecialchars(json_encode($wdItemsGrouped[$wd['id']] ?? []), ENT_QUOTES, 'UTF-8'); ?>
-                                    <button class="btn btn-sm btn-outline-secondary fw-bold shadow-sm px-3" title="View Details" onclick="viewWdDetails('<?= $wd['withdrawal_no'] ?>', '<?= addslashes($wd['project_name']) ?>', '<?= addslashes($wd['remarks']) ?>', '<?= $currentItemsJson ?>')">
+                                    <button class="btn btn-sm btn-outline-secondary fw-bold shadow-sm px-3" title="View Details" onclick="viewWdDetails('<?= $wd['withdrawal_no'] ?>', '<?= addslashes($wd['project_name']) ?>', '<?= addslashes($wd['remarks'] ?? '') ?>', '<?= $currentItemsJson ?>', '<?= addslashes($wd['releaser_name'] ?? '') ?>', '<?= addslashes($wd['requestor_name'] ?? 'N/A') ?>', '<?= addslashes($wd['received_by'] ?? 'N/A') ?>', '<?= addslashes($wd['signature_path'] ?? '') ?>', '<?= addslashes($wd['photo_proof_path'] ?? '') ?>')">
                                         <i class="bi bi-qr-code-scan me-1"></i> View Trail
                                     </button>
                                 </td>
@@ -188,8 +192,13 @@ include 'layout/header.php';
             <div class="modal-body bg-light p-4">
                 <div class="d-flex justify-content-between align-items-start mb-4 border-bottom pb-3">
                     <div>
-                        <h4 class="fw-bold text-danger mb-0" id="viewWdNo">WD-0000</h4>
-                        <div class="text-muted fw-bold text-uppercase small" id="viewWdProject">Project Name</div>
+                        <h4 class="fw-bold text-danger mb-1" id="viewWdNo">WD-0000</h4>
+                        <div class="text-dark fw-bold text-uppercase fs-6 mb-1" id="viewWdProject">Project Name</div>
+                        <div class="text-muted small fw-bold" id="viewWdMeta">
+                            <span class="me-3"><i class="bi bi-person me-1 text-primary"></i> Requested By: <strong class="text-dark" id="viewWdRequestor">N/A</strong></span>
+                            <span class="me-3"><i class="bi bi-person-check me-1 text-success"></i> Received By: <strong class="text-dark" id="viewWdReceivedBy">N/A</strong></span>
+                            <span><i class="bi bi-person-badge me-1 text-secondary"></i> Released By: <strong class="text-dark" id="viewWdReleaser">N/A</strong></span>
+                        </div>
                     </div>
                     <div>
                         <img id="viewWdQrCode" src="" alt="Document QR Code" class="border p-1 bg-white shadow-sm" style="width: 80px; height: 80px; border-radius: 6px;">
@@ -209,6 +218,30 @@ include 'layout/header.php';
                     </table>
                 </div>
                 
+                <div class="card border-0 shadow-sm mb-3" id="viewWdProofCard">
+                    <div class="card-header bg-white fw-bold small text-uppercase py-2 text-muted">
+                        <i class="bi bi-shield-check text-success me-1"></i> Proof of Receipt & Audit Trail
+                    </div>
+                    <div class="card-body p-3 bg-white">
+                        <div class="row align-items-center text-center g-3">
+                            <div class="col-md-6 border-end-md" id="viewWdSigWrapper">
+                                <div class="text-muted small fw-bold mb-2"><i class="bi bi-pen me-1 text-primary"></i> Digital Signature</div>
+                                <div id="viewWdSigContent">
+                                    <img id="viewWdSignatureImg" src="" class="img-fluid border rounded bg-light p-2 shadow-sm" style="max-height: 100px;">
+                                </div>
+                            </div>
+                            <div class="col-md-6" id="viewWdPhotoWrapper">
+                                <div class="text-muted small fw-bold mb-2"><i class="bi bi-camera me-1 text-primary"></i> Handed-Over Photo Proof</div>
+                                <div id="viewWdPhotoContent">
+                                    <a id="viewWdPhotoLink" href="#" target="_blank">
+                                        <img id="viewWdPhotoImg" src="" class="img-fluid border rounded shadow-sm p-1" style="max-height: 100px; object-fit: cover;">
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <div>
                     <h6 class="fw-bold mb-2 text-dark small text-uppercase">Remarks / Notes:</h6>
                     <p class="text-muted small border p-3 bg-white rounded shadow-sm mb-0" id="viewWdRemarks">No remarks.</p>
@@ -348,6 +381,6 @@ if (document.readyState !== "loading") {
 <?php include 'components/withdrawal_modal.php'; ?>
 
 <!-- Preserved your scanner and entry logic safely here -->
-<script src="assets/js/withdrawals.js"></script>
+<script src="assets/js/withdrawals.js?v=<?= time() ?>"></script>
 
 <?php include 'layout/footer.php'; ?>

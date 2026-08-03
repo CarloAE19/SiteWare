@@ -24,10 +24,10 @@ if ($role === 'requestor') {
     $stmt = $pdo->query("SELECT * FROM requisitions WHERE type = 'project' ORDER BY created_at DESC");
     $requisitions = $stmt->fetchAll(PDO::FETCH_ASSOC);
     $statTitle = "Project ";
-} elseif ($role === 'warehouse') {
+} elseif ($role === 'purchasing') {
     $stmt = $pdo->query("SELECT * FROM requisitions WHERE type = 'restock' ORDER BY created_at DESC");
     $requisitions = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    $statTitle = "Warehouse ";
+    $statTitle = "Restock ";
 } else {
     $stmt = $pdo->query("SELECT * FROM requisitions ORDER BY created_at DESC");
     $requisitions = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -55,7 +55,8 @@ foreach ($allItems as $item) {
 
 $totalRS = count($requisitions);
 $pendingRS = count(array_filter($requisitions, fn($r) => $r['status'] === 'Pending Approval'));
-$approvedRS = count(array_filter($requisitions, fn($r) => in_array($r['status'], ['Approved', 'PO Created'])));
+$approvedRS = count(array_filter($requisitions, fn($r) => in_array($r['status'], ['Approved', 'PO Created', 'Staged (Ready for Pickup)'])));
+$stagedRS = count(array_filter($requisitions, fn($r) => $r['status'] === 'Staged (Ready for Pickup)'));
 
 include 'layout/header.php';
 ?>
@@ -65,54 +66,73 @@ include 'layout/header.php';
 
         /* FIXED: Added .rs-table-wrapper class so this CSS DOES NOT break the Modal's table! */
         .rs-table-wrapper {
-            overflow-x: visible !important;
+            overflow-x: hidden !important;
             border: none !important;
             box-shadow: none !important;
             background: transparent !important;
+            padding: 0 !important;
         }
 
         #rsTable {
+            display: block !important;
+            width: 100% !important;
             white-space: normal !important;
             background: transparent !important;
+            border: none !important;
         }
 
         #rsTable thead {
-            display: none;
+            display: none !important;
+        }
+
+        #rsTable tbody {
+            display: block !important;
+            width: 100% !important;
         }
 
         #rsTable tbody tr {
-            display: block;
-            border: 1px solid #dee2e6;
-            border-radius: 8px;
-            margin-bottom: 15px;
+            display: flex !important;
+            flex-direction: column !important;
+            border: 1px solid #e0e4e8;
+            border-radius: 12px;
+            margin-bottom: 1rem;
             background: #fff;
-            padding: 8px;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+            padding: 14px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+            overflow: hidden;
         }
 
         #rsTable tbody td {
-            display: flex;
+            display: flex !important;
             justify-content: space-between;
             align-items: center;
             text-align: right;
-            padding: 8px 10px;
-            border: none;
-            border-bottom: 1px solid #f4f7f6;
+            padding: 10px 4px;
+            border: none !important;
+            border-bottom: 1px dashed #e9ecef !important;
+            white-space: normal !important;
+            word-break: break-word;
+            width: 100% !important;
+            box-sizing: border-box;
         }
 
         #rsTable tbody td.d-none {
             display: none !important;
         }
 
+        /* Actions footer row */
         #rsTable tbody td:last-child {
-            border-bottom: none;
-            justify-content: flex-end;
+            border-bottom: none !important;
+            justify-content: center !important;
             gap: 8px;
-            padding-top: 12px;
-            background-color: #f8f9fa;
-            border-radius: 0 0 8px 8px;
-            margin: 0 -8px -8px -8px;
-            padding-right: 15px;
+            padding-top: 14px;
+            margin-top: 4px;
+            flex-wrap: wrap;
+        }
+
+        /* Fix inline forms in the actions td */
+        #rsTable tbody td:last-child form.d-inline {
+            display: inline !important;
         }
 
         #rsTable tbody td::before {
@@ -122,7 +142,8 @@ include 'layout/header.php';
             color: #6c757d;
             text-transform: uppercase;
             text-align: left;
-            margin-right: 15px;
+            padding-right: 15px;
+            flex-shrink: 0;
         }
 
         #rsTable tbody td:last-child::before {
@@ -144,6 +165,34 @@ include 'layout/header.php';
         border-bottom: none !important;
         margin-bottom: 0 !important;
         padding-bottom: 0 !important;
+    }
+
+    /* Mobile action bar: stack search full-width, then buttons in a neat row */
+    @media (max-width: 767.98px) {
+        .rs-action-bar {
+            flex-direction: column !important;
+            align-items: stretch !important;
+            gap: 10px !important;
+        }
+        .rs-action-bar .input-group {
+            max-width: 100% !important;
+            min-width: 0 !important;
+            width: 100% !important;
+        }
+        .rs-action-bar .rs-btn-group {
+            display: flex !important;
+            gap: 8px !important;
+            width: 100% !important;
+        }
+        .rs-action-bar .rs-btn-group > div,
+        .rs-action-bar .rs-btn-group > .dropdown {
+            flex: 1 1 0 !important;
+        }
+        .rs-action-bar .rs-btn-group .btn {
+            width: 100% !important;
+            font-size: 0.82rem !important;
+            padding: 0.45rem 0.5rem !important;
+        }
     }
 </style>
 
@@ -200,44 +249,46 @@ include 'layout/header.php';
             </div>
 
             <div class="col-12 col-xl-8">
-                <div class="d-flex flex-wrap justify-content-start justify-content-xl-end align-items-center gap-2 w-100">
+                <div class="d-flex flex-wrap justify-content-start justify-content-xl-end align-items-center gap-2 w-100 rs-action-bar">
 
                     <div class="input-group shadow-sm flex-grow-1 flex-md-grow-0" style="max-width: 320px; min-width: 200px;">
                         <span class="input-group-text bg-white border-end-0 text-muted"><i class="bi bi-search"></i></span>
                         <input type="text" id="searchRs" class="form-control border-start-0 ps-0 bg-white" placeholder="Search RS No or Project...">
                     </div>
 
-                    <div class="dropdown">
-                        <button class="btn btn-sm btn-outline-secondary fw-bold shadow-sm px-3" type="button" id="columnToggleBtn" data-bs-toggle="dropdown" aria-expanded="false" data-bs-auto-close="outside">
-                            <i class="bi bi-funnel-fill me-1 text-primary"></i> Filter
-                        </button>
-                        <ul class="dropdown-menu dropdown-menu-md-end shadow-lg border-0 p-2" aria-labelledby="columnToggleBtn" style="min-width: 250px;">
-                            <li>
-                                <h6 class="dropdown-header fw-bold text-uppercase small text-muted">Filter Columns</h6>
-                            </li>
-                            <li><label class="dropdown-item d-flex align-items-center rounded py-2 text-dark fw-bold" style="cursor:pointer;"><input class="form-check-input col-toggle me-3 mt-0 border-secondary" type="checkbox" style="transform: scale(1.2);" value="col-project" checked> Project / Purpose</label></li>
-                            <li><label class="dropdown-item d-flex align-items-center rounded py-2 text-dark fw-bold" style="cursor:pointer;"><input class="form-check-input col-toggle me-3 mt-0 border-secondary" type="checkbox" style="transform: scale(1.2);" value="col-requestor" checked> Requested By</label></li>
-                            <li><label class="dropdown-item d-flex align-items-center rounded py-2 text-dark fw-bold" style="cursor:pointer;"><input class="form-check-input col-toggle me-3 mt-0 border-secondary" type="checkbox" style="transform: scale(1.2);" value="col-date" checked> Date Requested</label></li>
-                            <li><label class="dropdown-item d-flex align-items-center rounded py-2 text-dark fw-bold" style="cursor:pointer;"><input class="form-check-input col-toggle me-3 mt-0 border-secondary" type="checkbox" style="transform: scale(1.2);" value="col-urgency" checked> Urgency</label></li>
-                            <li><label class="dropdown-item d-flex align-items-center rounded py-2 text-dark fw-bold" style="cursor:pointer;"><input class="form-check-input col-toggle me-3 mt-0 border-secondary" type="checkbox" style="transform: scale(1.2);" value="col-status" checked> Status</label></li>
-                        </ul>
+                    <div class="d-flex flex-wrap gap-2 rs-btn-group">
+                        <div class="dropdown">
+                            <button class="btn btn-sm btn-outline-secondary fw-bold shadow-sm px-3" type="button" id="columnToggleBtn" data-bs-toggle="dropdown" aria-expanded="false" data-bs-auto-close="outside">
+                                <i class="bi bi-funnel-fill me-1 text-primary"></i> Filter
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-md-end shadow-lg border-0 p-2" aria-labelledby="columnToggleBtn" style="min-width: 250px;">
+                                <li>
+                                    <h6 class="dropdown-header fw-bold text-uppercase small text-muted">Filter Columns</h6>
+                                </li>
+                                <li><label class="dropdown-item d-flex align-items-center rounded py-2 text-dark fw-bold" style="cursor:pointer;"><input class="form-check-input col-toggle me-3 mt-0 border-secondary" type="checkbox" style="transform: scale(1.2);" value="col-project" checked> Project / Purpose</label></li>
+                                <li><label class="dropdown-item d-flex align-items-center rounded py-2 text-dark fw-bold" style="cursor:pointer;"><input class="form-check-input col-toggle me-3 mt-0 border-secondary" type="checkbox" style="transform: scale(1.2);" value="col-requestor" checked> Requested By</label></li>
+                                <li><label class="dropdown-item d-flex align-items-center rounded py-2 text-dark fw-bold" style="cursor:pointer;"><input class="form-check-input col-toggle me-3 mt-0 border-secondary" type="checkbox" style="transform: scale(1.2);" value="col-date" checked> Date Log</label></li>
+                                <li><label class="dropdown-item d-flex align-items-center rounded py-2 text-dark fw-bold" style="cursor:pointer;"><input class="form-check-input col-toggle me-3 mt-0 border-secondary" type="checkbox" style="transform: scale(1.2);" value="col-urgency" checked> Urgency</label></li>
+                                <li><label class="dropdown-item d-flex align-items-center rounded py-2 text-dark fw-bold" style="cursor:pointer;"><input class="form-check-input col-toggle me-3 mt-0 border-secondary" type="checkbox" style="transform: scale(1.2);" value="col-status" checked> Status</label></li>
+                            </ul>
+                        </div>
+
+                        <?php if ($role === 'requestor' || $role === 'admin'): ?>
+                            <div>
+                                <button class="btn btn-brand btn-sm fw-bold text-nowrap shadow-sm px-3" data-bs-toggle="modal" data-bs-target="#rsModal">
+                                    <i class="bi bi-plus-lg me-1"></i> Create RS
+                                </button>
+                            </div>
+                        <?php endif; ?>
+
+                        <?php if ($role === 'warehouse' || $role === 'admin'): ?>
+                            <div>
+                                <button class="btn btn-outline-primary btn-sm fw-bold text-nowrap shadow-sm px-3" data-bs-toggle="modal" data-bs-target="#restockModal">
+                                    <i class="bi bi-box-seam me-1"></i> Request Restock
+                                </button>
+                            </div>
+                        <?php endif; ?>
                     </div>
-
-                    <?php if ($role === 'requestor' || $role === 'admin'): ?>
-                        <div>
-                            <button class="btn btn-brand btn-sm fw-bold text-nowrap shadow-sm px-3" data-bs-toggle="modal" data-bs-target="#rsModal">
-                                <i class="bi bi-plus-lg me-1"></i> Create RS
-                            </button>
-                        </div>
-                    <?php endif; ?>
-
-                    <?php if ($role === 'warehouse' || $role === 'admin'): ?>
-                        <div>
-                            <button class="btn btn-outline-primary btn-sm fw-bold text-nowrap shadow-sm px-3" data-bs-toggle="modal" data-bs-target="#restockModal">
-                                <i class="bi bi-box-seam me-1"></i> Request Restock
-                            </button>
-                        </div>
-                    <?php endif; ?>
 
                 </div>
             </div>
@@ -251,7 +302,7 @@ include 'layout/header.php';
                         <th scope="col" class="col-rs-no py-3">RS Number</th>
                         <th scope="col" class="col-project py-3">Project / Purpose</th>
                         <th scope="col" class="col-requestor py-3">Requested By</th>
-                        <th scope="col" class="col-date py-3">Date</th>
+                        <th scope="col" class="col-date py-3">Date Log</th>
                         <th scope="col" class="col-urgency py-3">Urgency</th>
                         <th scope="col" class="col-status py-3">Status</th>
                         <th scope="col" class="text-end py-3">Actions</th>
@@ -264,7 +315,7 @@ include 'layout/header.php';
                                 <td class="fw-bold text-primary rs-no col-rs-no" data-label="RS Number"><?= htmlspecialchars($rs['rs_no']) ?></td>
                                 <td class="fw-bold rs-project col-project text-dark" data-label="Project / Purpose">
                                     <?php if (($rs['type'] ?? 'project') === 'restock'): ?>
-                                        <span class="badge bg-info text-dark shadow-sm px-2 py-1.5"><i class="bi bi-box-seam me-1"></i> Warehouse Restock</span>
+                                        <span class="badge bg-warning text-dark shadow-sm px-2 py-1.5"><i class="bi bi-box-seam me-1"></i> Warehouse Restock</span>
                                     <?php else: ?>
                                         <?= htmlspecialchars($rs['project_name']) ?>
                                     <?php endif; ?>
@@ -281,7 +332,15 @@ include 'layout/header.php';
                                     </div>
                                 </td>
 
-                                <td class="text-muted small fw-bold col-date" data-label="Date"><?= date('M d, Y', strtotime($rs['created_at'])) ?></td>
+                                <td class="col-date" data-label="Date Log">
+                                    <span class="d-block text-dark fw-semibold small">
+                                        <i class="bi bi-calendar3 me-1 text-muted"></i><?= date('M d, Y', strtotime($rs['created_at'])) ?>
+                                    </span>
+                                    <small class="text-muted" style="font-size:0.73rem;">
+                                        <i class="bi bi-clock me-1 text-primary"></i><?= date('g:i A', strtotime($rs['created_at'])) ?> 
+                                        <span class="text-secondary opacity-75">(<?= time_elapsed_string($rs['created_at']) ?>)</span>
+                                    </small>
+                                </td>
                                 <td class="col-urgency" data-label="Urgency">
                                     <?php
                                     $urgencyClass = 'bg-secondary';
@@ -294,9 +353,11 @@ include 'layout/header.php';
                                     <?php
                                     $statusClass = 'bg-secondary';
                                     if ($rs['status'] == 'Pending Approval') $statusClass = 'bg-warning text-dark';
-                                    if ($rs['status'] == 'Approved') $statusClass = 'bg-primary';
+                                    if ($rs['status'] == 'Approved') $statusClass = 'bg-success';
+                                    if ($rs['status'] == 'Staged (Ready for Pickup)') $statusClass = 'bg-info text-dark';
                                     if ($rs['status'] == 'Rejected') $statusClass = 'bg-danger';
-                                    if ($rs['status'] == 'PO Created') $statusClass = 'bg-success';
+                                    if ($rs['status'] == 'PO Created') $statusClass = 'bg-info text-dark';
+                                    if ($rs['status'] == 'Released') $statusClass = 'bg-success';
                                     ?>
                                     <span class="badge <?= $statusClass ?> shadow-sm"><?= htmlspecialchars($rs['status']) ?></span>
                                 </td>
@@ -307,10 +368,11 @@ include 'layout/header.php';
                                     $cleanRemarks = str_replace(["\r", "\n"], ["\\r", "\\n"], addslashes($rs['remarks']));
                                     $cleanRequestor = addslashes($rs['requestor_name']);
                                     $itemsB64 = base64_encode(json_encode($rsItemsGrouped[$rs['id']] ?? []));
+                                    $formattedDateLog = date('M d, Y g:i A', strtotime($rs['created_at'])) . ' (' . time_elapsed_string($rs['created_at']) . ')';
                                     ?>
 
                                     <button class="btn btn-sm btn-outline-secondary fw-bold shadow-sm me-1" title="View Details"
-                                        onclick="viewRsDetails('<?= $rs['rs_no'] ?>', '<?= $cleanProject ?>', '<?= $cleanRemarks ?>', '<?= $rs['status'] ?>', '<?= $cleanRequestor ?>', '<?= date('M d, Y', strtotime($rs['created_at'])) ?>', '<?= $itemsB64 ?>')">
+                                        onclick="viewRsDetails('<?= $rs['rs_no'] ?>', '<?= $cleanProject ?>', '<?= $cleanRemarks ?>', '<?= $rs['status'] ?>', '<?= $cleanRequestor ?>', '<?= $formattedDateLog ?>', '<?= $itemsB64 ?>', '<?= $rs['type'] ?? 'project' ?>')">
                                         <i class="bi bi-file-earmark-text me-1"></i> View
                                     </button>
 
@@ -324,6 +386,16 @@ include 'layout/header.php';
                                         <button type="button" class="btn btn-sm btn-danger shadow-sm" title="Reject RS" onclick="openRejectModal(<?= $rs['id'] ?>, '<?= $rs['rs_no'] ?>')">
                                             <i class="bi bi-x-lg"></i>
                                         </button>
+                                    <?php endif; ?>
+
+                                    <?php if (in_array($role, ['warehouse', 'admin']) && $rs['status'] === 'Approved'): ?>
+                                        <form method="POST" action="process/process.php" class="d-inline">
+                                            <input type="hidden" name="action" value="stage_rs_materials">
+                                            <input type="hidden" name="rs_id" value="<?= $rs['id'] ?>">
+                                            <button class="btn btn-sm btn-outline-info fw-bold shadow-sm me-1" title="Mark Materials as Staged & Ready for Express Pickup">
+                                                <i class="bi bi-box-seam me-1"></i> Stage
+                                            </button>
+                                        </form>
                                     <?php endif; ?>
 
                                     <?php if ($role === 'purchasing' && $rs['status'] === 'Approved'): ?>

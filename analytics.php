@@ -5,6 +5,159 @@ if (!in_array($_SESSION['user_role'], ['admin', 'management', 'purchasing'])) { 
 
 require_once 'Connection/db.php';
 
+// Fetch last saved AI prediction and timestamp
+$lastPrediction = null;
+$lastTimestamp = null;
+try {
+    $stmt = $pdo->prepare("SELECT setting_value FROM system_settings WHERE setting_key = 'last_ai_prediction'");
+    $stmt->execute();
+    $lastPrediction = $stmt->fetchColumn();
+
+    $stmt = $pdo->prepare("SELECT setting_value FROM system_settings WHERE setting_key = 'last_ai_timestamp'");
+    $stmt->execute();
+    $lastTimestamp = $stmt->fetchColumn();
+} catch (Exception $e) {
+    // Database connection or table issue
+}
+
+// Handle AJAX Generate Request (Proxy to NVIDIA NIM API)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['action']) && $_GET['action'] === 'generate_ai_report') {
+    ini_set('display_errors', 0);
+    error_reporting(0);
+    header('Content-Type: application/json');
+    
+    if (!defined('AI_API_KEY') || empty(AI_API_KEY) || AI_API_KEY === 'YOUR_NVIDIA_API_KEY') {
+        echo json_encode(['status' => 'error', 'message' => 'NVIDIA API Key is not configured in .env']);
+        exit;
+    }
+    
+    try {
+        // 1. Fetch latest data to construct the payload
+        $query = "
+            SELECT i.item_code, i.item_name, i.quantity as current_stock, i.unit,
+                COALESCE((SELECT SUM(wi.quantity) FROM withdrawal_items wi JOIN withdrawals w ON wi.withdrawal_id = w.id WHERE wi.item_code = i.item_code AND w.date_withdrawn >= DATE_SUB(NOW(), INTERVAL 30 DAY)), 0) as total_consumed
+            FROM inventory i ORDER BY current_stock ASC
+        ";
+        $consumptionData = $pdo->query($query)->fetchAll(PDO::FETCH_ASSOC);
+
+        $projQuery = "
+            SELECT wi.item_code, w.project_name, SUM(wi.quantity) as project_consumed
+            FROM withdrawal_items wi JOIN withdrawals w ON wi.withdrawal_id = w.id
+            WHERE w.date_withdrawn >= DATE_SUB(NOW(), INTERVAL 30 DAY) GROUP BY wi.item_code, w.project_name ORDER BY wi.item_code, project_consumed DESC
+        ";
+        $projData = $pdo->query($projQuery)->fetchAll(PDO::FETCH_ASSOC);
+
+        $projectBreakdown = [];
+        foreach($projData as $row) {
+            $projectBreakdown[$row['item_code']][] = $row['project_name'] . " (" . $row['project_consumed'] . ")";
+        }
+
+        $aiPayload = [];
+        foreach ($consumptionData as $item) {
+            $dailyBurn = $item['total_consumed'] / 30;
+            if ($item['current_stock'] <= 0) { $daysLeft = 0; } 
+            elseif ($dailyBurn > 0) { $daysLeft = floor($item['current_stock'] / $dailyBurn); } 
+            else { $daysLeft = 999; }
+            
+            $topProjects = isset($projectBreakdown[$item['item_code']]) ? implode(", ", $projectBreakdown[$item['item_code']]) : "No recent projects";
+
+            $aiPayload[] = [
+                'Item' => $item['item_name'], 'Unit' => $item['unit'], 'Current_Stock' => $item['current_stock'],
+                'Used_Last_30_Days' => $item['total_consumed'], 'Daily_Burn_Rate' => round($dailyBurn, 2),
+                'Est_Days_Left' => $daysLeft, 'Consuming_Projects' => $topProjects 
+            ];
+        }
+        usort($aiPayload, fn($a, $b) => $a['Est_Days_Left'] <=> $b['Est_Days_Left']);
+
+        $today = date('F d, Y');
+        $systemPrompt = defined('AI_SYSTEM_PROMPT') ? AI_SYSTEM_PROMPT : '';
+        $systemPrompt = str_replace(['\n', '{TODAY}'], ["\n", $today], $systemPrompt);
+
+        $userMessage = json_encode($aiPayload);
+
+        // NVIDIA NIM API Details
+        $apiUrl = 'https://integrate.api.nvidia.com/v1/chat/completions';
+        $model = defined('AI_MODEL') ? AI_MODEL : 'meta/llama-3.1-8b-instruct';
+
+        $postData = [
+            'model' => $model,
+            'messages' => [
+                ['role' => 'system', 'content' => $systemPrompt],
+                ['role' => 'user', 'content' => "Data: " . $userMessage]
+            ],
+            'temperature' => 0.2,
+            'max_tokens' => 2048
+        ];
+
+        $options = [
+            'http' => [
+                'method'  => 'POST',
+                'header'  => "Content-Type: application/json\r\n" .
+                             "Authorization: Bearer " . AI_API_KEY . "\r\n",
+                'content' => json_encode($postData),
+                'ignore_errors' => true,
+                'timeout' => 30
+            ],
+            'ssl' => [
+                'verify_peer' => true,
+                'verify_peer_name' => true
+            ]
+        ];
+
+        $context = stream_context_create($options);
+        $response = @file_get_contents($apiUrl, false, $context);
+        
+        if ($response === false) {
+            $error_err = error_get_last();
+            $error_msg = isset($error_err['message']) ? $error_err['message'] : 'Unknown connection error';
+            echo json_encode(['status' => 'error', 'message' => 'HTTP Request Failed: ' . $error_msg]);
+            exit;
+        }
+
+        $httpCode = 0;
+        if (isset($http_response_header) && is_array($http_response_header)) {
+            foreach ($http_response_header as $header) {
+                if (preg_match('/^HTTP\/\d\.\d\s+(\d+)/i', $header, $matches)) {
+                    $httpCode = intval($matches[1]);
+                    break;
+                }
+            }
+        }
+
+        if ($httpCode !== 200) {
+            $errData = json_decode($response, true);
+            $errMessage = isset($errData['error']['message']) ? $errData['error']['message'] : 'HTTP Code ' . $httpCode;
+            echo json_encode(['status' => 'error', 'message' => 'NVIDIA API Error: ' . $errMessage]);
+            exit;
+        }
+
+        $resData = json_decode($response, true);
+        if (isset($resData['choices'][0]['message']['content'])) {
+            $aiText = $resData['choices'][0]['message']['content'];
+            
+            // Un-escape markdown wrapper in content if model output it
+            $aiText = preg_replace('/^```html\s*|\s*```$/i', '', $aiText);
+            
+            $timestamp = time() * 1000; // milliseconds
+
+            // Save prediction to database
+            $stmt = $pdo->prepare("INSERT INTO system_settings (setting_key, setting_value) VALUES ('last_ai_prediction', ?) ON DUPLICATE KEY UPDATE setting_value = ?");
+            $stmt->execute([$aiText, $aiText]);
+            
+            $stmt = $pdo->prepare("INSERT INTO system_settings (setting_key, setting_value) VALUES ('last_ai_timestamp', ?) ON DUPLICATE KEY UPDATE setting_value = ?");
+            $stmt->execute([$timestamp, $timestamp]);
+
+            echo json_encode(['status' => 'success', 'prediction' => $aiText, 'timestamp' => $timestamp]);
+        } else {
+            echo json_encode(['status' => 'error', 'message' => 'Invalid response format from NVIDIA NIM API']);
+        }
+    } catch (Exception $e) {
+        echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
+    }
+    exit;
+}
+
+
 // ==========================================
 // 1. DATA CALCULATION ENGINE
 // ==========================================
@@ -78,6 +231,25 @@ foreach ($consumedData as $val) {
     $rawHoverData[] = $val; 
 }
 
+// Fetch Incoming Warehouse Supply ETAs for Analytics Card
+$todayStr = date('Y-m-d');
+$incomingSupplyStmt = $pdo->prepare("
+    SELECT p.*, s.company_name 
+    FROM purchase_orders p
+    LEFT JOIN suppliers s ON p.supplier_id = s.id
+    WHERE p.status NOT IN ('Delivered', 'Delivered (Discrepancy)', 'Cancelled')
+    ORDER BY 
+        CASE 
+            WHEN p.expected_delivery_date = ? THEN 1
+            WHEN p.expected_delivery_date < ? THEN 2
+            ELSE 3 
+        END,
+        p.expected_delivery_date ASC
+    LIMIT 6
+");
+$incomingSupplyStmt->execute([$todayStr, $todayStr]);
+$incomingSupplies = $incomingSupplyStmt->fetchAll(PDO::FETCH_ASSOC);
+
 // ==========================================
 // 2. AJAX REAL-TIME ENDPOINT
 // ==========================================
@@ -110,18 +282,68 @@ include 'layout/header.php';
 
     <div class="row mb-4 g-3">
         
-        <!-- PERCENTAGE BAR CHART -->
+        <!-- INCOMING SUPPLY DELIVERIES & WAREHOUSE ETAS -->
         <div class="col-12 col-lg-4">
             <div class="card border-0 shadow-sm h-100 rounded-3">
-                <div class="card-header bg-white fw-bold py-3 text-dark border-bottom-0">
-                    <i class="bi bi-bar-chart-fill text-primary me-2"></i>Consumption Share (%)
+                <div class="card-header bg-white fw-bold py-3 text-dark border-bottom-0 d-flex justify-content-between align-items-center">
+                    <div>
+                        <i class="bi bi-truck text-primary me-2"></i>Incoming Supply Deliveries & ETAs
+                    </div>
+                    <a href="po" class="btn btn-xs btn-outline-primary fw-bold px-2 py-0" style="font-size:0.72rem;">View All</a>
                 </div>
-                <div class="card-body position-relative d-flex justify-content-center align-items-center" style="height: 300px; width: 100%;">
-                    <?php if (count($chartLabels) > 0): ?>
-                        <canvas id="pctConsumptionChart" style="max-height: 100%; max-width: 100%;"></canvas>
+                <div class="card-body p-3 overflow-auto" style="height: 300px;">
+                    <?php if (count($incomingSupplies) > 0): ?>
+                        <div class="d-flex flex-column gap-2">
+                            <?php foreach ($incomingSupplies as $inPo): ?>
+                                <?php
+                                $etaStr = $inPo['expected_delivery_date'];
+                                $etaBadgeClass = 'bg-secondary';
+                                $etaText = 'ETA Not Set';
+                                $iconClass = 'bi-calendar-event';
+
+                                if (!empty($etaStr)) {
+                                    $daysDiff = (int) ((strtotime($etaStr) - strtotime($todayStr)) / 86400);
+                                    if ($daysDiff == 0) {
+                                        $etaBadgeClass = 'bg-warning text-dark';
+                                        $etaText = 'Arriving TODAY';
+                                        $iconClass = 'bi-truck-flatbed';
+                                    } elseif ($daysDiff < 0) {
+                                        $etaBadgeClass = 'bg-danger';
+                                        $etaText = 'Overdue by ' . abs($daysDiff) . 'd';
+                                        $iconClass = 'bi-exclamation-triangle-fill';
+                                    } else {
+                                        $etaBadgeClass = 'bg-success';
+                                        $etaText = 'In ' . $daysDiff . 'd (' . date('M d', strtotime($etaStr)) . ')';
+                                        $iconClass = 'bi-clock-history';
+                                    }
+                                }
+                                ?>
+                                <div class="p-2 border rounded-3 bg-light d-flex flex-column justify-content-between">
+                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                        <span class="fw-bold text-primary small"><?= htmlspecialchars($inPo['po_no']) ?></span>
+                                        <span class="badge <?= $etaBadgeClass ?>" style="font-size:0.65rem;">
+                                            <i class="bi <?= $iconClass ?> me-1"></i><?= $etaText ?>
+                                        </span>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <small class="text-dark fw-semibold" style="font-size:0.78rem;">
+                                            <i class="bi bi-building me-1 text-muted"></i><?= htmlspecialchars($inPo['company_name'] ?: 'Supplier') ?>
+                                        </small>
+                                        <?php if (in_array($_SESSION['user_role'], ['admin', 'purchasing'])): ?>
+                                            <button type="button" class="btn btn-xs btn-link text-primary p-0 text-decoration-none fw-bold" style="font-size:0.72rem;" onclick="openEditEtaModal(<?= $inPo['id'] ?>, '<?= $inPo['po_no'] ?>', '<?= $inPo['expected_delivery_date'] ?? '' ?>')">
+                                                <i class="bi bi-pencil-square me-1"></i>ETA
+                                            </button>
+                                        <?php endif; ?>
+                                    </div>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
                     <?php else: ?>
-                        <div class="text-center text-muted py-5" id="noDataPct"><i class="bi bi-clipboard-x fs-1 d-block mb-2"></i>No consumption recorded in the last 30 days.</div>
-                        <canvas id="pctConsumptionChart" style="display:none;"></canvas>
+                        <div class="text-center text-muted py-5">
+                            <i class="bi bi-truck display-6 opacity-25 d-block mb-2 text-primary"></i>
+                            <p class="small mb-0 fw-semibold">No pending supply deliveries</p>
+                            <small class="text-muted" style="font-size: 0.72rem;">All orders fulfilled!</small>
+                        </div>
                     <?php endif; ?>
                 </div>
             </div>
@@ -167,7 +389,12 @@ include 'layout/header.php';
     <div class="card border-0 shadow-sm rounded-3" style="border-top: 5px solid var(--gb-blue) !important;">
         <div class="card-header bg-white fw-bold py-3 d-flex justify-content-between align-items-center border-bottom-0">
             <span class="fs-5 text-dark"><i class="bi bi-stars text-warning me-2"></i>AI POWERED ANALYTICS</span>
-            <div>
+            <div class="d-flex align-items-center gap-3">
+                <small id="lastUpdatedText" class="text-muted fw-semibold" data-timestamp="<?= $lastTimestamp ?: '' ?>">
+                    <?php if ($lastTimestamp): ?>
+                        Last Updated: <?= date('M d, Y h:i:s A', $lastTimestamp / 1000) ?>
+                    <?php endif; ?>
+                </small>
                 <button class="btn btn-sm btn-brand fw-bold shadow-sm px-3" id="generateAiBtn" onclick="generateAIPrediction(true)">
                     <i class="bi bi-arrow-clockwise me-1"></i> Analyze Now
                 </button>
@@ -178,8 +405,18 @@ include 'layout/header.php';
                 <div class="spinner-border text-primary mb-2" role="status"></div>
                 <small class="fw-bold text-primary blink-text">AI is calculating optimal restock dates...</small>
             </div>
-            <div id="aiOutput" class="p-3 bg-white border rounded shadow-sm" style="font-size: 1rem; line-height: 1.7; color: #333;">
-                <div class="text-center text-muted py-4"><i class="bi bi-cpu fs-2 d-block mb-2"></i>Click "Analyze Now" to generate AI Restock Predictions.</div>
+            <div id="aiOutput" class="p-3 rounded shadow-sm" style="font-size: 1rem; line-height: 1.7;">
+                <?php if ($lastPrediction): ?>
+                    <?php 
+                        $cleanPrediction = preg_replace('/background-color:\s*#fff(?:fff)?;?/i', '', $lastPrediction);
+                        $cleanPrediction = preg_replace('/background:\s*#fff(?:fff)?;?/i', '', $cleanPrediction);
+                        $cleanPrediction = preg_replace('/background-color:\s*white;?/i', '', $cleanPrediction);
+                        $cleanPrediction = preg_replace('/background:\s*white;?/i', '', $cleanPrediction);
+                    ?>
+                    <?= $cleanPrediction ?>
+                <?php else: ?>
+                    <div class="text-center text-muted py-4"><i class="bi bi-cpu fs-2 d-block mb-2"></i>Click "Analyze Now" to generate AI Restock Predictions.</div>
+                <?php endif; ?>
             </div>
         </div>
     </div>
@@ -194,8 +431,6 @@ include 'layout/header.php';
 <!-- PASS PHP DATA TO JAVASCRIPT EXTERNALLY -->
 <script>
     window.aiPayload = <?= json_encode($aiPayload) ?>;
-    window.apiKey = "<?= defined('AI_API_KEY') ? AI_API_KEY : '' ?>"; 
-    window.systemPrompt = <?= defined('AI_SYSTEM_PROMPT') ? json_encode(AI_SYSTEM_PROMPT) : '""' ?>; 
     
     window.chartData = {
         chartLabels: <?= json_encode($chartLabels) ?>,

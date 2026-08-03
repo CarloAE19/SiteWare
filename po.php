@@ -177,21 +177,26 @@ include 'layout/header.php';
     <!-- PO Stats Cards (Premium Hover Effects applied via existing CSS) -->
     <div class="row mb-4 g-3">
         <div class="col-12 col-md-4">
-            <div class="card stat-card bg-white h-100 p-3 shadow-sm border-0 rounded-3" style="border-left: 5px solid var(--gb-blue) !important;">
+            <div class="card stat-card bg-white h-100 p-3 shadow-sm border-0 rounded-3"
+                style="border-left: 5px solid var(--gb-blue) !important;">
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
-                        <h6 class="text-muted text-uppercase mb-1 fw-bold" style="font-size:0.75rem;">Total Purchase Orders</h6>
+                        <h6 class="text-muted text-uppercase mb-1 fw-bold" style="font-size:0.75rem;">Total Purchase
+                            Orders</h6>
                         <h3 class="mb-0 fw-bold text-dark"><?= $totalPO ?></h3>
                     </div>
-                    <div class="fs-1 text-primary" style="color: var(--gb-blue) !important; opacity: 0.8;"><i class="bi bi-file-earmark-text-fill"></i></div>
+                    <div class="fs-1 text-primary" style="color: var(--gb-blue) !important; opacity: 0.8;"><i
+                            class="bi bi-file-earmark-text-fill"></i></div>
                 </div>
             </div>
         </div>
         <div class="col-12 col-md-4">
-            <div class="card stat-card bg-white h-100 p-3 shadow-sm border-0 rounded-3" style="border-left: 5px solid var(--gb-yellow) !important;">
+            <div class="card stat-card bg-white h-100 p-3 shadow-sm border-0 rounded-3"
+                style="border-left: 5px solid var(--gb-yellow) !important;">
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
-                        <h6 class="text-muted text-uppercase mb-1 fw-bold" style="font-size:0.75rem;">Pending Deliveries</h6>
+                        <h6 class="text-muted text-uppercase mb-1 fw-bold" style="font-size:0.75rem;">Pending Deliveries
+                        </h6>
                         <h3 class="mb-0 fw-bold text-dark"><?= $pendingDelivery ?></h3>
                     </div>
                     <div class="fs-1 text-warning" style="opacity: 0.8;"><i class="bi bi-truck"></i></div>
@@ -199,13 +204,16 @@ include 'layout/header.php';
             </div>
         </div>
         <div class="col-12 col-md-4">
-            <div class="card stat-card bg-white h-100 p-3 shadow-sm border-0 rounded-3" style="border-left: 5px solid #dc3545 !important;">
+            <div class="card stat-card bg-white h-100 p-3 shadow-sm border-0 rounded-3"
+                style="border-left: 5px solid #dc3545 !important;">
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
-                        <h6 class="text-muted text-uppercase mb-1 fw-bold" style="font-size:0.75rem;">Delayed Orders</h6>
+                        <h6 class="text-muted text-uppercase mb-1 fw-bold" style="font-size:0.75rem;">Delayed Orders
+                        </h6>
                         <h3 class="mb-0 fw-bold text-danger"><?= $delayedPO ?></h3>
                     </div>
-                    <div class="fs-1 text-danger" style="opacity: 0.8;"><i class="bi bi-exclamation-triangle-fill"></i></div>
+                    <div class="fs-1 text-danger" style="opacity: 0.8;"><i class="bi bi-exclamation-triangle-fill"></i>
+                    </div>
                 </div>
             </div>
         </div>
@@ -215,20 +223,26 @@ include 'layout/header.php';
     <div class="card border-0 shadow-sm p-3 p-md-4 bg-white rounded-3">
         <div class="row align-items-center mb-4 g-3">
             <div class="col-12 col-xl-5 text-center text-xl-start">
-                <h4 class="mb-0 fw-bold text-dark"><i class="bi bi-file-earmark-text me-2 text-primary"></i>Purchase Orders</h4>
+                <h4 class="mb-0 fw-bold text-dark"><i class="bi bi-file-earmark-text me-2 text-primary"></i>Purchase
+                    Orders</h4>
             </div>
 
             <div class="col-12 col-xl-7">
-                <div class="d-flex flex-wrap justify-content-center justify-content-xl-end align-items-center gap-2 w-100">
+                <div
+                    class="d-flex flex-wrap justify-content-center justify-content-xl-end align-items-center gap-2 w-100">
 
-                    <div class="input-group shadow-sm flex-grow-1 flex-md-grow-0" style="max-width: 320px; min-width: 200px;">
-                        <span class="input-group-text bg-white border-end-0 text-muted"><i class="bi bi-search"></i></span>
-                        <input type="text" id="searchPo" class="form-control border-start-0 ps-0 bg-white fw-bold" placeholder="Search PO No or Supplier...">
+                    <div class="input-group shadow-sm flex-grow-1 flex-md-grow-0"
+                        style="max-width: 320px; min-width: 200px;">
+                        <span class="input-group-text bg-white border-end-0 text-muted"><i
+                                class="bi bi-search"></i></span>
+                        <input type="text" id="searchPo" class="form-control border-start-0 ps-0 bg-white fw-bold"
+                            placeholder="Search PO No or Supplier...">
                     </div>
 
                     <?php if (in_array($role, ['admin', 'purchasing'])): ?>
                         <div>
-                            <button class="btn btn-brand fw-bold text-nowrap shadow-sm px-4" data-bs-toggle="modal" data-bs-target="#poModal">
+                            <button class="btn btn-brand fw-bold text-nowrap shadow-sm px-4" data-bs-toggle="modal"
+                                data-bs-target="#poModal">
                                 <i class="bi bi-plus-lg me-1"></i> Create PO
                             </button>
                         </div>
@@ -243,9 +257,11 @@ include 'layout/header.php';
                 <thead class="table-dark">
                     <tr>
                         <th class="py-3">PO Number</th>
+                        <th class="py-3">Date & Time Created</th>
                         <th class="py-3">Linked RS / Project</th>
                         <th class="py-3">Supplier</th>
                         <th class="py-3">Status</th>
+                        <th class="py-3">Warehouse ETA</th>
                         <th class="text-center py-3">Logistics Actions</th>
                     </tr>
                 </thead>
@@ -254,71 +270,135 @@ include 'layout/header.php';
                         <?php foreach ($pos as $po): ?>
                             <?php
                             $statusClass = 'bg-secondary';
-                            if ($po['status'] === 'Generated') $statusClass = 'bg-primary';
-                            if ($po['status'] === 'SMS Sent') $statusClass = 'bg-success';
-                            if ($po['status'] === 'Pending Delivery') $statusClass = 'bg-secondary';
-                            if ($po['status'] === 'Delayed (Weather)') $statusClass = 'bg-danger';
-                            if ($po['status'] === 'Delivered') $statusClass = 'bg-info text-dark';
+                            if ($po['status'] === 'Generated')
+                                $statusClass = 'bg-info text-dark';
+                            if ($po['status'] === 'SMS Sent')
+                                $statusClass = 'bg-info text-dark';
+                            if ($po['status'] === 'Pending Delivery')
+                                $statusClass = 'bg-warning text-dark';
+                            if (strpos($po['status'], 'Delayed') !== false)
+                                $statusClass = 'bg-danger';
+                            if ($po['status'] === 'Delivered')
+                                $statusClass = 'bg-success';
+                            if ($po['status'] === 'Delivered (Discrepancy)')
+                                $statusClass = 'bg-warning text-dark';
+
+                            // Compute ETA Badges
+                            $etaBadge = '<span class="text-muted small">Not Set</span>';
+                            $etaDateStr = $po['expected_delivery_date'] ?? null;
+                            if ($etaDateStr) {
+                                $formattedEta = date('M d, Y', strtotime($etaDateStr));
+                                if (in_array($po['status'], ['Delivered', 'Delivered (Discrepancy)'])) {
+                                    $etaBadge = '<span class="badge bg-light text-muted border shadow-sm"><i class="bi bi-check2-circle me-1 text-success"></i>' . $formattedEta . '</span>';
+                                } else {
+                                    $todayTs = strtotime(date('Y-m-d'));
+                                    $etaTs = strtotime($etaDateStr);
+                                    $daysDiff = (int)(($etaTs - $todayTs) / 86400);
+
+                                    if ($daysDiff == 0) {
+                                        $etaBadge = '<span class="badge bg-warning text-dark shadow-sm"><i class="bi bi-truck-flatbed me-1"></i>Arriving Today</span>';
+                                    } elseif ($daysDiff < 0) {
+                                        $overdueDays = abs($daysDiff);
+                                        $etaBadge = '<span class="badge bg-danger shadow-sm"><i class="bi bi-exclamation-triangle-fill me-1"></i>Overdue (' . $overdueDays . 'd)</span>';
+                                    } else {
+                                        $etaBadge = '<span class="badge bg-success shadow-sm"><i class="bi bi-calendar-check me-1"></i>In ' . $daysDiff . 'd (' . date('M d', $etaTs) . ')</span>';
+                                    }
+                                }
+                            }
                             ?>
                             <tr class="po-row">
-                                <td class="fw-bold text-dark po-no" data-label="PO Number"><?= htmlspecialchars($po['po_no']) ?></td>
+                                <td class="fw-bold text-dark po-no" data-label="PO Number"><?= htmlspecialchars($po['po_no']) ?>
+                                </td>
+
+                                <td data-label="Date & Time Created">
+                                    <span class="d-block text-dark fw-semibold small">
+                                        <i class="bi bi-calendar3 me-1 text-muted"></i><?= !empty($po['created_at']) ? date('M d, Y', strtotime($po['created_at'])) : 'N/A' ?>
+                                    </span>
+                                    <small class="text-muted" style="font-size:0.73rem;">
+                                        <i class="bi bi-clock me-1 text-primary"></i><?= !empty($po['created_at']) ? date('g:i A', strtotime($po['created_at'])) : '' ?>
+                                    </small>
+                                </td>
 
                                 <td data-label="Linked RS / Project">
                                     <span class="d-block">
-                                        <span class="badge bg-light text-dark border me-1 shadow-sm"><?= htmlspecialchars($po['rs_no']) ?></span>
+                                        <span
+                                            class="badge bg-light text-dark border me-1 shadow-sm"><?= htmlspecialchars($po['rs_no']) ?></span>
                                         <small class="text-muted fw-bold"><?= htmlspecialchars($po['project_name']) ?></small>
                                     </span>
                                 </td>
 
                                 <td class="fw-bold text-primary po-supplier" data-label="Supplier">
                                     <span class="d-inline-flex align-items-center">
-                                        <i class="bi bi-building me-2 text-muted"></i><?= htmlspecialchars($po['company_name']) ?>
+                                        <i
+                                            class="bi bi-building me-2 text-muted"></i><?= htmlspecialchars($po['company_name']) ?>
                                     </span>
                                 </td>
 
                                 <td data-label="Status">
-                                    <span class="badge <?= $statusClass ?> px-3 py-2 shadow-sm text-uppercase" id="status_<?= $po['id'] ?>">
+                                    <span class="badge <?= $statusClass ?> px-3 py-2 shadow-sm text-uppercase"
+                                        id="status_<?= $po['id'] ?>">
                                         <?= htmlspecialchars($po['status'] ?? 'Generated') ?>
                                     </span>
                                     <?php if ($po['status'] === 'Delayed (Weather)'): ?>
-                                        <small class="d-block text-danger mt-2 fw-bold" style="font-size: 0.75rem; white-space: normal;"><i class="bi bi-exclamation-triangle-fill me-1"></i><?= htmlspecialchars($po['delay_remarks']) ?></small>
+                                        <small class="d-block text-danger mt-2 fw-bold"
+                                            style="font-size: 0.75rem; white-space: normal;"><i
+                                                class="bi bi-exclamation-triangle-fill me-1"></i><?= htmlspecialchars($po['delay_remarks']) ?></small>
                                     <?php endif; ?>
+                                </td>
+
+                                <td data-label="Warehouse ETA">
+                                    <div class="d-flex align-items-center gap-1">
+                                        <?= $etaBadge ?>
+                                        <?php if (in_array($role, ['admin', 'purchasing'])): ?>
+                                            <button type="button" class="btn btn-sm btn-link text-muted p-0 ms-1 text-decoration-none" title="Update ETA" onclick="openEditEtaModal(<?= $po['id'] ?>, '<?= $po['po_no'] ?>', '<?= $po['expected_delivery_date'] ?? '' ?>')">
+                                                <i class="bi bi-pencil-square fs-6 text-primary"></i>
+                                            </button>
+                                        <?php endif; ?>
+                                    </div>
                                 </td>
 
                                 <td class="text-center" data-label="Actions">
                                     <?php if (in_array($role, ['admin', 'purchasing'])): ?>
-                                        <button class="btn btn-sm btn-outline-success fw-bold shadow-sm me-1" id="smsBtn_<?= $po['id'] ?>" onclick="sendSmsBlaster(<?= $po['id'] ?>, '<?= $po['po_no'] ?>', '<?= addslashes($po['company_name']) ?>', '<?= $po['contact_number'] ?>')">
+                                        <button class="btn btn-sm btn-outline-success fw-bold shadow-sm me-1"
+                                            id="smsBtn_<?= $po['id'] ?>"
+                                            onclick="openSmsPreviewModal(<?= $po['id'] ?>, '<?= $po['po_no'] ?>', <?= (int) $po['supplier_id'] ?>, '<?= $po['contact_number'] ?>')">
                                             <i class="bi bi-chat-text-fill"></i> <span class="d-none d-md-inline ms-1">SMS</span>
                                         </button>
-                                        <button class="btn btn-sm btn-outline-danger fw-bold shadow-sm me-1" onclick="openDelayModal(<?= $po['id'] ?>, '<?= $po['po_no'] ?>')">
-                                            <i class="bi bi-cloud-lightning-rain-fill"></i> <span class="d-none d-md-inline ms-1">Delay</span>
+                                        <button class="btn btn-sm btn-outline-danger fw-bold shadow-sm me-1"
+                                            onclick="openDelayModal(<?= $po['id'] ?>, '<?= $po['po_no'] ?>', '<?= $po['expected_delivery_date'] ?? '' ?>')">
+                                            <i class="bi bi-cloud-lightning-rain-fill"></i> <span
+                                                class="d-none d-md-inline ms-1">Delay</span>
                                         </button>
                                     <?php endif; ?>
 
                                     <?php if (in_array($role, ['admin', 'warehouse']) && $po['status'] !== 'Delivered' && $po['status'] !== 'Delivered (Discrepancy)'): ?>
                                         <!-- WAREHOUSE ACTION: Receive Order (STOCK IN) -->
-                                        <button type="button" class="btn btn-sm btn-success fw-bold shadow-sm me-1" onclick="openReceiveModal(<?= $po['id'] ?>, '<?= $po['po_no'] ?>')">
-                                            <i class="bi bi-box-arrow-in-down"></i> <span class="d-none d-md-inline ms-1">Receive</span>
+                                        <button type="button" class="btn btn-sm btn-success fw-bold shadow-sm me-1"
+                                            onclick="openReceiveModal(<?= $po['id'] ?>, '<?= $po['po_no'] ?>')">
+                                            <i class="bi bi-box-arrow-in-down"></i> <span
+                                                class="d-none d-md-inline ms-1">Receive</span>
                                         </button>
                                     <?php endif; ?>
 
                                     <?php if (in_array($role, ['admin', 'management', 'purchasing']) && $po['status'] === 'Delivered (Discrepancy)'): ?>
                                         <!-- VIEW DISCREPANCY BUTTON -->
-                                        <button type="button" class="btn btn-sm btn-danger fw-bold shadow-sm me-1" title="View Discrepancy"
-                                            data-pono="<?= htmlspecialchars($po['po_no']) ?>"
+                                        <button type="button" class="btn btn-sm btn-danger fw-bold shadow-sm me-1"
+                                            title="View Discrepancy" data-pono="<?= htmlspecialchars($po['po_no']) ?>"
                                             data-remarks="<?= htmlspecialchars($po['delay_remarks'] ?? 'No remarks provided.') ?>"
                                             onclick="viewDiscrepancy(this)">
                                             <i class="bi bi-search"></i> <span class="d-none d-md-inline ms-1">View Issue</span>
                                         </button>
                                     <?php endif; ?>
 
-                                    <button class="btn btn-sm btn-outline-secondary shadow-sm" title="View/Print PO"><i class="bi bi-printer"></i></button>
+                                    <button class="btn btn-sm btn-outline-secondary shadow-sm" title="View/Print PO"><i
+                                            class="bi bi-printer"></i></button>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
                     <?php else: ?>
                         <tr>
-                            <td colspan="5" class="text-center py-5 text-muted"><i class="bi bi-folder-x fs-1 d-block mb-2"></i>No Purchase Orders found.</td>
+                            <td colspan="7" class="text-center py-5 text-muted"><i
+                                    class="bi bi-folder-x fs-1 d-block mb-2"></i>No Purchase Orders found.</td>
                         </tr>
                     <?php endif; ?>
                 </tbody>
@@ -335,10 +415,10 @@ include 'layout/header.php';
     // ==========================================
     // NEW: FETCH RS ITEMS & SUPPLIER HISTORY
     // ==========================================
-    document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', function () {
         const rsSelect = document.getElementById('poRsSelect');
         if (rsSelect) {
-            rsSelect.addEventListener('change', async function() {
+            rsSelect.addEventListener('change', async function () {
                 const rsId = this.value;
                 if (!rsId) return;
 
@@ -391,7 +471,7 @@ include 'layout/header.php';
     // ==========================================
     // NEW: RECEIVE MODAL LOGIC (Discrepancy Checks)
     // ==========================================
-    window.openReceiveModal = async function(id, po_no) {
+    window.openReceiveModal = async function (id, po_no) {
         document.getElementById('receivePoId').value = id;
         document.getElementById('receivePoNo').value = po_no;
 
@@ -449,7 +529,7 @@ include 'layout/header.php';
         }
     }
 
-    window.viewDiscrepancy = function(btnElem) {
+    window.viewDiscrepancy = function (btnElem) {
         document.getElementById('discPoNo').innerText = btnElem.getAttribute('data-pono');
 
         let rawText = btnElem.getAttribute('data-remarks');
@@ -463,10 +543,10 @@ include 'layout/header.php';
     }
 
     // SPA Fix: Attach search listener globally so it never breaks on page transitions
-    window.initPoSearch = function() {
+    window.initPoSearch = function () {
         const searchPo = document.getElementById('searchPo');
         if (searchPo) {
-            searchPo.onkeyup = function(e) {
+            searchPo.onkeyup = function (e) {
                 const term = e.target.value.toLowerCase();
                 document.querySelectorAll('.po-row').forEach(row => {
                     const no = row.querySelector('.po-no').textContent.toLowerCase();
@@ -479,29 +559,29 @@ include 'layout/header.php';
     // Initialize immediately
     window.initPoSearch();
 
-    // Make sure SMS Blaster is attached to window for SPA compatibility
-    window.sendSmsBlaster = async function(poId, poNo, company, phone) {
-        if (!phone || phone.trim() === '') {
-            alert("Cannot send SMS: " + company + " does not have a registered phone number in the system.");
-            return;
+    // Make sure openSmsPreviewModal is attached to window for SPA compatibility
+    window.openSmsPreviewModal = async function (poId, poNo, supplierId, phone) {
+        document.getElementById('smsPoId').value = poId;
+        document.getElementById('smsPoNo').value = poNo;
+        document.getElementById('smsPhone').value = phone || '';
+
+        const supplierSelect = document.getElementById('smsSupplierSelect');
+        if (supplierSelect) {
+            supplierSelect.value = supplierId;
         }
 
-        if (!confirm("Are you sure you want to send an automated SMS order notification to " + company + " (" + phone + ")?")) {
-            return;
-        }
+        const tbody = document.getElementById('smsItemsBody');
+        tbody.innerHTML = '<tr><td colspan="2" class="text-center text-muted py-3"><div class="spinner-border spinner-border-sm me-2"></div> Loading items...</td></tr>';
+        document.getElementById('smsMessageText').value = 'Loading SMS message template...';
 
-        const btn = document.getElementById('smsBtn_' + poId);
-        const originalHtml = btn.innerHTML;
-
-        btn.disabled = true;
-        btn.classList.replace('btn-outline-success', 'btn-success');
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+        var myModalEl = document.getElementById('smsPreviewModal');
+        var smsModal = bootstrap.Modal.getInstance(myModalEl);
+        if (!smsModal) smsModal = new bootstrap.Modal(myModalEl);
+        smsModal.show();
 
         let formData = new FormData();
-        formData.append('action', 'send_po_sms');
+        formData.append('action', 'fetch_po_sms_preview');
         formData.append('po_id', poId);
-        formData.append('po_no', poNo);
-        formData.append('company', company);
 
         try {
             const response = await fetch('process/process.php', {
@@ -511,26 +591,186 @@ include 'layout/header.php';
             const data = await response.json();
 
             if (data.status === 'success') {
-                new Audio('assets/sounds/success.mp3').play().catch(e => {});
-                btn.innerHTML = '<i class="bi bi-check-circle-fill"></i>';
-                const statusBadge = document.getElementById('status_' + poId);
-                if (statusBadge) {
-                    statusBadge.className = 'badge bg-success px-3 py-2 shadow-sm text-uppercase';
-                    statusBadge.innerText = 'SMS Sent';
+                tbody.innerHTML = '';
+                if (data.items.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="2" class="text-center text-muted py-2">No items found.</td></tr>';
+                } else {
+                    data.items.forEach(item => {
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td class="fw-bold text-dark text-wrap">${item.item_name}</td>
+                            <td class="text-center fw-bold text-danger">${item.quantity}</td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
                 }
+
+                const msg = `Genetian Builders Construction PO: ${poNo}\nItems to purchase:\n${data.item_list}If you have any concerns or clarifications text or email here`;
+                document.getElementById('smsMessageText').value = msg;
+
+                // Load recent SMS history for this supplier / PO
+                loadPoSmsConversation(poId, phone, supplierId);
             } else {
-                alert("Error sending SMS: " + data.message);
-                btn.disabled = false;
-                btn.innerHTML = originalHtml;
-                btn.classList.replace('btn-success', 'btn-outline-success');
+                tbody.innerHTML = '<tr><td colspan="2" class="text-center text-danger py-2">Failed to load items.</td></tr>';
+                document.getElementById('smsMessageText').value = 'Error loading items template.';
             }
         } catch (e) {
-            alert("Network Error: Could not connect to SMS Gateway.");
-            btn.disabled = false;
-            btn.innerHTML = originalHtml;
-            btn.classList.replace('btn-success', 'btn-outline-success');
+            tbody.innerHTML = '<tr><td colspan="2" class="text-center text-danger py-2">Network error.</td></tr>';
+            document.getElementById('smsMessageText').value = 'Network error loading template.';
+        }
+    };
+
+    async function loadPoSmsConversation(poId, phone, supplierId) {
+        const section = document.getElementById('smsPoConversationSection');
+        const container = document.getElementById('smsPoConversationThread');
+        if (!section || !container) return;
+
+        section.classList.remove('d-none');
+        container.innerHTML = '<div class="text-center text-muted py-2"><span class="spinner-border spinner-border-sm me-2"></span>Loading SMS thread...</div>';
+
+        try {
+            const formData = new FormData();
+            formData.append('action', 'fetch_sms_messages');
+            formData.append('po_id', poId);
+            if (phone) formData.append('sender_number', phone);
+            if (supplierId) formData.append('supplier_id', supplierId);
+
+            const res = await fetch('process/process.php', { method: 'POST', body: formData });
+            const data = await res.json();
+
+            if (data.status === 'success' && data.messages && data.messages.length > 0) {
+                let html = '';
+                data.messages.forEach(m => {
+                    const isInbound = m.direction === 'inbound';
+                    const badge = isInbound ? '<span class="badge bg-primary me-1">Supplier Reply</span>' : '<span class="badge bg-success me-1">Sent PO SMS</span>';
+                    html += `
+                        <div class="mb-2 pb-2 border-bottom">
+                            <div class="d-flex justify-content-between text-muted small mb-1">
+                                <span>${badge} <strong>${isInbound ? (m.company_name || m.sender_number) : 'CIMS'}</strong></span>
+                                <span>${m.created_at}</span>
+                            </div>
+                            <div class="text-dark">${escapeSmsHtml(m.message_text)}</div>
+                        </div>
+                    `;
+                });
+                container.innerHTML = html;
+            } else {
+                container.innerHTML = '<div class="text-muted text-center py-2">No previous SMS replies from this supplier yet.</div>';
+            }
+        } catch (err) {
+            container.innerHTML = '<div class="text-muted text-center py-2">Could not load conversation history.</div>';
         }
     }
+
+    // Attach form and select change listeners
+    document.addEventListener('DOMContentLoaded', function () {
+        const smsForm = document.getElementById('smsPreviewForm');
+        if (smsForm) {
+            smsForm.addEventListener('submit', async function (e) {
+                e.preventDefault();
+
+                const poId = document.getElementById('smsPoId').value;
+                const poNo = document.getElementById('smsPoNo').value;
+                const phone = document.getElementById('smsPhone').value;
+                const supplierId = document.getElementById('smsSupplierSelect').value;
+                const message = document.getElementById('smsMessageText').value;
+
+                if (!phone || phone.trim() === '') {
+                    alert("Please specify a valid recipient phone number.");
+                    return;
+                }
+
+                const submitBtn = document.getElementById('sendSmsSubmitBtn');
+                const originalHtml = submitBtn.innerHTML;
+
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Sending...';
+
+                const tableBtn = document.getElementById('smsBtn_' + poId);
+                let tableBtnHtml = '';
+                if (tableBtn) {
+                    tableBtnHtml = tableBtn.innerHTML;
+                    tableBtn.disabled = true;
+                    tableBtn.classList.replace('btn-outline-success', 'btn-success');
+                    tableBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+                }
+
+                let formData = new FormData();
+                formData.append('action', 'send_po_sms');
+                formData.append('po_id', poId);
+                formData.append('po_no', poNo);
+                formData.append('supplier_id', supplierId);
+                formData.append('contact_number', phone);
+                formData.append('message', message);
+
+                try {
+                    const response = await fetch('process/process.php', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    const data = await response.json();
+
+                    if (data.status === 'success') {
+                        new Audio('assets/sounds/success.mp3').play().catch(e => { });
+
+                        var myModalEl = document.getElementById('smsPreviewModal');
+                        var smsModal = bootstrap.Modal.getInstance(myModalEl);
+                        if (smsModal) smsModal.hide();
+
+                        alert("SMS sent successfully to supplier!");
+
+                        if (tableBtn) {
+                            tableBtn.innerHTML = '<i class="bi bi-check-circle-fill"></i>';
+                            tableBtn.disabled = false;
+                        }
+                        const statusBadge = document.getElementById('status_' + poId);
+                        if (statusBadge) {
+                            statusBadge.className = 'badge bg-success px-3 py-2 shadow-sm text-uppercase';
+                            statusBadge.innerText = 'SMS Sent';
+                        }
+
+                        window.location.reload();
+                    } else {
+                        alert("Error sending SMS: " + data.message);
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = originalHtml;
+                        if (tableBtn) {
+                            tableBtn.disabled = false;
+                            tableBtn.innerHTML = tableBtnHtml;
+                            tableBtn.classList.replace('btn-success', 'btn-outline-success');
+                        }
+                    }
+                } catch (err) {
+                    alert("Network Error: Could not connect to SMS Gateway.");
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalHtml;
+                    if (tableBtn) {
+                        tableBtn.disabled = false;
+                        tableBtn.innerHTML = tableBtnHtml;
+                        tableBtn.classList.replace('btn-success', 'btn-outline-success');
+                    }
+                }
+            });
+        }
+
+        const smsSupplierSelect = document.getElementById('smsSupplierSelect');
+        if (smsSupplierSelect) {
+            smsSupplierSelect.addEventListener('change', function () {
+                const selectedOption = this.options[this.selectedIndex];
+                const phone = selectedOption.getAttribute('data-phone');
+                document.getElementById('smsPhone').value = phone || '';
+            });
+        }
+
+        // Check URL parameters for shortcut auto-open modals
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('action') === 'new') {
+            const poModalEl = document.getElementById('poModal');
+            if (poModalEl) {
+                new bootstrap.Modal(poModalEl).show();
+            }
+        }
+    });
 </script>
 
 <?php include 'layout/footer.php'; ?>

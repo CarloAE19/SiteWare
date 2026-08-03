@@ -9,20 +9,50 @@
 let countdown = 60;
 let timerInterval;
 
-document.addEventListener("DOMContentLoaded", () => {
-    if (!document.getElementById('aiOutput')) return;
+function formatDateTime(date) {
+    return date.toLocaleString('en-US', {
+        month: 'short',
+        day: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true
+    });
+}
 
-    const savedPrediction = localStorage.getItem('gb_ai_prediction');
-    const savedTime = localStorage.getItem('gb_ai_timestamp');
+document.addEventListener("DOMContentLoaded", () => {
+    const aiOutput = document.getElementById('aiOutput');
+    if (!aiOutput) return;
+
+    let updatedTextEl = document.getElementById('lastUpdatedText');
     
-    if (savedPrediction && savedTime && (Date.now() - savedTime < 300000)) {
-        document.getElementById('aiOutput').innerHTML = savedPrediction;
-        const date = new Date(parseInt(savedTime));
-        let updatedTextEl = document.getElementById('lastUpdatedText');
-        if (updatedTextEl) updatedTextEl.innerText = "Last Updated: " + date.toLocaleTimeString();
-    } else {
-        generateAIPrediction(false);
+    // Format the database timestamp in the user's local timezone
+    if (updatedTextEl) {
+        const dbTimestamp = updatedTextEl.getAttribute('data-timestamp');
+        if (dbTimestamp) {
+            const date = new Date(parseInt(dbTimestamp));
+            updatedTextEl.innerText = "Last Updated: " + formatDateTime(date);
+        }
     }
+
+    // Check if the database loaded a prediction (not the default placeholder icon)
+    const hasDbPrediction = aiOutput.querySelector('.bi-cpu') === null;
+
+    if (!hasDbPrediction) {
+        // Fallback to localStorage if database had no prediction
+        const savedPrediction = localStorage.getItem('gb_ai_prediction');
+        const savedTime = localStorage.getItem('gb_ai_timestamp');
+        if (savedPrediction && savedTime) {
+            aiOutput.innerHTML = savedPrediction;
+            const date = new Date(parseInt(savedTime));
+            if (updatedTextEl) {
+                updatedTextEl.innerText = "Last Updated: " + formatDateTime(date);
+            }
+        }
+    }
+    
+    // We no longer trigger generateAIPrediction(false) on page load.
     startTimer();
 });
 
@@ -48,39 +78,37 @@ window.generateAIPrediction = async function(isManualClick) {
         btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Syncing...'; 
     }
 
-    const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-
-    let systemPrompt = window.systemPrompt || '';
-    systemPrompt = systemPrompt.replace(/\\n/g, '\n').replace('{TODAY}', today);
-
-    const userMessage = JSON.stringify(window.aiPayload); 
-    const apiKey = window.apiKey; 
-    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
-
     try {
-        const response = await fetch(apiUrl, {
+        const response = await fetch('analytics.php?action=generate_ai_report', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ contents: [{ parts: [{ text: systemPrompt + "\n\nData: " + userMessage }] }] })
+            headers: { 'Content-Type': 'application/json' }
         });
 
         const data = await response.json();
         
-        if (response.ok && data.candidates) {
-            let aiText = data.candidates[0].content.parts[0].text;
-            aiText = aiText.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/```html/g, '').replace(/```/g, '');
+        if (response.ok && data.status === 'success') {
+            let aiText = data.prediction;
+            // Clean up bold/markdown if any was returned by the LLM
+            aiText = aiText.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
 
             output.innerHTML = aiText;
             localStorage.setItem('gb_ai_prediction', aiText);
-            localStorage.setItem('gb_ai_timestamp', Date.now());
+            localStorage.setItem('gb_ai_timestamp', data.timestamp);
             
             let updatedTextEl = document.getElementById('lastUpdatedText');
-            if (updatedTextEl) updatedTextEl.innerText = "Last Updated: " + new Date().toLocaleTimeString();
+            if (updatedTextEl) {
+                updatedTextEl.setAttribute('data-timestamp', data.timestamp);
+                updatedTextEl.innerText = "Last Updated: " + formatDateTime(new Date(data.timestamp));
+            }
+            if (updatedTextEl) updatedTextEl.innerText = "Last Updated: " + formatDateTime(new Date());
         } else if (data.error) {
-            output.innerHTML = `<div class='alert alert-danger'><strong>Google API Error:</strong> ${data.error.message}</div>`;
+            output.innerHTML = `<div class='alert alert-danger'><strong>AI API Error:</strong> ${data.error}</div>`;
+        } else {
+            output.innerHTML = `<div class='alert alert-danger'><strong>AI API Error:</strong> Failed to fetch analysis details.</div>`;
         }
     } catch (error) {
         console.error("AI Error:", error);
+        output.innerHTML = `<div class='alert alert-danger'><strong>Connection Error:</strong> Could not connect to backend AI module.</div>`;
     } finally {
         loading.style.setProperty('display', 'none', 'important');
         if (isManualClick && btn) { 
@@ -103,6 +131,14 @@ window.buildTheCharts = function() {
     var pieCtx = document.getElementById('overallStockPieChart'); 
 
     if (!pctCtx && !daysCtx && !pieCtx) return;
+
+    const isDark = document.documentElement.getAttribute('data-bs-theme') === 'dark';
+    if (window.Chart) {
+        Chart.defaults.color = isDark ? '#adbac7' : '#666666';
+        Chart.defaults.borderColor = isDark ? '#30363d' : '#e0e0e0';
+    }
+    const gridColor = isDark ? '#21262d' : '#f0f0f0';
+    const pieBorder = isDark ? '#161b22' : '#ffffff';
 
     if (window.pctChartInstance) { window.pctChartInstance.destroy(); window.pctChartInstance = null; }
     if (window.daysChartInstance) { window.daysChartInstance.destroy(); window.daysChartInstance = null; }
@@ -133,7 +169,7 @@ window.buildTheCharts = function() {
                 responsive: true, maintainAspectRatio: false, 
                 animation: { duration: 1500, easing: 'easeOutQuart' },
                 plugins: { legend: { display: false }, tooltip: { callbacks: { label: function(context) { return context.raw + '% (' + context.dataset.rawValues[context.dataIndex] + ' units used)'; } } } },
-                scales: { x: { grid: { display: false } }, y: { beginAtZero: true, max: 100, border: { dash: [4, 4] }, grid: { color: '#f0f0f0' }, ticks: { callback: function(value) { return value + '%'; } } } }
+                scales: { x: { grid: { display: false } }, y: { beginAtZero: true, max: 100, border: { dash: [4, 4] }, grid: { color: gridColor }, ticks: { callback: function(value) { return value + '%'; } } } }
             }
         });
     }
@@ -148,7 +184,7 @@ window.buildTheCharts = function() {
                 datasets: [{
                     data: zeroPieData, // Init with zeros for animation
                     backgroundColor: window.chartData.pieColors,
-                    borderWidth: 2, borderColor: '#ffffff', hoverOffset: 6 
+                    borderWidth: 2, borderColor: pieBorder, hoverOffset: 6 
                 }]
             },
             options: {
@@ -179,7 +215,7 @@ window.buildTheCharts = function() {
                 responsive: true, maintainAspectRatio: false, indexAxis: 'y', 
                 animation: { duration: 1500, easing: 'easeOutQuart' },
                 plugins: { legend: { display: false } },
-                scales: { y: { grid: { display: false } }, x: { beginAtZero: true, border: { dash: [4, 4] }, grid: { color: '#f0f0f0' } } }
+                scales: { y: { grid: { display: false } }, x: { beginAtZero: true, border: { dash: [4, 4] }, grid: { color: gridColor } } }
             }
         });
     }

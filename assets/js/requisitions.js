@@ -3,9 +3,30 @@
  * ========================================================== */
 
 // 1. SPA-Safe Modal Trigger 
-window.viewRsDetails = function(rsNo, project, remarks, status, requestor, date, itemsB64) {
+window.viewRsDetails = function(rsNo, project, remarks, status, requestor, date, itemsB64, type = 'project') {
     document.getElementById('viewRsNo').innerText = rsNo;
     document.getElementById('viewRsProject').innerText = project;
+    
+    const statusEl = document.getElementById('viewRsStatus');
+    if (statusEl) {
+        statusEl.innerText = status;
+        statusEl.className = 'badge shadow-sm';
+        if (status === 'Pending Approval') {
+            statusEl.classList.add('bg-warning', 'text-dark');
+        } else if (status === 'Approved') {
+            statusEl.classList.add('bg-success');
+        } else if (status === 'Staged (Ready for Pickup)') {
+            statusEl.classList.add('bg-info', 'text-dark');
+        } else if (status === 'Rejected') {
+            statusEl.classList.add('bg-danger');
+        } else if (status === 'PO Created') {
+            statusEl.classList.add('bg-info', 'text-dark');
+        } else if (status === 'Released') {
+            statusEl.classList.add('bg-success');
+        } else {
+            statusEl.classList.add('bg-secondary');
+        }
+    }
     
     const remarksEl = document.getElementById('viewRsRemarks');
     remarksEl.innerText = remarks ? remarks : 'No remarks provided.';
@@ -17,14 +38,18 @@ window.viewRsDetails = function(rsNo, project, remarks, status, requestor, date,
     const qrContainer = document.getElementById('rsQrContainer');
     const printBtn = document.getElementById('printRsBtn');
     
-    if (status === 'Approved' || status === 'PO Created') {
+    if ((status === 'Approved' || status === 'PO Created' || status === 'Staged (Ready for Pickup)') && type !== 'restock') {
         const qrData = encodeURIComponent(`REQ-DATA:${rsNo}`);
         document.getElementById('viewRsQrCode').src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${qrData}`;
         qrContainer.classList.remove('d-none');
         printBtn.classList.remove('d-none');
     } else {
         qrContainer.classList.add('d-none');
-        printBtn.classList.add('d-none');
+        if (status === 'Approved' || status === 'PO Created' || status === 'Staged (Ready for Pickup)') {
+            printBtn.classList.remove('d-none');
+        } else {
+            printBtn.classList.add('d-none');
+        }
     }
     
     const tbody = document.getElementById('viewRsItemsBody');
@@ -43,10 +68,18 @@ window.viewRsDetails = function(rsNo, project, remarks, status, requestor, date,
                 const totalPending = parseInt(item.total_pending) || 0;
                 
                 let stockDisplay = '';
-                if (curStock < reqQty) {
-                    stockDisplay = `<span class="badge bg-danger fs-6 shadow-sm"><i class="bi bi-exclamation-triangle-fill me-1"></i>${curStock} (Short)</span>`;
+                if (type === 'restock') {
+                    if (curStock === 0) {
+                        stockDisplay = `<span class="badge bg-danger fs-6 shadow-sm">0 (Out of Stock)</span>`;
+                    } else {
+                        stockDisplay = `<span class="badge bg-success fs-6 shadow-sm">${curStock}</span>`;
+                    }
                 } else {
-                    stockDisplay = `<span class="badge bg-success fs-6 shadow-sm">${curStock}</span>`;
+                    if (curStock < reqQty) {
+                        stockDisplay = `<span class="badge bg-danger fs-6 shadow-sm"><i class="bi bi-exclamation-triangle-fill me-1"></i>${curStock} (Short)</span>`;
+                    } else {
+                        stockDisplay = `<span class="badge bg-success fs-6 shadow-sm">${curStock}</span>`;
+                    }
                 }
                 
                 let pendingDisplay = '';
@@ -77,7 +110,7 @@ window.viewRsDetails = function(rsNo, project, remarks, status, requestor, date,
                     }
 
                     const badgeClass = totalPending > curStock ? 'bg-warning text-dark' : 'bg-light text-dark border';
-                    const label = totalPending > curStock ? (totalPending > reqQty ? ' (Conflict)' : ' (Deficit)') : '';
+                    const label = type === 'restock' ? '' : (totalPending > curStock ? (totalPending > reqQty ? ' (Conflict)' : ' (Deficit)') : '');
                     
                     pendingDisplay = `
                         <div class="d-flex flex-column align-items-center">
@@ -278,6 +311,21 @@ function initializeRequisitionsPage() {
     nextBtn.addEventListener('click', () => { const totalPages = Math.ceil(filteredRows.length / rowsPerPage); if (currentPage < totalPages) { currentPage++; updatePagination(); } });
 
     updatePagination();
+
+    // Check URL parameters for shortcut auto-open modals
+    const urlParams = new URLSearchParams(window.location.search);
+    const action = urlParams.get('action');
+    if (action === 'new') {
+        const rsModalEl = document.getElementById('rsModal');
+        if (rsModalEl) {
+            new bootstrap.Modal(rsModalEl).show();
+        }
+    } else if (action === 'restock') {
+        const restockModalEl = document.getElementById('restockModal');
+        if (restockModalEl) {
+            new bootstrap.Modal(restockModalEl).show();
+        }
+    }
 }
 
 if (document.readyState === "loading") { document.addEventListener("DOMContentLoaded", initializeRequisitionsPage); } else { initializeRequisitionsPage(); }

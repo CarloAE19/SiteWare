@@ -21,7 +21,8 @@ $stmt = $pdo->query("
         s.*,
         COUNT(p.id)                                                               AS total_po,
         SUM(CASE WHEN p.status LIKE '%Delayed%' THEN 1 ELSE 0 END)               AS delayed_count,
-        SUM(CASE WHEN p.status LIKE '%Discrepancy%' THEN 1 ELSE 0 END)           AS discrepancy_count
+        SUM(CASE WHEN p.status LIKE '%Discrepancy%' THEN 1 ELSE 0 END)           AS discrepancy_count,
+        MIN(CASE WHEN p.status NOT IN ('Delivered', 'Delivered (Discrepancy)', 'Cancelled') AND p.expected_delivery_date IS NOT NULL THEN p.expected_delivery_date END) AS next_eta
     FROM suppliers s
     LEFT JOIN purchase_orders p ON p.supplier_id = s.id
     GROUP BY s.id
@@ -151,6 +152,7 @@ include 'layout/header.php';
                         <th class="py-3">Contact Details</th>
                         <th class="py-3">Contact Number</th>
                         <th class="py-3">Status</th>
+                        <th class="py-3">Next Supply ETA</th>
                         <th class="py-3">Performance</th>
                         <?php if (in_array($role, ['admin', 'purchasing'])): ?>
                             <th class="text-center py-3">Actions</th><?php endif; ?>
@@ -181,6 +183,22 @@ include 'layout/header.php';
                             $tierBadge = 'bg-danger';
                             $scoreText = $score . '%';
                         }
+
+                        // Next ETA Badge
+                        $supEtaBadge = '<span class="text-muted small">No Active Shipments</span>';
+                        if (!empty($sup['next_eta'])) {
+                            $nextEtaTs = strtotime($sup['next_eta']);
+                            $todayTs = strtotime(date('Y-m-d'));
+                            $daysDiff = (int) (($nextEtaTs - $todayTs) / 86400);
+
+                            if ($daysDiff == 0) {
+                                $supEtaBadge = '<span class="badge bg-warning text-dark shadow-sm"><i class="bi bi-truck-flatbed me-1"></i>Arriving TODAY</span>';
+                            } elseif ($daysDiff < 0) {
+                                $supEtaBadge = '<span class="badge bg-danger shadow-sm"><i class="bi bi-exclamation-triangle-fill me-1"></i>Overdue (' . abs($daysDiff) . 'd)</span>';
+                            } else {
+                                $supEtaBadge = '<span class="badge bg-success shadow-sm"><i class="bi bi-calendar-check me-1"></i>' . date('M d, Y', $nextEtaTs) . ' (in ' . $daysDiff . 'd)</span>';
+                            }
+                        }
                         ?>
                         <tr>
                             <td class="text-muted fw-bold" data-label="Supplier Code">
@@ -209,6 +227,10 @@ include 'layout/header.php';
                                 <?php else: ?>
                                     <span class="badge bg-danger px-3 py-2 shadow-sm">INACTIVE</span>
                                 <?php endif; ?>
+                            </td>
+
+                            <td data-label="Next Supply ETA">
+                                <?= $supEtaBadge ?>
                             </td>
 
                             <!-- ===== PERFORMANCE RANKING COLUMN ===== -->
@@ -251,7 +273,7 @@ include 'layout/header.php';
                                 <td class="text-center" data-label="Actions">
                                     <button class="btn btn-sm btn-outline-primary shadow-sm me-1" data-bs-toggle="modal"
                                         data-bs-target="#supplierModal"
-                                        onclick="openEditSupplierModal(<?= $sup['id'] ?>, '<?= $sup['supplier_code'] ?>', '<?= addslashes($sup['company_name']) ?>', '<?= addslashes($sup['contact_person']) ?>', '<?= $sup['contact_number'] ?>', '<?= addslashes($sup['email']) ?>', '<?= addslashes($sup['address']) ?>', '<?= $sup['status'] ?>')">
+                                        onclick="openEditSupplierModal(<?= $sup['id'] ?>, <?= htmlspecialchars(json_encode($sup['supplier_code'] ?? '')) ?>, <?= htmlspecialchars(json_encode($sup['company_name'] ?? '')) ?>, <?= htmlspecialchars(json_encode($sup['contact_person'] ?? '')) ?>, <?= htmlspecialchars(json_encode($sup['contact_number'] ?? '')) ?>, <?= htmlspecialchars(json_encode($sup['email'] ?? '')) ?>, <?= htmlspecialchars(json_encode($sup['address'] ?? '')) ?>, <?= htmlspecialchars(json_encode($sup['status'] ?? '')) ?>)">
                                         <i class="bi bi-pencil-square"></i> Edit
                                     </button>
 
@@ -288,7 +310,7 @@ include 'layout/header.php';
                 </h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body p-0 bg-light">
+            <div class="modal-body p-0">
 
                 <!-- Loading State -->
                 <div id="historyLoading" class="text-center py-5">
@@ -320,7 +342,7 @@ include 'layout/header.php';
                     </div>
                 </div>
             </div>
-            <div class="modal-footer bg-white border-top-0">
+            <div class="modal-footer border-top-0">
                 <button type="button" class="btn btn-secondary fw-bold px-4 shadow-sm"
                     data-bs-dismiss="modal">Close</button>
             </div>
@@ -390,6 +412,39 @@ include 'layout/header.php';
         margin-top: 6px;
         color: #991b1b;
     }
+
+    /* DARK MODE ADAPTIVE STYLES */
+    [data-bs-theme="dark"] .stat-card {
+        background-color: var(--gb-dark-surface, #161b22) !important;
+        border-color: var(--gb-dark-border, #30363d) !important;
+        color: var(--gb-dark-text-main, #f0f6fc) !important;
+    }
+
+    [data-bs-theme="dark"] .stat-card .stat-label {
+        color: var(--gb-dark-text-muted, #8b949e) !important;
+    }
+
+    [data-bs-theme="dark"] .history-card {
+        background-color: var(--gb-dark-surface, #161b22) !important;
+        border-color: var(--gb-dark-border, #30363d) !important;
+        color: var(--gb-dark-text-main, #f0f6fc) !important;
+    }
+
+    [data-bs-theme="dark"] .item-pill {
+        background-color: var(--gb-dark-hover, #21262d) !important;
+        border-color: var(--gb-dark-border, #30363d) !important;
+        color: var(--gb-dark-text-main, #c9d1d9) !important;
+    }
+
+    [data-bs-theme="dark"] .item-pill .text-muted {
+        color: var(--gb-dark-text-muted, #8b949e) !important;
+    }
+
+    [data-bs-theme="dark"] .discrepancy-detail {
+        background-color: rgba(220, 53, 69, 0.15) !important;
+        border-color: rgba(220, 53, 69, 0.35) !important;
+        color: #f87171 !important;
+    }
 </style>
 
 <script>
@@ -410,8 +465,14 @@ include 'layout/header.php';
         formData.append('action', 'fetch_supplier_delivery_history');
         formData.append('supplier_id', supplierId);
 
-        fetch('process/process.php', { method: 'POST', body: formData })
-            .then(function (r) { return r.json(); })
+        fetch('process/process.php', {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            body: formData
+        })
+            .then(function (r) {
+                return r.json();
+            })
             .then(function (data) {
                 if (data.status !== 'success') {
                     alert(data.message || 'Failed to load history.');
@@ -513,7 +574,7 @@ include 'layout/header.php';
             })
             .catch(function (err) {
                 console.error(err);
-                alert('Network error. Please try again.');
+                alert(err.message || 'Error loading supplier history. Please try again.');
                 bsModal.hide();
             });
     }

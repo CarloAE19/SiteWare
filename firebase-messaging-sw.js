@@ -60,7 +60,7 @@ self.addEventListener('notificationclick', (event) => {
  * when a page navigation fails due to no connectivity.
  * ========================================================== */
 
-const OFFLINE_CACHE = 'gb-offline-v2';
+const OFFLINE_CACHE = 'gb-offline-v3';
 
 const PRECACHE_ASSETS = [
     '/CIMS/offline.html',
@@ -69,6 +69,12 @@ const PRECACHE_ASSETS = [
     '/CIMS/assets/css/style.css',
     '/CIMS/assets/css/offline.css',
     '/CIMS/assets/js/offline.js',
+    '/CIMS/assets/js/pwa.js',
+    '/CIMS/assets/js/router.js',
+    '/CIMS/assets/js/modals.js',
+    '/CIMS/assets/js/inventory.js',
+    '/CIMS/assets/js/notifications.js',
+    '/CIMS/assets/js/fcm.js',
 ];
 
 /* ── Install: pre-cache the offline shell ── */
@@ -107,20 +113,34 @@ self.addEventListener('fetch', (event) => {
     if (event.request.method !== 'GET') return;
     if (!event.request.url.startsWith('http')) return;
 
-    /* Page navigation → network-first, fallback to offline.html */
+    /* Page navigation → network-first, cache dynamically, fallback to cached page or offline.html */
     if (event.request.mode === 'navigate') {
         event.respondWith(
-            fetch(event.request).catch(() => {
-                console.log('[SW] Navigation failed — serving offline.html');
-                return caches.match('/CIMS/offline.html');
-            })
+            fetch(event.request)
+                .then((response) => {
+                    /* If the response is valid and same-origin, cache a clone */
+                    if (response.ok && event.request.url.startsWith(self.location.origin)) {
+                        const clone = response.clone();
+                        caches.open(OFFLINE_CACHE).then((cache) => {
+                            cache.put(event.request, clone);
+                        });
+                    }
+                    return response;
+                })
+                .catch(() => {
+                    console.log('[SW] Navigation failed — serving cached page fallback');
+                    return caches.match(event.request).then((cachedResponse) => {
+                        return cachedResponse || caches.match('/CIMS/offline.html');
+                    });
+                })
         );
         return;
     }
 
-    /* Static assets (styles, images, fonts) → cache-first */
+    /* Static assets (styles, scripts, images, fonts) → cache-first */
     if (
         event.request.destination === 'style' ||
+        event.request.destination === 'script' ||
         event.request.destination === 'image' ||
         event.request.destination === 'font'
     ) {
