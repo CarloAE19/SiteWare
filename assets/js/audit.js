@@ -74,8 +74,44 @@ window.initAuditPagination = function() {
     setupPagination('recountTable', 10);
 };
 
-// 2. Real-Time Discrepancy Calculator
+// 2. Real-Time Discrepancy Calculator & Summary Tracker
+window.stepPhysQty = function(index, delta) {
+    const input = document.getElementById('physInput_' + index);
+    if (!input) return;
+    let currentVal = parseInt(input.value) || 0;
+    let newVal = Math.max(0, currentVal + delta);
+    input.value = newVal;
+    input.dispatchEvent(new Event('input'));
+};
+
+window.switchAuditTab = function(tabId) {
+    const btn = document.getElementById(tabId + '-tab');
+    if (btn && typeof bootstrap !== 'undefined') {
+        const tab = new bootstrap.Tab(btn);
+        tab.show();
+    }
+};
+
 window.initDiscrepancyCalculator = function() {
+    function updateSummary() {
+        let matchCount = 0;
+        let diffCount = 0;
+        document.querySelectorAll('.phys-input').forEach(inp => {
+            const idx = inp.getAttribute('data-index');
+            const sys = parseInt(document.getElementById('sysQty_' + idx)?.innerText) || 0;
+            const phys = parseInt(inp.value) || 0;
+            if (phys === sys) {
+                matchCount++;
+            } else {
+                diffCount++;
+            }
+        });
+        const matchEl = document.getElementById('recountMatchCount');
+        const diffEl = document.getElementById('recountDiffCount');
+        if (matchEl) matchEl.innerText = matchCount;
+        if (diffEl) diffEl.innerText = diffCount;
+    }
+
     document.querySelectorAll('.phys-input').forEach(input => {
         // Remove old listeners to prevent double-firing in SPA
         const new_input = input.cloneNode(true);
@@ -102,11 +138,32 @@ window.initDiscrepancyCalculator = function() {
                 badge.className = 'badge bg-danger fs-6 w-100 py-2 shadow-sm text-uppercase';
                 badge.innerHTML = '<i class="bi bi-arrow-down-circle me-1"></i> ' + diff + ' Short';
             }
+
+            updateSummary();
         });
 
         // Trigger once on load to initialize discrepancy badges
         new_input.dispatchEvent(new Event('input'));
     });
+
+    // Recount Search Filter
+    const searchInput = document.getElementById('searchRecount');
+    if (searchInput) {
+        searchInput.addEventListener('keyup', function() {
+            const filter = this.value.toLowerCase();
+            const rows = document.querySelectorAll('#recountTable tbody tr');
+            rows.forEach(row => {
+                const text = row.innerText.toLowerCase();
+                row.style.display = text.includes(filter) ? '' : 'none';
+            });
+        });
+    }
+
+    // Auto switch tab if URL has #recount or ?tab=recount
+    const urlParams = new URLSearchParams(window.location.search);
+    if (window.location.hash === '#recount' || urlParams.get('tab') === 'recount') {
+        window.switchAuditTab('recount');
+    }
 };
 
 // Initialize Everything on page load
