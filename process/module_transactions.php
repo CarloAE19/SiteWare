@@ -107,19 +107,28 @@ elseif ($action === 'fetch_rs_data') {
         echo json_encode(['status' => 'error', 'message' => 'Unauthorized.']); exit;
     }
 
-    $rs_no = str_replace('REQ-DATA:', '', $_POST['rs_no']); 
+    $input_raw = trim($_POST['rs_no']);
+    $rs_no_clean = str_replace(['REQ-DATA:', ' ', '-'], '', strtoupper($input_raw));
+    if (!str_starts_with($rs_no_clean, 'RS') && !empty($rs_no_clean)) {
+        $rs_no_clean = 'RS' . $rs_no_clean;
+    }
     
-    $stmt = $pdo->prepare("SELECT id, project_name, status FROM requisitions WHERE rs_no = ?");
-    $stmt->execute([$rs_no]);
+    $stmt = $pdo->prepare("SELECT id, rs_no, project_name, status, type FROM requisitions WHERE REPLACE(REPLACE(UPPER(rs_no), '-', ''), ' ', '') = ? OR UPPER(rs_no) = ?");
+    $stmt->execute([$rs_no_clean, strtoupper($input_raw)]);
     $rs = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if (!$rs) {
-        echo json_encode(['status' => 'error', 'message' => 'Invalid QR Code. Requisition Slip not found.']);
+        echo json_encode(['status' => 'error', 'message' => 'Requisition Slip not found.']);
+        exit;
+    }
+
+    if ($rs['type'] === 'restock' || $rs['project_name'] === 'Warehouse Restock') {
+        echo json_encode(['status' => 'error', 'message' => 'RS Number not found.']);
         exit;
     }
 
     if ($rs['status'] === 'Released') {
-        echo json_encode(['status' => 'error', 'message' => 'This Requisition Slip (QR Code) has already been released and is expired.']);
+        echo json_encode(['status' => 'error', 'message' => 'This Requisition Slip has already been released and is expired.']);
         exit;
     }
 
@@ -134,7 +143,7 @@ elseif ($action === 'fetch_rs_data') {
 
     echo json_encode([
         'status' => 'success',
-        'rs_no' => $rs_no,
+        'rs_no' => $rs['rs_no'],
         'project_name' => $rs['project_name'],
         'rs_status' => $rs['status'],
         'items' => $items
