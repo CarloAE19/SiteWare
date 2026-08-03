@@ -92,80 +92,15 @@ window.startRsScanner = function() {
             document.getElementById('rsScannerResult').innerHTML = `<span class="spinner-border spinner-border-sm me-2 text-primary"></span>Fetching RS Data from Server...`;
 
             // Fetch data from backend via AJAX
-            let formData = new FormData();
-            formData.append('action', 'fetch_rs_data');
-            formData.append('rs_no', decodedText);
-
-            fetch('process/process.php', { method: 'POST', body: formData })
-            .then(response => response.json())
-            .then(data => {
-                if(data.status === 'success') {
-                    // Close Scanner Modal
+            window.loadRsDataToWithdrawalForm(decodedText, function(success, msg) {
+                if (success) {
                     bootstrap.Modal.getInstance(document.getElementById('rsScannerModal')).hide();
-                    
-                    // PRE-FILL THE WITHDRAWAL FORM!
-                    document.getElementById('wdProjectName').value = data.project_name;
-                    if (data.rs_status === 'Staged (Ready for Pickup)') {
-                        document.getElementById('wdRemarks').value = "Pre-picked & Staged Express Pickup for " + data.rs_no;
-                    } else {
-                        document.getElementById('wdRemarks').value = "Auto-filled via QR Scanner for " + data.rs_no;
-                    }
-                    
-                    // Defensively create/get hidden rs_no input to bypass any HTML caching
-                    let rsNoField = document.getElementById('wdRsNo');
-                    if (!rsNoField) {
-                        rsNoField = document.createElement('input');
-                        rsNoField.type = 'hidden';
-                        rsNoField.name = 'rs_no';
-                        rsNoField.id = 'wdRsNo';
-                        const form = document.getElementById('withdrawalForm');
-                        if (form) form.appendChild(rsNoField);
-                    }
-                    if (rsNoField) rsNoField.value = data.rs_no;
-                    
-                    const container = document.getElementById('wdMaterialsContainer');
-                    const templateRow = container.querySelector('.wd-material-row').cloneNode(true);
-                    container.innerHTML = ''; // Clear container
-                    
-                    data.items.forEach((item, index) => {
-                        let newRow = templateRow.cloneNode(true);
-                        
-                        // Select the correct item in the dropdown
-                        let select = newRow.querySelector('.wd-item-select');
-                        let optionFound = false;
-                        for (let i = 0; i < select.options.length; i++) {
-                            if (select.options[i].value === item.item_code) {
-                                select.selectedIndex = i;
-                                optionFound = true; break;
-                            }
-                        }
-                        
-                        if(!optionFound) {
-                            // If item is out of stock, create a disabled warning option
-                            let opt = document.createElement('option');
-                            opt.value = item.item_code;
-                            opt.text = `[${item.item_code}] OUT OF STOCK`;
-                            select.add(opt); select.value = item.item_code;
-                            newRow.classList.add('border-danger');
-                        }
-
-                        newRow.querySelector('.wd-qty-input').value = item.quantity;
-                        newRow.querySelector('.remove-wd-row').disabled = false;
-                        container.appendChild(newRow);
-                    });
-                    
-                    window.updateWdDeleteButtons(container);
-                    
-                    // Show the Pre-filled Withdrawal Modal!
                     setTimeout(() => {
                         new bootstrap.Modal(document.getElementById('withdrawModal')).show();
                     }, 500);
-
                 } else {
-                    document.getElementById('rsScannerResult').innerHTML = `<span class="text-danger fw-bold"><i class="bi bi-x-circle me-1"></i> ${data.message}</span>`;
+                    document.getElementById('rsScannerResult').innerHTML = `<span class="text-danger fw-bold"><i class="bi bi-x-circle me-1"></i> ${msg}</span>`;
                 }
-            }).catch(err => {
-                document.getElementById('rsScannerResult').innerHTML = `<span class="text-danger fw-bold">Network Error.</span>`;
             });
         } else {
             document.getElementById('rsScannerResult').innerHTML = `<span class="text-danger fw-bold">Invalid QR Code format. Scan an RS Document.</span>`;
@@ -281,5 +216,127 @@ function initWithdrawalsPage() {
         }
     }
 }
+
+// Global Manual RS Lookup Helper
+window.loadRsDataToWithdrawalForm = function(rsNo, callback) {
+    const feedbackEl = document.getElementById('manualRsStatusFeedback');
+    if (feedbackEl) {
+        feedbackEl.classList.remove('d-none', 'text-danger', 'text-success');
+        feedbackEl.classList.add('text-muted');
+        feedbackEl.innerHTML = `<span class="spinner-border spinner-border-sm me-2 text-primary"></span>Fetching RS ${rsNo}...`;
+    }
+
+    let formData = new FormData();
+    formData.append('action', 'fetch_rs_data');
+    formData.append('rs_no', rsNo);
+
+    fetch('process/process.php', { method: 'POST', body: formData })
+    .then(response => response.json())
+    .then(data => {
+        if(data.status === 'success') {
+            document.getElementById('wdProjectName').value = data.project_name;
+            if (data.rs_status === 'Staged (Ready for Pickup)') {
+                document.getElementById('wdRemarks').value = "Pre-picked & Staged Express Pickup for " + data.rs_no;
+            } else {
+                document.getElementById('wdRemarks').value = "Auto-filled via RS Lookup for " + data.rs_no;
+            }
+            
+            let rsNoField = document.getElementById('wdRsNo');
+            if (!rsNoField) {
+                rsNoField = document.createElement('input');
+                rsNoField.type = 'hidden';
+                rsNoField.name = 'rs_no';
+                rsNoField.id = 'wdRsNo';
+                const form = document.getElementById('withdrawalForm');
+                if (form) form.appendChild(rsNoField);
+            }
+            if (rsNoField) rsNoField.value = data.rs_no;
+            
+            const projInput = document.getElementById('wdProjectName');
+            if (projInput) projInput.value = data.project_name;
+            const projDisplay = document.getElementById('wdProjectNameDisplay');
+            if (projDisplay) projDisplay.value = data.project_name;
+
+            const container = document.getElementById('wdMaterialsContainer');
+            container.innerHTML = '';
+            
+            data.items.forEach((item) => {
+                const row = document.createElement('div');
+                row.className = 'row g-2 wd-material-row mb-2 align-items-center bg-white p-2 rounded border shadow-sm mx-0';
+                row.innerHTML = `
+                    <div class="col-md-8">
+                        <input type="text" class="form-control fw-bold text-dark bg-white" value="[${item.item_code}] ${item.item_name}" readonly>
+                        <input type="hidden" name="items[]" value="${item.item_code}">
+                    </div>
+                    <div class="col-md-4 mt-2 mt-md-0">
+                        <input type="number" class="form-control fw-bold text-center text-danger bg-white" name="quantities[]" value="${item.quantity}" readonly>
+                    </div>
+                `;
+                container.appendChild(row);
+            });
+            
+            const addBtn = document.getElementById('addWdMaterialBtn');
+            if (addBtn) addBtn.style.display = 'none';
+
+            if (feedbackEl) {
+                feedbackEl.classList.remove('text-muted', 'text-danger');
+                feedbackEl.classList.add('text-success');
+                feedbackEl.innerHTML = `<i class="bi bi-check-circle-fill me-1"></i> Loaded ${data.rs_no} (${data.rs_status}) successfully! ${data.items.length} item(s) auto-filled.`;
+            }
+
+            if (callback) callback(true, 'Success');
+        } else {
+            if (feedbackEl) {
+                feedbackEl.classList.remove('text-muted', 'text-success');
+                feedbackEl.classList.add('text-danger');
+                feedbackEl.innerHTML = `<i class="bi bi-exclamation-triangle-fill me-1"></i> ${data.message || 'RS not found or invalid.'}`;
+            }
+
+            if (callback) callback(false, data.message || 'RS not found or invalid.');
+        }
+    })
+    .catch(err => {
+        if (feedbackEl) {
+            feedbackEl.classList.remove('text-muted', 'text-success');
+            feedbackEl.classList.add('text-danger');
+            feedbackEl.innerHTML = `<i class="bi bi-exclamation-triangle-fill me-1"></i> Server error fetching RS data.`;
+        }
+        if (callback) callback(false, 'Server error fetching RS data.');
+    });
+};
+
+window.lookupManualRsInput = function() {
+    const inputVal = document.getElementById('manualRsInputText')?.value.trim();
+    if (!inputVal) {
+        alert("Please enter or select an RS Number.");
+        return;
+    }
+    window.loadRsDataToWithdrawalForm(inputVal);
+};
+
+// Modal Reset Handler on Close
+document.addEventListener('DOMContentLoaded', function() {
+    const withdrawModalEl = document.getElementById('withdrawModal');
+    if (withdrawModalEl) {
+        withdrawModalEl.addEventListener('hidden.bs.modal', function () {
+            const projInput = document.getElementById('wdProjectName');
+            if (projInput) projInput.value = '';
+            const projDisplay = document.getElementById('wdProjectNameDisplay');
+            if (projDisplay) projDisplay.value = '';
+            const container = document.getElementById('wdMaterialsContainer');
+            if (container) {
+                container.innerHTML = `
+                    <div class="text-center text-muted py-3 fw-bold" id="emptyWdPrompt">
+                        <i class="bi bi-info-circle me-1"></i> Type an approved RS Number above to load release items.
+                    </div>
+                `;
+            }
+            const feedbackEl = document.getElementById('manualRsStatusFeedback');
+            if (feedbackEl) feedbackEl.classList.add('d-none');
+            const rsInput = document.getElementById('manualRsInputText');
+            if (rsInput) rsInput.value = '';
+        });
+    }
+});
 
 if (document.readyState === "loading") { document.addEventListener("DOMContentLoaded", initWithdrawalsPage); } else { initWithdrawalsPage(); }
