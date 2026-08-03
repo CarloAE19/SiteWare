@@ -1,0 +1,305 @@
+<?php
+// ==========================================
+// REQUISITIONS (RS) ACTIONS
+// ==========================================
+
+// --- AJAX: FETCH RS DATA VIA QR SCANNER ---
+if ($action === 'fetch_rs_data') {
+    if (!in_array($_SESSION['user_role'], ['warehouse', 'admin'])) {
+        echo json_encode(['status' => 'error', 'message' => 'Unauthorized.']);
+        exit;
+    }
+
+    $input_raw = trim($_POST['rs_no']);
+    $rs_no_clean = str_replace(['REQ-DATA:', ' ', '-'], '', strtoupper($input_raw));
+    if (!str_starts_with($rs_no_clean, 'RS') && !empty($rs_no_clean)) {
+        $rs_no_clean = 'RS' . $rs_no_clean;
+    }
+
+    $stmt = $pdo->prepare("
+        SELECT id, rs_no, requestor_name, project_name, status, type 
+        FROM requisitions 
+        WHERE REPLACE(REPLACE(UPPER(rs_no), '-', ''), ' ', '') = ? 
+           OR UPPER(rs_no) = ?
+    ");
+    $stmt->execute([$rs_no_clean, strtoupper($input_raw)]);
+    $rs = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$rs) {
+        echo json_encode(['status' => 'error', 'message' => 'Requisition Slip not found.']);
+        exit;
+    }
+
+    if ($rs['type'] === 'restock' || $rs['project_name'] === 'Warehouse Restock') {
+        echo json_encode(['status' => 'error', 'message' => 'RS Number not found.']);
+        exit;
+    }
+
+    if ($rs['status'] === 'Released') {
+        echo json_encode(['status' => 'error', 'message' => 'This Requisition Slip has already been released and is expired.']);
+        exit;
+    }
+
+    if (!in_array($rs['status'], ['Approved', 'PO Created', 'Staged (Ready for Pickup)'])) {
+        echo json_encode(['status' => 'error', 'message' => 'This Requisition Slip has not been Approved or Staged yet. Current status: ' . $rs['status']]);
+        exit;
+    }
+
+    $itemStmt = $pdo->prepare("
+        SELECT ri.item_code, ri.quantity, i.item_name 
+        FROM requisition_items ri 
+        LEFT JOIN inventory i ON ri.item_code = i.item_code 
+        WHERE ri.requisition_id = ?
+    ");
+    $itemStmt->execute([$rs['id']]);
+    $items = $itemStmt->fetchAll(PDO::FETCH_ASSOC);
+
+    echo json_encode([
+        'status' => 'success',
+        'rs_no' => $rs['rs_no'],
+        'requestor_name' => $rs['requestor_name'] ?? 'N/A',
+        'project_name' => $rs['project_name'],
+        'rs_status' => $rs['status'],
+        'items' => $items
+    ]);
+    exit;
+}
+
+// --- AJAX: FETCH RS ITEMS WITH SUPPLIER HISTORY ---
+elseif ($action === 'fetch_rs_with_history') {
+    if (!in_array($_SESSION['user_role'], ['purchasing', 'admin'])) {
+        echo json_encode(['status' => 'error', 'message' => 'Unauthorized.']);
+        exit;
+    }
+
+    $rs_id = $_POST['rs_id'] ?? 0;
+
+    $stmt = $pdo->prepare("
+        SELECT ri.item_code, ri.quantity, i.item_name 
+        FROM requisition_items ri 
+        LEFT JOIN inventory i ON ri.item_code = i.item_code 
+        WHERE ri.requisition_id = ?
+    ");
+    $stmt->execute([$rs_id]);
+    $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    foreach ($items as &$item) {
+        $histStmt = $pdo->prepare("
+            SELECT s.company_name, po.created_at 
+            FROM po_items pi 
+            JOIN purchase_orders po ON pi.po_id = po.id 
+            JOIN suppliers s ON po.supplier_id = s.id 
+            WHERE pi.item_code = ? AND po.status != 'Generated'
+            ORDER BY po.created_at DESC 
+            LIMIT 1
+        ");
+        $histStmt->execute([$item['item_code']]);
+        $history = $histStmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($history) {
+            $item['last_supplier'] = $history['company_name'];
+            $item['last_purchased'] = date('M d, Y', strtotime($history['created_at']));
+        } else {
+            $item['last_supplier'] = '<span class="text-muted fst-italic">No History</span>';
+            $item['last_purchased'] = '';
+        }
+    }
+
+    echo json_encode(['status' => 'success', 'items' => $items]);
+    exit;
+}
+
+// --- CREATE REQUISITION ---
+elseif ($action === 'create_rs') {
+    $type = $_POST['type'] ?? 'project';
+    $projectName = ($type === 'restock') ? 'Warehouse Restock' : $_POST['project_name'];
+
+    $stmt = $pdo->prepare("
+        INSERT INTO requisitions (rs_no, requestor_id, requestor_name, project_name, urgency, remarks, status, type) 
+        VALUES (?, ?, ?, ?, ?, ?, 'Pending Approval', ?)
+    ");
+    $stmt->execute([
+        $_POST['rs_no'], 
+        $_POST['requestor_id'], 
+        $_POST['requestor_name'], 
+        $projectName, 
+        $_POST['urgency'], 
+        $_POST['remarks'], 
+        $type
+    ]);
+    $requisition_id = $pdo->lastInsertId();
+
+    $items = $_POST['items'];
+    $quantities = $_POST['quantities'];
+    $itemStmt = $pdo->prepare("INSERT INTO requisition_items (requisition_id, item_code, quantity) VALUES (?, ?, ?)");
+    for ($i = 0; $i < count($items); $i++) {
+        if (!empty($items[$i]) && !empty($quantities[$i])) {
+            $itemStmt->execute([$requisition_id, $items[$i], $quantities[$i]]);
+        }
+    }
+
+    // Conflict Check Engine
+    $conflicts = [];
+    $conflictItems = [];
+    if ($type !== 'restock') {
+        $conflictStmt = $pdo->prepare("
+            SELECT ri.item_code, i.item_name, i.quantity as current_stock,
+                   COALESCE(p.total_pending, 0) as total_pending
+            FROM requisition_items ri
+            LEFT JOIN inventory i ON ri.item_code = i.item_code
+            LEFT JOIN (
+                SELECT ri2.item_code, SUM(ri2.quantity) as total_pending
+                FROM requisition_items ri2
+                JOIN requisitions r2 ON ri2.requisition_id = r2.id
+                WHERE r2.status = 'Pending Approval'
+                GROUP BY ri2.item_code
+            ) p ON ri.item_code = p.item_code
+            WHERE ri.requisition_id = ? AND COALESCE(p.total_pending, 0) > i.quantity
+        ");
+        $conflictStmt->execute([$requisition_id]);
+        $conflicts = $conflictStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        foreach ($conflicts as $c) {
+            $conflictItems[] = $c['item_name'];
+        }
+    }
+
+    $conflictWarning = "";
+    if (!empty($conflictItems)) {
+        $conflictWarning = " ⚠️ Conflict alert: Stock deficit for " . implode(', ', $conflictItems) . ".";
+    }
+
+    $notif = $pdo->prepare("INSERT INTO notifications (target_role, title, message) VALUES ('management', 'New Requisition Pending', ?)");
+    $notifText = ($type === 'restock')
+        ? "{$_POST['requestor_name']} submitted a Warehouse Restock request ({$_POST['rs_no']})."
+        : "{$_POST['requestor_name']} submitted {$_POST['rs_no']} for {$projectName}." . $conflictWarning;
+
+    $notif->execute([$notifText]);
+    sendPushNotification($pdo, 'New Requisition Pending', $notifText, 'management', null);
+
+    // If there is a conflict, notify the submitting requestor and other affected requestors
+    if (!empty($conflicts)) {
+        // 1. Notify self
+        $msgToSelf = "Requisition submitted, but warning: stock conflicts detected for " . implode(', ', $conflictItems) . ".";
+        $pdo->prepare("INSERT INTO notifications (target_user_id, title, message) VALUES (?, 'Requisition Conflict Warning', ?)")
+            ->execute([$_POST['requestor_id'], $msgToSelf]);
+        sendPushNotification($pdo, 'Requisition Conflict Warning', $msgToSelf, null, (int)$_POST['requestor_id']);
+
+        // 2. Notify other requestors who also have pending requests for the same items
+        foreach ($conflicts as $c) {
+            $otherReqStmt = $pdo->prepare("
+                SELECT DISTINCT r.requestor_id, r.requestor_name, r.rs_no, r.project_name
+                FROM requisition_items ri
+                JOIN requisitions r ON ri.requisition_id = r.id
+                WHERE ri.item_code = ? AND r.status = 'Pending Approval' AND r.id != ?
+            ");
+            $otherReqStmt->execute([$c['item_code'], $requisition_id]);
+            $otherRequestors = $otherReqStmt->fetchAll(PDO::FETCH_ASSOC);
+
+            foreach ($otherRequestors as $other) {
+                $msgToOther = "Conflict Alert: {$_POST['requestor_name']} requested {$c['item_name']} for {$projectName}, which conflicts with your pending request {$other['rs_no']} for {$other['project_name']}.";
+                $pdo->prepare("INSERT INTO notifications (target_user_id, title, message) VALUES (?, 'Requisition Conflict Alert', ?)")
+                    ->execute([$other['requestor_id'], $msgToOther]);
+                sendPushNotification($pdo, 'Requisition Conflict Alert', $msgToOther, null, (int)$other['requestor_id']);
+            }
+        }
+
+        // 3. Notify Admin of the conflict
+        $msgToAdmin = "Conflict Alert: Requisition {$_POST['rs_no']} submitted by {$_POST['requestor_name']} for {$projectName} has stock conflicts: " . implode(', ', $conflictItems) . ".";
+        $pdo->prepare("INSERT INTO notifications (target_role, title, message) VALUES ('admin', 'Requisition Conflict Alert', ?)")
+            ->execute([$msgToAdmin]);
+        sendPushNotification($pdo, 'Requisition Conflict Alert', $msgToAdmin, 'admin', null);
+    }
+
+    $_SESSION['message'] = ($type === 'restock')
+        ? "Restock request created successfully and sent to Management for approval."
+        : "Requisition created successfully and sent to Management for approval.";
+    $_SESSION['msg_type'] = "success";
+    header("Location: ../requisitions");
+    exit;
+}
+
+// --- APPROVE REQUISITION ---
+elseif ($action === 'approve_rs') {
+    if (!in_array($_SESSION['user_role'], ['management', 'admin'])) {
+        throw new Exception("Only Management or Admins can approve requisitions.");
+    }
+
+    $stmt = $pdo->prepare("UPDATE requisitions SET status = 'Approved' WHERE id = ?");
+    $stmt->execute([$_POST['rs_id']]);
+
+    $rsData = $pdo->prepare("SELECT rs_no, requestor_id FROM requisitions WHERE id = ?");
+    $rsData->execute([$_POST['rs_id']]);
+    $rs = $rsData->fetch();
+
+    $pdo->prepare("INSERT INTO notifications (target_user_id, title, message) VALUES (?, 'Requisition Approved', ?)")
+        ->execute([$rs['requestor_id'], "Your request {$rs['rs_no']} has been approved."]);
+    $pdo->prepare("INSERT INTO notifications (target_role, title, message) VALUES ('purchasing', 'Ready for PO', ?)")
+        ->execute(["{$rs['rs_no']} was approved. Please generate a PO."]);
+
+    sendPushNotification($pdo, 'Requisition Approved', "Your request {$rs['rs_no']} has been approved.", null, (int)$rs['requestor_id']);
+    sendPushNotification($pdo, 'Ready for PO', "{$rs['rs_no']} was approved. Please generate a PO.", 'purchasing', null);
+
+    $_SESSION['message'] = "Requisition Approved. Ready for Purchasing.";
+    $_SESSION['msg_type'] = "success";
+    header("Location: ../requisitions");
+    exit;
+}
+
+// --- STAGE RS MATERIALS ---
+elseif ($action === 'stage_rs_materials') {
+    if (!in_array($_SESSION['user_role'], ['warehouse', 'admin'])) {
+        throw new Exception("Unauthorized.");
+    }
+
+    $rs_id = $_POST['rs_id'];
+    $stmt = $pdo->prepare("UPDATE requisitions SET status = 'Staged (Ready for Pickup)' WHERE id = ?");
+    $stmt->execute([$rs_id]);
+
+    $rsData = $pdo->prepare("SELECT rs_no, requestor_id FROM requisitions WHERE id = ?");
+    $rsData->execute([$rs_id]);
+    $rs = $rsData->fetch();
+
+    if ($rs && !empty($rs['requestor_id'])) {
+        $msg = "Your requested materials for {$rs['rs_no']} have been pre-picked & staged by the Warehouse In-Charge. Ready for express pickup!";
+        $pdo->prepare("INSERT INTO notifications (target_user_id, title, message) VALUES (?, 'Materials Staged (Ready for Pickup)', ?)")
+            ->execute([$rs['requestor_id'], $msg]);
+        sendPushNotification($pdo, 'Materials Staged (Ready for Pickup)', $msg, null, (int)$rs['requestor_id']);
+    }
+
+    if (!empty($is_ajax)) {
+        echo json_encode(['status' => 'success', 'message' => "Requisition {$rs['rs_no']} marked as Staged & Ready for Pickup."]);
+        exit;
+    }
+
+    $_SESSION['message'] = "Requisition {$rs['rs_no']} marked as Staged & Ready for Express Pickup.";
+    $_SESSION['msg_type'] = "info";
+    header("Location: ../requisitions");
+    exit;
+}
+
+// --- REJECT REQUISITION ---
+elseif ($action === 'reject_rs') {
+    if (!in_array($_SESSION['user_role'], ['management', 'admin'])) {
+        throw new Exception("Only Management or Admins can reject requisitions.");
+    }
+
+    $reason = trim($_POST['reject_reason']);
+    $appendRemark = "\n\n[MANAGEMENT REJECTED]: " . $reason;
+
+    $stmt = $pdo->prepare("UPDATE requisitions SET status = 'Rejected', remarks = CONCAT(IFNULL(remarks,''), ?) WHERE id = ?");
+    $stmt->execute([$appendRemark, $_POST['rs_id']]);
+
+    $rsData = $pdo->prepare("SELECT rs_no, requestor_id FROM requisitions WHERE id = ?");
+    $rsData->execute([$_POST['rs_id']]);
+    $rs = $rsData->fetch();
+
+    $pdo->prepare("INSERT INTO notifications (target_user_id, title, message) VALUES (?, 'Requisition Rejected', ?)")
+        ->execute([$rs['requestor_id'], "Your request {$rs['rs_no']} was rejected. Reason: {$reason}"]);
+    sendPushNotification($pdo, 'Requisition Rejected', "Your request {$rs['rs_no']} was rejected. Reason: {$reason}", null, (int)$rs['requestor_id']);
+
+    $_SESSION['message'] = "Requisition Rejected successfully.";
+    $_SESSION['msg_type'] = "danger";
+    header("Location: ../requisitions");
+    exit;
+}
