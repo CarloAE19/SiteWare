@@ -11,9 +11,19 @@
             
             <form method="POST" action="process/process.php" id="withdrawalForm">
                 <div class="modal-body bg-light p-4">
-                    <input type="hidden" name="action" value="create_withdrawal">
-                    <input type="hidden" name="rs_no" id="wdRsNo" value="">
-                    
+                    <!-- RS Number Type & Auto-Load Section -->
+                    <div class="p-3 bg-white border rounded shadow-sm mb-3" style="border-left: 4px solid var(--gb-blue, #0d6efd) !important;">
+                        <label class="form-label fw-bold small text-muted text-uppercase mb-1">
+                            <i class="bi bi-pencil-square text-primary me-1"></i> Type Requisition Slip (RS) Number
+                        </label>
+                        <div class="input-group shadow-sm">
+                            <span class="input-group-text bg-light text-muted fw-bold"><i class="bi bi-search"></i></span>
+                            <input type="text" class="form-control fw-bold" id="manualRsInputText" placeholder="Type RS Number (e.g. RS-2026-6396 or RS-2026-1040)..." onkeydown="if(event.key==='Enter'){event.preventDefault(); window.lookupManualRsInput();}">
+                            <button type="button" class="btn btn-primary fw-bold px-4" onclick="window.lookupManualRsInput()"><i class="bi bi-cloud-download me-1"></i> Load RS Items</button>
+                        </div>
+                        <div id="manualRsStatusFeedback" class="mt-2 text-muted small fw-bold d-none"></div>
+                    </div>
+
                     <div class="row mb-3">
                         <div class="col-md-6 mb-3 mb-md-0">
                             <label class="form-label fw-bold small text-muted text-uppercase">Withdrawal Slip No.</label>
@@ -21,41 +31,18 @@
                         </div>
                         <div class="col-md-6">
                             <label class="form-label fw-bold small text-muted text-uppercase">Project Name / Assigned To <span class="text-danger">*</span></label>
-                            <select class="form-select fw-bold" name="project_name" id="wdProjectName" required>
-                                <option value="">Select Project...</option>
-                                <?php foreach ($activeProjects as $proj): ?>
-                                    <option value="<?= htmlspecialchars($proj['project_name']) ?>"><?= htmlspecialchars($proj['project_name']) ?></option>
-                                <?php endforeach; ?>
-                            </select>
+                            <input type="text" class="form-control fw-bold bg-white text-dark shadow-sm" id="wdProjectNameDisplay" placeholder="Auto-filled via RS Number..." readonly>
+                            <input type="hidden" name="project_name" id="wdProjectName" required>
                         </div>
                     </div>
 
                     <div class="card border-0 shadow-sm mb-4">
                         <div class="card-header bg-white fw-bold text-dark d-flex justify-content-between align-items-center py-3">
                             <span><i class="bi bi-box-seam me-2"></i>Items to Release</span>
-                            <button type="button" class="btn btn-sm btn-outline-primary fw-bold" id="addWdMaterialBtn">
-                                <i class="bi bi-plus-lg me-1"></i> Add Item
-                            </button>
                         </div>
                         <div class="card-body p-3 bg-light" id="wdMaterialsContainer">
-                            <!-- Dynamic Row Template -->
-                            <div class="row g-2 wd-material-row mb-2 align-items-center bg-white p-2 rounded border shadow-sm mx-0">
-                                <div class="col-md-7">
-                                    <select class="form-select fw-bold text-dark wd-item-select" name="items[]" required>
-                                        <option value="">Select Material from Inventory...</option>
-                                        <?php foreach ($inventoryItems as $item): ?>
-                                            <option value="<?= $item['item_code'] ?>" data-max="<?= $item['quantity'] ?>">
-                                                [<?= $item['item_code'] ?>] <?= htmlspecialchars($item['item_name']) ?> (Stock: <?= $item['quantity'] ?>)
-                                            </option>
-                                        <?php endforeach; ?>
-                                    </select>
-                                </div>
-                                <div class="col-md-3 mt-2 mt-md-0">
-                                    <input type="number" class="form-control fw-bold text-center text-danger wd-qty-input" name="quantities[]" placeholder="Qty" required min="1">
-                                </div>
-                                <div class="col-md-2 text-center mt-2 mt-md-0">
-                                    <button type="button" class="btn btn-outline-danger w-100 remove-wd-row" disabled><i class="bi bi-trash3"></i></button>
-                                </div>
+                            <div class="text-center text-muted py-3 fw-bold" id="emptyWdPrompt">
+                                <i class="bi bi-info-circle me-1"></i> Type an approved RS Number above to load release items.
                             </div>
                         </div>
                     </div>
