@@ -3,13 +3,50 @@
  * ========================================================== */
 
 // 1. VIEW WITHDRAWAL DETAILS MODAL
-window.viewWdDetails = function(wdNo, project, remarks, itemsJson, releaser = '', requestor = '') {
+window.viewWdDetails = function(wdNo, project, remarks, itemsJson, releaser = '', requestor = '', receivedBy = '', signaturePath = '', photoProofPath = '') {
     document.getElementById('viewWdNo').innerText = wdNo;
     document.getElementById('viewWdProject').innerText = project;
     document.getElementById('viewWdRemarks').innerText = remarks ? remarks : 'No remarks.';
     if (document.getElementById('viewWdReleaser')) document.getElementById('viewWdReleaser').innerText = releaser || 'Warehouse Staff';
     if (document.getElementById('viewWdRequestor')) document.getElementById('viewWdRequestor').innerText = requestor || 'N/A';
-    
+    if (document.getElementById('viewWdReceivedBy')) document.getElementById('viewWdReceivedBy').innerText = receivedBy || 'N/A';
+
+    // Signature Image
+    const sigImg = document.getElementById('viewWdSignatureImg');
+    const sigWrapper = document.getElementById('viewWdSigWrapper');
+    if (sigImg && sigWrapper) {
+        if (signaturePath && signaturePath.trim() !== '') {
+            sigImg.src = signaturePath;
+            sigWrapper.style.display = '';
+        } else {
+            sigWrapper.style.display = 'none';
+        }
+    }
+
+    // Photo Proof Image
+    const photoImg = document.getElementById('viewWdPhotoImg');
+    const photoLink = document.getElementById('viewWdPhotoLink');
+    const photoWrapper = document.getElementById('viewWdPhotoWrapper');
+    if (photoImg && photoWrapper) {
+        if (photoProofPath && photoProofPath.trim() !== '') {
+            photoImg.src = photoProofPath;
+            if (photoLink) photoLink.href = photoProofPath;
+            photoWrapper.style.display = '';
+        } else {
+            photoWrapper.style.display = 'none';
+        }
+    }
+
+    // Hide proof card if both are empty
+    const proofCard = document.getElementById('viewWdProofCard');
+    if (proofCard) {
+        if ((!signaturePath || signaturePath.trim() === '') && (!photoProofPath || photoProofPath.trim() === '')) {
+            proofCard.style.display = 'none';
+        } else {
+            proofCard.style.display = '';
+        }
+    }
+
     const qrData = encodeURIComponent(`Slip: ${wdNo} | Proj: ${project}`);
     document.getElementById('viewWdQrCode').src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${qrData}`;
     
@@ -318,11 +355,261 @@ window.lookupManualRsInput = function() {
     window.loadRsDataToWithdrawalForm(inputVal);
 };
 
-// Modal Reset Handler on Close
+// Signature Pad & Photo Proof Initialization
 document.addEventListener('DOMContentLoaded', function() {
+    const canvas = document.getElementById('signatureCanvas');
+    if (canvas) {
+        const ctx = canvas.getContext('2d');
+        let isDrawing = false;
+        let hasSignature = false;
+        const placeholder = document.getElementById('sigPlaceholder');
+        const sigDataInput = document.getElementById('signatureData');
+        const clearBtn = document.getElementById('clearSignatureBtn');
+
+        function getPos(e) {
+            const rect = canvas.getBoundingClientRect();
+            const clientX = (e.touches && e.touches.length > 0) ? e.touches[0].clientX : e.clientX;
+            const clientY = (e.touches && e.touches.length > 0) ? e.touches[0].clientY : e.clientY;
+            return {
+                x: (clientX - rect.left) * (canvas.width / (rect.width || 1)),
+                y: (clientY - rect.top) * (canvas.height / (rect.height || 1))
+            };
+        }
+
+        function startDrawing(e) {
+            isDrawing = true;
+            const pos = getPos(e);
+            ctx.beginPath();
+            ctx.moveTo(pos.x, pos.y);
+            if (placeholder) placeholder.style.display = 'none';
+            hasSignature = true;
+        }
+
+        function draw(e) {
+            if (!isDrawing) return;
+            e.preventDefault();
+            const pos = getPos(e);
+            ctx.lineWidth = 2.5;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.strokeStyle = '#000000';
+            ctx.lineTo(pos.x, pos.y);
+            ctx.stroke();
+        }
+
+        function stopDrawing() {
+            if (isDrawing) {
+                isDrawing = false;
+                if (hasSignature && sigDataInput) {
+                    sigDataInput.value = canvas.toDataURL('image/png');
+                }
+            }
+        }
+
+        canvas.addEventListener('mousedown', startDrawing);
+        canvas.addEventListener('mousemove', draw);
+        canvas.addEventListener('mouseup', stopDrawing);
+        canvas.addEventListener('mouseleave', stopDrawing);
+
+        canvas.addEventListener('touchstart', startDrawing, { passive: false });
+        canvas.addEventListener('touchmove', draw, { passive: false });
+        canvas.addEventListener('touchend', stopDrawing);
+
+        if (clearBtn) {
+            clearBtn.addEventListener('click', function() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.beginPath();
+                hasSignature = false;
+                if (sigDataInput) sigDataInput.value = '';
+                if (placeholder) placeholder.style.display = '';
+            });
+        }
+    }
+
+    // Fullscreen Signature Pad logic
+    const fullModalEl = document.getElementById('fullSigModal');
+    const fullCanvas = document.getElementById('fullSigCanvas');
+    if (fullModalEl && fullCanvas) {
+        const fullCtx = fullCanvas.getContext('2d');
+        let fullIsDrawing = false;
+        let fullHasSignature = false;
+        const fullPlaceholder = document.getElementById('fullSigPlaceholder');
+        const clearFullBtn = document.getElementById('clearFullSigBtn');
+        const saveFullBtn = document.getElementById('saveFullSigBtn');
+
+        fullModalEl.addEventListener('shown.bs.modal', function () {
+            const rect = fullCanvas.getBoundingClientRect();
+            const isRotated = window.matchMedia("(max-width: 991px) and (orientation: portrait)").matches;
+
+            if (isRotated) {
+                fullCanvas.width = rect.height;
+                fullCanvas.height = rect.width;
+            } else {
+                fullCanvas.width = rect.width;
+                fullCanvas.height = rect.height;
+            }
+            
+            fullCtx.clearRect(0, 0, fullCanvas.width, fullCanvas.height);
+            fullCtx.lineWidth = 3;
+            fullCtx.lineCap = 'round';
+            fullCtx.lineJoin = 'round';
+            fullCtx.strokeStyle = '#000000';
+
+            fullHasSignature = false;
+            if (fullPlaceholder) fullPlaceholder.style.display = '';
+
+            // Attempt screen orientation lock to landscape on mobile devices
+            if (screen.orientation && screen.orientation.lock) {
+                screen.orientation.lock('landscape').catch(() => {});
+            } else if (screen.lockOrientation) {
+                screen.lockOrientation('landscape');
+            }
+        });
+
+        fullModalEl.addEventListener('hidden.bs.modal', function () {
+            if (screen.orientation && screen.orientation.unlock) {
+                try { screen.orientation.unlock(); } catch(e) {}
+            } else if (screen.unlockOrientation) {
+                try { screen.unlockOrientation(); } catch(e) {}
+            }
+        });
+
+        function getFullPos(e) {
+            const rect = fullCanvas.getBoundingClientRect();
+            const clientX = (e.touches && e.touches.length > 0) ? e.touches[0].clientX : e.clientX;
+            const clientY = (e.touches && e.touches.length > 0) ? e.touches[0].clientY : e.clientY;
+
+            const isRotated = window.matchMedia("(max-width: 991px) and (orientation: portrait)").matches;
+
+            if (isRotated) {
+                const x = (clientY - rect.top) * (fullCanvas.width / (rect.height || 1));
+                const y = (rect.right - clientX) * (fullCanvas.height / (rect.width || 1));
+                return { x: x, y: y };
+            } else {
+                return {
+                    x: (clientX - rect.left) * (fullCanvas.width / (rect.width || 1)),
+                    y: (clientY - rect.top) * (fullCanvas.height / (rect.height || 1))
+                };
+            }
+        }
+
+        function startFullDrawing(e) {
+            fullIsDrawing = true;
+            const pos = getFullPos(e);
+            fullCtx.beginPath();
+            fullCtx.moveTo(pos.x, pos.y);
+            if (fullPlaceholder) fullPlaceholder.style.display = 'none';
+            fullHasSignature = true;
+        }
+
+        function drawFull(e) {
+            if (!fullIsDrawing) return;
+            e.preventDefault();
+            const pos = getFullPos(e);
+            fullCtx.lineWidth = 3;
+            fullCtx.lineCap = 'round';
+            fullCtx.lineJoin = 'round';
+            fullCtx.strokeStyle = '#000000';
+            fullCtx.lineTo(pos.x, pos.y);
+            fullCtx.stroke();
+        }
+
+        function stopFullDrawing() {
+            if (fullIsDrawing) {
+                fullIsDrawing = false;
+                fullCtx.beginPath();
+            }
+        }
+
+        fullCanvas.addEventListener('mousedown', startFullDrawing);
+        fullCanvas.addEventListener('mousemove', drawFull);
+        fullCanvas.addEventListener('mouseup', stopFullDrawing);
+        fullCanvas.addEventListener('mouseleave', stopFullDrawing);
+
+        fullCanvas.addEventListener('touchstart', startFullDrawing, { passive: false });
+        fullCanvas.addEventListener('touchmove', drawFull, { passive: false });
+        fullCanvas.addEventListener('touchend', stopFullDrawing);
+
+        if (clearFullBtn) {
+            clearFullBtn.addEventListener('click', function() {
+                fullCtx.clearRect(0, 0, fullCanvas.width, fullCanvas.height);
+                fullCtx.beginPath();
+                fullHasSignature = false;
+                if (fullPlaceholder) fullPlaceholder.style.display = '';
+            });
+        }
+
+        if (saveFullBtn) {
+            saveFullBtn.addEventListener('click', function() {
+                if (!fullHasSignature) {
+                    alert("Please sign on the canvas first.");
+                    return;
+                }
+                const dataUrl = fullCanvas.toDataURL('image/png');
+                
+                // Transfer to inline canvas
+                const inlineCanvas = document.getElementById('signatureCanvas');
+                const sigDataInput = document.getElementById('signatureData');
+                const placeholder = document.getElementById('sigPlaceholder');
+
+                if (inlineCanvas) {
+                    const inlineCtx = inlineCanvas.getContext('2d');
+                    const img = new Image();
+                    img.onload = function() {
+                        inlineCtx.clearRect(0, 0, inlineCanvas.width, inlineCanvas.height);
+                        inlineCtx.drawImage(img, 0, 0, inlineCanvas.width, inlineCanvas.height);
+                        if (placeholder) placeholder.style.display = 'none';
+                        if (sigDataInput) sigDataInput.value = dataUrl;
+                    };
+                    img.src = dataUrl;
+                }
+                
+                // Hide modal
+                const modalInstance = bootstrap.Modal.getInstance(fullModalEl);
+                if (modalInstance) modalInstance.hide();
+            });
+        }
+    }
+
+    // Photo proof preview logic
+    const photoInput = document.getElementById('photoProofInput');
+    const photoPreview = document.getElementById('photoProofPreview');
+    const photoContainer = document.getElementById('photoProofPreviewContainer');
+    if (photoInput && photoPreview && photoContainer) {
+        photoInput.addEventListener('change', function() {
+            const file = this.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    photoPreview.src = e.target.result;
+                    photoContainer.classList.remove('d-none');
+                };
+                reader.readAsDataURL(file);
+            } else {
+                photoContainer.classList.add('d-none');
+            }
+        });
+    }
+
+    // Form Submit Signature Check
+    const form = document.getElementById('withdrawalForm');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            const sigInput = document.getElementById('signatureData');
+            if (sigInput && (!sigInput.value || sigInput.value.trim() === '')) {
+                e.preventDefault();
+                alert('Please ask the receiver to sign in the Digital Signature pad before confirming release.');
+                return false;
+            }
+        });
+    }
+
+    // Modal Reset Handler on Close
     const withdrawModalEl = document.getElementById('withdrawModal');
     if (withdrawModalEl) {
         withdrawModalEl.addEventListener('hidden.bs.modal', function () {
+            const recInput = document.getElementById('wdReceivedBy');
+            if (recInput) recInput.value = '';
             const reqDisplay = document.getElementById('wdRequestorDisplay');
             if (reqDisplay) reqDisplay.value = '';
             const projInput = document.getElementById('wdProjectName');
@@ -341,6 +628,20 @@ document.addEventListener('DOMContentLoaded', function() {
             if (feedbackEl) feedbackEl.classList.add('d-none');
             const rsInput = document.getElementById('manualRsInputText');
             if (rsInput) rsInput.value = '';
+
+            // Clear signature canvas
+            if (canvas) {
+                const ctx = canvas.getContext('2d');
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                const placeholder = document.getElementById('sigPlaceholder');
+                if (placeholder) placeholder.style.display = '';
+                const sigDataInput = document.getElementById('signatureData');
+                if (sigDataInput) sigDataInput.value = '';
+            }
+
+            // Clear photo proof preview
+            if (photoInput) photoInput.value = '';
+            if (photoContainer) photoContainer.classList.add('d-none');
         });
     }
 });
