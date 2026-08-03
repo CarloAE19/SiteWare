@@ -92,7 +92,24 @@ if ($role === 'admin') {
 }
 
 // Recent activity for all roles
-$recentActivity = $pdo->query("SELECT title, message, created_at FROM notifications ORDER BY created_at DESC LIMIT 6")->fetchAll(PDO::FETCH_ASSOC);
+$recentActivity = $pdo->query("SELECT title, message, created_at FROM notifications ORDER BY created_at DESC LIMIT 8")->fetchAll(PDO::FETCH_ASSOC);
+
+// Helper to categorize recent activity for rich UI feed
+function getActivityMeta($title, $message) {
+    $t = strtolower($title . ' ' . $message);
+    if (strpos($t, 'requisition') !== false || strpos($t, 'rs') !== false) {
+        return ['type' => 'requisition', 'icon' => 'bi-card-checklist', 'color' => 'primary', 'bg' => 'bg-primary-subtle', 'target' => 'requisitions'];
+    } elseif (strpos($t, 'po') !== false || strpos($t, 'purchase order') !== false) {
+        return ['type' => 'po', 'icon' => 'bi-file-earmark-text', 'color' => 'info', 'bg' => 'bg-info-subtle', 'target' => 'po'];
+    } elseif (strpos($t, 'withdrawal') !== false || strpos($t, 'withdrawn') !== false) {
+        return ['type' => 'withdrawal', 'icon' => 'bi-tools', 'color' => 'success', 'bg' => 'bg-success-subtle', 'target' => 'withdrawals'];
+    } elseif (strpos($t, 'low stock') !== false || strpos($t, 'recount') !== false || strpos($t, 'audit') !== false) {
+        return ['type' => 'alert', 'icon' => 'bi-exclamation-triangle-fill', 'color' => 'danger', 'bg' => 'bg-danger-subtle', 'target' => 'audit'];
+    } elseif (strpos($t, 'sms') !== false || strpos($t, 'eta') !== false || strpos($t, 'supplier') !== false) {
+        return ['type' => 'po', 'icon' => 'bi-chat-left-text-fill', 'color' => 'warning', 'bg' => 'bg-warning-subtle', 'target' => 'po'];
+    }
+    return ['type' => 'system', 'icon' => 'bi-bell-fill', 'color' => 'secondary', 'bg' => 'bg-secondary-subtle', 'target' => 'index'];
+}
 
 include 'layout/header.php';
 ?>
@@ -203,11 +220,11 @@ include 'layout/header.php';
                         </a>
                     </div>
                     <div class="col-6 col-md-4 col-lg-3">
-                        <a href="audit" class="shortcut-btn" id="shortcut-start-audit">
-                            <div class="shortcut-icon bg-danger-subtle text-danger"><i class="bi bi-clipboard-check"></i>
+                        <a href="physical_count" class="shortcut-btn" id="shortcut-start-audit">
+                            <div class="shortcut-icon bg-danger-subtle text-danger"><i class="bi bi-calculator"></i>
                             </div>
-                            <span class="shortcut-label">Start Audit</span>
-                            <small class="shortcut-desc">Weekly recount</small>
+                            <span class="shortcut-label">Perform Recount</span>
+                            <small class="shortcut-desc">Weekly physical count</small>
                         </a>
                     </div>
                     <div class="col-6 col-md-4 col-lg-3">
@@ -712,7 +729,8 @@ include 'layout/header.php';
                                     'Pending Approval' => 'warning',
                                     'Approved' => 'success',
                                     'Rejected' => 'danger',
-                                    'PO Created' => 'info'
+                                    'PO Created' => 'info',
+                                    'Released' => 'success'
                                 ];
                                 $color = $statusColors[$rs['status']] ?? 'secondary';
                                 ?>
@@ -740,27 +758,41 @@ include 'layout/header.php';
         <div class="col-12 <?= ($role === 'requestor' && !empty($myRecentRS)) ? 'col-lg-6' : '' ?>">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-body p-3 p-md-4">
-                    <h6 class="fw-bold text-dark mb-3"><i class="bi bi-bell-fill me-2 text-warning"></i>Recent Activity
-                    </h6>
+                    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                        <h6 class="fw-bold text-dark mb-0"><i class="bi bi-activity me-2 text-primary"></i>Recent Activity Feed</h6>
+                        <div class="d-flex align-items-center gap-1 activity-filter-group">
+                            <button type="button" class="btn btn-xs btn-primary activity-filter-btn active" data-filter="all">All</button>
+                            <button type="button" class="btn btn-xs btn-outline-secondary activity-filter-btn" data-filter="requisition">RS</button>
+                            <button type="button" class="btn btn-xs btn-outline-secondary activity-filter-btn" data-filter="po">PO</button>
+                            <button type="button" class="btn btn-xs btn-outline-secondary activity-filter-btn" data-filter="withdrawal">Withdrawal</button>
+                        </div>
+                    </div>
                     <?php if (!empty($recentActivity)): ?>
-                        <?php foreach ($recentActivity as $activity): ?>
-                            <div class="d-flex align-items-start gap-3 mb-3 pb-3 border-bottom activity-item">
-                                <div class="activity-dot"></div>
-                                <div class="flex-grow-1">
-                                    <div class="d-flex justify-content-between align-items-start">
-                                        <span class="fw-bold text-dark"
-                                            style="font-size: 0.85rem;"><?= htmlspecialchars($activity['title']) ?></span>
-                                        <small class="text-muted"
-                                            style="font-size: 0.75rem;"><?= date('M j, g:i A', strtotime($activity['created_at'])) ?></small>
-                                    </div>
-                                    <small class="text-muted"><?= htmlspecialchars($activity['message']) ?></small>
+                        <div class="activity-feed-container">
+                        <?php foreach ($recentActivity as $activity): 
+                            $meta = getActivityMeta($activity['title'], $activity['message']);
+                        ?>
+                            <a href="<?= $meta['target'] ?>" class="activity-card-item d-flex align-items-start gap-3 p-2.5 rounded-3 mb-2 text-decoration-none text-reset" data-category="<?= $meta['type'] ?>">
+                                <div class="activity-icon-badge <?= $meta['bg'] ?> text-<?= $meta['color'] ?>">
+                                    <i class="bi <?= $meta['icon'] ?>"></i>
                                 </div>
-                            </div>
+                                <div class="flex-grow-1 min-w-0">
+                                    <div class="d-flex justify-content-between align-items-center gap-2">
+                                        <span class="fw-bold text-dark text-truncate" style="font-size: 0.85rem;"><?= htmlspecialchars($activity['title']) ?></span>
+                                        <span class="badge bg-light text-muted border px-2 py-1 flex-shrink-0" style="font-size: 0.7rem; font-weight: 600;">
+                                            <i class="bi bi-clock me-1"></i><?= time_elapsed_string($activity['created_at']) ?>
+                                        </span>
+                                    </div>
+                                    <p class="mb-0 text-muted small text-truncate-2 mt-1" style="font-size: 0.78rem; line-height: 1.35;"><?= htmlspecialchars($activity['message']) ?></p>
+                                </div>
+                                <i class="bi bi-chevron-right text-muted opacity-50 ms-1 align-self-center"></i>
+                            </a>
                         <?php endforeach; ?>
+                        </div>
                     <?php else: ?>
                         <div class="text-center py-4 text-muted">
                             <i class="bi bi-inbox fs-1 d-block mb-2 opacity-50"></i>
-                            <span class="small fw-bold">No recent activity</span>
+                            <span class="small fw-bold">No recent activity recorded</span>
                         </div>
                     <?php endif; ?>
                 </div>
@@ -803,14 +835,40 @@ include 'layout/header.php';
             }
         }
 
+        function initActivityFilters() {
+            const filterBtns = document.querySelectorAll('.activity-filter-btn');
+            filterBtns.forEach(btn => {
+                btn.addEventListener('click', function() {
+                    filterBtns.forEach(b => {
+                        b.classList.remove('btn-primary', 'active');
+                        b.classList.add('btn-outline-secondary');
+                    });
+                    this.classList.remove('btn-outline-secondary');
+                    this.classList.add('btn-primary', 'active');
+
+                    const filter = this.getAttribute('data-filter');
+                    document.querySelectorAll('.activity-card-item').forEach(item => {
+                        const cat = item.getAttribute('data-category');
+                        if (filter === 'all' || cat === filter) {
+                            item.style.display = 'flex';
+                        } else {
+                            item.style.display = 'none';
+                        }
+                    });
+                });
+            });
+        }
+
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', function () {
                 updateDashboardTime();
                 setInterval(updateDashboardTime, 1000);
+                initActivityFilters();
             });
         } else {
             updateDashboardTime();
             setInterval(updateDashboardTime, 1000);
+            initActivityFilters();
         }
     })();
 </script>
