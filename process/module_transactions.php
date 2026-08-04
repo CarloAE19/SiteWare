@@ -14,7 +14,7 @@ if (in_array($action, ['fetch_rs_data', 'fetch_rs_with_history', 'create_rs', 'a
     require __DIR__ . '/transactions/rs_actions.php';
 }
 // 2. Purchase Order Actions
-elseif (in_array($action, ['fetch_supplier_delivery_history', 'fetch_po_items', 'create_po', 'mark_po_delivered', 'log_po_delay', 'update_po_eta'])) {
+elseif (in_array($action, ['fetch_supplier_delivery_history', 'fetch_po_items', 'fetch_po_details', 'create_po', 'mark_po_delivered', 'log_po_delay', 'update_po_eta'])) {
     require __DIR__ . '/transactions/po_actions.php';
 }
 // 3. Withdrawal Actions
