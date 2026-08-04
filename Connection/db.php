@@ -332,8 +332,17 @@ try {
     } catch (PDOException $e) { }
 
     try {
-        $pdo->exec("ALTER TABLE purchase_orders ADD COLUMN expected_delivery_date DATE NULL");
+        $pdo->exec("ALTER TABLE purchase_orders ADD COLUMN proof_of_receipt VARCHAR(255) NULL");
     } catch (PDOException $e) { }
+
+    try {
+        $pdo->exec("ALTER TABLE purchase_orders ADD COLUMN received_by INT NULL");
+    } catch (PDOException $e) { }
+
+    // Ensure uploads/receipts directory exists
+    if (!file_exists(__DIR__ . '/../uploads/receipts')) {
+        @mkdir(__DIR__ . '/../uploads/receipts', 0777, true);
+    }
 
     try {
         $pdo->exec("ALTER TABLE users ADD COLUMN fcm_token TEXT DEFAULT NULL");
