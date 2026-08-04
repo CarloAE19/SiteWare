@@ -104,7 +104,7 @@ if ($action === 'fetch_supplier_delivery_history') {
 
 // --- AJAX: FETCH PO ITEMS FOR RECEIVING MODAL ---
 elseif ($action === 'fetch_po_items') {
-    if (!in_array($_SESSION['user_role'], ['warehouse', 'admin'])) {
+    if (!in_array($_SESSION['user_role'], ['warehouse', 'admin', 'purchasing'])) {
         echo json_encode(['status' => 'error', 'message' => 'Unauthorized.']);
         exit;
     }
@@ -112,7 +112,7 @@ elseif ($action === 'fetch_po_items') {
     $po_id = $_POST['po_id'] ?? 0;
 
     $stmt = $pdo->prepare("
-        SELECT pi.item_code, pi.quantity as expected_qty, i.item_name 
+        SELECT pi.item_code, pi.quantity as expected_qty, COALESCE(pi.unit_price, i.unit_price, 0) as unit_price, i.item_name 
         FROM po_items pi 
         JOIN inventory i ON pi.item_code = i.item_code 
         WHERE pi.po_id = ?
@@ -121,6 +121,71 @@ elseif ($action === 'fetch_po_items') {
     $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     echo json_encode(['status' => 'success', 'items' => $items]);
+    exit;
+}
+
+// --- AJAX: FETCH DETAILED PO DATA FOR VIRTUAL PAPER / PRINT ---
+elseif ($action === 'fetch_po_details') {
+    if (!in_array($_SESSION['user_role'], ['admin', 'purchasing', 'management', 'warehouse'])) {
+        echo json_encode(['status' => 'error', 'message' => 'Unauthorized.']);
+        exit;
+    }
+
+    $po_id = (int)($_POST['po_id'] ?? 0);
+
+    $poStmt = $pdo->prepare("
+        SELECT 
+            p.*, 
+            s.company_name, 
+            s.contact_person, 
+            s.contact_number, 
+            s.email AS supplier_email, 
+            s.address AS supplier_address, 
+            r.rs_no, 
+            r.project_name, 
+            u.name AS prepared_by_name
+        FROM purchase_orders p
+        LEFT JOIN suppliers s ON p.supplier_id = s.id
+        LEFT JOIN requisitions r ON p.rs_id = r.id
+        LEFT JOIN users u ON p.prepared_by = u.id
+        WHERE p.id = ?
+    ");
+    $poStmt->execute([$po_id]);
+    $po = $poStmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$po) {
+        echo json_encode(['status' => 'error', 'message' => 'Purchase Order not found.']);
+        exit;
+    }
+
+    $itemsStmt = $pdo->prepare("
+        SELECT 
+            pi.item_code, 
+            pi.quantity, 
+            pi.unit_price, 
+            i.item_name, 
+            i.unit
+        FROM po_items pi
+        LEFT JOIN inventory i ON pi.item_code = i.item_code
+        WHERE pi.po_id = ?
+    ");
+    $itemsStmt->execute([$po_id]);
+    $items = $itemsStmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $totalAmount = 0;
+    foreach ($items as &$item) {
+        $item['subtotal'] = (float)$item['quantity'] * (float)$item['unit_price'];
+        $totalAmount += $item['subtotal'];
+    }
+
+    echo json_encode([
+        'status' => 'success',
+        'po' => $po,
+        'items' => $items,
+        'total_amount' => $totalAmount,
+        'formatted_date' => date('F d, Y', strtotime($po['created_at'])),
+        'formatted_eta' => !empty($po['expected_delivery_date']) ? date('F d, Y', strtotime($po['expected_delivery_date'])) : 'Not Set'
+    ]);
     exit;
 }
 
@@ -170,21 +235,64 @@ elseif ($action === 'create_po') {
 
 // --- MARK PO DELIVERED / STOCK IN ---
 elseif ($action === 'mark_po_delivered') {
-    if (!in_array($_SESSION['user_role'], ['warehouse', 'admin'])) {
+    if (!in_array($_SESSION['user_role'], ['warehouse', 'admin', 'purchasing'])) {
         throw new Exception("Unauthorized.");
     }
 
     $po_id = $_POST['po_id'];
     $po_no = $_POST['po_no'];
+    $received_by = $_SESSION['user_id'];
 
     $item_codes = $_POST['item_codes'] ?? [];
     $actual_qtys = $_POST['actual_qtys'] ?? [];
     $expected_qtys = $_POST['expected_qtys'] ?? [];
+    $unit_prices = $_POST['unit_prices'] ?? [];
+
+    // Handle Proof of Receipt File Upload or Live Camera Snapshot
+    $proofPath = null;
+    if (isset($_FILES['proof_of_receipt']) && $_FILES['proof_of_receipt']['error'] === UPLOAD_ERR_OK) {
+        $tmpName = $_FILES['proof_of_receipt']['tmp_name'];
+        $origName = $_FILES['proof_of_receipt']['name'];
+        $ext = strtolower(pathinfo($origName, PATHINFO_EXTENSION));
+        $allowed = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'pdf'];
+        if (in_array($ext, $allowed)) {
+            $uploadDir = __DIR__ . '/../../uploads/receipts/';
+            if (!file_exists($uploadDir)) {
+                mkdir($uploadDir, 0777, true);
+            }
+            $filename = 'receipt_' . $po_id . '_' . time() . '.' . $ext;
+            if (move_uploaded_file($tmpName, $uploadDir . $filename)) {
+                $proofPath = 'uploads/receipts/' . $filename;
+            }
+        }
+    }
+
+    // Fallback: If no file uploaded, check if live camera photo was captured
+    if (empty($proofPath) && !empty($_POST['captured_proof_base64'])) {
+        $base64Str = $_POST['captured_proof_base64'];
+        if (preg_match('/^data:image\/(\w+);base64,/', $base64Str, $type)) {
+            $data = substr($base64Str, strpos($base64Str, ',') + 1);
+            $typeStr = strtolower($type[1]);
+            $data = base64_decode($data);
+            if ($data !== false) {
+                $uploadDir = __DIR__ . '/../../uploads/receipts/';
+                if (!file_exists($uploadDir)) {
+                    mkdir($uploadDir, 0777, true);
+                }
+                $ext = ($typeStr === 'jpeg') ? 'jpg' : $typeStr;
+                $filename = 'camera_receipt_' . $po_id . '_' . time() . '.' . $ext;
+                if (file_put_contents($uploadDir . $filename, $data)) {
+                    $proofPath = 'uploads/receipts/' . $filename;
+                }
+            }
+        }
+    }
 
     $updateInv = $pdo->prepare("
         UPDATE inventory i 
         JOIN units u ON i.unit = u.unit_name 
         SET i.quantity = i.quantity + ?, 
+            i.unit_price = CASE WHEN ? > 0 THEN ? ELSE i.unit_price END,
             i.status = CASE 
                         WHEN (i.quantity + ?) <= 0 THEN 'Out of Stock'
                         WHEN (i.quantity + ?) <= u.reorder_level THEN 'Low Stock'
@@ -193,13 +301,20 @@ elseif ($action === 'mark_po_delivered') {
         WHERE i.item_code = ?
     ");
 
+    $updatePoItem = $pdo->prepare("UPDATE po_items SET unit_price = ? WHERE po_id = ? AND item_code = ?");
+
     $discrepancyLog = "";
     $hasDiscrepancy = false;
 
     for ($i = 0; $i < count($item_codes); $i++) {
         $actual = (int)($actual_qtys[$i] ?? 0);
         $expected = (int)($expected_qtys[$i] ?? 0);
+        $unit_price = (float)($unit_prices[$i] ?? 0);
         $code = $item_codes[$i];
+
+        if ($unit_price > 0) {
+            $updatePoItem->execute([$unit_price, $po_id, $code]);
+        }
 
         if ($actual != $expected) {
             $hasDiscrepancy = true;
@@ -207,18 +322,21 @@ elseif ($action === 'mark_po_delivered') {
             $nameStmt->execute([$code]);
             $itemName = $nameStmt->fetchColumn() ?: $code;
             $discrepancyLog .= "\n- {$itemName} [Code: {$code}]: Expected {$expected}, Received {$actual}";
+            if ($unit_price > 0) {
+                $discrepancyLog .= " (Unit Price: ₱" . number_format($unit_price, 2) . ")";
+            }
         }
 
         if ($actual > 0) {
-            $updateInv->execute([$actual, $actual, $actual, $code]);
+            $updateInv->execute([$actual, $unit_price, $unit_price, $actual, $actual, $code]);
         }
     }
 
     if ($hasDiscrepancy) {
         $cleanDesc = trim($discrepancyLog);
 
-        $pdo->prepare("UPDATE purchase_orders SET status = 'Delivered (Discrepancy)', delay_remarks = CONCAT(IFNULL(delay_remarks,''), '\n\n[DELIVERY DISCREPANCY]:\n', ?) WHERE id = ?")
-            ->execute([$cleanDesc, $po_id]);
+        $pdo->prepare("UPDATE purchase_orders SET status = 'Delivered (Discrepancy)', delay_remarks = CONCAT(IFNULL(delay_remarks,''), '\n\n[DELIVERY DISCREPANCY]:\n', ?), proof_of_receipt = COALESCE(?, proof_of_receipt), received_by = ? WHERE id = ?")
+            ->execute([$cleanDesc, $proofPath, $received_by, $po_id]);
 
         $alertMsg = "DISCREPANCY ALERT for {$po_no}: Order arrived physically with missing or excess items!{$discrepancyLog}";
         $pdo->prepare("INSERT INTO notifications (target_role, title, message) VALUES ('purchasing', 'PO Discrepancy Found', ?)")->execute([$alertMsg]);
@@ -232,9 +350,9 @@ elseif ($action === 'mark_po_delivered') {
         $_SESSION['message'] = "Stock In partial/discrepancy recorded! Management has been notified of the mismatch.";
         $_SESSION['msg_type'] = "warning";
     } else {
-        $pdo->prepare("UPDATE purchase_orders SET status = 'Delivered' WHERE id = ?")->execute([$po_id]);
+        $pdo->prepare("UPDATE purchase_orders SET status = 'Delivered', proof_of_receipt = COALESCE(?, proof_of_receipt), received_by = ? WHERE id = ?")->execute([$proofPath, $received_by, $po_id]);
 
-        $alertMsg = "Order {$po_no} has arrived complete. Exactly correct quantities successfully STOCKED IN to Master Inventory.";
+        $alertMsg = "Order {$po_no} has arrived complete. Exactly correct quantities and updated prices successfully STOCKED IN to Master Inventory.";
         $pdo->prepare("INSERT INTO notifications (target_role, title, message) VALUES ('purchasing', 'PO Delivered & Verified', ?)")->execute([$alertMsg]);
         $pdo->prepare("INSERT INTO notifications (target_role, title, message) VALUES ('management', 'PO Delivered & Verified', ?)")->execute([$alertMsg]);
         $pdo->prepare("INSERT INTO notifications (target_role, title, message) VALUES ('admin', 'PO Delivered & Verified', ?)")->execute([$alertMsg]);
@@ -243,7 +361,7 @@ elseif ($action === 'mark_po_delivered') {
         sendPushNotification($pdo, 'PO Delivered & Verified', $alertMsg, 'management', null);
         sendPushNotification($pdo, 'PO Delivered & Verified', $alertMsg, 'admin', null);
 
-        $_SESSION['message'] = "Stock In Successful! Delivered physical items perfectly matched the ordered blueprint.";
+        $_SESSION['message'] = "Stock In Successful! Delivered physical items and updated inventory value successfully saved.";
         $_SESSION['msg_type'] = "success";
     }
 
