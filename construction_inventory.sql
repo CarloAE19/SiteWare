@@ -357,7 +357,11 @@ CREATE TABLE `po_items` (
   `po_id` int(11) NOT NULL,
   `item_code` varchar(50) NOT NULL,
   `quantity` int(11) NOT NULL,
-  `unit_price` decimal(10,2) NOT NULL DEFAULT 0.00
+  `unit_price` decimal(10,2) NOT NULL DEFAULT 0.00,
+  `is_new_item` tinyint(1) DEFAULT 0,
+  `custom_item_name` varchar(255) DEFAULT NULL,
+  `category` varchar(100) DEFAULT NULL,
+  `unit` varchar(50) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
@@ -482,7 +486,11 @@ CREATE TABLE `requisition_items` (
   `id` int(11) NOT NULL,
   `requisition_id` int(11) NOT NULL,
   `item_code` varchar(50) NOT NULL,
-  `quantity` int(11) NOT NULL
+  `quantity` int(11) NOT NULL,
+  `is_new_item` tinyint(1) DEFAULT 0,
+  `new_item_name` varchar(255) DEFAULT NULL,
+  `new_category` varchar(100) DEFAULT NULL,
+  `new_unit` varchar(50) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
