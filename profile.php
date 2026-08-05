@@ -101,53 +101,14 @@ include 'layout/header.php';
                             </div>
                         </div>
 
-                        <h6 class="fw-bold mb-3 border-bottom pb-2">Change Password</h6>
-                        <div class="alert alert-light border text-muted small mb-3">
-                            <i class="bi bi-info-circle me-1"></i> Leave the password fields blank if you do not want to
-                            change your current password.
+                        <h6 class="fw-bold mb-3 border-bottom pb-2">Security</h6>
+                        <div class="mb-4">
+                            <button type="button" class="btn btn-outline-primary fw-bold px-3" data-bs-toggle="modal" data-bs-target="#changePasswordModal" onclick="resetPasswordModal()">
+                                <i class="bi bi-key-fill me-1"></i> Change Password
+                            </button>
                         </div>
 
-                        <div class="row mb-3">
-                            <div class="col-12 col-md-6 mb-3">
-                                <label class="form-label fw-bold">Current Password</label>
-                                <div class="input-group">
-                                    <input type="password" class="form-control border-end-0" name="current_password"
-                                        id="currPass" placeholder="Enter your current password">
-                                    <button class="btn border border-start-0 bg-white" type="button"
-                                        onclick="togglePass('currPass', 'eyeCurr')">
-                                        <i class="bi bi-eye-slash text-muted" id="eyeCurr"></i>
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="row mb-4">
-                            <!-- FIXED: Added col-12 for mobile stacking -->
-                            <div class="col-12 col-md-6 mb-3">
-                                <label class="form-label fw-bold">New Password</label>
-                                <div class="input-group">
-                                    <input type="password" class="form-control border-end-0" name="new_password"
-                                        id="newPass">
-                                    <button class="btn border border-start-0 bg-white" type="button"
-                                        onclick="togglePass('newPass', 'eyeNew')">
-                                        <i class="bi bi-eye-slash text-muted" id="eyeNew"></i>
-                                    </button>
-                                </div>
-                            </div>
-                            <div class="col-12 col-md-6 mb-3">
-                                <label class="form-label fw-bold">Confirm New Password</label>
-                                <div class="input-group">
-                                    <input type="password" class="form-control border-end-0" name="confirm_password"
-                                        id="confPass">
-                                    <button class="btn border border-start-0 bg-white" type="button"
-                                        onclick="togglePass('confPass', 'eyeConf')">
-                                        <i class="bi bi-eye-slash text-muted" id="eyeConf"></i>
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="text-end mt-4 mt-md-0">
+                        <div class="text-end mt-4">
                             <!-- FIXED: Button is 100% width on phone, auto-width on PC -->
                             <button type="submit" class="btn btn-brand px-4 w-100 w-md-auto fw-bold py-2 py-md-1">
                                 <i class="bi bi-save me-1"></i> Save Changes
@@ -226,7 +187,232 @@ include 'layout/header.php';
     </div>
 </div>
 
+<!-- Change Password Multi-Step Modal -->
+<div class="modal fade" id="changePasswordModal" tabindex="-1" aria-labelledby="changePasswordModalLabel" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-light py-3">
+                <h5 class="modal-title fw-bold text-dark fs-6" id="changePasswordModalLabel">
+                    <i class="bi bi-shield-lock-fill text-primary me-2"></i>Change Password
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            
+            <div class="modal-body p-4">
+                <!-- Step Navigation Visual Indicator -->
+                <div class="d-flex justify-content-center align-items-center mb-4">
+                    <div class="d-flex align-items-center me-3" id="step1IndicatorWrapper">
+                        <span class="badge rounded-circle bg-primary text-white me-2 d-inline-flex align-items-center justify-content-center" id="step1Num" style="width: 28px; height: 28px;">1</span>
+                        <span class="fw-bold small text-primary" id="step1Text">Verify Current</span>
+                    </div>
+                    <div class="border-top me-3" style="width: 40px; border-color: #dee2e6 !important;" id="stepDivider"></div>
+                    <div class="d-flex align-items-center" id="step2IndicatorWrapper">
+                        <span class="badge rounded-circle bg-secondary text-white me-2 d-inline-flex align-items-center justify-content-center" id="step2Num" style="width: 28px; height: 28px;">2</span>
+                        <span class="fw-bold small text-muted" id="step2Text">New Password</span>
+                    </div>
+                </div>
+
+                <!-- Alert Message -->
+                <div id="modalPassAlert" class="alert d-none shadow-sm mb-3"></div>
+
+                <!-- STEP 1 FORM: Verify Current Password -->
+                <form id="step1Form" onsubmit="handleVerifyStep1(event)">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-secondary">Current Password</label>
+                        <div class="input-group">
+                            <input type="password" class="form-control border-end-0" id="modalCurrPass" placeholder="Enter your current password" required>
+                            <button class="btn border border-start-0 bg-white" type="button" onclick="togglePass('modalCurrPass', 'eyeModalCurr')">
+                                <i class="bi bi-eye-slash text-muted" id="eyeModalCurr"></i>
+                            </button>
+                        </div>
+                        <div class="form-text text-muted small"><i class="bi bi-info-circle me-1"></i>Please enter your existing password to verify your identity.</div>
+                    </div>
+                    <div class="d-flex justify-content-end gap-2 mt-4">
+                        <button type="button" class="btn btn-light border btn-sm fw-bold px-3" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary btn-sm fw-bold px-4" id="btnVerifyStep1">
+                            Verify & Next <i class="bi bi-arrow-right ms-1"></i>
+                        </button>
+                    </div>
+                </form>
+
+                <!-- STEP 2 FORM: Set New Password -->
+                <form id="step2Form" class="d-none" onsubmit="handleUpdateStep2(event)">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-secondary">New Password</label>
+                        <div class="input-group">
+                            <input type="password" class="form-control border-end-0" id="modalNewPass" placeholder="Enter new password (min. 6 chars)" required>
+                            <button class="btn border border-start-0 bg-white" type="button" onclick="togglePass('modalNewPass', 'eyeModalNew')">
+                                <i class="bi bi-eye-slash text-muted" id="eyeModalNew"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-secondary">Confirm New Password</label>
+                        <div class="input-group">
+                            <input type="password" class="form-control border-end-0" id="modalConfPass" placeholder="Retype new password" required>
+                            <button class="btn border border-start-0 bg-white" type="button" onclick="togglePass('modalConfPass', 'eyeModalConf')">
+                                <i class="bi bi-eye-slash text-muted" id="eyeModalConf"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center mt-4">
+                        <button type="button" class="btn btn-outline-secondary btn-sm fw-bold" onclick="goToStep1()">
+                            <i class="bi bi-arrow-left me-1"></i> Back
+                        </button>
+                        <button type="submit" class="btn btn-success btn-sm fw-bold px-4" id="btnUpdateStep2">
+                            <i class="bi bi-check-circle me-1"></i> Update Password
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
+    let verifiedCurrentPassword = "";
+
+    function showPassAlert(msg, type) {
+        const alert = document.getElementById('modalPassAlert');
+        alert.className = `alert alert-${type} shadow-sm mb-3`;
+        alert.innerHTML = msg;
+        alert.classList.remove('d-none');
+    }
+
+    function hidePassAlert() {
+        const alert = document.getElementById('modalPassAlert');
+        alert.classList.add('d-none');
+    }
+
+    function resetPasswordModal() {
+        verifiedCurrentPassword = "";
+        document.getElementById('step1Form').reset();
+        document.getElementById('step2Form').reset();
+        goToStep1();
+        hidePassAlert();
+    }
+
+    function goToStep1() {
+        document.getElementById('step1Form').classList.remove('d-none');
+        document.getElementById('step2Form').classList.add('d-none');
+        
+        document.getElementById('step1Num').className = 'badge rounded-circle bg-primary text-white me-2 d-inline-flex align-items-center justify-content-center';
+        document.getElementById('step1Num').innerHTML = '1';
+        document.getElementById('step1Text').className = 'fw-bold small text-primary';
+        
+        document.getElementById('step2Num').className = 'badge rounded-circle bg-secondary text-white me-2 d-inline-flex align-items-center justify-content-center';
+        document.getElementById('step2Text').className = 'fw-bold small text-muted';
+    }
+
+    function goToStep2() {
+        document.getElementById('step1Form').classList.add('d-none');
+        document.getElementById('step2Form').classList.remove('d-none');
+        
+        document.getElementById('step1Num').className = 'badge rounded-circle bg-success text-white me-2 d-inline-flex align-items-center justify-content-center';
+        document.getElementById('step1Num').innerHTML = '<i class="bi bi-check"></i>';
+        document.getElementById('step1Text').className = 'fw-bold small text-success';
+        
+        document.getElementById('step2Num').className = 'badge rounded-circle bg-primary text-white me-2 d-inline-flex align-items-center justify-content-center';
+        document.getElementById('step2Text').className = 'fw-bold small text-primary';
+        
+        hidePassAlert();
+    }
+
+    async function handleVerifyStep1(e) {
+        e.preventDefault();
+        hidePassAlert();
+        
+        const currentPassInput = document.getElementById('modalCurrPass').value;
+        const btn = document.getElementById('btnVerifyStep1');
+        
+        if (!currentPassInput) {
+            showPassAlert('<i class="bi bi-exclamation-triangle-fill me-1"></i> Please enter your current password.', 'danger');
+            return;
+        }
+        
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Verifying...';
+        
+        try {
+            const formData = new FormData();
+            formData.append('action', 'verify_current_password');
+            formData.append('current_password', currentPassInput);
+            
+            const res = await fetch('process/process.php', {
+                method: 'POST',
+                body: formData,
+                headers: { 'Accept': 'application/json' }
+            });
+            const data = await res.json();
+            
+            if (data.status === 'success') {
+                verifiedCurrentPassword = currentPassInput;
+                goToStep2();
+            } else {
+                showPassAlert('<i class="bi bi-exclamation-triangle-fill me-1"></i> ' + (data.message || 'Incorrect password.'), 'danger');
+            }
+        } catch (err) {
+            showPassAlert('<i class="bi bi-exclamation-triangle-fill me-1"></i> Verification failed. Please try again.', 'danger');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = 'Verify & Next <i class="bi bi-arrow-right ms-1"></i>';
+        }
+    }
+
+    async function handleUpdateStep2(e) {
+        e.preventDefault();
+        hidePassAlert();
+        
+        const newPass = document.getElementById('modalNewPass').value;
+        const confPass = document.getElementById('modalConfPass').value;
+        const btn = document.getElementById('btnUpdateStep2');
+        
+        if (newPass.length < 6) {
+            showPassAlert('<i class="bi bi-exclamation-triangle-fill me-1"></i> New password must be at least 6 characters.', 'danger');
+            return;
+        }
+        
+        if (newPass !== confPass) {
+            showPassAlert('<i class="bi bi-exclamation-triangle-fill me-1"></i> Passwords do not match.', 'danger');
+            return;
+        }
+        
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Updating...';
+        
+        try {
+            const formData = new FormData();
+            formData.append('action', 'change_password_modal');
+            formData.append('current_password', verifiedCurrentPassword);
+            formData.append('new_password', newPass);
+            formData.append('confirm_password', confPass);
+            
+            const res = await fetch('process/process.php', {
+                method: 'POST',
+                body: formData,
+                headers: { 'Accept': 'application/json' }
+            });
+            const data = await res.json();
+            
+            if (data.status === 'success') {
+                showPassAlert('<i class="bi bi-check-circle-fill me-1"></i> ' + data.message, 'success');
+                setTimeout(() => {
+                    const modalEl = document.getElementById('changePasswordModal');
+                    const modal = bootstrap.Modal.getInstance(modalEl);
+                    if (modal) modal.hide();
+                    window.location.reload();
+                }, 1200);
+            } else {
+                showPassAlert('<i class="bi bi-exclamation-triangle-fill me-1"></i> ' + (data.message || 'Failed to update password.'), 'danger');
+            }
+        } catch (err) {
+            showPassAlert('<i class="bi bi-exclamation-triangle-fill me-1"></i> Server error. Please try again.', 'danger');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-check-circle me-1"></i> Update Password';
+        }
+    }
+
     // Simple Password Toggle for Profile Page
     window.togglePass = function (inputId, iconId) {
         const input = document.getElementById(inputId);
