@@ -789,3 +789,17 @@ html, body {
 [data-bs-theme="dark"] .chat-bubble-inbound strong {
     color: #58a6ff !important;
 }
+
+/* Dark Mode Action Button Contrast Fix */
+[data-bs-theme="dark"] .btn-outline-dark,
+[data-bs-theme="dark"] .btn-outline-secondary {
+    color: #e2e8f0 !important;
+    border-color: #475569 !important;
+    background-color: rgba(255, 255, 255, 0.08) !important;
+}
+[data-bs-theme="dark"] .btn-outline-dark:hover,
+[data-bs-theme="dark"] .btn-outline-secondary:hover {
+    color: #ffffff !important;
+    background-color: #334155 !important;
+    border-color: #64748b !important;
+}
