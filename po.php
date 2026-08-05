@@ -7,7 +7,7 @@ if (!isset($_SESSION['user_id'])) {
 
 // Allowed roles for this module
 if (!in_array($_SESSION['user_role'], ['admin', 'purchasing', 'management', 'warehouse'])) {
-    header("Location: index");
+    header("Location: requisitions");
     exit;
 }
 require_once 'Connection/db.php';
@@ -507,9 +507,9 @@ include 'layout/header.php';
 
                                     <?php if (!empty($po['proof_of_receipt'])): 
                                         $receiptFile = basename($po['proof_of_receipt']);
-                                        $secureReceiptUrl = 'secure_image.php?type=receipts&file=' . urlencode($receiptFile);
+                                        $secureReceiptUrl = 'secure-image?type=receipts&file=' . urlencode($receiptFile);
                                     ?>
-                                        <a href="<?= htmlspecialchars($secureReceiptUrl) ?>" target="_blank"
+                                        <a href="<?= htmlspecialchars($secureReceiptUrl) ?>" onclick="event.preventDefault(); window.openPhotoWindow('<?= htmlspecialchars($secureReceiptUrl) ?>');"
                                             class="btn btn-sm btn-outline-info fw-bold shadow-sm me-1" title="View Proof of Receipt">
                                             <i class="bi bi-paperclip"></i> <span class="ms-1">Receipt</span>
                                         </a>
@@ -517,7 +517,7 @@ include 'layout/header.php';
 
                                     <?php if (in_array($role, ['admin', 'management', 'purchasing']) && $po['status'] === 'Delivered (Discrepancy)'): 
                                         $receiptFile = !empty($po['proof_of_receipt']) ? basename($po['proof_of_receipt']) : '';
-                                        $secureReceiptUrl = $receiptFile ? ('secure_image.php?type=receipts&file=' . urlencode($receiptFile)) : '';
+                                        $secureReceiptUrl = $receiptFile ? ('secure-image?type=receipts&file=' . urlencode($receiptFile)) : '';
                                     ?>
                                         <!-- VIEW DISCREPANCY BUTTON -->
                                         <button type="button" class="btn btn-sm btn-danger fw-bold shadow-sm me-1"
@@ -710,7 +710,7 @@ include 'layout/header.php';
         let proofPath = btnElem.getAttribute('data-proof');
         if (proofPath && proofPath.includes('uploads/receipts/')) {
             const filename = proofPath.split('/').pop();
-            proofPath = `secure_image.php?type=receipts&file=${encodeURIComponent(filename)}`;
+            proofPath = `secure-image?type=receipts&file=${encodeURIComponent(filename)}`;
         }
 
         const proofContainer = document.getElementById('discProofContainer');
@@ -720,7 +720,7 @@ include 'layout/header.php';
                 proofContainer.innerHTML = `
                     <div class="alert alert-info py-2 px-3 mb-0 d-flex justify-content-between align-items-center">
                         <span class="small fw-bold"><i class="bi bi-paperclip me-1"></i> Proof of Receipt Attached</span>
-                        <a href="${proofPath}" target="_blank" class="btn btn-sm btn-info text-white fw-bold"><i class="bi bi-box-arrow-up-right me-1"></i> View Receipt File</a>
+                        <a href="${proofPath}" onclick="event.preventDefault(); window.openPhotoWindow('${proofPath}');" class="btn btn-sm btn-info text-white fw-bold"><i class="bi bi-box-arrow-up-right me-1"></i> View Receipt File</a>
                     </div>
                 `;
             } else {
