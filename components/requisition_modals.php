@@ -44,8 +44,10 @@
                                 <th>Item Name</th>
                                 <!-- FIXED: Shortened headers so they fit perfectly inside the mobile modal without wrapping -->
                                 <th class="text-center">Qty</th>
-                                <th class="text-center d-print-none text-primary">Stock</th>
-                                <th class="text-center d-print-none text-warning">Pending Demand</th>
+                                <?php if ($role !== 'requestor'): ?>
+                                    <th class="text-center d-print-none text-primary">Stock</th>
+                                    <th class="text-center d-print-none text-warning">Pending Demand</th>
+                                <?php endif; ?>
                             </tr>
                         </thead>
                         <tbody id="viewRsItemsBody"></tbody>

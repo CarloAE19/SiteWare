@@ -113,6 +113,8 @@ elseif ($action === 'fetch_rs_with_history') {
 elseif ($action === 'create_rs') {
     $type = $_POST['type'] ?? 'project';
     $projectName = ($type === 'restock') ? 'Warehouse Restock' : $_POST['project_name'];
+    $reqId = $_SESSION['user_id'] ?? $_POST['requestor_id'];
+    $reqName = $_SESSION['user_name'] ?? $_POST['requestor_name'];
 
     $stmt = $pdo->prepare("
         INSERT INTO requisitions (rs_no, requestor_id, requestor_name, project_name, urgency, remarks, status, type) 
@@ -120,8 +122,8 @@ elseif ($action === 'create_rs') {
     ");
     $stmt->execute([
         $_POST['rs_no'], 
-        $_POST['requestor_id'], 
-        $_POST['requestor_name'], 
+        $reqId, 
+        $reqName, 
         $projectName, 
         $_POST['urgency'], 
         $_POST['remarks'], 
