@@ -31,7 +31,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $is_ajax = (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest') ||
                (!empty($_SERVER['HTTP_ACCEPT']) && strpos($_SERVER['HTTP_ACCEPT'], 'application/json') !== false) ||
                (strpos($action, 'fetch_') === 0) ||
-               (in_array($action, ['live_sync', 'stock_in_scanned']));
+               (in_array($action, ['live_sync', 'stock_in_scanned', 'verify_current_password', 'change_password_modal']));
 
     if ($is_ajax) {
         header('Content-Type: application/json');
@@ -43,7 +43,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             require __DIR__ . '/module_inventory.php';
         } elseif (in_array($action, ['add_supplier', 'edit_supplier', 'delete_supplier'])) {
             require __DIR__ . '/module_suppliers.php';
-        } elseif (in_array($action, ['add_user', 'edit_user', 'delete_user', 'update_profile'])) {
+        } elseif (in_array($action, ['add_user', 'edit_user', 'delete_user', 'update_profile', 'verify_current_password', 'change_password_modal'])) {
             require __DIR__ . '/module_users.php';
         }
         elseif (in_array($action, ['create_rs', 'approve_rs', 'reject_rs', 'stage_rs_materials', 'create_po', 'update_po_eta', 'mark_po_delivered', 'send_po_sms', 'log_po_delay', 'create_withdrawal', 'fetch_rs_data', 'fetch_rs_with_history', 'fetch_po_items', 'fetch_po_details', 'fetch_supplier_delivery_history', 'fetch_po_sms_preview', 'fetch_sms_threads', 'fetch_sms_messages', 'send_supplier_reply_sms', 'mark_sms_thread_read', 'fetch_combined_alerts'])) {
