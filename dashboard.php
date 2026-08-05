@@ -39,15 +39,30 @@ $outOfStockCount = $pdo->query("SELECT COUNT(*) FROM inventory WHERE quantity <=
 $myTotalRS = 0;
 $myPendingRS = 0;
 $myApprovedRS = 0;
+$myStagedRS = 0;
 $myRecentRS = [];
 if ($role === 'requestor' || $role === 'admin') {
     if ($role === 'requestor') {
-        $myTotalRS = $pdo->prepare("SELECT COUNT(*) FROM requisitions WHERE type = 'project'");
-        $myTotalRS->execute();
-        $myTotalRS = $myTotalRS->fetchColumn();
-        $myPendingRS = $pdo->query("SELECT COUNT(*) FROM requisitions WHERE type = 'project' AND status = 'Pending Approval'")->fetchColumn();
-        $myApprovedRS = $pdo->query("SELECT COUNT(*) FROM requisitions WHERE type = 'project' AND status IN ('Approved', 'PO Created')")->fetchColumn();
-        $myRecentRS = $pdo->query("SELECT rs_no, project_name, status, created_at FROM requisitions WHERE type = 'project' ORDER BY created_at DESC LIMIT 5")->fetchAll(PDO::FETCH_ASSOC);
+        $reqUserId = $_SESSION['user_id'];
+        $myTotalStmt = $pdo->prepare("SELECT COUNT(*) FROM requisitions WHERE requestor_id = ? AND type = 'project'");
+        $myTotalStmt->execute([$reqUserId]);
+        $myTotalRS = $myTotalStmt->fetchColumn();
+
+        $myPendingStmt = $pdo->prepare("SELECT COUNT(*) FROM requisitions WHERE requestor_id = ? AND type = 'project' AND status = 'Pending Approval'");
+        $myPendingStmt->execute([$reqUserId]);
+        $myPendingRS = $myPendingStmt->fetchColumn();
+
+        $myApprovedStmt = $pdo->prepare("SELECT COUNT(*) FROM requisitions WHERE requestor_id = ? AND type = 'project' AND status IN ('Approved', 'PO Created')");
+        $myApprovedStmt->execute([$reqUserId]);
+        $myApprovedRS = $myApprovedStmt->fetchColumn();
+
+        $myStagedStmt = $pdo->prepare("SELECT COUNT(*) FROM requisitions WHERE requestor_id = ? AND type = 'project' AND status = 'Staged (Ready for Pickup)'");
+        $myStagedStmt->execute([$reqUserId]);
+        $myStagedRS = $myStagedStmt->fetchColumn();
+
+        $myRecentStmt = $pdo->prepare("SELECT rs_no, project_name, status, created_at FROM requisitions WHERE requestor_id = ? AND type = 'project' ORDER BY created_at DESC LIMIT 5");
+        $myRecentStmt->execute([$reqUserId]);
+        $myRecentRS = $myRecentStmt->fetchAll(PDO::FETCH_ASSOC);
     }
 }
 
@@ -92,7 +107,22 @@ if ($role === 'admin') {
 }
 
 // Recent activity for all roles
-$recentActivity = $pdo->query("SELECT title, message, created_at FROM notifications ORDER BY created_at DESC LIMIT 8")->fetchAll(PDO::FETCH_ASSOC);
+if ($role === 'requestor') {
+    $recStmt = $pdo->prepare("
+        SELECT title, message, created_at 
+        FROM notifications 
+        WHERE (target_user_id = ? OR target_role = 'requestor')
+          AND title NOT LIKE '%PO%' 
+          AND title NOT LIKE '%Purchase Order%'
+          AND message NOT LIKE '%PO-%' 
+          AND message NOT LIKE '%Purchase Order%'
+        ORDER BY created_at DESC LIMIT 8
+    ");
+    $recStmt->execute([$_SESSION['user_id']]);
+    $recentActivity = $recStmt->fetchAll(PDO::FETCH_ASSOC);
+} else {
+    $recentActivity = $pdo->query("SELECT title, message, created_at FROM notifications ORDER BY created_at DESC LIMIT 8")->fetchAll(PDO::FETCH_ASSOC);
+}
 
 // Helper to categorize recent activity for rich UI feed
 function getActivityMeta($title, $message) {
@@ -162,9 +192,11 @@ include 'layout/header.php';
                 </div>
             </div>
             <div class="col-12 col-md-4 text-md-end mt-3 mt-md-0">
-                <a href="index" class="btn btn-outline-primary btn-sm fw-bold shadow-sm me-1">
-                    <i class="bi bi-box-seam me-1"></i>Inventory
-                </a>
+                <?php if ($role !== 'requestor'): ?>
+                    <a href="index" class="btn btn-outline-primary btn-sm fw-bold shadow-sm me-1">
+                        <i class="bi bi-box-seam me-1"></i>Inventory
+                    </a>
+                <?php endif; ?>
                 <?php if (in_array($role, ['admin', 'management', 'purchasing'])): ?>
                     <a href="analytics" class="btn btn-outline-dark btn-sm fw-bold shadow-sm">
                         <i class="bi bi-bar-chart-line me-1"></i>Analytics
@@ -296,14 +328,15 @@ include 'layout/header.php';
                 <?php endif; ?>
 
                 <?php // === UNIVERSAL SHORTCUTS ===
-                ?>
-                <div class="col-6 col-md-4 col-lg-3">
-                    <a href="index" class="shortcut-btn" id="shortcut-inventory-overview">
-                        <div class="shortcut-icon bg-primary-subtle text-primary"><i class="bi bi-box-seam"></i></div>
-                        <span class="shortcut-label">Inventory</span>
-                        <small class="shortcut-desc"><?= $totalItems ?> items</small>
-                    </a>
-                </div>
+                if ($role !== 'requestor'): ?>
+                    <div class="col-6 col-md-4 col-lg-3">
+                        <a href="index" class="shortcut-btn" id="shortcut-inventory-overview">
+                            <div class="shortcut-icon bg-primary-subtle text-primary"><i class="bi bi-box-seam"></i></div>
+                            <span class="shortcut-label">Inventory</span>
+                            <small class="shortcut-desc"><?= $totalItems ?> items</small>
+                        </a>
+                    </div>
+                <?php endif; ?>
             </div>
         </div>
     </div>
@@ -376,16 +409,17 @@ include 'layout/header.php';
                     <div class="card-body p-3">
                         <div class="d-flex justify-content-between align-items-center">
                             <div>
-                                <div class="stat-label">Available Items</div>
-                                <div class="stat-value text-primary"><?= $totalItems ?></div>
+                                <div class="stat-label">Ready for Pickup</div>
+                                <div class="stat-value text-info"><?= $myStagedRS ?></div>
                             </div>
-                            <div class="stat-icon-circle bg-primary-subtle"><i class="bi bi-box-seam text-primary"></i>
+                            <div class="stat-icon-circle bg-info-subtle"><i class="bi bi-box-arrow-right text-info"></i>
                             </div>
                         </div>
                         <div class="progress mt-2" style="height: 4px;">
-                            <div class="progress-bar bg-primary" style="width: 100%"></div>
+                            <div class="progress-bar bg-info"
+                                style="width: <?= $myTotalRS > 0 ? round(($myStagedRS / $myTotalRS) * 100) : 0 ?>%"></div>
                         </div>
-                        <small class="text-muted fw-bold mt-1 d-block">In inventory catalog</small>
+                        <small class="text-muted fw-bold mt-1 d-block">Staged for collection</small>
                     </div>
                 </div>
             </div>
@@ -763,7 +797,9 @@ include 'layout/header.php';
                         <div class="d-flex align-items-center gap-1 activity-filter-group">
                             <button type="button" class="btn btn-xs btn-primary activity-filter-btn active" data-filter="all">All</button>
                             <button type="button" class="btn btn-xs btn-outline-secondary activity-filter-btn" data-filter="requisition">RS</button>
-                            <button type="button" class="btn btn-xs btn-outline-secondary activity-filter-btn" data-filter="po">PO</button>
+                            <?php if ($role !== 'requestor'): ?>
+                                <button type="button" class="btn btn-xs btn-outline-secondary activity-filter-btn" data-filter="po">PO</button>
+                            <?php endif; ?>
                             <button type="button" class="btn btn-xs btn-outline-secondary activity-filter-btn" data-filter="withdrawal">Withdrawal</button>
                         </div>
                     </div>
