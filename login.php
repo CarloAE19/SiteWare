@@ -1,6 +1,6 @@
 <?php
-session_start();
 require_once 'Connection/db.php';
+init_secure_session();
 
 // Smart Router: Decides where a user goes based on their role
 function redirectUserByRole($role)
