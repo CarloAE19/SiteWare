@@ -14,8 +14,13 @@ Options -Indexes
 </FilesMatch>
 
 # 3. CLEAN URLS (Hide .php extensions)
-# Your existing logic: Allows users to visit /dashboard instead of /dashboard.php
+# Allows users to visit /dashboard instead of /dashboard.php and /secure-image or /media/ proof URLs
 RewriteEngine On
+
+# Clean Media Proxy Routes (Maps secure-image and /media/ to secure_image.php)
+RewriteRule ^secure-image$ secure_image.php [QSA,L]
+RewriteRule ^media/([^/]+)/([^/]+)$ secure_image.php?type=$1&file=$2 [QSA,L]
+
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME}.php -f
