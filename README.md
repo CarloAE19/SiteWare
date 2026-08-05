@@ -1,4 +1,4 @@
-﻿# 🏗️ GB Construction & Enterprise — Smart Inventory & Logistics System (CIMS)
+# 🏗️ GB Construction & Enterprise — Smart Inventory & Logistics System (CIMS)
 
 An enterprise-grade, cloud-ready **Construction Inventory Management System (CIMS)** tailored for **GB Construction & Enterprise Inc.** This system bridges the gap between project sites, warehousing, and management through real-time data syncing, AI-powered analytics, cross-platform push notifications, and a fully offline-resilient architecture.
 
@@ -201,7 +201,7 @@ Browsers require HTTPS for Service Workers and Push Notifications. To test on a 
 
 ## 🛡️ Security Implementations
 
-- **Password Hashing:** PHP's native `password_hash()` (Bcrypt algorithm).
+- **Password Hashing & Robust Complexity:** PHP's native `password_hash()` (Bcrypt algorithm with auto-generated salts). Password policies enforce at least 8 characters, uppercase (`A-Z`), lowercase (`a-z`), and numeric (`0-9`) criteria paired with real-time UI strength meters.
 - **SQL Injection Prevention:** 100% PDO prepared statements — no raw string interpolation in queries.
 - **Directory Protection:** `.htaccess` rules prevent direct folder browsing and mask `.php` extensions from public URLs. The `Connection/` directory has its own `.htaccess` blocking direct HTTP access.
 - **Role-Based Route Guards:** Every module checks `$_SESSION['user_role']` server-side before rendering or processing any action.
