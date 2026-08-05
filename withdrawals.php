@@ -226,8 +226,8 @@ include 'layout/header.php';
                         <div class="row align-items-center text-center g-3">
                             <div class="col-md-6 border-end-md" id="viewWdSigWrapper">
                                 <div class="text-muted small fw-bold mb-2"><i class="bi bi-pen me-1 text-primary"></i> Digital Signature</div>
-                                <div id="viewWdSigContent">
-                                    <img id="viewWdSignatureImg" src="" class="img-fluid border rounded bg-light p-2 shadow-sm" style="max-height: 100px;">
+                                <div id="viewWdSigContent" class="p-1 border rounded shadow-sm d-inline-block bg-white" style="background-color: #ffffff !important;">
+                                    <img id="viewWdSignatureImg" src="" class="img-fluid rounded" style="max-height: 100px; background-color: #ffffff !important;">
                                 </div>
                             </div>
                             <div class="col-md-6" id="viewWdPhotoWrapper">
@@ -248,7 +248,7 @@ include 'layout/header.php';
                 </div>
             </div>
             <div class="modal-footer d-flex justify-content-between bg-white border-top-0">
-                <button type="button" class="btn btn-outline-primary fw-bold px-4" onclick="window.print()"><i class="bi bi-printer me-2"></i>Print Slip</button>
+                <button type="button" class="btn btn-outline-primary fw-bold px-4" onclick="triggerWdPrint()"><i class="bi bi-printer me-2"></i>Print Slip</button>
                 <button type="button" class="btn btn-secondary fw-bold px-4" data-bs-dismiss="modal">Close</button>
             </div>
         </div>
