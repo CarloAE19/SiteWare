@@ -132,18 +132,24 @@ window.viewRsDetails = function(rsNo, project, remarks, status, requestor, date,
                     pendingDisplay = `<span class="text-muted small fw-bold">-</span>`;
                 }
                 
+                const isRequestor = window.currentUserRole === 'requestor';
+                const stockColsHtml = isRequestor ? '' : `
+                    <td class="text-center align-middle d-print-none">${stockDisplay}</td>
+                    <td class="text-center align-middle d-print-none">${pendingDisplay}</td>
+                `;
+
                 tbody.innerHTML += `
                     <tr>
                         <td class="text-muted small align-middle">${item.item_code}</td>
                         <td class="fw-bold align-middle">${itemName}</td>
                         <td class="text-dark fw-bold text-center align-middle fs-5">${reqQty} <span class="fs-6 fw-normal">${unit}</span></td>
-                        <td class="text-center align-middle d-print-none">${stockDisplay}</td>
-                        <td class="text-center align-middle d-print-none">${pendingDisplay}</td>
+                        ${stockColsHtml}
                     </tr>
                 `;
             });
         } else {
-            tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted py-3">No items found.</td></tr>`;
+            const colspan = window.currentUserRole === 'requestor' ? 3 : 5;
+            tbody.innerHTML = `<tr><td colspan="${colspan}" class="text-center text-muted py-3">No items found.</td></tr>`;
         }
     } catch (e) {
         tbody.innerHTML = `<tr><td colspan="5" class="text-center text-danger py-3">Error loading items.</td></tr>`;
