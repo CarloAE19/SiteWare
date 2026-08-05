@@ -102,4 +102,63 @@ elseif ($action === 'update_profile') {
     header("Location: ../profile");
     exit;
 }
+
+elseif ($action === 'verify_current_password') {
+    $userId = $_SESSION['user_id'];
+    $currentPassword = $_POST['current_password'] ?? '';
+
+    if (empty($currentPassword)) {
+        echo json_encode(['status' => 'error', 'message' => 'Please enter your current password.']);
+        exit;
+    }
+
+    $stmt = $pdo->prepare("SELECT password FROM users WHERE id = ?");
+    $stmt->execute([$userId]);
+    $storedHash = $stmt->fetchColumn();
+
+    if ($storedHash && password_verify($currentPassword, $storedHash)) {
+        echo json_encode(['status' => 'success', 'message' => 'Current password verified successfully!']);
+    } else {
+        echo json_encode(['status' => 'error', 'message' => 'Incorrect current password. Please try again.']);
+    }
+    exit;
+}
+
+elseif ($action === 'change_password_modal') {
+    $userId = $_SESSION['user_id'];
+    $currentPassword = $_POST['current_password'] ?? '';
+    $newPassword = $_POST['new_password'] ?? '';
+    $confirmPassword = $_POST['confirm_password'] ?? '';
+
+    if (empty($currentPassword)) {
+        echo json_encode(['status' => 'error', 'message' => 'Current password is required.']);
+        exit;
+    }
+
+    $stmt = $pdo->prepare("SELECT password FROM users WHERE id = ?");
+    $stmt->execute([$userId]);
+    $storedHash = $stmt->fetchColumn();
+
+    if (!$storedHash || !password_verify($currentPassword, $storedHash)) {
+        echo json_encode(['status' => 'error', 'message' => 'Current password is incorrect. Verification failed.']);
+        exit;
+    }
+
+    if (empty($newPassword) || strlen($newPassword) < 6) {
+        echo json_encode(['status' => 'error', 'message' => 'New password must be at least 6 characters long.']);
+        exit;
+    }
+
+    if ($newPassword !== $confirmPassword) {
+        echo json_encode(['status' => 'error', 'message' => 'New passwords do not match.']);
+        exit;
+    }
+
+    $hashed_password = password_hash($newPassword, PASSWORD_DEFAULT);
+    $updateStmt = $pdo->prepare("UPDATE users SET password = ? WHERE id = ?");
+    $updateStmt->execute([$hashed_password, $userId]);
+
+    echo json_encode(['status' => 'success', 'message' => 'Password updated successfully!']);
+    exit;
+}
 ?>
