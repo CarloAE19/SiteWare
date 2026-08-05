@@ -390,6 +390,33 @@ try {
     } catch (PDOException $e) {
     }
 
+    // Auto-patch: Support New Item Restock Requests in Requisition Items & PO Items
+    try {
+        $pdo->exec("ALTER TABLE requisition_items ADD COLUMN is_new_item TINYINT(1) DEFAULT 0");
+    } catch (PDOException $e) {}
+    try {
+        $pdo->exec("ALTER TABLE requisition_items ADD COLUMN new_item_name VARCHAR(255) NULL");
+    } catch (PDOException $e) {}
+    try {
+        $pdo->exec("ALTER TABLE requisition_items ADD COLUMN new_category VARCHAR(100) NULL");
+    } catch (PDOException $e) {}
+    try {
+        $pdo->exec("ALTER TABLE requisition_items ADD COLUMN new_unit VARCHAR(50) NULL");
+    } catch (PDOException $e) {}
+
+    try {
+        $pdo->exec("ALTER TABLE po_items ADD COLUMN is_new_item TINYINT(1) DEFAULT 0");
+    } catch (PDOException $e) {}
+    try {
+        $pdo->exec("ALTER TABLE po_items ADD COLUMN custom_item_name VARCHAR(255) NULL");
+    } catch (PDOException $e) {}
+    try {
+        $pdo->exec("ALTER TABLE po_items ADD COLUMN category VARCHAR(100) NULL");
+    } catch (PDOException $e) {}
+    try {
+        $pdo->exec("ALTER TABLE po_items ADD COLUMN unit VARCHAR(50) NULL");
+    } catch (PDOException $e) {}
+
 } catch (PDOException $e) {
     // 1. Define global constant to signify DB offline status
     if (!defined('DB_OFFLINE')) {
