@@ -41,3 +41,16 @@ RewriteRule ^([^\.]+)$ $1.php [NC,L]
     Header set Cache-Control "no-store, no-cache, must-revalidate, max-age=0"
     Header set Pragma "no-cache"
 </FilesMatch>
+
+# 6. ENFORCE HTTPS & HSTS SECURITY (Network Protection)
+<IfModule mod_rewrite.c>
+    # Redirect HTTP to HTTPS (Supports Ngrok & Cloudflare reverse proxies)
+    RewriteCond %{HTTPS} off
+    RewriteCond %{HTTP:X-Forwarded-Proto} !https
+    RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+</IfModule>
+
+<IfModule mod_headers.c>
+    # Strict-Transport-Security: Forces browsers to use HTTPS for 1 year
+    Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains"
+</IfModule>
