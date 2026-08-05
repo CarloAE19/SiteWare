@@ -21,9 +21,9 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     ];
 
-    // Determine role from user dropdown badge
-    const badgeEl = document.querySelector("#dropdownUser1 .badge");
-    const userRole = badgeEl ? badgeEl.innerText.trim().toLowerCase() : "requestor";
+    // Determine role from container data attribute or fallback
+    const container = document.getElementById("cims-chatbot-container");
+    const userRole = (container && container.dataset.userRole) ? container.dataset.userRole.toLowerCase() : "requestor";
     
     const isRole = (r) => userRole.includes(r);
 
@@ -33,6 +33,7 @@ document.addEventListener("DOMContentLoaded", () => {
             { text: "🛠️ System Summary", prompt: "Give me a general overview of the database size and system records count." }
         ],
         management: [
+            { text: "📄 Approved RS Slips", prompt: "List approved requisition slips with direct links to open their detail modals." },
             { text: "⚠️ Pending Requisitions", prompt: "Are there any pending requisitions that require my approval right now?" },
             { text: "📈 Top Consumed Items", prompt: "Show me the top consumed items in the last 30 days." },
             { text: "📉 Low Stock Alert", prompt: "What items have low stock under 15 units?" }
@@ -43,12 +44,14 @@ document.addEventListener("DOMContentLoaded", () => {
             { text: "🔄 Items to Reorder", prompt: "Which items are low in stock and need a new Purchase Order?" }
         ],
         warehouse: [
+            { text: "📄 Approved RS Slips", prompt: "Show approved requisition slips that are ready for material staging or pickup." },
             { text: "📦 Low Stock & Stockout", prompt: "Are there any items currently out of stock or low in quantity?" },
             { text: "🔄 Recent Withdrawals", prompt: "Show me the last 5 material withdrawal transactions." },
             { text: "📊 Last Audit Info", prompt: "What was the result of our last physical inventory recount and discrepancies?" }
         ],
         requestor: [
             { text: "📝 My Request Status", prompt: "Check the status of my latest requisition slips." },
+            { text: "📄 Approved RS Slips", prompt: "Show my approved requisition slips with direct links to view the details modal." },
             { text: "🏗️ Active Projects", prompt: "List the active projects currently registered in the system." }
         ]
     };
@@ -185,6 +188,31 @@ document.addEventListener("DOMContentLoaded", () => {
         
         escaped = escaped.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
         escaped = escaped.replace(/\*(.*?)\*/g, "<em>$1</em>");
+        
+        // Clean up redundant AI filler text like ": [View Details] (link to modal)" or "[View Details]"
+        escaped = escaped.replace(/:\s*\[View Details\](\s*\(link to modal\))?/gi, "");
+        escaped = escaped.replace(/\[View Details\]/gi, "");
+        escaped = escaped.replace(/\(link to modal\)/gi, "");
+
+        // Auto-detect and convert Purchase Order numbers (e.g. PO-20260805-123, PO-0001) into interactive trigger buttons
+        escaped = escaped.replace(/\b(PO-\d{4,8}-\d+|PO-\d+)\b/gi, (match) => {
+            return `<button type="button" class="btn btn-sm btn-info text-dark shadow-sm chatbot-po-trigger ms-1 me-1 px-2 py-0 align-baseline fw-bold" onclick="window.openPoModalByNo('${match}'); return false;" title="Click to open ${match} details modal"><i class="bi bi-file-earmark-spreadsheet me-1"></i>${match}</button>`;
+        });
+
+        // Auto-detect and convert Withdrawal numbers (e.g. WD-2026-001, WS-2026-001, WITH-0001, WS-0001) into interactive trigger buttons
+        escaped = escaped.replace(/\b(WD-\d{4}-\d+|WS-\d{4}-\d+|WITH-\d+|WS-\d+|WD-\d+)\b/gi, (match) => {
+            return `<button type="button" class="btn btn-sm btn-secondary shadow-sm chatbot-wd-trigger ms-1 me-1 px-2 py-0 align-baseline fw-bold" onclick="window.openWithdrawalModalByNo('${match}'); return false;" title="Click to open ${match} details modal"><i class="bi bi-box-arrow-up-right me-1"></i>${match}</button>`;
+        });
+
+        // Auto-detect and convert Inventory Item codes (e.g. ITM-4430, ITM-4130, ITM-3) into interactive trigger buttons
+        escaped = escaped.replace(/\b(ITM-\d+)\b/gi, (match) => {
+            return `<button type="button" class="btn btn-sm btn-success shadow-sm chatbot-itm-trigger ms-1 me-1 px-2 py-0 align-baseline fw-bold" onclick="window.openItemModalByCode('${match}'); return false;" title="Click to open ${match} profile modal"><i class="bi bi-box-seam me-1"></i>${match}</button>`;
+        });
+
+        // Auto-detect and convert RS Numbers (e.g. RS-0001, RS-2026-1001) into interactive trigger buttons
+        escaped = escaped.replace(/\b(RS-\d{4}-\d+|RS-\d+)\b/gi, (match) => {
+            return `<button type="button" class="btn btn-sm btn-primary shadow-sm chatbot-rs-trigger ms-1 me-1 px-2 py-0 align-baseline fw-bold" onclick="window.openRsModalByNo('${match}'); return false;" title="Click to open ${match} details modal"><i class="bi bi-file-earmark-text me-1"></i>${match}</button>`;
+        });
         
         let lines = escaped.split("\n");
         let inList = false;

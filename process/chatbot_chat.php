@@ -119,9 +119,14 @@ try {
 
         case 'requestor':
             // Their own recent requisitions
-            $stmt = $pdo->prepare("SELECT rs_no, project_name, urgency, status, created_at FROM requisitions WHERE requestor_id = ? ORDER BY created_at DESC LIMIT 5");
+            $stmt = $pdo->prepare("SELECT rs_no, project_name, urgency, status, created_at FROM requisitions WHERE requestor_id = ? ORDER BY created_at DESC LIMIT 10");
             $stmt->execute([$_SESSION['user_id']]);
             $dbData['my_recent_requisitions'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            // Their approved requisitions
+            $stmt = $pdo->prepare("SELECT rs_no, project_name, created_at FROM requisitions WHERE requestor_id = ? AND status IN ('Approved', 'PO Created', 'Staged (Ready for Pickup)') ORDER BY created_at DESC LIMIT 10");
+            $stmt->execute([$_SESSION['user_id']]);
+            $dbData['my_approved_requisitions'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
             // Active projects
             $stmt = $pdo->query("SELECT project_name FROM projects WHERE status = 'active'");
@@ -169,7 +174,8 @@ $systemInstructionText = $roleDescription . "\n\n" .
     "3. Keep answers clear, structured, and helpful. Use bullet points or numbered lists where appropriate.\n" .
     "4. Limit responses to a maximum of 150-200 words. Keep it conversational but concise.\n" .
     "5. CRITICAL DIRECTIVE: You are strictly an inventory and logistics assistant. You must ONLY answer questions directly related to construction materials, stock levels, suppliers, withdrawals, purchase orders, requisitions, projects, and users. If the user's query is unrelated to inventory, logistics, or SiteWare data, you MUST refuse to answer by saying exactly: 'I am only programmed to assist with inventory, logistics, and SiteWare system data. Please ask an inventory-related question.' Do not engage in chit-chat, write code, or answer questions about general topics, AI technology, API integrations, or software development.\n" .
-    "6. LANGUAGE MATCHING & GRAMMAR: Respond in the same language or dialect (English, Tagalog, Cebuano/Bisaya, or Taglish) that the user used. Ensure your grammar, vocabulary, and sentence structures are natural, fluent, and grammatically correct for that specific language or dialect. Avoid awkward word-for-word translation mixtures (e.g., do not mix Tagalog grammatical pronouns/markers like 'anong' with Bisaya words to form unnatural phrases like 'anong tanan'; use proper Cebuano/Bisaya like 'Unsa ang tanan' or proper Tagalog like 'Ano ang lahat ng'). When using Bisaya, use 'ko' (I/me) instead of 'ka' (you) when referring to yourself.";
+    "6. LANGUAGE MATCHING & GRAMMAR: Respond in the same language or dialect (English, Tagalog, Cebuano/Bisaya, or Taglish) that the user used. Ensure your grammar, vocabulary, and sentence structures are natural, fluent, and grammatically correct for that specific language or dialect. Avoid awkward word-for-word translation mixtures (e.g., do not mix Tagalog grammatical pronouns/markers like 'anong' with Bisaya words to form unnatural phrases like 'anong tanan'; use proper Cebuano/Bisaya like 'Unsa ang tanan' or proper Tagalog like 'Ano ang lahat ng'). When using Bisaya, use 'ko' (I/me) instead of 'ka' (you) when referring to yourself.\n" .
+    "7. INTERACTIVE ENTITY CODES: Whenever you mention or list any entity code (such as Requisition Slips **RS-2026-1960**, Purchase Orders **PO-20260805-123**, Material Withdrawals **WS-2026-001**, or Item Codes **ITM-4430**), simply write the code clearly in bold (e.g. **RS-2026-1960**, **ITM-4430**). DO NOT add extra text like '[View Details]' or '(link to modal)' after it, because the frontend automatically converts the entity code into an interactive clickable button that opens the details modal!";
 
 $apiKey = AI_API_KEY;
 $model = defined('AI_MODEL') ? AI_MODEL : 'meta/llama-3.1-8b-instruct';
