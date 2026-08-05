@@ -21,9 +21,10 @@ $activeProjects = $pdo->query("SELECT project_name FROM projects WHERE status = 
 // ROLE-BASED DATA FETCHING
 // ========================================================
 if ($role === 'requestor') {
-    $stmt = $pdo->query("SELECT * FROM requisitions WHERE type = 'project' ORDER BY created_at DESC");
+    $stmt = $pdo->prepare("SELECT * FROM requisitions WHERE requestor_id = ? AND type = 'project' ORDER BY created_at DESC");
+    $stmt->execute([$userId]);
     $requisitions = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    $statTitle = "Project ";
+    $statTitle = "My Project ";
 } elseif ($role === 'purchasing') {
     $stmt = $pdo->query("SELECT * FROM requisitions WHERE type = 'restock' ORDER BY created_at DESC");
     $requisitions = $stmt->fetchAll(PDO::FETCH_ASSOC);
