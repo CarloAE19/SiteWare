@@ -1,7 +1,13 @@
 <?php
 session_start();
-if (!isset($_SESSION['user_id'])) { header("Location: login"); exit; }
-if (!in_array($_SESSION['user_role'], ['admin', 'management', 'purchasing'])) { header("Location: index"); exit; }
+if (!isset($_SESSION['user_id'])) {
+    header("Location: login");
+    exit;
+}
+if (!in_array($_SESSION['user_role'], ['admin', 'management', 'purchasing'])) {
+    header("Location: index");
+    exit;
+}
 
 require_once 'Connection/db.php';
 
@@ -25,12 +31,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['action']) && $_GET['ac
     ini_set('display_errors', 0);
     error_reporting(0);
     header('Content-Type: application/json');
-    
+
     if (!defined('AI_API_KEY') || empty(AI_API_KEY) || AI_API_KEY === 'YOUR_NVIDIA_API_KEY') {
         echo json_encode(['status' => 'error', 'message' => 'NVIDIA API Key is not configured in .env']);
         exit;
     }
-    
+
     try {
         // 1. Fetch latest data to construct the payload
         $query = "
@@ -48,23 +54,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['action']) && $_GET['ac
         $projData = $pdo->query($projQuery)->fetchAll(PDO::FETCH_ASSOC);
 
         $projectBreakdown = [];
-        foreach($projData as $row) {
+        foreach ($projData as $row) {
             $projectBreakdown[$row['item_code']][] = $row['project_name'] . " (" . $row['project_consumed'] . ")";
         }
 
         $aiPayload = [];
         foreach ($consumptionData as $item) {
             $dailyBurn = $item['total_consumed'] / 30;
-            if ($item['current_stock'] <= 0) { $daysLeft = 0; } 
-            elseif ($dailyBurn > 0) { $daysLeft = floor($item['current_stock'] / $dailyBurn); } 
-            else { $daysLeft = 999; }
-            
+            if ($item['current_stock'] <= 0) {
+                $daysLeft = 0;
+            } elseif ($dailyBurn > 0) {
+                $daysLeft = floor($item['current_stock'] / $dailyBurn);
+            } else {
+                $daysLeft = 999;
+            }
+
             $topProjects = isset($projectBreakdown[$item['item_code']]) ? implode(", ", $projectBreakdown[$item['item_code']]) : "No recent projects";
 
             $aiPayload[] = [
-                'Item' => $item['item_name'], 'Unit' => $item['unit'], 'Current_Stock' => $item['current_stock'],
-                'Used_Last_30_Days' => $item['total_consumed'], 'Daily_Burn_Rate' => round($dailyBurn, 2),
-                'Est_Days_Left' => $daysLeft, 'Consuming_Projects' => $topProjects 
+                'Item' => $item['item_name'],
+                'Unit' => $item['unit'],
+                'Current_Stock' => $item['current_stock'],
+                'Used_Last_30_Days' => $item['total_consumed'],
+                'Daily_Burn_Rate' => round($dailyBurn, 2),
+                'Est_Days_Left' => $daysLeft,
+                'Consuming_Projects' => $topProjects
             ];
         }
         usort($aiPayload, fn($a, $b) => $a['Est_Days_Left'] <=> $b['Est_Days_Left']);
@@ -91,9 +105,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['action']) && $_GET['ac
 
         $options = [
             'http' => [
-                'method'  => 'POST',
-                'header'  => "Content-Type: application/json\r\n" .
-                             "Authorization: Bearer " . AI_API_KEY . "\r\n",
+                'method' => 'POST',
+                'header' => "Content-Type: application/json\r\n" .
+                    "Authorization: Bearer " . AI_API_KEY . "\r\n",
                 'content' => json_encode($postData),
                 'ignore_errors' => true,
                 'timeout' => 30
@@ -106,7 +120,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['action']) && $_GET['ac
 
         $context = stream_context_create($options);
         $response = @file_get_contents($apiUrl, false, $context);
-        
+
         if ($response === false) {
             $error_err = error_get_last();
             $error_msg = isset($error_err['message']) ? $error_err['message'] : 'Unknown connection error';
@@ -134,16 +148,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['action']) && $_GET['ac
         $resData = json_decode($response, true);
         if (isset($resData['choices'][0]['message']['content'])) {
             $aiText = $resData['choices'][0]['message']['content'];
-            
+
             // Un-escape markdown wrapper in content if model output it
             $aiText = preg_replace('/^```html\s*|\s*```$/i', '', $aiText);
-            
+
             $timestamp = time() * 1000; // milliseconds
 
             // Save prediction to database
             $stmt = $pdo->prepare("INSERT INTO system_settings (setting_key, setting_value) VALUES ('last_ai_prediction', ?) ON DUPLICATE KEY UPDATE setting_value = ?");
             $stmt->execute([$aiText, $aiText]);
-            
+
             $stmt = $pdo->prepare("INSERT INTO system_settings (setting_key, setting_value) VALUES ('last_ai_timestamp', ?) ON DUPLICATE KEY UPDATE setting_value = ?");
             $stmt->execute([$timestamp, $timestamp]);
 
@@ -176,43 +190,61 @@ $projQuery = "
 $projData = $pdo->query($projQuery)->fetchAll(PDO::FETCH_ASSOC);
 
 $projectBreakdown = [];
-foreach($projData as $row) {
+foreach ($projData as $row) {
     $projectBreakdown[$row['item_code']][] = $row['project_name'] . " (" . $row['project_consumed'] . ")";
 }
 
-$chartLabels = []; $consumedData = []; $daysLeftLabels = []; $daysLeftData = []; $daysLeftColors = []; $aiPayload = [];
+$chartLabels = [];
+$consumedData = [];
+$daysLeftLabels = [];
+$daysLeftData = [];
+$daysLeftColors = [];
+$aiPayload = [];
 
-$pieLabels = []; $pieData = []; $pieColors = [];
+$pieLabels = [];
+$pieData = [];
+$pieColors = [];
 $colorPalette = ['#0d6efd', '#198754', '#ffc107', '#dc3545', '#0dcaf0', '#6f42c1', '#d63384', '#fd7e14', '#20c997', '#6c757d'];
 $cIndex = 0;
 
 foreach ($consumptionData as $item) {
     $dailyBurn = $item['total_consumed'] / 30;
-    if ($item['current_stock'] <= 0) { $daysLeft = 0; } 
-    elseif ($dailyBurn > 0) { $daysLeft = floor($item['current_stock'] / $dailyBurn); } 
-    else { $daysLeft = 999; }
-    
+    if ($item['current_stock'] <= 0) {
+        $daysLeft = 0;
+    } elseif ($dailyBurn > 0) {
+        $daysLeft = floor($item['current_stock'] / $dailyBurn);
+    } else {
+        $daysLeft = 999;
+    }
+
     $topProjects = isset($projectBreakdown[$item['item_code']]) ? implode(", ", $projectBreakdown[$item['item_code']]) : "No recent projects";
 
     $aiPayload[] = [
-        'Item' => $item['item_name'], 'Unit' => $item['unit'], 'Current_Stock' => $item['current_stock'],
-        'Used_Last_30_Days' => $item['total_consumed'], 'Daily_Burn_Rate' => round($dailyBurn, 2),
-        'Est_Days_Left' => $daysLeft, 'Consuming_Projects' => $topProjects 
+        'Item' => $item['item_name'],
+        'Unit' => $item['unit'],
+        'Current_Stock' => $item['current_stock'],
+        'Used_Last_30_Days' => $item['total_consumed'],
+        'Daily_Burn_Rate' => round($dailyBurn, 2),
+        'Est_Days_Left' => $daysLeft,
+        'Consuming_Projects' => $topProjects
     ];
 
     if ($item['total_consumed'] > 0) {
-        $chartLabels[] = $item['item_name']; 
+        $chartLabels[] = $item['item_name'];
         $consumedData[] = $item['total_consumed'];
     }
-    
+
     if ($daysLeft <= 60 || $item['current_stock'] <= 0) {
         $daysLeftLabels[] = $item['item_name'];
-        $daysLeftData[] = ($daysLeft == 0) ? 0.5 : $daysLeft; 
-        if ($daysLeft <= 7) $daysLeftColors[] = 'rgba(220, 53, 69, 0.85)'; 
-        elseif ($daysLeft <= 14) $daysLeftColors[] = 'rgba(255, 193, 7, 0.85)'; 
-        else $daysLeftColors[] = 'rgba(25, 135, 84, 0.85)'; 
+        $daysLeftData[] = ($daysLeft == 0) ? 0.5 : $daysLeft;
+        if ($daysLeft <= 7)
+            $daysLeftColors[] = 'rgba(220, 53, 69, 0.85)';
+        elseif ($daysLeft <= 14)
+            $daysLeftColors[] = 'rgba(255, 193, 7, 0.85)';
+        else
+            $daysLeftColors[] = 'rgba(25, 135, 84, 0.85)';
     }
-    
+
     if ($item['current_stock'] > 0) {
         $pieLabels[] = $item['item_name'];
         $pieData[] = $item['current_stock'];
@@ -228,7 +260,7 @@ $rawHoverData = [];
 foreach ($consumedData as $val) {
     $pct = ($totalConsumedAll > 0) ? round(($val / $totalConsumedAll) * 100, 1) : 0;
     $percentageData[] = $pct;
-    $rawHoverData[] = $val; 
+    $rawHoverData[] = $val;
 }
 
 // Fetch Incoming Warehouse Supply ETAs for Analytics Card
@@ -267,7 +299,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
         'pieColors' => $pieColors,
         'aiPayload' => $aiPayload
     ]);
-    exit; 
+    exit;
 }
 
 include 'layout/header.php';
@@ -276,20 +308,23 @@ include 'layout/header.php';
 <div class="container-fluid px-3 px-md-4 py-4">
     <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4">
         <div>
-            <h3 class="mb-0 fw-bold text-dark"><i class="bi bi-speedometer2 me-2 text-primary"></i>Dashboard</h3>
+            <h3 class="mb-0 fw-bold text-dark"><i class="bi bi-speedometer2 me-2 text-primary"></i>AI Analytics
+            </h3>
         </div>
     </div>
 
     <div class="row mb-4 g-3">
-        
+
         <!-- INCOMING SUPPLY DELIVERIES & WAREHOUSE ETAS -->
         <div class="col-12 col-lg-4">
             <div class="card border-0 shadow-sm h-100 rounded-3">
-                <div class="card-header bg-white fw-bold py-3 text-dark border-bottom-0 d-flex justify-content-between align-items-center">
+                <div
+                    class="card-header bg-white fw-bold py-3 text-dark border-bottom-0 d-flex justify-content-between align-items-center">
                     <div>
                         <i class="bi bi-truck text-primary me-2"></i>Incoming Supply Deliveries & ETAs
                     </div>
-                    <a href="po" class="btn btn-xs btn-outline-primary fw-bold px-2 py-0" style="font-size:0.72rem;">View All</a>
+                    <a href="po" class="btn btn-xs btn-outline-primary fw-bold px-2 py-0"
+                        style="font-size:0.72rem;">View All</a>
                 </div>
                 <div class="card-body p-3 overflow-auto" style="height: 300px;">
                     <?php if (count($incomingSupplies) > 0): ?>
@@ -327,10 +362,14 @@ include 'layout/header.php';
                                     </div>
                                     <div class="d-flex justify-content-between align-items-center">
                                         <small class="text-dark fw-semibold" style="font-size:0.78rem;">
-                                            <i class="bi bi-building me-1 text-muted"></i><?= htmlspecialchars($inPo['company_name'] ?: 'Supplier') ?>
+                                            <i
+                                                class="bi bi-building me-1 text-muted"></i><?= htmlspecialchars($inPo['company_name'] ?: 'Supplier') ?>
                                         </small>
                                         <?php if (in_array($_SESSION['user_role'], ['admin', 'purchasing'])): ?>
-                                            <button type="button" class="btn btn-xs btn-link text-primary p-0 text-decoration-none fw-bold" style="font-size:0.72rem;" onclick="openEditEtaModal(<?= $inPo['id'] ?>, '<?= $inPo['po_no'] ?>', '<?= $inPo['expected_delivery_date'] ?? '' ?>')">
+                                            <button type="button"
+                                                class="btn btn-xs btn-link text-primary p-0 text-decoration-none fw-bold"
+                                                style="font-size:0.72rem;"
+                                                onclick="openEditEtaModal(<?= $inPo['id'] ?>, '<?= $inPo['po_no'] ?>', '<?= $inPo['expected_delivery_date'] ?? '' ?>')">
                                                 <i class="bi bi-pencil-square me-1"></i>ETA
                                             </button>
                                         <?php endif; ?>
@@ -348,18 +387,20 @@ include 'layout/header.php';
                 </div>
             </div>
         </div>
-        
+
         <!-- OVERALL STOCK PIE CHART -->
         <div class="col-12 col-lg-4">
             <div class="card border-0 shadow-sm h-100 rounded-3">
                 <div class="card-header bg-white fw-bold py-3 text-dark border-bottom-0">
                     <i class="bi bi-pie-chart-fill text-success me-2"></i>Overall Stock Distribution
                 </div>
-                <div class="card-body position-relative d-flex justify-content-center align-items-center" style="height: 300px; width: 100%;">
+                <div class="card-body position-relative d-flex justify-content-center align-items-center"
+                    style="height: 300px; width: 100%;">
                     <?php if (count($pieLabels) > 0): ?>
                         <canvas id="overallStockPieChart" style="max-height: 100%; max-width: 100%;"></canvas>
                     <?php else: ?>
-                        <div class="text-center text-muted py-5" id="noDataPie"><i class="bi bi-box-seam fs-1 d-block mb-2"></i>Inventory is currently completely empty.</div>
+                        <div class="text-center text-muted py-5" id="noDataPie"><i
+                                class="bi bi-box-seam fs-1 d-block mb-2"></i>Inventory is currently completely empty.</div>
                         <canvas id="overallStockPieChart" style="display:none;"></canvas>
                     <?php endif; ?>
                 </div>
@@ -372,11 +413,13 @@ include 'layout/header.php';
                 <div class="card-header bg-white fw-bold py-3 text-dark border-bottom-0">
                     <i class="bi bi-calendar-x text-danger me-2"></i>Critical Stock Alerts (Days Left)
                 </div>
-                <div class="card-body position-relative d-flex justify-content-center align-items-center" style="height: 300px; width: 100%;">
+                <div class="card-body position-relative d-flex justify-content-center align-items-center"
+                    style="height: 300px; width: 100%;">
                     <?php if (count($daysLeftLabels) > 0): ?>
                         <canvas id="newDaysLeftChart" style="max-height: 100%; max-width: 100%;"></canvas>
                     <?php else: ?>
-                        <div class="text-center text-success py-5" id="noDataDays"><i class="bi bi-check-circle fs-1 d-block mb-2"></i>All stock levels are healthy!</div>
+                        <div class="text-center text-success py-5" id="noDataDays"><i
+                                class="bi bi-check-circle fs-1 d-block mb-2"></i>All stock levels are healthy!</div>
                         <canvas id="newDaysLeftChart" style="display:none;"></canvas>
                     <?php endif; ?>
                 </div>
@@ -387,7 +430,8 @@ include 'layout/header.php';
 
     <!-- AI ASSISTANT -->
     <div class="card border-0 shadow-sm rounded-3" style="border-top: 5px solid var(--gb-blue) !important;">
-        <div class="card-header bg-white fw-bold py-3 d-flex justify-content-between align-items-center border-bottom-0">
+        <div
+            class="card-header bg-white fw-bold py-3 d-flex justify-content-between align-items-center border-bottom-0">
             <span class="fs-5 text-dark"><i class="bi bi-stars text-warning me-2"></i>AI POWERED ANALYTICS</span>
             <div class="d-flex align-items-center gap-3">
                 <small id="lastUpdatedText" class="text-muted fw-semibold" data-timestamp="<?= $lastTimestamp ?: '' ?>">
@@ -395,27 +439,31 @@ include 'layout/header.php';
                         Last Updated: <?= date('M d, Y h:i:s A', $lastTimestamp / 1000) ?>
                     <?php endif; ?>
                 </small>
-                <button class="btn btn-sm btn-brand fw-bold shadow-sm px-3" id="generateAiBtn" onclick="generateAIPrediction(true)">
+                <button class="btn btn-sm btn-brand fw-bold shadow-sm px-3" id="generateAiBtn"
+                    onclick="generateAIPrediction(true)">
                     <i class="bi bi-arrow-clockwise me-1"></i> Analyze Now
                 </button>
             </div>
         </div>
         <div class="card-body bg-light position-relative rounded-bottom-3" style="min-height: 200px;">
-            <div id="aiLoading" class="position-absolute w-100 h-100 top-0 start-0 bg-white bg-opacity-75 d-flex flex-column justify-content-center align-items-center" style="display: none !important; z-index: 10;">
+            <div id="aiLoading"
+                class="position-absolute w-100 h-100 top-0 start-0 bg-white bg-opacity-75 d-flex flex-column justify-content-center align-items-center"
+                style="display: none !important; z-index: 10;">
                 <div class="spinner-border text-primary mb-2" role="status"></div>
                 <small class="fw-bold text-primary blink-text">AI is calculating optimal restock dates...</small>
             </div>
             <div id="aiOutput" class="p-3 rounded shadow-sm" style="font-size: 1rem; line-height: 1.7;">
                 <?php if ($lastPrediction): ?>
-                    <?php 
-                        $cleanPrediction = preg_replace('/background-color:\s*#fff(?:fff)?;?/i', '', $lastPrediction);
-                        $cleanPrediction = preg_replace('/background:\s*#fff(?:fff)?;?/i', '', $cleanPrediction);
-                        $cleanPrediction = preg_replace('/background-color:\s*white;?/i', '', $cleanPrediction);
-                        $cleanPrediction = preg_replace('/background:\s*white;?/i', '', $cleanPrediction);
+                    <?php
+                    $cleanPrediction = preg_replace('/background-color:\s*#fff(?:fff)?;?/i', '', $lastPrediction);
+                    $cleanPrediction = preg_replace('/background:\s*#fff(?:fff)?;?/i', '', $cleanPrediction);
+                    $cleanPrediction = preg_replace('/background-color:\s*white;?/i', '', $cleanPrediction);
+                    $cleanPrediction = preg_replace('/background:\s*white;?/i', '', $cleanPrediction);
                     ?>
                     <?= $cleanPrediction ?>
                 <?php else: ?>
-                    <div class="text-center text-muted py-4"><i class="bi bi-cpu fs-2 d-block mb-2"></i>Click "Analyze Now" to generate AI Restock Predictions.</div>
+                    <div class="text-center text-muted py-4"><i class="bi bi-cpu fs-2 d-block mb-2"></i>Click "Analyze Now"
+                        to generate AI Restock Predictions.</div>
                 <?php endif; ?>
             </div>
         </div>
@@ -431,7 +479,7 @@ include 'layout/header.php';
 <!-- PASS PHP DATA TO JAVASCRIPT EXTERNALLY -->
 <script>
     window.aiPayload = <?= json_encode($aiPayload) ?>;
-    
+
     window.chartData = {
         chartLabels: <?= json_encode($chartLabels) ?>,
         percentageData: <?= json_encode($percentageData) ?>,
