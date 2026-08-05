@@ -66,7 +66,7 @@ window.openAddUserModal = function() {
     document.getElementById('userUsername').value = '';
     document.getElementById('userRole').value = 'requestor';
     document.getElementById('userPassword').required = true;
-    document.getElementById('passwordHelp').innerText = "Required for new users.";
+    document.getElementById('passwordHelp').innerHTML = "<span class='text-muted'>Min. 8 chars (Must include A-Z, a-z, 0-9).</span>";
 }
 
 window.openEditUserModal = function(id, name, username, role) {
@@ -77,7 +77,7 @@ window.openEditUserModal = function(id, name, username, role) {
     document.getElementById('userUsername').value = username;
     document.getElementById('userRole').value = role;
     document.getElementById('userPassword').required = false; // Not required on edit!
-    document.getElementById('passwordHelp').innerHTML = "<span class='text-primary'>Leave blank to keep current password.</span>";
+    document.getElementById('passwordHelp').innerHTML = "<span class='text-primary'>Leave blank to keep current password. (Min. 8 chars with A-Z, a-z, 0-9 if changing)</span>";
 }
 
 window.toggleUserPass = function() {
