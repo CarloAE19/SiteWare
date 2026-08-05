@@ -1,28 +1,39 @@
 <?php
-// Helper: Human-readable time elapsed string
-if (!function_exists('time_elapsed_string')) {
-    function time_elapsed_string($datetime, $full = false) {
-        $now = new DateTime; $ago = new DateTime($datetime); $diff = $now->diff($ago);
-        $weeks = floor($diff->d / 7); $days = $diff->d - ($weeks * 7);
-        $values = ['y' => $diff->y, 'm' => $diff->m, 'w' => $weeks, 'd' => $days, 'h' => $diff->h, 'i' => $diff->i, 's' => $diff->s];
-        $string = ['y' => 'year', 'm' => 'month', 'w' => 'week', 'd' => 'day', 'h' => 'hour', 'i' => 'minute', 's' => 'second'];
-        $parts = []; foreach ($string as $k => $v) { if ($values[$k]) $parts[] = $values[$k] . ' ' . $v . ($values[$k] > 1 ? 's' : ''); }
-        if (!$full) $parts = array_slice($parts, 0, 1); return $parts ? implode(', ', $parts) . ' ago' : 'just now';
+// Helper: Secure Session Initialization with HttpOnly, SameSite, and Secure flags
+if (!function_exists('init_secure_session')) {
+    function init_secure_session()
+    {
+        if (session_status() === PHP_SESSION_NONE) {
+            $is_https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ||
+                (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && strtolower($_SERVER['HTTP_X_FORWARDED_PROTO']) === 'https');
+
+            session_set_cookie_params([
+                'lifetime' => 0,
+                'path' => '/',
+                'domain' => '',
+                'secure' => $is_https,
+                'httponly' => true,
+                'samesite' => 'Lax'
+            ]);
+            session_start();
+        }
     }
 }
 
 // 1. Load the secure environment variables (.env)
 if (!function_exists('loadEnv')) {
-    function loadEnv($filePath) {
+    function loadEnv($filePath)
+    {
         if (!file_exists($filePath)) {
             die("Critical Error: .env file is missing. The system cannot start securely.");
         }
 
         $lines = file($filePath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-        
+
         foreach ($lines as $line) {
             // Skip comments
-            if (strpos(trim($line), '#') === 0) continue;
+            if (strpos(trim($line), '#') === 0)
+                continue;
 
             // Split "KEY=VALUE"
             list($name, $value) = explode('=', $line, 2);
@@ -313,7 +324,8 @@ try {
         $pdo->exec("UPDATE units SET reorder_level = 5 WHERE unit_name IN ('Cubic Meters', 'Liters')");
         $pdo->exec("UPDATE units SET reorder_level = 20 WHERE unit_name IN ('Kilograms')");
         $pdo->exec("UPDATE units SET reorder_level = 15 WHERE unit_name IN ('Meters')");
-    } catch (PDOException $e) { /* Column already exists or table freshly created */ }
+    } catch (PDOException $e) { /* Column already exists or table freshly created */
+    }
 
     if ($pdo->query("SELECT COUNT(*) FROM units")->fetchColumn() == 0) {
         $pdo->exec("INSERT INTO units (unit_name, abbreviation, reorder_level) VALUES 
@@ -325,19 +337,23 @@ try {
     try {
         $pdo->exec("ALTER TABLE requisitions ADD COLUMN type VARCHAR(50) DEFAULT 'project'");
         $pdo->exec("UPDATE requisitions SET type = 'restock' WHERE project_name = 'General Restocking'");
-    } catch (PDOException $e) { }
+    } catch (PDOException $e) {
+    }
 
     try {
         $pdo->exec("ALTER TABLE purchase_orders ADD COLUMN delay_remarks TEXT NULL");
-    } catch (PDOException $e) { }
+    } catch (PDOException $e) {
+    }
 
     try {
         $pdo->exec("ALTER TABLE purchase_orders ADD COLUMN proof_of_receipt VARCHAR(255) NULL");
-    } catch (PDOException $e) { }
+    } catch (PDOException $e) {
+    }
 
     try {
         $pdo->exec("ALTER TABLE purchase_orders ADD COLUMN received_by INT NULL");
-    } catch (PDOException $e) { }
+    } catch (PDOException $e) {
+    }
 
     // Ensure uploads/receipts directory exists
     if (!file_exists(__DIR__ . '/../uploads/receipts')) {
@@ -346,27 +362,33 @@ try {
 
     try {
         $pdo->exec("ALTER TABLE users ADD COLUMN fcm_token TEXT DEFAULT NULL");
-    } catch (PDOException $e) { }
+    } catch (PDOException $e) {
+    }
 
     try {
         $pdo->exec("ALTER TABLE projects ADD COLUMN project_code VARCHAR(50) NULL");
-    } catch (PDOException $e) { }
+    } catch (PDOException $e) {
+    }
 
     try {
         $pdo->exec("ALTER TABLE notifications ADD COLUMN is_read TINYINT(1) DEFAULT 0");
-    } catch (PDOException $e) { }
+    } catch (PDOException $e) {
+    }
 
     try {
         $pdo->exec("ALTER TABLE withdrawals ADD COLUMN received_by VARCHAR(100) NULL");
-    } catch (PDOException $e) { }
+    } catch (PDOException $e) {
+    }
 
     try {
         $pdo->exec("ALTER TABLE withdrawals ADD COLUMN signature_path VARCHAR(255) NULL");
-    } catch (PDOException $e) { }
+    } catch (PDOException $e) {
+    }
 
     try {
         $pdo->exec("ALTER TABLE withdrawals ADD COLUMN photo_proof_path VARCHAR(255) NULL");
-    } catch (PDOException $e) { }
+    } catch (PDOException $e) {
+    }
 
 } catch (PDOException $e) {
     // 1. Define global constant to signify DB offline status
@@ -395,7 +417,7 @@ try {
             header("Location: " . ($_SERVER['HTTP_REFERER'] ?? '../index'));
             exit;
         }
-        
+
         // Otherwise, it is an AJAX query expecting JSON
         header('Content-Type: application/json');
         echo json_encode([
@@ -408,20 +430,22 @@ try {
     // 4. Check if the user is logged in
     if (isset($_SESSION['user_id'])) {
         $rootDir = dirname(__DIR__);
-        
+
         // Include layout/header.php which knows DB_OFFLINE is true and will render sidebar + top navigation
         include_once $rootDir . '/layout/header.php';
         ?>
         <div class="container-fluid px-3 px-md-4 py-5 text-center">
             <div class="card border-0 shadow-sm p-5 mx-auto bg-white" style="max-width: 600px; border-radius: 16px;">
                 <div class="icon-wrap mb-4 d-flex justify-content-center">
-                    <div class="d-flex align-items-center justify-content-center bg-danger-subtle rounded-circle" style="width: 80px; height: 80px;">
+                    <div class="d-flex align-items-center justify-content-center bg-danger-subtle rounded-circle"
+                        style="width: 80px; height: 80px;">
                         <i class="bi bi-database-exclamation text-danger fs-1 animate-pulse-db"></i>
                     </div>
                 </div>
                 <h3 class="fw-bold text-dark mb-2">Can't Connect, You're Offline</h3>
                 <p class="text-muted mb-4">
-                    The database server is currently offline. You can still navigate using the sidebar to other sections, but database read/write actions are disabled.
+                    The database server is currently offline. You can still navigate using the sidebar to other sections, but
+                    database read/write actions are disabled.
                 </p>
                 <button class="btn btn-brand fw-bold px-4 py-2 shadow-sm" onclick="window.location.reload()">
                     <i class="bi bi-arrow-clockwise me-1"></i> Retry Connection
@@ -430,9 +454,17 @@ try {
         </div>
         <style>
             @keyframes pulseDb {
-                0%, 100% { transform: scale(1); }
-                50% { transform: scale(1.08); }
+
+                0%,
+                100% {
+                    transform: scale(1);
+                }
+
+                50% {
+                    transform: scale(1.08);
+                }
             }
+
             .animate-pulse-db {
                 animation: pulseDb 2s infinite ease-in-out;
                 display: inline-block;
@@ -442,7 +474,7 @@ try {
         include_once $rootDir . '/layout/footer.php';
         exit;
     }
-    
+
     // If not logged in, return cleanly and let login.php handle its own error reporting
     return;
 }
