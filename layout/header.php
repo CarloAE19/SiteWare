@@ -38,8 +38,21 @@ $currentUserId = $_SESSION['user_id'] ?? 0;
 $notifications = [];
 $unreadCount = 0;
 if (!defined('DB_OFFLINE') && isset($pdo) && $pdo !== null) {
-    $notifStmt = $pdo->prepare("SELECT * FROM notifications WHERE target_user_id = ? OR target_role = ? ORDER BY created_at DESC LIMIT 10");
-    $notifStmt->execute([$currentUserId, $currentUserRole]);
+    if ($currentUserRole === 'requestor') {
+        $notifStmt = $pdo->prepare("
+            SELECT * FROM notifications 
+            WHERE (target_user_id = ? OR target_role = 'requestor')
+              AND title NOT LIKE '%PO%' 
+              AND title NOT LIKE '%Purchase Order%'
+              AND message NOT LIKE '%PO-%' 
+              AND message NOT LIKE '%Purchase Order%'
+            ORDER BY created_at DESC LIMIT 10
+        ");
+        $notifStmt->execute([$currentUserId]);
+    } else {
+        $notifStmt = $pdo->prepare("SELECT * FROM notifications WHERE target_user_id = ? OR target_role = ? ORDER BY created_at DESC LIMIT 10");
+        $notifStmt->execute([$currentUserId, $currentUserRole]);
+    }
     $notifications = $notifStmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
@@ -294,7 +307,55 @@ foreach ($notifications as $n) {
             });
         })();
     </script>
-    <script> window.currentUserRole = '<?= $currentUserRole ?>'; </script>
+    <script>
+        window.currentUserRole = '<?= $currentUserRole ?>';
+        // Global Popup Window Helper for Secure Media Viewing (Desktop & Mobile PWA Compatible)
+        window.openPhotoWindow = function(url, title = 'Media Proof Viewer') {
+            if (!url || url === '#' || url === 'javascript:void(0);') return;
+
+            // Detect Mobile device, touch screen, PWA standalone mode, or narrow viewport
+            const isMobileOrPwa = (window.innerWidth <= 768) || 
+                                  window.matchMedia('(display-mode: standalone)').matches || 
+                                  (window.navigator.standalone === true);
+
+            if (isMobileOrPwa) {
+                const modalEl = document.getElementById('pwaMediaViewerModal');
+                const imgEl = document.getElementById('pwaMediaViewerImg');
+                const urlEl = document.getElementById('pwaMediaViewerUrl');
+                const openBtn = document.getElementById('pwaMediaViewerOpenBtn');
+                const titleEl = document.getElementById('pwaMediaViewerTitle');
+
+                if (modalEl && imgEl) {
+                    imgEl.src = url;
+                    if (urlEl) urlEl.innerText = url;
+                    if (openBtn) openBtn.href = url;
+                    if (titleEl) titleEl.innerHTML = `<i class="bi bi-image text-warning me-2"></i> ${title}`;
+
+                    let bsModal = bootstrap.Modal.getInstance(modalEl);
+                    if (!bsModal) bsModal = new bootstrap.Modal(modalEl);
+                    bsModal.show();
+                    return;
+                }
+            }
+
+            // Desktop Window Popup
+            const width = 850;
+            const height = 700;
+            const left = (window.screen.width / 2) - (width / 2);
+            const top = (window.screen.height / 2) - (height / 2);
+            const win = window.open(url, 'SecurePhotoViewer', `width=${width},height=${height},top=${top},left=${left},resizable=yes,scrollbars=yes,status=yes`);
+            if (!win) {
+                // Fallback if popup blocker catches window.open
+                const modalEl = document.getElementById('pwaMediaViewerModal');
+                if (modalEl) {
+                    document.getElementById('pwaMediaViewerImg').src = url;
+                    document.getElementById('pwaMediaViewerUrl').innerText = url;
+                    document.getElementById('pwaMediaViewerOpenBtn').href = url;
+                    new bootstrap.Modal(modalEl).show();
+                }
+            }
+        };
+    </script>
 </head>
 
 <body>
@@ -319,13 +380,15 @@ foreach ($notifications as $n) {
                     </li>
                 <?php endif; ?>
 
-                <li class="px-3 text-uppercase small fw-bold mb-2 mt-4" style="color: #adb5bd;">Master Data</li>
-                <li class="<?= $currentPage == 'index.php' ? 'active' : '' ?>"><a href="index"><i
-                            class="bi bi-box-seam"></i> Materials Inventory</a></li>
+                <?php if ($_SESSION['user_role'] !== 'requestor'): ?>
+                    <li class="px-3 text-uppercase small fw-bold mb-2 mt-4" style="color: #adb5bd;">Master Data</li>
+                    <li class="<?= $currentPage == 'index.php' ? 'active' : '' ?>"><a href="index"><i
+                                class="bi bi-box-seam"></i> Materials Inventory</a></li>
 
-                <?php if (in_array($_SESSION['user_role'], ['admin', 'purchasing'])): ?>
-                    <li class="<?= $currentPage == 'suppliers.php' ? 'active' : '' ?>"><a href="suppliers"><i
-                                class="bi bi-buildings"></i> Suppliers Database</a></li>
+                    <?php if (in_array($_SESSION['user_role'], ['admin', 'purchasing'])): ?>
+                        <li class="<?= $currentPage == 'suppliers.php' ? 'active' : '' ?>"><a href="suppliers"><i
+                                    class="bi bi-buildings"></i> Suppliers Database</a></li>
+                    <?php endif; ?>
                 <?php endif; ?>
 
                 <li class="px-3 text-uppercase small fw-bold mb-2 mt-4" style="color: #adb5bd;">Transactions</li>
@@ -333,8 +396,10 @@ foreach ($notifications as $n) {
                             class="bi bi-tools"></i> Material Withdrawals</a></li>
                 <li class="<?= $currentPage == 'requisitions.php' ? 'active' : '' ?>"><a href="requisitions"><i
                             class="bi bi-card-checklist"></i> Requisitions (RS)</a></li>
-                <li class="<?= $currentPage == 'po.php' ? 'active' : '' ?>"><a href="po"><i
-                            class="bi bi-file-earmark-text"></i> Purchase Orders (PO)</a></li>
+                <?php if (in_array($_SESSION['user_role'], ['admin', 'management', 'purchasing', 'warehouse'])): ?>
+                    <li class="<?= $currentPage == 'po.php' ? 'active' : '' ?>"><a href="po"><i
+                                class="bi bi-file-earmark-text"></i> Purchase Orders (PO)</a></li>
+                <?php endif; ?>
 
                 <?php if (in_array($_SESSION['user_role'], ['admin', 'management', 'warehouse'])): ?>
                     <li class="px-3 text-uppercase small fw-bold mb-2 mt-4" style="color: #adb5bd;">System</li>

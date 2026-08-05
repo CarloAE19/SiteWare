@@ -757,7 +757,33 @@ document.addEventListener('DOMContentLoaded', () => {
     setInterval(loadSmsThreads, 30000);
     setInterval(loadSupplyUpdates, 25000);
 });
-</script>
+<!-- ======================================================== -->
+<!-- MODAL: IN-APP PWA & MOBILE MEDIA PROOF VIEWER           -->
+<!-- ======================================================== -->
+<div class="modal fade" id="pwaMediaViewerModal" tabindex="-1" aria-hidden="true" style="z-index: 1065;">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 12px; overflow: hidden;">
+            <div class="modal-header bg-dark text-white py-2">
+                <h6 class="modal-title fw-bold text-uppercase mb-0" id="pwaMediaViewerTitle" style="font-size: 0.85rem;">
+                    <i class="bi bi-image text-warning me-2"></i> Media Proof Viewer
+                </h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-2 text-center bg-dark d-flex flex-column align-items-center justify-content-center" style="min-height: 250px;">
+                <img id="pwaMediaViewerImg" src="" class="img-fluid rounded shadow-sm" style="max-height: 75vh; object-fit: contain; background: #fff;">
+            </div>
+            <div class="modal-footer bg-dark border-top border-secondary border-opacity-25 py-2 d-flex justify-content-between align-items-center">
+                <span class="text-white-50 small text-truncate pe-2 font-monospace" id="pwaMediaViewerUrl" style="max-width: 60%; font-size: 0.72rem;"></span>
+                <div>
+                    <a id="pwaMediaViewerOpenBtn" href="#" target="_blank" class="btn btn-sm btn-outline-light me-1 fw-bold" style="font-size: 0.75rem;">
+                        <i class="bi bi-box-arrow-up-right me-1"></i> Open Window
+                    </a>
+                    <button type="button" class="btn btn-sm btn-secondary fw-bold" data-bs-dismiss="modal" style="font-size: 0.75rem;">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 
 </body>
 
