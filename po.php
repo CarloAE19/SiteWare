@@ -505,19 +505,25 @@ include 'layout/header.php';
                                         </button>
                                     <?php endif; ?>
 
-                                    <?php if (!empty($po['proof_of_receipt'])): ?>
-                                        <a href="<?= htmlspecialchars($po['proof_of_receipt']) ?>" target="_blank"
+                                    <?php if (!empty($po['proof_of_receipt'])): 
+                                        $receiptFile = basename($po['proof_of_receipt']);
+                                        $secureReceiptUrl = 'secure_image.php?type=receipts&file=' . urlencode($receiptFile);
+                                    ?>
+                                        <a href="<?= htmlspecialchars($secureReceiptUrl) ?>" target="_blank"
                                             class="btn btn-sm btn-outline-info fw-bold shadow-sm me-1" title="View Proof of Receipt">
                                             <i class="bi bi-paperclip"></i> <span class="ms-1">Receipt</span>
                                         </a>
                                     <?php endif; ?>
 
-                                    <?php if (in_array($role, ['admin', 'management', 'purchasing']) && $po['status'] === 'Delivered (Discrepancy)'): ?>
+                                    <?php if (in_array($role, ['admin', 'management', 'purchasing']) && $po['status'] === 'Delivered (Discrepancy)'): 
+                                        $receiptFile = !empty($po['proof_of_receipt']) ? basename($po['proof_of_receipt']) : '';
+                                        $secureReceiptUrl = $receiptFile ? ('secure_image.php?type=receipts&file=' . urlencode($receiptFile)) : '';
+                                    ?>
                                         <!-- VIEW DISCREPANCY BUTTON -->
                                         <button type="button" class="btn btn-sm btn-danger fw-bold shadow-sm me-1"
                                             title="View Discrepancy" data-pono="<?= htmlspecialchars($po['po_no']) ?>"
                                             data-remarks="<?= htmlspecialchars($po['delay_remarks'] ?? 'No remarks provided.') ?>"
-                                            data-proof="<?= htmlspecialchars($po['proof_of_receipt'] ?? '') ?>"
+                                            data-proof="<?= htmlspecialchars($secureReceiptUrl) ?>"
                                             onclick="viewDiscrepancy(this)">
                                             <i class="bi bi-search"></i> <span class="ms-1">View Issue</span>
                                         </button>
@@ -701,7 +707,12 @@ include 'layout/header.php';
         rawText = rawText.replace(/\[DELIVERY DISCREPANCY\]:/g, '<span class="d-block text-danger fw-bold mb-1 border-bottom border-danger border-opacity-25 pb-2"><i class="bi bi-x-circle-fill me-1"></i> DELIVERY DISCREPANCY ISSUES</span>');
         document.getElementById('discRemarks').innerHTML = rawText;
 
-        const proofPath = btnElem.getAttribute('data-proof');
+        let proofPath = btnElem.getAttribute('data-proof');
+        if (proofPath && proofPath.includes('uploads/receipts/')) {
+            const filename = proofPath.split('/').pop();
+            proofPath = `secure_image.php?type=receipts&file=${encodeURIComponent(filename)}`;
+        }
+
         const proofContainer = document.getElementById('discProofContainer');
         if (proofContainer) {
             if (proofPath && proofPath.trim() !== '') {
