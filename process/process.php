@@ -1,5 +1,6 @@
 <?php
-session_start();
+require_once __DIR__ . '/../Connection/db.php';
+init_secure_session();
 
 // === 1. GLOBAL AUTHENTICATION CHECK ===
 if (!isset($_SESSION['user_id'])) {
@@ -16,9 +17,6 @@ if (!isset($_SESSION['user_id'])) {
     header("Location: ../login");
     exit;
 }
-
-// === 2. LOAD DEPENDENCIES ===
-require_once __DIR__ . '/../Connection/db.php';
 
 // FCM HTTP v1 Push Notification Helper (JWT + OAuth2, no Composer required)
 require_once __DIR__ . '/../Connection/fcm_helper.php';
