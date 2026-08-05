@@ -3,6 +3,22 @@
 // USER CRUD AND PROFILE LOGIC
 // ==========================================
 
+function validate_password_strength($password) {
+    if (strlen($password) < 8) {
+        throw new Exception("Password must be at least 8 characters long.");
+    }
+    if (!preg_match('/[A-Z]/', $password)) {
+        throw new Exception("Password must contain at least one uppercase letter (A-Z).");
+    }
+    if (!preg_match('/[a-z]/', $password)) {
+        throw new Exception("Password must contain at least one lowercase letter (a-z).");
+    }
+    if (!preg_match('/[0-9]/', $password)) {
+        throw new Exception("Password must contain at least one number (0-9).");
+    }
+    return true;
+}
+
 if (in_array($action, ['add_user', 'edit_user', 'delete_user'])) {
     if ($_SESSION['user_role'] !== 'admin') throw new Exception("Admin privileges required.");
 
@@ -11,6 +27,7 @@ if (in_array($action, ['add_user', 'edit_user', 'delete_user'])) {
         $check->execute([$_POST['username']]);
         if ($check->rowCount() > 0) throw new Exception("This username is already taken.");
 
+        validate_password_strength($_POST['password']);
         $hashed_password = password_hash($_POST['password'], PASSWORD_DEFAULT);
         $stmt = $pdo->prepare("INSERT INTO users (name, username, role, password) VALUES (:name, :username, :role, :password)");
         $stmt->execute([':name' => $_POST['name'], ':username' => $_POST['username'], ':role' => $_POST['role'], ':password' => $hashed_password]);
@@ -25,6 +42,7 @@ if (in_array($action, ['add_user', 'edit_user', 'delete_user'])) {
         if ($check->rowCount() > 0) throw new Exception("This username is already taken by someone else.");
 
         if (!empty($_POST['password'])) {
+            validate_password_strength($_POST['password']);
             $hashed_password = password_hash($_POST['password'], PASSWORD_DEFAULT);
             $stmt = $pdo->prepare("UPDATE users SET name = :name, username = :username, role = :role, password = :password WHERE id = :id");
             $stmt->execute([':name' => $_POST['name'], ':username' => $_POST['username'], ':role' => $_POST['role'], ':password' => $hashed_password, ':id' => $userId]);
@@ -88,6 +106,7 @@ elseif ($action === 'update_profile') {
         if ($newPassword !== $confirmPassword) {
             throw new Exception("New passwords do not match!");
         }
+        validate_password_strength($newPassword);
         $hashed_password = password_hash($newPassword, PASSWORD_DEFAULT);
         $stmt = $pdo->prepare("UPDATE users SET name = ?, username = ?, password = ? WHERE id = ?");
         $stmt->execute([$newName, $newUsername, $hashed_password, $userId]);
@@ -144,13 +163,15 @@ elseif ($action === 'change_password_modal') {
         exit;
     }
 
-    if (empty($newPassword) || strlen($newPassword) < 6) {
-        echo json_encode(['status' => 'error', 'message' => 'New password must be at least 6 characters long.']);
+    if ($newPassword !== $confirmPassword) {
+        echo json_encode(['status' => 'error', 'message' => 'New passwords do not match.']);
         exit;
     }
 
-    if ($newPassword !== $confirmPassword) {
-        echo json_encode(['status' => 'error', 'message' => 'New passwords do not match.']);
+    try {
+        validate_password_strength($newPassword);
+    } catch (Exception $e) {
+        echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
         exit;
     }
 
