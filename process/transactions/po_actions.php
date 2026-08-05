@@ -112,9 +112,9 @@ elseif ($action === 'fetch_po_items') {
     $po_id = $_POST['po_id'] ?? 0;
 
     $stmt = $pdo->prepare("
-        SELECT pi.item_code, pi.quantity as expected_qty, COALESCE(pi.unit_price, i.unit_price, 0) as unit_price, i.item_name 
+        SELECT pi.item_code, pi.quantity as expected_qty, COALESCE(pi.unit_price, i.unit_price, 0) as unit_price, COALESCE(i.item_name, pi.custom_item_name, pi.item_code) as item_name, pi.is_new_item, pi.category, pi.unit 
         FROM po_items pi 
-        JOIN inventory i ON pi.item_code = i.item_code 
+        LEFT JOIN inventory i ON pi.item_code = i.item_code 
         WHERE pi.po_id = ?
     ");
     $stmt->execute([$po_id]);
@@ -163,8 +163,10 @@ elseif ($action === 'fetch_po_details') {
             pi.item_code, 
             pi.quantity, 
             pi.unit_price, 
-            i.item_name, 
-            i.unit
+            COALESCE(i.item_name, pi.custom_item_name, pi.item_code) as item_name, 
+            COALESCE(i.unit, pi.unit, 'pcs') as unit,
+            pi.is_new_item,
+            pi.category
         FROM po_items pi
         LEFT JOIN inventory i ON pi.item_code = i.item_code
         WHERE pi.po_id = ?
@@ -206,7 +208,7 @@ elseif ($action === 'create_po') {
     $po_id = $pdo->lastInsertId();
 
     $rsItemsStmt = $pdo->prepare("
-        SELECT ri.item_code, ri.quantity, i.unit_price 
+        SELECT ri.item_code, ri.quantity, ri.is_new_item, ri.new_item_name, ri.new_category, ri.new_unit, i.unit_price 
         FROM requisition_items ri 
         LEFT JOIN inventory i ON ri.item_code = i.item_code 
         WHERE ri.requisition_id = ?
@@ -214,10 +216,17 @@ elseif ($action === 'create_po') {
     $rsItemsStmt->execute([$rs_id]);
     $rsItems = $rsItemsStmt->fetchAll(PDO::FETCH_ASSOC);
 
-    $poItemStmt = $pdo->prepare("INSERT INTO po_items (po_id, item_code, quantity, unit_price) VALUES (?, ?, ?, ?)");
+    $poItemStmt = $pdo->prepare("
+        INSERT INTO po_items (po_id, item_code, quantity, unit_price, is_new_item, custom_item_name, category, unit) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    ");
     foreach ($rsItems as $item) {
         $price = $item['unit_price'] ?? 0.00;
-        $poItemStmt->execute([$po_id, $item['item_code'], $item['quantity'], $price]);
+        $isNew = (int)($item['is_new_item'] ?? 0);
+        $cName = $isNew ? $item['new_item_name'] : null;
+        $cCat = $isNew ? $item['new_category'] : null;
+        $cUnit = $isNew ? $item['new_unit'] : null;
+        $poItemStmt->execute([$po_id, $item['item_code'], $item['quantity'], $price, $isNew, $cName, $cCat, $cUnit]);
     }
 
     $pdo->prepare("UPDATE requisitions SET status = 'PO Created' WHERE id = ?")->execute([$rs_id]);
@@ -316,19 +325,45 @@ elseif ($action === 'mark_po_delivered') {
             $updatePoItem->execute([$unit_price, $po_id, $code]);
         }
 
+        // Check if item exists in master inventory
+        $checkInv = $pdo->prepare("SELECT id, item_name, unit FROM inventory WHERE item_code = ?");
+        $checkInv->execute([$code]);
+        $existingInv = $checkInv->fetch(PDO::FETCH_ASSOC);
+
+        if (!$existingInv) {
+            // Uncataloged / New Item: Auto-insert into Master Inventory upon Stock-In
+            $poMetaStmt = $pdo->prepare("SELECT custom_item_name, category, unit FROM po_items WHERE po_id = ? AND item_code = ?");
+            $poMetaStmt->execute([$po_id, $code]);
+            $poMeta = $poMetaStmt->fetch(PDO::FETCH_ASSOC);
+
+            $itemName = !empty($poMeta['custom_item_name']) ? $poMeta['custom_item_name'] : ('New Item ' . $code);
+            $cat = !empty($poMeta['category']) ? $poMeta['category'] : 'Materials';
+            $unit = !empty($poMeta['unit']) ? $poMeta['unit'] : 'pcs';
+
+            $reorderStmt = $pdo->prepare("SELECT reorder_level FROM units WHERE unit_name = ?");
+            $reorderStmt->execute([$unit]);
+            $reorderLevel = (int)($reorderStmt->fetchColumn() ?: 10);
+
+            $newStatus = ($actual <= 0) ? 'Out of Stock' : (($actual <= $reorderLevel) ? 'Low Stock' : 'In Stock');
+
+            $insertInv = $pdo->prepare("
+                INSERT INTO inventory (item_code, item_name, category, quantity, unit, unit_price, status) 
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ");
+            $insertInv->execute([$code, $itemName, $cat, $actual, $unit, $unit_price, $newStatus]);
+        } else {
+            $itemName = $existingInv['item_name'];
+            if ($actual > 0) {
+                $updateInv->execute([$actual, $unit_price, $unit_price, $actual, $actual, $code]);
+            }
+        }
+
         if ($actual != $expected) {
             $hasDiscrepancy = true;
-            $nameStmt = $pdo->prepare("SELECT item_name FROM inventory WHERE item_code = ?");
-            $nameStmt->execute([$code]);
-            $itemName = $nameStmt->fetchColumn() ?: $code;
             $discrepancyLog .= "\n- {$itemName} [Code: {$code}]: Expected {$expected}, Received {$actual}";
             if ($unit_price > 0) {
                 $discrepancyLog .= " (Unit Price: ₱" . number_format($unit_price, 2) . ")";
             }
-        }
-
-        if ($actual > 0) {
-            $updateInv->execute([$actual, $unit_price, $unit_price, $actual, $actual, $code]);
         }
     }
 
