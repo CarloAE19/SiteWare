@@ -290,11 +290,13 @@ include 'layout/header.php';
                         </ul>
                     </div>
                     
-                    <?php if (in_array($role, ['admin', 'warehouse'])): ?>
-                        <!-- MOBILE SWAP: Add Item is order-2 (Row 1), Scan is order-3 (Row 2). Desktop reverts to normal. -->
+                    <?php if ($role === 'admin'): ?>
+                        <!-- Admin Direct Add Item Button -->
                         <button class="btn btn-brand fw-bold shadow-sm flex-grow-1 flex-md-grow-0 px-3 order-2 order-md-4" data-bs-toggle="modal" data-bs-target="#itemModal" onclick="openAddModal()">
                             <i class="bi bi-plus-lg me-1"></i> Add Item
                         </button>
+                    <?php endif; ?>
+                    <?php if (in_array($role, ['admin', 'warehouse'])): ?>
                         <button class="btn btn-outline-success fw-bold shadow-sm flex-grow-1 flex-md-grow-0 px-3 order-3 order-md-3" onclick="startDeliveryScanner()">
                             <i class="bi bi-upc-scan me-1"></i> Scan
                         </button>
@@ -343,12 +345,14 @@ include 'layout/header.php';
                                 
                                 <?php if (in_array($role, ['admin', 'warehouse'])): ?>
                                 <td class="text-center" data-label="Actions">
-                                    <button class="btn btn-sm btn-outline-dark me-1 shadow-sm" title="Print QR Label" onclick="showItemQR('<?= $item['item_code'] ?>', '<?= addslashes($item['item_name']) ?>')"><i class="bi bi-qr-code"></i></button>
-                                    <button type="button" class="btn btn-sm btn-outline-primary me-1 shadow-sm" data-bs-toggle="modal" data-bs-target="#itemModal" onclick="openEditModal(<?= $item['id'] ?>, '<?= htmlspecialchars(addslashes($item['item_code'])) ?>', '<?= htmlspecialchars(addslashes($item['item_name'])) ?>', '<?= htmlspecialchars(addslashes($item['category'])) ?>', <?= $qty ?>, '<?= htmlspecialchars(addslashes($item['unit'])) ?>', <?= (float)($item['unit_price'] ?? 0) ?>, '<?= $statusText ?>')"><i class="bi bi-pencil-square"></i></button>
-                                    <form method="POST" action="process/process.php" class="d-inline" onsubmit="return confirm('Delete item?');">
-                                        <input type="hidden" name="action" value="delete"><input type="hidden" name="id" value="<?= $item['id'] ?>">
-                                        <button type="submit" class="btn btn-sm btn-outline-danger shadow-sm"><i class="bi bi-trash3"></i></button>
-                                    </form>
+                                    <button class="btn btn-sm btn-outline-secondary me-1 shadow-sm" title="Print QR Label" onclick="showItemQR('<?= $item['item_code'] ?>', '<?= addslashes($item['item_name']) ?>')"><i class="bi bi-qr-code"></i></button>
+                                    <?php if ($role === 'admin'): ?>
+                                        <button type="button" class="btn btn-sm btn-outline-primary me-1 shadow-sm" data-bs-toggle="modal" data-bs-target="#itemModal" onclick="openEditModal(<?= $item['id'] ?>, '<?= htmlspecialchars(addslashes($item['item_code'])) ?>', '<?= htmlspecialchars(addslashes($item['item_name'])) ?>', '<?= htmlspecialchars(addslashes($item['category'])) ?>', <?= $qty ?>, '<?= htmlspecialchars(addslashes($item['unit'])) ?>', <?= (float)($item['unit_price'] ?? 0) ?>, '<?= $statusText ?>')"><i class="bi bi-pencil-square"></i></button>
+                                        <form method="POST" action="process/process.php" class="d-inline" onsubmit="return confirm('Delete item?');">
+                                            <input type="hidden" name="action" value="delete"><input type="hidden" name="id" value="<?= $item['id'] ?>">
+                                            <button type="submit" class="btn btn-sm btn-outline-danger shadow-sm"><i class="bi bi-trash3"></i></button>
+                                        </form>
+                                    <?php endif; ?>
                                 </td>
                                 <?php endif; ?>
                             </tr>
