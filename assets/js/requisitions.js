@@ -182,23 +182,35 @@ window.rsGlobalClickListener = function(e) {
     const restockContainer = document.getElementById('restockMaterialsContainer');
 
     if (e.target.closest('#addMaterialBtn') && container) {
-        const firstRow = container.querySelector('.material-row');
-        const newRow = firstRow.cloneNode(true);
-        newRow.querySelector('select').value = '';
-        newRow.querySelector('input[type="number"]').value = '';
-        newRow.querySelector('.remove-row').disabled = false;
-        container.appendChild(newRow);
+        const stdRow = container.querySelector('.material-row:not(.new-item-row)');
+        if (stdRow) {
+            const newRow = stdRow.cloneNode(true);
+            const select = newRow.querySelector('select[name="items[]"]');
+            if (select) select.value = '';
+            const qtyInput = newRow.querySelector('input[name="quantities[]"]');
+            if (qtyInput) qtyInput.value = '';
+            newRow.querySelector('.remove-row').disabled = false;
+            container.appendChild(newRow);
+        }
         window.updateDeleteButtons(container);
     }
 
     if (e.target.closest('#addRestockMaterialBtn') && restockContainer) {
-        const firstRow = restockContainer.querySelector('.material-row');
-        const newRow = firstRow.cloneNode(true);
-        newRow.querySelector('select').value = '';
-        newRow.querySelector('input[type="number"]').value = '';
-        newRow.querySelector('.remove-row').disabled = false;
-        restockContainer.appendChild(newRow);
+        const stdRow = restockContainer.querySelector('.material-row:not(.new-item-row)');
+        if (stdRow) {
+            const newRow = stdRow.cloneNode(true);
+            const select = newRow.querySelector('select[name="items[]"]');
+            if (select) select.value = '';
+            const qtyInput = newRow.querySelector('input[name="quantities[]"]');
+            if (qtyInput) qtyInput.value = '';
+            newRow.querySelector('.remove-row').disabled = false;
+            restockContainer.appendChild(newRow);
+        }
         window.updateDeleteButtons(restockContainer);
+    }
+
+    if (e.target.closest('#addNewRestockMaterialBtn') && restockContainer) {
+        window.appendNewItemRow(restockContainer);
     }
 
     if (e.target.closest('.remove-row')) {
@@ -212,6 +224,51 @@ window.rsGlobalClickListener = function(e) {
 };
 
 document.body.addEventListener('click', window.rsGlobalClickListener);
+
+window.appendNewItemRow = function(container) {
+    if (!container) return;
+
+    const catTemplate = document.getElementById('jsCategoryOptionsTemplate');
+    const unitTemplate = document.getElementById('jsUnitOptionsTemplate');
+
+    const catHtml = catTemplate ? catTemplate.innerHTML : '<option value="Materials">Materials</option>';
+    const unitHtml = unitTemplate ? unitTemplate.innerHTML : '<option value="Pieces">Pieces</option>';
+
+    const row = document.createElement('div');
+    row.className = 'material-row new-item-row mb-2 bg-white p-3 rounded border border-success shadow-sm mx-0';
+    row.innerHTML = `
+        <input type="hidden" name="is_new_items[]" value="1">
+        <input type="hidden" name="items[]" value="">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <span class="badge bg-success shadow-sm"><i class="bi bi-plus-circle me-1"></i> New Item / Unlisted Material</span>
+            <button type="button" class="btn btn-sm btn-outline-danger remove-row"><i class="bi bi-trash3 me-1"></i> Remove</button>
+        </div>
+        <div class="row g-2">
+            <div class="col-md-5">
+                <label class="form-label small fw-bold text-muted mb-1">Item Name <span class="text-danger">*</span></label>
+                <input type="text" class="form-control form-control-sm fw-bold" name="new_item_names[]" placeholder="e.g. Solar Panel Mounting Bracket" required>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small fw-bold text-muted mb-1">Category <span class="text-danger">*</span></label>
+                <select class="form-select form-select-sm fw-bold" name="new_categories[]" required>
+                    ${catHtml}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small fw-bold text-muted mb-1">Unit <span class="text-danger">*</span></label>
+                <select class="form-select form-select-sm fw-bold" name="new_units[]" required>
+                    ${unitHtml}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small fw-bold text-muted mb-1">Qty <span class="text-danger">*</span></label>
+                <input type="number" class="form-control form-control-sm fw-bold text-center text-primary" name="quantities[]" placeholder="Qty" required min="1">
+            </div>
+        </div>
+    `;
+    container.appendChild(row);
+    window.updateDeleteButtons(container);
+};
 
 window.updateDeleteButtons = function(container) {
     if (!container) return;

@@ -17,6 +17,10 @@ $inventoryItems = $itemStmt->fetchAll(PDO::FETCH_ASSOC);
 // Fetch Active Projects
 $activeProjects = $pdo->query("SELECT project_name FROM projects WHERE status = 'active' ORDER BY project_name ASC")->fetchAll(PDO::FETCH_ASSOC);
 
+// Fetch Categories & Units for New Item creation
+$categories = $pdo->query("SELECT category_name FROM categories ORDER BY category_name ASC")->fetchAll(PDO::FETCH_ASSOC);
+$units = $pdo->query("SELECT unit_name FROM units ORDER BY unit_name ASC")->fetchAll(PDO::FETCH_ASSOC);
+
 // ========================================================
 // ROLE-BASED DATA FETCHING
 // ========================================================
@@ -35,7 +39,7 @@ if ($role === 'requestor') {
     $statTitle = "";
 }
 
-$itemsQuery = $pdo->query("SELECT ri.requisition_id, ri.quantity, ri.item_code, i.item_name, i.unit, i.quantity as current_stock,
+$itemsQuery = $pdo->query("SELECT ri.requisition_id, ri.quantity, ri.item_code, COALESCE(i.item_name, ri.new_item_name, ri.item_code) as item_name, COALESCE(i.unit, ri.new_unit, 'pcs') as unit, ri.is_new_item, ri.new_category, i.quantity as current_stock,
                                   COALESCE(p.total_pending, 0) as total_pending,
                                   p.pending_details
                            FROM requisition_items ri 

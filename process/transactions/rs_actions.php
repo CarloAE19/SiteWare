@@ -46,7 +46,7 @@ if ($action === 'fetch_rs_data') {
     }
 
     $itemStmt = $pdo->prepare("
-        SELECT ri.item_code, ri.quantity, i.item_name 
+        SELECT ri.item_code, ri.quantity, COALESCE(i.item_name, ri.new_item_name) as item_name, ri.is_new_item, ri.new_category, ri.new_unit 
         FROM requisition_items ri 
         LEFT JOIN inventory i ON ri.item_code = i.item_code 
         WHERE ri.requisition_id = ?
@@ -75,7 +75,7 @@ elseif ($action === 'fetch_rs_with_history') {
     $rs_id = $_POST['rs_id'] ?? 0;
 
     $stmt = $pdo->prepare("
-        SELECT ri.item_code, ri.quantity, i.item_name 
+        SELECT ri.item_code, ri.quantity, COALESCE(i.item_name, ri.new_item_name) as item_name, ri.is_new_item, ri.new_category, ri.new_unit 
         FROM requisition_items ri 
         LEFT JOIN inventory i ON ri.item_code = i.item_code 
         WHERE ri.requisition_id = ?
@@ -131,12 +131,31 @@ elseif ($action === 'create_rs') {
     ]);
     $requisition_id = $pdo->lastInsertId();
 
-    $items = $_POST['items'];
-    $quantities = $_POST['quantities'];
-    $itemStmt = $pdo->prepare("INSERT INTO requisition_items (requisition_id, item_code, quantity) VALUES (?, ?, ?)");
+    $items = $_POST['items'] ?? [];
+    $quantities = $_POST['quantities'] ?? [];
+    $isNewItems = $_POST['is_new_items'] ?? [];
+    $newItemNames = $_POST['new_item_names'] ?? [];
+    $newCategories = $_POST['new_categories'] ?? [];
+    $newUnits = $_POST['new_units'] ?? [];
+
+    $itemStmt = $pdo->prepare("
+        INSERT INTO requisition_items (requisition_id, item_code, quantity, is_new_item, new_item_name, new_category, new_unit) 
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    ");
     for ($i = 0; $i < count($items); $i++) {
-        if (!empty($items[$i]) && !empty($quantities[$i])) {
-            $itemStmt->execute([$requisition_id, $items[$i], $quantities[$i]]);
+        $isNew = !empty($isNewItems[$i]) ? 1 : 0;
+        $code = trim($items[$i] ?? '');
+        $qty = (int)($quantities[$i] ?? 0);
+        $name = $isNew ? trim($newItemNames[$i] ?? '') : null;
+        $cat = $isNew ? trim($newCategories[$i] ?? 'Materials') : null;
+        $unit = $isNew ? trim($newUnits[$i] ?? 'pcs') : null;
+
+        if ($isNew && empty($code)) {
+            $code = 'ITM-' . rand(1000, 9999);
+        }
+
+        if (!empty($code) && $qty > 0) {
+            $itemStmt->execute([$requisition_id, $code, $qty, $isNew, $name, $cat, $unit]);
         }
     }
 

@@ -1,3 +1,15 @@
+<?php
+if (defined('CIMS_REQUISITION_MODALS_LOADED')) {
+    return;
+}
+define('CIMS_REQUISITION_MODALS_LOADED', true);
+
+$role = $_SESSION['user_role'] ?? 'requestor';
+$activeProjects = $activeProjects ?? [];
+$inventoryItems = $inventoryItems ?? [];
+$categories = $categories ?? [];
+$units = $units ?? [];
+?>
 <!-- ======================================================== -->
 <!-- MODAL: VIEW DETAILS & PRINT QR DOCUMENT                  -->
 <!-- ======================================================== -->
@@ -44,10 +56,8 @@
                                 <th>Item Name</th>
                                 <!-- FIXED: Shortened headers so they fit perfectly inside the mobile modal without wrapping -->
                                 <th class="text-center">Qty</th>
-                                <?php if ($role !== 'requestor'): ?>
-                                    <th class="text-center d-print-none text-primary">Stock</th>
-                                    <th class="text-center d-print-none text-warning">Pending Demand</th>
-                                <?php endif; ?>
+                                <th class="text-center d-print-none text-primary">Stock</th>
+                                <th class="text-center d-print-none text-warning">Pending Demand</th>
                             </tr>
                         </thead>
                         <tbody id="viewRsItemsBody"></tbody>
@@ -227,14 +237,23 @@
                         </div>
 
                         <div class="card border-0 shadow-sm mb-4">
-                            <div class="card-header bg-white fw-bold text-dark d-flex justify-content-between align-items-center py-3">
+                            <div class="card-header bg-white fw-bold text-dark d-flex justify-content-between align-items-center flex-wrap gap-2 py-3">
                                 <span><i class="bi bi-box-seam me-2"></i>Items to Replenish</span>
-                                <button type="button" class="btn btn-sm btn-outline-primary fw-bold" id="addRestockMaterialBtn">
-                                    <i class="bi bi-plus-lg me-1"></i> Add Item
-                                </button>
+                                <div>
+                                    <button type="button" class="btn btn-sm btn-outline-primary fw-bold me-1" id="addRestockMaterialBtn">
+                                        <i class="bi bi-plus-lg me-1"></i> Add Existing Item
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-success fw-bold text-white shadow-sm" id="addNewRestockMaterialBtn">
+                                        <i class="bi bi-plus-circle me-1"></i> + Request New Item
+                                    </button>
+                                </div>
                             </div>
                             <div class="card-body p-3 bg-light" id="restockMaterialsContainer">
                                 <div class="row g-2 material-row mb-2 align-items-center bg-white p-2 rounded border shadow-sm mx-0">
+                                    <input type="hidden" name="is_new_items[]" value="0">
+                                    <input type="hidden" name="new_item_names[]" value="">
+                                    <input type="hidden" name="new_categories[]" value="">
+                                    <input type="hidden" name="new_units[]" value="">
                                     <div class="col-md-7">
                                         <select class="form-select fw-bold text-dark" name="items[]" required>
                                             <option value="">Select Material from Inventory...</option>
@@ -257,7 +276,7 @@
 
                         <div>
                             <label class="form-label fw-bold small text-muted text-uppercase">Remarks / Notes</label>
-                            <textarea class="form-control" name="remarks" rows="2" placeholder="Explain the restock need (e.g. low stock, project safety buffer)..."></textarea>
+                            <textarea class="form-control" name="remarks" rows="2" placeholder="Explain the restock need (e.g. low stock, new material requirement)..."></textarea>
                         </div>
 
                     </div>
@@ -269,4 +288,16 @@
             </div>
         </div>
     </div>
+
+    <!-- Hidden templates for JS to clone available options -->
+    <select id="jsCategoryOptionsTemplate" class="d-none">
+        <?php foreach ($categories as $cat): ?>
+            <option value="<?= htmlspecialchars($cat['category_name']) ?>"><?= htmlspecialchars($cat['category_name']) ?></option>
+        <?php endforeach; ?>
+    </select>
+    <select id="jsUnitOptionsTemplate" class="d-none">
+        <?php foreach ($units as $u): ?>
+            <option value="<?= htmlspecialchars($u['unit_name']) ?>"><?= htmlspecialchars($u['unit_name']) ?></option>
+        <?php endforeach; ?>
+    </select>
 <?php endif; ?>
