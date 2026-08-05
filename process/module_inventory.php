@@ -58,7 +58,7 @@ elseif ($action === 'stock_in_scanned') {
 } 
 
 elseif ($action === 'add') {
-    if (!in_array($_SESSION['user_role'], ['admin', 'warehouse'])) throw new Exception("Unauthorized.");
+    if ($_SESSION['user_role'] !== 'admin') throw new Exception("Unauthorized action. Direct material creation is restricted to Admin. Warehouse In-Charge personnel must submit a Restock Request instead.");
     
     $qty = (int)$_POST['quantity'];
     // Lookup the reorder_level for this unit type
@@ -76,7 +76,7 @@ elseif ($action === 'add') {
 } 
 
 elseif ($action === 'edit') {
-    if (!in_array($_SESSION['user_role'], ['admin', 'warehouse'])) throw new Exception("Unauthorized.");
+    if ($_SESSION['user_role'] !== 'admin') throw new Exception("Unauthorized action. Direct material edits are restricted to Admin.");
     
     $qty = (int)$_POST['quantity'];
     // Lookup the reorder_level for this unit type
@@ -96,7 +96,7 @@ elseif ($action === 'edit') {
 } 
 
 elseif ($action === 'delete') {
-    if (!in_array($_SESSION['user_role'], ['admin', 'warehouse'])) throw new Exception("Unauthorized.");
+    if ($_SESSION['user_role'] !== 'admin') throw new Exception("Unauthorized action. Material deletion is restricted to Admin.");
     $stmt = $pdo->prepare("DELETE FROM inventory WHERE id = ?");
     $stmt->execute([$_POST['id']]);
     $_SESSION['message'] = "Material deleted from inventory.";
