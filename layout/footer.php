@@ -303,7 +303,7 @@
         }
     }
 </style>
-<div id="cims-chatbot-container">
+<div id="cims-chatbot-container" data-user-role="<?= htmlspecialchars(strtolower($_SESSION['user_role'] ?? 'requestor')) ?>">
     <!-- Floating Trigger Button -->
     <button id="cims-chatbot-trigger" class="btn shadow-lg" title="CIMS AI Assistant">
         <i class="bi bi-chat-dots-fill text-white fs-4"></i>
@@ -361,6 +361,10 @@
 
 <!-- Include SMS Inbox Modal -->
 <?php include_once __DIR__ . '/../components/sms_inbox_modal.php'; ?>
+<!-- Include Requisition Slips Modal Globally -->
+<?php include_once __DIR__ . '/../components/requisition_modals.php'; ?>
+<!-- Include PO, Withdrawal & Item Quick View Modals Globally -->
+<?php include_once __DIR__ . '/../components/entity_modals.php'; ?>
 
 <script src="assets/js/chatbot.js?v=<?= time() ?>"></script>
 
