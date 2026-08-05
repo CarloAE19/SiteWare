@@ -103,7 +103,8 @@ include 'layout/header.php';
 
                         <h6 class="fw-bold mb-3 border-bottom pb-2">Security</h6>
                         <div class="mb-4">
-                            <button type="button" class="btn btn-outline-primary fw-bold px-3" data-bs-toggle="modal" data-bs-target="#changePasswordModal" onclick="resetPasswordModal()">
+                            <button type="button" class="btn btn-outline-primary fw-bold px-3" data-bs-toggle="modal"
+                                data-bs-target="#changePasswordModal" onclick="resetPasswordModal()">
                                 <i class="bi bi-key-fill me-1"></i> Change Password
                             </button>
                         </div>
@@ -188,7 +189,8 @@ include 'layout/header.php';
 </div>
 
 <!-- Change Password Multi-Step Modal -->
-<div class="modal fade" id="changePasswordModal" tabindex="-1" aria-labelledby="changePasswordModalLabel" aria-hidden="true" data-bs-backdrop="static">
+<div class="modal fade" id="changePasswordModal" tabindex="-1" aria-labelledby="changePasswordModalLabel"
+    aria-hidden="true" data-bs-backdrop="static">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow">
             <div class="modal-header bg-light py-3">
@@ -197,17 +199,22 @@ include 'layout/header.php';
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            
+
             <div class="modal-body p-4">
                 <!-- Step Navigation Visual Indicator -->
                 <div class="d-flex justify-content-center align-items-center mb-4">
                     <div class="d-flex align-items-center me-3" id="step1IndicatorWrapper">
-                        <span class="badge rounded-circle bg-primary text-white me-2 d-inline-flex align-items-center justify-content-center" id="step1Num" style="width: 28px; height: 28px;">1</span>
+                        <span
+                            class="badge rounded-circle bg-primary text-white me-2 d-inline-flex align-items-center justify-content-center"
+                            id="step1Num" style="width: 28px; height: 28px;">1</span>
                         <span class="fw-bold small text-primary" id="step1Text">Verify Current</span>
                     </div>
-                    <div class="border-top me-3" style="width: 40px; border-color: #dee2e6 !important;" id="stepDivider"></div>
+                    <div class="border-top me-3" style="width: 40px; border-color: #dee2e6 !important;"
+                        id="stepDivider"></div>
                     <div class="d-flex align-items-center" id="step2IndicatorWrapper">
-                        <span class="badge rounded-circle bg-secondary text-white me-2 d-inline-flex align-items-center justify-content-center" id="step2Num" style="width: 28px; height: 28px;">2</span>
+                        <span
+                            class="badge rounded-circle bg-secondary text-white me-2 d-inline-flex align-items-center justify-content-center"
+                            id="step2Num" style="width: 28px; height: 28px;">2</span>
                         <span class="fw-bold small text-muted" id="step2Text">New Password</span>
                     </div>
                 </div>
@@ -220,15 +227,19 @@ include 'layout/header.php';
                     <div class="mb-3">
                         <label class="form-label fw-bold small text-secondary">Current Password</label>
                         <div class="input-group">
-                            <input type="password" class="form-control border-end-0" id="modalCurrPass" placeholder="Enter your current password" required>
-                            <button class="btn border border-start-0 bg-white" type="button" onclick="togglePass('modalCurrPass', 'eyeModalCurr')">
+                            <input type="password" class="form-control border-end-0" id="modalCurrPass"
+                                placeholder="Enter your current password" required>
+                            <button class="btn border border-start-0 bg-white" type="button"
+                                onclick="togglePass('modalCurrPass', 'eyeModalCurr')">
                                 <i class="bi bi-eye-slash text-muted" id="eyeModalCurr"></i>
                             </button>
                         </div>
-                        <div class="form-text text-muted small"><i class="bi bi-info-circle me-1"></i>Please enter your existing password to verify your identity.</div>
+                        <div class="form-text text-muted small"><i class="bi bi-info-circle me-1"></i>Please enter your
+                            existing password to verify your identity.</div>
                     </div>
                     <div class="d-flex justify-content-end gap-2 mt-4">
-                        <button type="button" class="btn btn-light border btn-sm fw-bold px-3" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-light border btn-sm fw-bold px-3"
+                            data-bs-dismiss="modal">Cancel</button>
                         <button type="submit" class="btn btn-primary btn-sm fw-bold px-4" id="btnVerifyStep1">
                             Verify & Next <i class="bi bi-arrow-right ms-1"></i>
                         </button>
@@ -240,17 +251,41 @@ include 'layout/header.php';
                     <div class="mb-3">
                         <label class="form-label fw-bold small text-secondary">New Password</label>
                         <div class="input-group">
-                            <input type="password" class="form-control border-end-0" id="modalNewPass" placeholder="Enter new password (min. 6 chars)" required>
-                            <button class="btn border border-start-0 bg-white" type="button" onclick="togglePass('modalNewPass', 'eyeModalNew')">
+                            <input type="password" class="form-control border-end-0" id="modalNewPass"
+                                placeholder="Enter new password" required oninput="checkPasswordStrength(this.value)">
+                            <button class="btn border border-start-0 bg-white" type="button"
+                                onclick="togglePass('modalNewPass', 'eyeModalNew')">
                                 <i class="bi bi-eye-slash text-muted" id="eyeModalNew"></i>
                             </button>
+                        </div>
+                        <!-- Password Strength Meter -->
+                        <div class="progress mt-2" style="height: 6px;">
+                            <div class="progress-bar bg-secondary" role="progressbar" id="strengthMeter"
+                                style="width: 0%; transition: width 0.3s ease;"></div>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center mt-1">
+                            <small class="text-muted fw-bold" id="strengthText" style="font-size: 0.75rem;">Password
+                                Strength: Empty</small>
+                        </div>
+
+                        <!-- Requirements checklist -->
+                        <div class="bg-light p-2 rounded border mt-2" style="font-size: 0.75rem;">
+                            <div class="fw-bold text-secondary mb-1">Must contain:</div>
+                            <div class="d-flex flex-wrap gap-2">
+                                <span id="reqLen" class="text-muted"><i class="bi bi-dot"></i>8+ characters</span>
+                                <span id="reqUpper" class="text-muted"><i class="bi bi-dot"></i>1 Uppercase (A-Z)</span>
+                                <span id="reqLower" class="text-muted"><i class="bi bi-dot"></i>1 Lowercase (a-z)</span>
+                                <span id="reqNum" class="text-muted"><i class="bi bi-dot"></i>1 Number (0-9)</span>
+                            </div>
                         </div>
                     </div>
                     <div class="mb-3">
                         <label class="form-label fw-bold small text-secondary">Confirm New Password</label>
                         <div class="input-group">
-                            <input type="password" class="form-control border-end-0" id="modalConfPass" placeholder="Retype new password" required>
-                            <button class="btn border border-start-0 bg-white" type="button" onclick="togglePass('modalConfPass', 'eyeModalConf')">
+                            <input type="password" class="form-control border-end-0" id="modalConfPass"
+                                placeholder="Retype new password" required>
+                            <button class="btn border border-start-0 bg-white" type="button"
+                                onclick="togglePass('modalConfPass', 'eyeModalConf')">
                                 <i class="bi bi-eye-slash text-muted" id="eyeModalConf"></i>
                             </button>
                         </div>
@@ -272,6 +307,60 @@ include 'layout/header.php';
 <script>
     let verifiedCurrentPassword = "";
 
+    function checkPasswordStrength(val) {
+        const meter = document.getElementById('strengthMeter');
+        const text = document.getElementById('strengthText');
+        const reqLen = document.getElementById('reqLen');
+        const reqUpper = document.getElementById('reqUpper');
+        const reqLower = document.getElementById('reqLower');
+        const reqNum = document.getElementById('reqNum');
+
+        if (!meter || !text) return;
+
+        const hasLen = val.length >= 8;
+        const hasUpper = /[A-Z]/.test(val);
+        const hasLower = /[a-z]/.test(val);
+        const hasNum = /[0-9]/.test(val);
+        const hasSpecial = /[^A-Za-z0-9]/.test(val);
+
+        if (reqLen) reqLen.className = hasLen ? 'text-success fw-bold' : 'text-muted';
+        if (reqUpper) reqUpper.className = hasUpper ? 'text-success fw-bold' : 'text-muted';
+        if (reqLower) reqLower.className = hasLower ? 'text-success fw-bold' : 'text-muted';
+        if (reqNum) reqNum.className = hasNum ? 'text-success fw-bold' : 'text-muted';
+
+        if (val.length === 0) {
+            meter.style.width = '0%';
+            meter.className = 'progress-bar bg-secondary';
+            text.innerText = 'Password Strength: Empty';
+            text.className = 'text-muted fw-bold';
+            return;
+        }
+
+        let score = 0;
+        if (hasLen) score++;
+        if (hasUpper) score++;
+        if (hasLower) score++;
+        if (hasNum) score++;
+        if (hasSpecial) score++;
+
+        if (score <= 2) {
+            meter.style.width = '33%';
+            meter.className = 'progress-bar bg-danger';
+            text.innerText = 'Password Strength: Weak';
+            text.className = 'text-danger fw-bold';
+        } else if (score === 3 || score === 4) {
+            meter.style.width = '66%';
+            meter.className = 'progress-bar bg-warning';
+            text.innerText = 'Password Strength: Medium';
+            text.className = 'text-warning text-dark fw-bold';
+        } else {
+            meter.style.width = '100%';
+            meter.className = 'progress-bar bg-success';
+            text.innerText = 'Password Strength: Strong';
+            text.className = 'text-success fw-bold';
+        }
+    }
+
     function showPassAlert(msg, type) {
         const alert = document.getElementById('modalPassAlert');
         alert.className = `alert alert-${type} shadow-sm mb-3`;
@@ -288,6 +377,7 @@ include 'layout/header.php';
         verifiedCurrentPassword = "";
         document.getElementById('step1Form').reset();
         document.getElementById('step2Form').reset();
+        checkPasswordStrength("");
         goToStep1();
         hidePassAlert();
     }
@@ -295,11 +385,11 @@ include 'layout/header.php';
     function goToStep1() {
         document.getElementById('step1Form').classList.remove('d-none');
         document.getElementById('step2Form').classList.add('d-none');
-        
+
         document.getElementById('step1Num').className = 'badge rounded-circle bg-primary text-white me-2 d-inline-flex align-items-center justify-content-center';
         document.getElementById('step1Num').innerHTML = '1';
         document.getElementById('step1Text').className = 'fw-bold small text-primary';
-        
+
         document.getElementById('step2Num').className = 'badge rounded-circle bg-secondary text-white me-2 d-inline-flex align-items-center justify-content-center';
         document.getElementById('step2Text').className = 'fw-bold small text-muted';
     }
@@ -307,44 +397,44 @@ include 'layout/header.php';
     function goToStep2() {
         document.getElementById('step1Form').classList.add('d-none');
         document.getElementById('step2Form').classList.remove('d-none');
-        
+
         document.getElementById('step1Num').className = 'badge rounded-circle bg-success text-white me-2 d-inline-flex align-items-center justify-content-center';
         document.getElementById('step1Num').innerHTML = '<i class="bi bi-check"></i>';
         document.getElementById('step1Text').className = 'fw-bold small text-success';
-        
+
         document.getElementById('step2Num').className = 'badge rounded-circle bg-primary text-white me-2 d-inline-flex align-items-center justify-content-center';
         document.getElementById('step2Text').className = 'fw-bold small text-primary';
-        
+
         hidePassAlert();
     }
 
     async function handleVerifyStep1(e) {
         e.preventDefault();
         hidePassAlert();
-        
+
         const currentPassInput = document.getElementById('modalCurrPass').value;
         const btn = document.getElementById('btnVerifyStep1');
-        
+
         if (!currentPassInput) {
             showPassAlert('<i class="bi bi-exclamation-triangle-fill me-1"></i> Please enter your current password.', 'danger');
             return;
         }
-        
+
         btn.disabled = true;
         btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Verifying...';
-        
+
         try {
             const formData = new FormData();
             formData.append('action', 'verify_current_password');
             formData.append('current_password', currentPassInput);
-            
+
             const res = await fetch('process/process.php', {
                 method: 'POST',
                 body: formData,
                 headers: { 'Accept': 'application/json' }
             });
             const data = await res.json();
-            
+
             if (data.status === 'success') {
                 verifiedCurrentPassword = currentPassInput;
                 goToStep2();
@@ -362,38 +452,50 @@ include 'layout/header.php';
     async function handleUpdateStep2(e) {
         e.preventDefault();
         hidePassAlert();
-        
+
         const newPass = document.getElementById('modalNewPass').value;
         const confPass = document.getElementById('modalConfPass').value;
         const btn = document.getElementById('btnUpdateStep2');
-        
-        if (newPass.length < 6) {
-            showPassAlert('<i class="bi bi-exclamation-triangle-fill me-1"></i> New password must be at least 6 characters.', 'danger');
+
+        if (newPass.length < 8) {
+            showPassAlert('<i class="bi bi-exclamation-triangle-fill me-1"></i> Password must be at least 8 characters long.', 'danger');
             return;
         }
-        
+        if (!/[A-Z]/.test(newPass)) {
+            showPassAlert('<i class="bi bi-exclamation-triangle-fill me-1"></i> Password must contain at least one uppercase letter (A-Z).', 'danger');
+            return;
+        }
+        if (!/[a-z]/.test(newPass)) {
+            showPassAlert('<i class="bi bi-exclamation-triangle-fill me-1"></i> Password must contain at least one lowercase letter (a-z).', 'danger');
+            return;
+        }
+        if (!/[0-9]/.test(newPass)) {
+            showPassAlert('<i class="bi bi-exclamation-triangle-fill me-1"></i> Password must contain at least one number (0-9).', 'danger');
+            return;
+        }
+
         if (newPass !== confPass) {
             showPassAlert('<i class="bi bi-exclamation-triangle-fill me-1"></i> Passwords do not match.', 'danger');
             return;
         }
-        
+
         btn.disabled = true;
         btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Updating...';
-        
+
         try {
             const formData = new FormData();
             formData.append('action', 'change_password_modal');
             formData.append('current_password', verifiedCurrentPassword);
             formData.append('new_password', newPass);
             formData.append('confirm_password', confPass);
-            
+
             const res = await fetch('process/process.php', {
                 method: 'POST',
                 body: formData,
                 headers: { 'Accept': 'application/json' }
             });
             const data = await res.json();
-            
+
             if (data.status === 'success') {
                 showPassAlert('<i class="bi bi-check-circle-fill me-1"></i> ' + data.message, 'success');
                 setTimeout(() => {
