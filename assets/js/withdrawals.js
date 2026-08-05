@@ -11,12 +11,19 @@ window.viewWdDetails = function(wdNo, project, remarks, itemsJson, releaser = ''
     if (document.getElementById('viewWdRequestor')) document.getElementById('viewWdRequestor').innerText = requestor || 'N/A';
     if (document.getElementById('viewWdReceivedBy')) document.getElementById('viewWdReceivedBy').innerText = receivedBy || 'N/A';
 
+    // Helper function to format authenticated proxy image URL
+    function getSecureImageUrl(path, type) {
+        if (!path || path.trim() === '') return '';
+        const filename = path.split('/').pop();
+        return `secure_image.php?type=${type}&file=${encodeURIComponent(filename)}`;
+    }
+
     // Signature Image
     const sigImg = document.getElementById('viewWdSignatureImg');
     const sigWrapper = document.getElementById('viewWdSigWrapper');
     if (sigImg && sigWrapper) {
         if (signaturePath && signaturePath.trim() !== '') {
-            sigImg.src = signaturePath;
+            sigImg.src = getSecureImageUrl(signaturePath, 'signatures');
             sigWrapper.style.display = '';
         } else {
             sigWrapper.style.display = 'none';
@@ -29,8 +36,9 @@ window.viewWdDetails = function(wdNo, project, remarks, itemsJson, releaser = ''
     const photoWrapper = document.getElementById('viewWdPhotoWrapper');
     if (photoImg && photoWrapper) {
         if (photoProofPath && photoProofPath.trim() !== '') {
-            photoImg.src = photoProofPath;
-            if (photoLink) photoLink.href = photoProofPath;
+            const secureUrl = getSecureImageUrl(photoProofPath, 'proofs');
+            photoImg.src = secureUrl;
+            if (photoLink) photoLink.href = secureUrl;
             photoWrapper.style.display = '';
         } else {
             photoWrapper.style.display = 'none';
