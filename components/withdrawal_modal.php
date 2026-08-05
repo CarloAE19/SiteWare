@@ -73,8 +73,8 @@
                                     </button>
                                 </div>
                             </div>
-                            <div class="border rounded bg-white p-1 text-center shadow-sm position-relative">
-                                <canvas id="signatureCanvas" width="380" height="120" style="width: 100%; height: 110px; touch-action: none; cursor: crosshair;" class="border rounded bg-light"></canvas>
+                            <div class="border rounded bg-white p-1 text-center shadow-sm position-relative" style="background-color: #ffffff !important;">
+                                <canvas id="signatureCanvas" width="380" height="120" style="width: 100%; height: 110px; touch-action: none; cursor: crosshair; background-color: #ffffff !important;" class="border rounded"></canvas>
                                 <div id="sigPlaceholder" class="position-absolute top-50 start-50 translate-middle text-muted small fw-bold" style="pointer-events: none; opacity: 0.6;">
                                     Sign here with finger or mouse...
                                 </div>

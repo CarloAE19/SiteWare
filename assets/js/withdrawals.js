@@ -1,6 +1,12 @@
-/* ==========================================================
- * GB INVENTORY - WITHDRAWALS JAVASCRIPT & RS SCANNER
- * ========================================================== */
+// Global Popup Window Helper for Secure Media Viewing
+window.openPhotoWindow = function(url) {
+    if (!url || url === '#' || url === 'javascript:void(0);') return;
+    const width = 850;
+    const height = 700;
+    const left = (window.screen.width / 2) - (width / 2);
+    const top = (window.screen.height / 2) - (height / 2);
+    window.open(url, 'SecurePhotoViewer', `width=${width},height=${height},top=${top},left=${left},resizable=yes,scrollbars=yes,status=yes`);
+};
 
 // 1. VIEW WITHDRAWAL DETAILS MODAL
 window.viewWdDetails = function(wdNo, project, remarks, itemsJson, releaser = '', requestor = '', receivedBy = '', signaturePath = '', photoProofPath = '') {
@@ -11,11 +17,11 @@ window.viewWdDetails = function(wdNo, project, remarks, itemsJson, releaser = ''
     if (document.getElementById('viewWdRequestor')) document.getElementById('viewWdRequestor').innerText = requestor || 'N/A';
     if (document.getElementById('viewWdReceivedBy')) document.getElementById('viewWdReceivedBy').innerText = receivedBy || 'N/A';
 
-    // Helper function to format authenticated proxy image URL
+    // Helper function to format authenticated proxy image URL (clean URL without .php)
     function getSecureImageUrl(path, type) {
         if (!path || path.trim() === '') return '';
         const filename = path.split('/').pop();
-        return `secure_image.php?type=${type}&file=${encodeURIComponent(filename)}`;
+        return `secure-image?type=${type}&file=${encodeURIComponent(filename)}`;
     }
 
     // Signature Image
@@ -38,7 +44,13 @@ window.viewWdDetails = function(wdNo, project, remarks, itemsJson, releaser = ''
         if (photoProofPath && photoProofPath.trim() !== '') {
             const secureUrl = getSecureImageUrl(photoProofPath, 'proofs');
             photoImg.src = secureUrl;
-            if (photoLink) photoLink.href = secureUrl;
+            if (photoLink) {
+                photoLink.href = secureUrl;
+                photoLink.onclick = function(e) {
+                    e.preventDefault();
+                    window.openPhotoWindow(secureUrl);
+                };
+            }
             photoWrapper.style.display = '';
         } else {
             photoWrapper.style.display = 'none';
@@ -74,6 +86,168 @@ window.viewWdDetails = function(wdNo, project, remarks, itemsJson, releaser = ''
     
     new bootstrap.Modal(document.getElementById('viewWdModal')).show();
 }
+
+// 1.5 PRINT WITHDRAWAL SLIP VOUCHER
+window.triggerWdPrint = function() {
+    const wdNo = document.getElementById('viewWdNo')?.innerText || 'WD-0000';
+    const project = document.getElementById('viewWdProject')?.innerText || 'Project Name';
+    const requestor = document.getElementById('viewWdRequestor')?.innerText || 'N/A';
+    const receivedBy = document.getElementById('viewWdReceivedBy')?.innerText || 'N/A';
+    const releaser = document.getElementById('viewWdReleaser')?.innerText || 'Warehouse Officer';
+    const remarks = document.getElementById('viewWdRemarks')?.innerText || 'No remarks.';
+    const qrSrc = document.getElementById('viewWdQrCode')?.src || '';
+
+    const sigImg = document.getElementById('viewWdSignatureImg');
+    const photoImg = document.getElementById('viewWdPhotoImg');
+
+    const sigSrc = (sigImg && sigImg.src && sigImg.parentElement.style.display !== 'none') ? sigImg.src : '';
+    const photoSrc = (photoImg && photoImg.src && photoImg.parentElement.parentElement.style.display !== 'none') ? photoImg.src : '';
+
+    // Copy rows from viewWdItemsBody
+    const tbodySource = document.getElementById('viewWdItemsBody');
+    let itemsRowsHtml = '';
+    if (tbodySource) {
+        const rows = tbodySource.querySelectorAll('tr');
+        rows.forEach(tr => {
+            const cols = tr.querySelectorAll('td');
+            if (cols.length >= 3) {
+                itemsRowsHtml += `
+                    <tr>
+                        <td style="padding: 8px; border: 1px solid #000; font-family: monospace; font-weight: bold;">${cols[0].innerText}</td>
+                        <td style="padding: 8px; border: 1px solid #000; font-weight: bold;">${cols[1].innerText}</td>
+                        <td style="padding: 8px; border: 1px solid #000; text-align: right; font-weight: bold; color: #cc0000;">${cols[2].innerText}</td>
+                    </tr>
+                `;
+            }
+        });
+    }
+
+    let photoBlockHtml = '';
+    if (photoSrc) {
+        photoBlockHtml = `
+            <div style="margin-bottom: 10px;">
+                <div style="font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 4px; color: #444;">Handed-Over Photo Proof</div>
+                <div style="border: 1px solid #ccc; padding: 6px; border-radius: 4px; background: #fff; display: inline-block;">
+                    <img src="${photoSrc}" style="max-height: 70px; max-width: 250px; object-fit: cover; border-radius: 3px;">
+                </div>
+            </div>
+        `;
+    }
+
+    const printContent = `
+        <div id="printWdVoucher" style="font-family: Arial, sans-serif; color: #000; width: 100%; max-width: 780px; margin: 0 auto; padding: 10px 15px;">
+            <!-- HEADER -->
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #000; padding-bottom: 8px; margin-bottom: 10px;">
+                <div style="display: flex; align-items: center;">
+                    <img src="assets/LogoGB.png" alt="GB Logo" style="height: 48px; width: auto; object-fit: contain; margin-right: 12px;">
+                    <div>
+                        <h4 style="margin: 0; font-weight: bold; color: #0033CC; text-transform: uppercase; letter-spacing: 0.5px;">GENETIAN BUILDERS & ENTERPRISES INC.</h4>
+                        <div style="font-size: 11px; color: #555; font-weight: bold;">Official Construction Inventory Management System</div>
+                        <h5 style="margin: 4px 0 0 0; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; color: #111;">MATERIAL WITHDRAWAL SLIP</h5>
+                    </div>
+                </div>
+                ${qrSrc ? `<img src="${qrSrc}" style="width: 70px; height: 70px; border: 1px solid #ccc; padding: 3px; border-radius: 4px;">` : ''}
+            </div>
+
+            <!-- META INFO GRID -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; background: #f8f9fa; border: 1px solid #ccc; padding: 8px 12px; border-radius: 6px; margin-bottom: 10px;">
+                <div>
+                    <span style="font-size: 10px; text-transform: uppercase; color: #666; font-weight: bold; display: block;">Withdrawal Slip No:</span>
+                    <strong style="font-size: 16px; color: #0033CC;">${wdNo}</strong>
+                </div>
+                <div style="text-align: right;">
+                    <span style="font-size: 10px; text-transform: uppercase; color: #666; font-weight: bold; display: block;">Project Name:</span>
+                    <strong style="font-size: 15px; color: #111;">${project}</strong>
+                </div>
+                <div style="margin-top: 2px;">
+                    <span style="font-size: 10px; text-transform: uppercase; color: #666; font-weight: bold; display: block;">Requested By:</span>
+                    <strong style="font-size: 13px;">${requestor}</strong>
+                </div>
+                <div style="margin-top: 2px; text-align: right;">
+                    <span style="font-size: 10px; text-transform: uppercase; color: #666; font-weight: bold; display: block;">Received By (Pickup):</span>
+                    <strong style="font-size: 13px; color: #008800;">${receivedBy}</strong>
+                </div>
+            </div>
+
+            <!-- ITEMS TABLE -->
+            <div style="margin-bottom: 10px;">
+                <div style="font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 4px; color: #444;">Released Material Items</div>
+                <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+                    <thead>
+                        <tr style="background: #212529; color: #ffffff;">
+                            <th style="padding: 6px 8px; border: 1px solid #000; text-align: left; width: 25%;">Item Code</th>
+                            <th style="padding: 6px 8px; border: 1px solid #000; text-align: left;">Item Description / Name</th>
+                            <th style="padding: 6px 8px; border: 1px solid #000; text-align: right; width: 25%;">Qty Released</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${itemsRowsHtml}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- PHOTO PROOF BLOCK (IF AVAILABLE) -->
+            ${photoBlockHtml}
+
+            <!-- REMARKS -->
+            <div style="margin-bottom: 12px;">
+                <div style="font-size: 10px; font-weight: bold; text-transform: uppercase; margin-bottom: 3px; color: #444;">Remarks / Notes:</div>
+                <div style="padding: 6px 10px; border: 1px solid #ccc; background: #fff; font-size: 11px; border-radius: 4px;">${remarks}</div>
+            </div>
+
+            <!-- SIGNATURE FORM FOOTER -->
+            <div style="display: flex; justify-content: space-between; margin-top: 20px; padding-top: 10px; border-top: 1px solid #888; page-break-inside: avoid;">
+                <div style="text-align: center; width: 45%; position: relative;">
+                    <div style="height: 45px;"></div>
+                    <div style="font-weight: bold; border-top: 1px solid #000; padding-top: 3px; font-size: 13px;">${releaser}</div>
+                    <div style="font-size: 10px; color: #555; text-transform: uppercase; font-weight: bold;">Released By (Warehouse Officer)</div>
+                </div>
+                <div style="text-align: center; width: 45%; position: relative;">
+                    <div style="min-height: 45px; display: flex; align-items: flex-end; justify-content: center;">
+                        ${sigSrc ? `<img src="${sigSrc}" style="max-height: 50px; max-width: 180px; object-fit: contain; background: transparent; margin-bottom: -8px; z-index: 2;">` : '<div style="height: 45px;"></div>'}
+                    </div>
+                    <div style="font-weight: bold; border-top: 1px solid #000; padding-top: 3px; font-size: 13px; position: relative; z-index: 1;">${receivedBy}</div>
+                    <div style="font-size: 10px; color: #555; text-transform: uppercase; font-weight: bold;">Received By (Authorized Recipient)</div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    const printWindow = window.open('', '_blank', 'width=850,height=900');
+    if (!printWindow) {
+        alert("Pop-up blocked. Please allow pop-ups for this site to print.");
+        return;
+    }
+    printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Material Withdrawal Slip - ${wdNo}</title>
+            <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+            <style>
+                @media print {
+                    @page { size: A4 portrait; margin: 8mm 10mm; }
+                    html, body { background: #fff !important; color: #000 !important; height: auto !important; margin: 0 !important; padding: 0 !important; }
+                    #printWdVoucher { page-break-inside: avoid !important; padding: 0 !important; }
+                }
+                body { background: #ffffff; padding: 15px; }
+            </style>
+        </head>
+        <body>
+            ${printContent}
+            <script>
+                window.onload = function() {
+                    setTimeout(function() {
+                        window.print();
+                        window.close();
+                    }, 400);
+                };
+            </script>
+        </body>
+        </html>
+    `);
+    printWindow.document.close();
+};
 
 // 2. DYNAMIC ROWS FOR MANUAL WITHDRAWALS
 if (!window.wdGlobalListenersAttached) {
