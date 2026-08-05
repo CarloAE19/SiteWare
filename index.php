@@ -5,6 +5,12 @@ require_once 'Connection/db.php';
 
 $role = $_SESSION['user_role'];
 
+// Restrict Requestor from viewing Materials Inventory
+if ($role === 'requestor') {
+    header("Location: requisitions");
+    exit;
+}
+
 // Fetch Inventory Data
 $search = $_GET['search'] ?? '';
 $query = "SELECT i.*, COALESCE(u.reorder_level, 10) as reorder_level FROM inventory i LEFT JOIN units u ON i.unit = u.unit_name";
