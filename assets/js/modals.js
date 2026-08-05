@@ -153,3 +153,358 @@ window.openEditUserModal = function(id, name, username, role) {
     document.getElementById('userPassword').required = false;
     document.getElementById('passwordHelp').innerText = "Leave blank to keep current password.";
 }
+
+/* Global RS Modal Opener - Fetches RS details via AJAX and opens #viewRsModal */
+window.openRsModalByNo = async function(rsNo) {
+    if (!rsNo) return;
+
+    const modalEl = document.getElementById('viewRsModal');
+    if (!modalEl) {
+        console.error('viewRsModal element not found in DOM');
+        return;
+    }
+
+    try {
+        const basePath = window.cimsBasePath || '';
+        const response = await fetch(`${basePath}/process/get_rs_details.php?rs_no=${encodeURIComponent(rsNo)}`);
+        const data = await response.json();
+
+        if (!data.success || !data.requisition) {
+            alert(data.error || 'Requisition Slip not found.');
+            return;
+        }
+
+        const rs = data.requisition;
+        const items = data.items || [];
+
+        const rsNoEl = document.getElementById('viewRsNo');
+        if (rsNoEl) rsNoEl.innerText = rs.rs_no;
+
+        const projEl = document.getElementById('viewRsProject');
+        if (projEl) projEl.innerText = rs.project_name;
+
+        const statusEl = document.getElementById('viewRsStatus');
+        if (statusEl) {
+            statusEl.innerText = rs.status;
+            statusEl.className = 'badge shadow-sm';
+            if (rs.status === 'Pending Approval') {
+                statusEl.classList.add('bg-warning', 'text-dark');
+            } else if (rs.status === 'Approved') {
+                statusEl.classList.add('bg-success');
+            } else if (rs.status === 'Staged (Ready for Pickup)') {
+                statusEl.classList.add('bg-info', 'text-dark');
+            } else if (rs.status === 'Rejected') {
+                statusEl.classList.add('bg-danger');
+            } else if (rs.status === 'PO Created') {
+                statusEl.classList.add('bg-info', 'text-dark');
+            } else if (rs.status === 'Released') {
+                statusEl.classList.add('bg-success');
+            } else {
+                statusEl.classList.add('bg-secondary');
+            }
+        }
+
+        const remarksEl = document.getElementById('viewRsRemarks');
+        if (remarksEl) {
+            remarksEl.innerText = rs.remarks ? rs.remarks : 'No remarks provided.';
+            remarksEl.style.whiteSpace = 'pre-wrap';
+        }
+
+        const reqEl = document.getElementById('viewRsRequestor');
+        if (reqEl) reqEl.innerText = rs.requestor_name;
+
+        const dateEl = document.getElementById('viewRsDate');
+        if (dateEl) dateEl.innerText = rs.formatted_date;
+
+        const qrContainer = document.getElementById('rsQrContainer');
+        const printBtn = document.getElementById('printRsBtn');
+
+        if ((rs.status === 'Approved' || rs.status === 'PO Created' || rs.status === 'Staged (Ready for Pickup)') && rs.type !== 'restock') {
+            const qrData = encodeURIComponent(`REQ-DATA:${rs.rs_no}`);
+            const qrImg = document.getElementById('viewRsQrCode');
+            if (qrImg) qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${qrData}`;
+            if (qrContainer) qrContainer.classList.remove('d-none');
+            if (printBtn) printBtn.classList.remove('d-none');
+        } else {
+            if (qrContainer) qrContainer.classList.add('d-none');
+            if (rs.status === 'Approved' || rs.status === 'PO Created' || rs.status === 'Staged (Ready for Pickup)') {
+                if (printBtn) printBtn.classList.remove('d-none');
+            } else {
+                if (printBtn) printBtn.classList.add('d-none');
+            }
+        }
+
+        const tbody = document.getElementById('viewRsItemsBody');
+        if (tbody) {
+            tbody.innerHTML = '';
+            if (items.length > 0) {
+                items.forEach(item => {
+                    const itemName = item.item_name ? item.item_name : '<span class="text-danger">Item deleted</span>';
+                    const unit = item.unit ? item.unit : '';
+                    const reqQty = parseInt(item.quantity) || 0;
+                    const curStock = parseInt(item.current_stock) || 0;
+                    const totalPending = parseInt(item.total_pending) || 0;
+
+                    let stockDisplay = '';
+                    if (rs.type === 'restock') {
+                        if (curStock === 0) {
+                            stockDisplay = `<span class="badge bg-danger fs-6 shadow-sm">0 (Out of Stock)</span>`;
+                        } else {
+                            stockDisplay = `<span class="badge bg-success fs-6 shadow-sm">${curStock}</span>`;
+                        }
+                    } else {
+                        if (curStock < reqQty) {
+                            stockDisplay = `<span class="badge bg-danger fs-6 shadow-sm"><i class="bi bi-exclamation-triangle-fill me-1"></i>${curStock} (Short)</span>`;
+                        } else {
+                            stockDisplay = `<span class="badge bg-success fs-6 shadow-sm">${curStock}</span>`;
+                        }
+                    }
+
+                    let pendingDisplay = '';
+                    if (totalPending > 0) {
+                        let formattedDetails = '';
+                        if (item.pending_details) {
+                            const entries = item.pending_details.split('; ');
+                            formattedDetails = entries.map(entry => {
+                                const match = entry.match(/(.+) \[(.+) by (.+)\]/);
+                                if (match) {
+                                    return `<div class="mb-1 pb-1 border-bottom-dashed small"><div class="fw-bold text-dark text-truncate" style="max-width:180px;" title="${match[1]}">${match[1]}</div><div class="d-flex justify-content-between text-muted" style="font-size:0.65rem;"><span>Qty: <b>${match[2]}</b></span><span>By: <b>${match[3]}</b></span></div></div>`;
+                                }
+                                return `<div>${entry}</div>`;
+                            }).join('');
+                        }
+                        pendingDisplay = `
+                            <div class="dropdown d-inline-block">
+                                <button class="btn btn-sm btn-outline-warning text-dark dropdown-toggle py-0 px-2 fw-bold shadow-sm" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="font-size: 0.75rem;">
+                                    ${totalPending} ${unit} Pending
+                                </button>
+                                <div class="dropdown-menu dropdown-menu-end p-3 shadow-lg border-0" style="min-width: 240px;">
+                                    <h6 class="dropdown-header px-0 text-uppercase fw-bold text-muted small border-bottom pb-2 mb-2">Pending RS Demand Details</h6>
+                                    ${formattedDetails}
+                                </div>
+                            </div>
+                        `;
+                    } else {
+                        pendingDisplay = `<span class="text-muted small">None</span>`;
+                    }
+
+                    tbody.innerHTML += `
+                        <tr>
+                            <td class="fw-bold text-primary">${item.item_code}</td>
+                            <td class="fw-bold text-dark">${itemName}</td>
+                            <td class="text-center fw-bold fs-6">${reqQty} ${unit}</td>
+                            <td class="text-center">${stockDisplay}</td>
+                            <td class="text-center">${pendingDisplay}</td>
+                        </tr>
+                    `;
+                });
+            } else {
+                tbody.innerHTML = `<tr><td colspan="5" class="text-center py-4 text-muted">No items found in this requisition.</td></tr>`;
+            }
+        }
+
+        const bsModal = new bootstrap.Modal(modalEl);
+        bsModal.show();
+
+    } catch (err) {
+        console.error('Error fetching RS details:', err);
+        alert('Failed to load Requisition Slip details.');
+    }
+};
+
+/* Global PO Modal Opener - Fetches PO details via AJAX and opens #viewPoModal */
+window.openPoModalByNo = async function(poNo) {
+    if (!poNo) return;
+    const modalEl = document.getElementById('viewPoModal');
+    if (!modalEl) return;
+
+    try {
+        const basePath = window.cimsBasePath || '';
+        const response = await fetch(`${basePath}/process/get_po_details.php?po_no=${encodeURIComponent(poNo)}`);
+        const data = await response.json();
+
+        if (!data.success || !data.po) {
+            alert(data.error || 'Purchase Order not found.');
+            return;
+        }
+
+        const po = data.po;
+        const items = data.items || [];
+
+        document.getElementById('viewPoNo').innerText = po.po_no;
+        document.getElementById('viewPoSupplier').innerText = po.supplier_name;
+        document.getElementById('viewPoProject').innerText = po.project_name;
+        document.getElementById('viewPoRsNo').innerText = po.rs_no;
+        document.getElementById('viewPoEta').innerText = po.expected_delivery;
+        document.getElementById('viewPoPreparedBy').innerText = po.prepared_by;
+        document.getElementById('viewPoTotalVal').innerText = '₱' + Number(po.total_value).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+        const statusEl = document.getElementById('viewPoStatus');
+        if (statusEl) {
+            statusEl.innerText = po.status;
+            statusEl.className = 'badge shadow-sm';
+            if (po.status.includes('Delayed')) {
+                statusEl.classList.add('bg-danger');
+            } else if (po.status === 'Delivered') {
+                statusEl.classList.add('bg-success');
+            } else if (po.status === 'Pending Delivery' || po.status === 'SMS Sent') {
+                statusEl.classList.add('bg-warning', 'text-dark');
+            } else {
+                statusEl.classList.add('bg-info', 'text-dark');
+            }
+        }
+
+        const delayBox = document.getElementById('viewPoDelayBox');
+        const delayRemarks = document.getElementById('viewPoDelayRemarks');
+        if (po.delay_remarks) {
+            if (delayRemarks) delayRemarks.innerText = po.delay_remarks;
+            if (delayBox) delayBox.classList.remove('d-none');
+        } else {
+            if (delayBox) delayBox.classList.add('d-none');
+        }
+
+        const tbody = document.getElementById('viewPoItemsBody');
+        if (tbody) {
+            tbody.innerHTML = '';
+            if (items.length > 0) {
+                items.forEach(item => {
+                    const priceFormatted = '₱' + Number(item.unit_price || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                    const totalFormatted = '₱' + Number(item.total_price || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                    tbody.innerHTML += `
+                        <tr>
+                            <td class="fw-bold text-primary">${item.item_code}</td>
+                            <td class="fw-bold text-dark">${item.item_name}</td>
+                            <td class="text-center fw-bold fs-6">${item.quantity} ${item.unit}</td>
+                            <td class="text-end fw-semibold">${priceFormatted}</td>
+                            <td class="text-end fw-bold text-success">${totalFormatted}</td>
+                        </tr>
+                    `;
+                });
+            } else {
+                tbody.innerHTML = `<tr><td colspan="5" class="text-center py-4 text-muted">No items found in this Purchase Order.</td></tr>`;
+            }
+        }
+
+        new bootstrap.Modal(modalEl).show();
+    } catch (err) {
+        console.error('Error fetching PO details:', err);
+        alert('Failed to load Purchase Order details.');
+    }
+};
+
+/* Global Withdrawal Modal Opener - Fetches Withdrawal details via AJAX and opens #viewWithdrawalModal */
+window.openWithdrawalModalByNo = async function(withdrawalNo) {
+    if (!withdrawalNo) return;
+    const modalEl = document.getElementById('viewWithdrawalModal');
+    if (!modalEl) return;
+
+    try {
+        const basePath = window.cimsBasePath || '';
+        const response = await fetch(`${basePath}/process/get_withdrawal_details.php?withdrawal_no=${encodeURIComponent(withdrawalNo)}`);
+        const data = await response.json();
+
+        if (!data.success || !data.withdrawal) {
+            alert(data.error || 'Material Withdrawal Slip not found.');
+            return;
+        }
+
+        const wd = data.withdrawal;
+        const items = data.items || [];
+
+        document.getElementById('viewWdNo').innerText = wd.withdrawal_no;
+        document.getElementById('viewWdProject').innerText = wd.project_name;
+        document.getElementById('viewWdDate').innerText = wd.date_withdrawn;
+        document.getElementById('viewWdReleaser').innerText = wd.releaser_name;
+        document.getElementById('viewWdReceiver').innerText = wd.received_by;
+        document.getElementById('viewWdRemarks').innerText = wd.remarks;
+
+        const tbody = document.getElementById('viewWdItemsBody');
+        if (tbody) {
+            tbody.innerHTML = '';
+            if (items.length > 0) {
+                items.forEach(item => {
+                    tbody.innerHTML += `
+                        <tr>
+                            <td class="fw-bold text-primary">${item.item_code}</td>
+                            <td class="fw-bold text-dark">${item.item_name}</td>
+                            <td class="text-center fw-bold fs-6">${item.quantity} ${item.unit}</td>
+                        </tr>
+                    `;
+                });
+            } else {
+                tbody.innerHTML = `<tr><td colspan="3" class="text-center py-4 text-muted">No items found in this withdrawal slip.</td></tr>`;
+            }
+        }
+
+        new bootstrap.Modal(modalEl).show();
+    } catch (err) {
+        console.error('Error fetching Withdrawal details:', err);
+        alert('Failed to load Withdrawal Slip details.');
+    }
+};
+
+/* Global Item Quick View Modal Opener - Fetches Item profile via AJAX and opens #viewItemQuickModal */
+window.openItemModalByCode = async function(itemCode) {
+    if (!itemCode) return;
+    const modalEl = document.getElementById('viewItemQuickModal');
+    if (!modalEl) return;
+
+    try {
+        const basePath = window.cimsBasePath || '';
+        const response = await fetch(`${basePath}/process/get_item_details.php?item_code=${encodeURIComponent(itemCode)}`);
+        const data = await response.json();
+
+        if (!data.success || !data.item) {
+            alert(data.error || 'Inventory item not found.');
+            return;
+        }
+
+        const item = data.item;
+        const recent = data.recent_withdrawals || [];
+
+        document.getElementById('viewItemName').innerText = item.item_name;
+        document.getElementById('viewItemCode').innerText = item.item_code;
+        document.getElementById('viewItemCategory').innerText = item.category;
+        document.getElementById('viewItemQty').innerText = item.quantity;
+        document.getElementById('viewItemUnit').innerText = item.unit;
+        document.getElementById('viewItemPrice').innerText = '₱' + item.price;
+        document.getElementById('viewItem30d').innerText = item.consumed_30d + ' ' + item.unit;
+
+        const badgeEl = document.getElementById('viewItemStatusBadge');
+        if (badgeEl) {
+            badgeEl.innerText = item.status;
+            badgeEl.className = 'badge fs-6 shadow-sm';
+            if (item.status === 'Out of Stock') {
+                badgeEl.classList.add('bg-danger');
+            } else if (item.status === 'Low Stock') {
+                badgeEl.classList.add('bg-warning', 'text-dark');
+            } else {
+                badgeEl.classList.add('bg-success');
+            }
+        }
+
+        const tbody = document.getElementById('viewItemRecentBody');
+        if (tbody) {
+            tbody.innerHTML = '';
+            if (recent.length > 0) {
+                recent.forEach(r => {
+                    tbody.innerHTML += `
+                        <tr>
+                            <td class="fw-bold text-primary">${r.withdrawal_no}</td>
+                            <td class="fw-bold text-dark text-truncate" style="max-width: 140px;">${r.project_name}</td>
+                            <td class="text-center fw-bold">${r.quantity}</td>
+                            <td class="text-end text-muted small">${r.formatted_date}</td>
+                        </tr>
+                    `;
+                });
+            } else {
+                tbody.innerHTML = `<tr><td colspan="4" class="text-center py-3 text-muted small">No recent material releases.</td></tr>`;
+            }
+        }
+
+        new bootstrap.Modal(modalEl).show();
+    } catch (err) {
+        console.error('Error fetching Item details:', err);
+        alert('Failed to load item profile.');
+    }
+};
