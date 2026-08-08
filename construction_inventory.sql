@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Aug 03, 2026 at 06:26 AM
+-- Generation Time: Aug 06, 2026 at 06:48 AM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.5.6
 
@@ -20,6 +20,8 @@ SET time_zone = "+00:00";
 --
 -- Database: `construction_inventory`
 --
+CREATE DATABASE IF NOT EXISTS `construction_inventory` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
+USE `construction_inventory`;
 
 -- --------------------------------------------------------
 
@@ -99,11 +101,11 @@ CREATE TABLE `inventory` (
 --
 
 INSERT INTO `inventory` (`id`, `item_code`, `item_name`, `category`, `quantity`, `unit`, `unit_price`, `status`, `last_updated`) VALUES
-(2, 'ITM-2', 'Steel Rebar (12mm)', 'Materials', 497, 'Pieces', 12.00, 'In Stock', '2026-07-30 08:06:48'),
-(3, 'ITM-3', 'Makita Power Drill', 'Tools', 48, 'Units', 120.00, 'In Stock', '2026-07-30 08:06:48'),
+(2, 'ITM-2', 'Steel Rebar (12mm)', 'Materials', 547, 'Pieces', 12.00, 'In Stock', '2026-08-04 06:47:15'),
+(3, 'ITM-3', 'Makita Power Drill', 'Tools', 148, 'Units', 14.00, 'In Stock', '2026-08-05 01:40:59'),
 (4, 'ITM-4', 'Safety Helmets', 'Safety', 110, 'Pieces', 15.00, 'In Stock', '2026-03-17 05:35:58'),
 (7, 'ITM-4130', 'Sand', 'Materials', 700, 'Cubic Meters', 0.00, 'In Stock', '2026-03-19 03:18:45'),
-(8, 'ITM-9411', 'Concrete Nails', 'Materials', 200, 'Pieces', 0.00, 'In Stock', '2026-08-03 03:59:34'),
+(8, 'ITM-9411', 'Concrete Nails', 'Materials', 300, 'Pieces', 0.00, 'In Stock', '2026-08-04 06:47:15'),
 (9, 'ITM-8782', 'Electrical Tape', 'Electrical Supplies', 155, 'Pieces', 0.00, 'In Stock', '2026-08-03 01:47:43');
 
 -- --------------------------------------------------------
@@ -344,7 +346,17 @@ INSERT INTO `notifications` (`id`, `target_user_id`, `target_role`, `title`, `me
 (192, 1, NULL, 'Requisition Approved', 'Your request RS-2026-1686 has been approved.', 0, '2026-08-03 03:57:47'),
 (193, NULL, 'purchasing', 'Ready for PO', 'RS-2026-1686 was approved. Please generate a PO.', 0, '2026-08-03 03:57:47'),
 (194, 1, NULL, 'Materials Staged (Ready for Pickup)', 'Your requested materials for RS-2026-1686 have been pre-picked & staged by the Warehouse In-Charge. Ready for express pickup!', 0, '2026-08-03 03:57:56'),
-(195, 1, NULL, 'Requisition Released', 'Materials for your requisition RS-2026-1686 have been released from the warehouse.', 0, '2026-08-03 03:59:34');
+(195, 1, NULL, 'Requisition Released', 'Materials for your requisition RS-2026-1686 have been released from the warehouse.', 0, '2026-08-03 03:59:34'),
+(196, NULL, 'management', 'New Requisition Pending', 'Angelo Carlo Pedrosa submitted a Warehouse Restock request (RS-2026-4182).', 0, '2026-08-04 06:45:27'),
+(197, 1, NULL, 'Requisition Approved', 'Your request RS-2026-4182 has been approved.', 0, '2026-08-04 06:46:13'),
+(198, NULL, 'purchasing', 'Ready for PO', 'RS-2026-4182 was approved. Please generate a PO.', 0, '2026-08-04 06:46:13'),
+(199, NULL, 'warehouse', 'Incoming Delivery Expected', 'PO PO-20260804-791 generated. Target Warehouse ETA: Aug 07, 2026. Prepare space to receive materials.', 0, '2026-08-04 06:47:01'),
+(200, NULL, 'purchasing', 'PO Delivered & Verified', 'Order PO-20260729-744 has arrived complete. Exactly correct quantities and updated prices successfully STOCKED IN to Master Inventory.', 0, '2026-08-04 06:47:15'),
+(201, NULL, 'management', 'PO Delivered & Verified', 'Order PO-20260729-744 has arrived complete. Exactly correct quantities and updated prices successfully STOCKED IN to Master Inventory.', 0, '2026-08-04 06:47:15'),
+(202, NULL, 'admin', 'PO Delivered & Verified', 'Order PO-20260729-744 has arrived complete. Exactly correct quantities and updated prices successfully STOCKED IN to Master Inventory.', 0, '2026-08-04 06:47:15'),
+(203, NULL, 'purchasing', 'PO Delivered & Verified', 'Order PO-20260804-791 has arrived complete. Exactly correct quantities and updated prices successfully STOCKED IN to Master Inventory.', 0, '2026-08-05 01:40:59'),
+(204, NULL, 'management', 'PO Delivered & Verified', 'Order PO-20260804-791 has arrived complete. Exactly correct quantities and updated prices successfully STOCKED IN to Master Inventory.', 0, '2026-08-05 01:40:59'),
+(205, NULL, 'admin', 'PO Delivered & Verified', 'Order PO-20260804-791 has arrived complete. Exactly correct quantities and updated prices successfully STOCKED IN to Master Inventory.', 0, '2026-08-05 01:40:59');
 
 -- --------------------------------------------------------
 
@@ -368,14 +380,15 @@ CREATE TABLE `po_items` (
 -- Dumping data for table `po_items`
 --
 
-INSERT INTO `po_items` (`id`, `po_id`, `item_code`, `quantity`, `unit_price`) VALUES
-(1, 1, 'ITM-8782', 50, 0.00),
-(2, 2, 'ITM-9411', 100, 0.00),
-(3, 2, 'ITM-2', 50, 12.00),
-(4, 3, 'ITM-9411', 100, 0.00),
-(5, 3, 'ITM-8782', 50, 0.00),
-(6, 4, 'ITM-9411', 123, 0.00),
-(7, 4, 'ITM-8782', 5, 0.00);
+INSERT INTO `po_items` (`id`, `po_id`, `item_code`, `quantity`, `unit_price`, `is_new_item`, `custom_item_name`, `category`, `unit`) VALUES
+(1, 1, 'ITM-8782', 50, 0.00, 0, NULL, NULL, NULL),
+(2, 2, 'ITM-9411', 100, 0.00, 0, NULL, NULL, NULL),
+(3, 2, 'ITM-2', 50, 12.00, 0, NULL, NULL, NULL),
+(4, 3, 'ITM-9411', 100, 0.00, 0, NULL, NULL, NULL),
+(5, 3, 'ITM-8782', 50, 0.00, 0, NULL, NULL, NULL),
+(6, 4, 'ITM-9411', 123, 0.00, 0, NULL, NULL, NULL),
+(7, 4, 'ITM-8782', 5, 0.00, 0, NULL, NULL, NULL),
+(8, 5, 'ITM-3', 100, 14.00, 0, NULL, NULL, NULL);
 
 -- --------------------------------------------------------
 
@@ -416,18 +429,21 @@ CREATE TABLE `purchase_orders` (
   `status` varchar(50) DEFAULT 'Pending Delivery',
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `delay_remarks` text DEFAULT NULL,
-  `expected_delivery_date` date DEFAULT NULL
+  `expected_delivery_date` date DEFAULT NULL,
+  `proof_of_receipt` varchar(255) DEFAULT NULL,
+  `received_by` int(11) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Dumping data for table `purchase_orders`
 --
 
-INSERT INTO `purchase_orders` (`id`, `po_no`, `rs_id`, `supplier_id`, `prepared_by`, `status`, `created_at`, `delay_remarks`, `expected_delivery_date`) VALUES
-(1, 'PO-20260724-574', 14, 2, 1, 'Delayed (Weather)', '2026-07-24 08:35:44', 'Road / Traffic Conditions - Dakop', '2026-07-30'),
-(2, 'PO-20260729-744', 15, 1, 1, 'Delayed (Weather)', '2026-07-29 00:39:26', 'Port / Customs Hold', '2026-08-04'),
-(3, 'PO-20260730-977', 16, 3, 1, 'Delivered', '2026-07-30 07:25:21', NULL, '2026-08-02'),
-(4, 'PO-20260730-903', 18, 3, 3, 'Delivered', '2026-07-30 08:20:59', NULL, '2026-08-02');
+INSERT INTO `purchase_orders` (`id`, `po_no`, `rs_id`, `supplier_id`, `prepared_by`, `status`, `created_at`, `delay_remarks`, `expected_delivery_date`, `proof_of_receipt`, `received_by`) VALUES
+(1, 'PO-20260724-574', 14, 2, 1, 'Delayed (Weather)', '2026-07-24 08:35:44', 'Road / Traffic Conditions - Dakop', '2026-07-30', NULL, NULL),
+(2, 'PO-20260729-744', 15, 1, 1, 'Delivered', '2026-07-29 00:39:26', 'Port / Customs Hold', '2026-08-04', 'uploads/receipts/camera_receipt_2_1785826035.jpg', 1),
+(3, 'PO-20260730-977', 16, 3, 1, 'Delivered', '2026-07-30 07:25:21', NULL, '2026-08-02', NULL, NULL),
+(4, 'PO-20260730-903', 18, 3, 3, 'Delivered', '2026-07-30 08:20:59', NULL, '2026-08-02', NULL, NULL),
+(5, 'PO-20260804-791', 23, 2, 1, 'Delivered', '2026-08-04 06:47:01', NULL, '2026-08-07', 'uploads/receipts/camera_receipt_5_1785894059.jpg', 3);
 
 -- --------------------------------------------------------
 
@@ -474,7 +490,8 @@ INSERT INTO `requisitions` (`id`, `rs_no`, `requestor_id`, `requestor_name`, `pr
 (19, 'RS-2026-1960', 4, 'Jahzeel Jakosalem', 'Main Headquarters Construction', 'Normal', '', 'Staged (Ready for Pickup)', 'project', '2026-07-30 08:40:54'),
 (20, 'RS-2026-3327', 4, 'Jahzeel Jakosalem', 'Main Headquarters Construction', 'Normal', '', 'Released', 'project', '2026-08-03 02:15:00'),
 (21, 'RS-2026-9286', 4, 'Jahzeel Jakosalem', 'Main Headquarters Construction', 'Normal', '\n\n[MANAGEMENT REJECTED]: Already approved', 'Rejected', 'project', '2026-08-03 02:46:54'),
-(22, 'RS-2026-1686', 1, 'Angelo Carlo Pedrosa', 'Balay Ni Maam', 'Normal', '', 'Released', 'project', '2026-08-03 03:57:34');
+(22, 'RS-2026-1686', 1, 'Angelo Carlo Pedrosa', 'Balay Ni Maam', 'Normal', '', 'Released', 'project', '2026-08-03 03:57:34'),
+(23, 'RS-2026-4182', 1, 'Angelo Carlo Pedrosa', 'Warehouse Restock', 'Normal', '', 'PO Created', 'restock', '2026-08-04 06:45:27');
 
 -- --------------------------------------------------------
 
@@ -497,20 +514,21 @@ CREATE TABLE `requisition_items` (
 -- Dumping data for table `requisition_items`
 --
 
-INSERT INTO `requisition_items` (`id`, `requisition_id`, `item_code`, `quantity`) VALUES
-(14, 14, 'ITM-8782', 50),
-(15, 15, 'ITM-9411', 100),
-(16, 15, 'ITM-2', 50),
-(17, 16, 'ITM-9411', 100),
-(18, 16, 'ITM-8782', 50),
-(19, 17, 'ITM-3', 12),
-(20, 17, 'ITM-2', 3),
-(21, 18, 'ITM-9411', 123),
-(22, 18, 'ITM-8782', 5),
-(23, 19, 'ITM-3', 50),
-(24, 20, 'ITM-9411', 15),
-(25, 21, 'ITM-9411', 15),
-(26, 22, 'ITM-9411', 20);
+INSERT INTO `requisition_items` (`id`, `requisition_id`, `item_code`, `quantity`, `is_new_item`, `new_item_name`, `new_category`, `new_unit`) VALUES
+(14, 14, 'ITM-8782', 50, 0, NULL, NULL, NULL),
+(15, 15, 'ITM-9411', 100, 0, NULL, NULL, NULL),
+(16, 15, 'ITM-2', 50, 0, NULL, NULL, NULL),
+(17, 16, 'ITM-9411', 100, 0, NULL, NULL, NULL),
+(18, 16, 'ITM-8782', 50, 0, NULL, NULL, NULL),
+(19, 17, 'ITM-3', 12, 0, NULL, NULL, NULL),
+(20, 17, 'ITM-2', 3, 0, NULL, NULL, NULL),
+(21, 18, 'ITM-9411', 123, 0, NULL, NULL, NULL),
+(22, 18, 'ITM-8782', 5, 0, NULL, NULL, NULL),
+(23, 19, 'ITM-3', 50, 0, NULL, NULL, NULL),
+(24, 20, 'ITM-9411', 15, 0, NULL, NULL, NULL),
+(25, 21, 'ITM-9411', 15, 0, NULL, NULL, NULL),
+(26, 22, 'ITM-9411', 20, 0, NULL, NULL, NULL),
+(27, 23, 'ITM-3', 100, 0, NULL, NULL, NULL);
 
 -- --------------------------------------------------------
 
@@ -590,8 +608,8 @@ CREATE TABLE `system_settings` (
 --
 
 INSERT INTO `system_settings` (`setting_key`, `setting_value`, `updated_at`) VALUES
-('last_ai_prediction', '<ul>\n  <li style=\"margin-bottom: 15px; padding: 12px; border-left: 4px solid #dc3545;\">\n    <span style=\"font-size: 1.1rem;\">⚠️ <strong>Makita Power Drill</strong></span> - Runs out in 300 days.\n    <br>🏢 <strong>Top Consumer:</strong> Main Headquarters Construction\n    <br>👉 <strong>Recommended Restock Date:</strong> August 4, 2026 (Accounts for 5-day Lead Time)\n    <br>👉 <strong>Recommended Order Qty:</strong> 12 Units\n  </li>\n  <li style=\"margin-bottom: 15px; padding: 12px; border-left: 4px solid #dc3545;\">\n    <span style=\"font-size: 1.1rem;\">⚠️ <strong>Steel Rebar (12mm)</strong></span> - Runs out in 497 days.\n    <br>🏢 <strong>Top Consumer:</strong> Main Headquarters Construction\n    <br>👉 <strong>Recommended Restock Date:</strong> October 14, 2026 (Accounts for 5-day Lead Time)\n    <br>👉 <strong>Recommended Order Qty:</strong> 3 Pieces\n  </li>\n  <li style=\"margin-bottom: 15px; padding: 12px; border-left: 4px solid #dc3545;\">\n    <span style=\"font-size: 1.1rem;\">⚠️ <strong>Concrete Nails</strong></span> - Runs out in 999 days.\n    <br>🏢 <strong>Top Consumer:</strong> General Stock\n    <br>👉 <strong>Recommended Restock Date:</strong> January 29, 2028 (Accounts for 5-day Lead Time)\n    <br>👉 <strong>Recommended Order Qty:</strong> 0 Pieces\n  </li>\n  <li style=\"margin-bottom: 15px; padding: 12px; border-left: 4px solid #dc3545;\">\n    <span style=\"font-size: 1.1rem;\">⚠️ <strong>Sand</strong></span> - Runs out in 999 days.\n    <br>🏢 <strong>Top Consumer:</strong> General Stock\n    <br>👉 <strong>Recommended Restock Date:</strong> January 29, 2028 (Accounts for 5-day Lead Time)\n    <br>👉 <strong>Recommended Order Qty:</strong> 0 Cubic Meters\n  </li>\n  <li style=\"margin-bottom: 15px; padding: 12px; border-left: 4px solid #dc3545;\">\n    <span style=\"font-size: 1.1rem;\">⚠️ <strong>Electrical Tape</strong></span> - Runs out in 999 days.\n    <br>🏢 <strong>Top Consumer:</strong> General Stock\n    <br>👉 <strong>Recommended Restock Date:</strong> January 29, 2028 (Accounts for 5-day Lead Time)\n    <br>👉 <strong>Recommended Order Qty:</strong> 0 Pieces\n  </li>\n  <li style=\"margin-bottom: 15px; padding: 12px; border-left: 4px solid #dc3545;\">\n    <span style=\"font-size: 1.1rem;\">⚠️ <strong>Safety Helmets</strong></span> - Runs out in 999 days.\n    <br>🏢 <strong>Top Consumer:</strong> General Stock\n    <br>👉 <strong>Recommended Restock Date:</strong> January 29, 2028 (Accounts for 5-day Lead Time)\n    <br>👉 <strong>Recommended Order Qty:</strong> 0 Pieces\n  </li>\n</ul>', '2026-07-30 08:44:28'),
-('last_ai_timestamp', '1785401068000', '2026-07-30 08:44:28'),
+('last_ai_prediction', '<html>\n  <body>\n    <h1>Inventory Restock Recommendations</h1>\n    <ul>\n      <li style=\"margin-bottom: 15px; padding: 12px; border-left: 4px solid #dc3545;\">\n        <span style=\"font-size: 1.1rem;\">⚠️ <strong>Makita Power Drill</strong></span> - Runs out in 300 days.\n        <br>🏢 <strong>Top Consumer:</strong> Main Headquarters Construction\n        <br>👉 <strong>Recommended Restock Date:</strong> 2026-08-10 (Accounts for 5-day Lead Time)\n        <br>👉 <strong>Recommended Order Qty:</strong> 50 Units\n      </li>\n      <li style=\"margin-bottom: 15px; padding: 12px; border-left: 4px solid #dc3545;\">\n        <span style=\"font-size: 1.1rem;\">⚠️ <strong>Concrete Nails</strong></span> - Runs out in 257 days.\n        <br>🏢 <strong>Top Consumer:</strong> Balay Ni Maam\n        <br>👉 <strong>Recommended Restock Date:</strong> 2026-09-10 (Accounts for 5-day Lead Time)\n        <br>👉 <strong>Recommended Order Qty:</strong> 50 Pieces\n      </li>\n      <li style=\"margin-bottom: 15px; padding: 12px; border-left: 4px solid #dc3545;\">\n        <span style=\"font-size: 1.1rem;\">⚠️ <strong>Safety Helmets</strong></span> - Out of Stock.\n        <br>🏢 <strong>Top Consumer:</strong> General Stock\n        <br>👉 <strong>Recommended Restock Date:</strong> IMMEDIATELY (Accounts for 5-day Lead Time)\n        <br>👉 <strong>Recommended Order Qty:</strong> 50 Pieces\n      </li>\n      <li style=\"margin-bottom: 15px; padding: 12px; border-left: 4px solid #dc3545;\">\n        <span style=\"font-size: 1.1rem;\">⚠️ <strong>Steel Rebar (12mm)</strong></span> - Runs out in 5470 days.\n        <br>🏢 <strong>Top Consumer:</strong> Main Headquarters Construction\n        <br>👉 <strong>Recommended Restock Date:</strong> 2026-08-10 (Accounts for 5-day Lead Time)\n        <br>👉 <strong>Recommended Order Qty:</strong> 50 Pieces\n      </li>\n    </ul>\n  </body>\n</html>\n\nNote: The items that are out of stock or will run out in less than 20 days have been highlighted with a red border. The recommended restock date and order quantity have been calculated based on the given data and the 3-5 day supplier lead time.', '2026-08-05 00:20:17'),
+('last_ai_timestamp', '1785889217000', '2026-08-05 00:20:17'),
 ('login_background', 'assets/img/default_login_bg.png', '2026-07-24 08:29:27');
 
 -- --------------------------------------------------------
@@ -641,9 +659,9 @@ CREATE TABLE `users` (
 --
 
 INSERT INTO `users` (`id`, `name`, `username`, `password`, `role`, `created_at`, `fcm_token`) VALUES
-(1, 'Angelo Carlo Pedrosa', 'admin', '$2y$12$iJVBLTEUBCbcsVJppnWoweZkOIddOITYIiLGZL7VX9QmJD0PVmZvS', 'admin', '2026-07-24 08:29:27', 'fz1h04QxSTlA7SNSr_HI8O:APA91bEj6Np1OzgXb0hsEnNHIzfjxykLjb6i5kGhd-Gf9ocyCe2fUzypA6XgH2r6n2aKloZ0Rf-XQwQsUaMGPdB3FD0k6oYtp0bbq6nSp0Ki7KZGNg-_0UU'),
-(2, 'LJ Caballero', 'ljwarehouse', '$2y$12$wRihGdzHqlbuBVFlmdVhLedHyEjeYScE295Mv3XVz3FGL0mFbwwi.', 'warehouse', '2026-07-29 00:26:11', 'fz4IDxlLrzsEOqEkwQM3Cf:APA91bEw_xHfIeL8PxDgUYm7Al4ZECyXl668qWMgzE6oHMlBzSLkailwKAHM_dYUlv0-Li2QYvTSJimcYH3_vLuePclHuSyUUpHiacmsD2RbhMdPRb0cHAU'),
-(3, 'Coco Martin', 'cocomartin', '$2y$12$vBa78toh2HCrsspKt3wBGe7eLRJUkVTdUV653ZXkZOKdmMslFhZEO', 'purchasing', '2026-07-29 00:26:50', 'fz1h04QxSTlA7SNSr_HI8O:APA91bEj6Np1OzgXb0hsEnNHIzfjxykLjb6i5kGhd-Gf9ocyCe2fUzypA6XgH2r6n2aKloZ0Rf-XQwQsUaMGPdB3FD0k6oYtp0bbq6nSp0Ki7KZGNg-_0UU'),
+(1, 'Angelo Carlo Pedrosa', 'admin', '$2y$12$iJVBLTEUBCbcsVJppnWoweZkOIddOITYIiLGZL7VX9QmJD0PVmZvS', 'admin', '2026-07-24 08:29:27', 'eUZ1qaqunUh3jglsrx1YQG:APA91bG4EknH-k7-ibez882j74pq-txTP3ykIuVoVSHm8mKweLDfXhJzo-ysqgnVA73SQy4OvhRzckYGHGu4Mr6EY5W4EleQ5s8a6RAoIb5C5W7CwfkgBv8'),
+(2, 'LJ Caballero', 'ljwarehouse', '$2y$12$PHHocfRUiXK79NypGryWgOtemC21nKsS6eb6ggx1RlKQWqcIY3q/q', 'warehouse', '2026-07-29 00:26:11', 'fz4IDxlLrzsEOqEkwQM3Cf:APA91bEw_xHfIeL8PxDgUYm7Al4ZECyXl668qWMgzE6oHMlBzSLkailwKAHM_dYUlv0-Li2QYvTSJimcYH3_vLuePclHuSyUUpHiacmsD2RbhMdPRb0cHAU'),
+(3, 'Coco Martin', 'cocomartin', '$2y$12$vBa78toh2HCrsspKt3wBGe7eLRJUkVTdUV653ZXkZOKdmMslFhZEO', 'purchasing', '2026-07-29 00:26:50', 'fz4IDxlLrzsEOqEkwQM3Cf:APA91bEw_xHfIeL8PxDgUYm7Al4ZECyXl668qWMgzE6oHMlBzSLkailwKAHM_dYUlv0-Li2QYvTSJimcYH3_vLuePclHuSyUUpHiacmsD2RbhMdPRb0cHAU'),
 (4, 'Jahzeel Jakosalem', 'jahz', '$2y$12$7shcO/H1Vvm/7ihT1ywl..97x7BCBVnOUNxGZi6leo0N6W1cMp7Fy', 'requestor', '2026-07-29 01:12:16', 'fz1h04QxSTlA7SNSr_HI8O:APA91bEj6Np1OzgXb0hsEnNHIzfjxykLjb6i5kGhd-Gf9ocyCe2fUzypA6XgH2r6n2aKloZ0Rf-XQwQsUaMGPdB3FD0k6oYtp0bbq6nSp0Ki7KZGNg-_0UU'),
 (5, 'Angeleen', 'angel', '$2y$12$NT4z2RIx59/dhzplq3zLPOtQuQEzF37H/BIa99M9rxJjNETUr9kOm', 'management', '2026-07-30 07:59:03', 'fz1h04QxSTlA7SNSr_HI8O:APA91bEj6Np1OzgXb0hsEnNHIzfjxykLjb6i5kGhd-Gf9ocyCe2fUzypA6XgH2r6n2aKloZ0Rf-XQwQsUaMGPdB3FD0k6oYtp0bbq6nSp0Ki7KZGNg-_0UU');
 
@@ -777,7 +795,6 @@ ALTER TABLE `purchase_orders`
 ALTER TABLE `requisitions`
   ADD PRIMARY KEY (`id`),
   ADD UNIQUE KEY `rs_no` (`rs_no`),
-  ADD UNIQUE KEY `idx_req_rs_no` (`rs_no`),
   ADD KEY `idx_req_status` (`status`),
   ADD KEY `idx_req_requestor_id` (`requestor_id`),
   ADD KEY `idx_req_created_at` (`created_at`);
@@ -822,8 +839,7 @@ ALTER TABLE `units`
 --
 ALTER TABLE `users`
   ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `username` (`username`),
-  ADD UNIQUE KEY `idx_users_username` (`username`);
+  ADD UNIQUE KEY `username` (`username`);
 
 --
 -- Indexes for table `withdrawals`
@@ -874,13 +890,13 @@ ALTER TABLE `inventory_audits`
 -- AUTO_INCREMENT for table `notifications`
 --
 ALTER TABLE `notifications`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=196;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=206;
 
 --
 -- AUTO_INCREMENT for table `po_items`
 --
 ALTER TABLE `po_items`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=9;
 
 --
 -- AUTO_INCREMENT for table `projects`
@@ -892,19 +908,19 @@ ALTER TABLE `projects`
 -- AUTO_INCREMENT for table `purchase_orders`
 --
 ALTER TABLE `purchase_orders`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
 
 --
 -- AUTO_INCREMENT for table `requisitions`
 --
 ALTER TABLE `requisitions`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=23;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=25;
 
 --
 -- AUTO_INCREMENT for table `requisition_items`
 --
 ALTER TABLE `requisition_items`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=27;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=28;
 
 --
 -- AUTO_INCREMENT for table `suppliers`
