@@ -74,11 +74,12 @@ elseif ($action === 'fetch_rs_with_history') {
 
     $rs_id = $_POST['rs_id'] ?? 0;
 
+    // Only return items that are Approved (excludes Rejected items from Partially Approved RSes)
     $stmt = $pdo->prepare("
         SELECT ri.item_code, ri.quantity, COALESCE(i.item_name, ri.new_item_name) as item_name, ri.is_new_item, ri.new_category, ri.new_unit 
         FROM requisition_items ri 
         LEFT JOIN inventory i ON ri.item_code = i.item_code 
-        WHERE ri.requisition_id = ?
+        WHERE ri.requisition_id = ? AND ri.item_status = 'Approved'
     ");
     $stmt->execute([$rs_id]);
     $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -137,10 +138,11 @@ elseif ($action === 'create_rs') {
     $newItemNames = $_POST['new_item_names'] ?? [];
     $newCategories = $_POST['new_categories'] ?? [];
     $newUnits = $_POST['new_units'] ?? [];
+    $itemNotes = $_POST['item_notes'] ?? [];
 
     $itemStmt = $pdo->prepare("
-        INSERT INTO requisition_items (requisition_id, item_code, quantity, is_new_item, new_item_name, new_category, new_unit) 
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO requisition_items (requisition_id, item_code, quantity, is_new_item, new_item_name, new_category, new_unit, item_notes) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     ");
     for ($i = 0; $i < count($items); $i++) {
         $isNew = !empty($isNewItems[$i]) ? 1 : 0;
@@ -149,17 +151,19 @@ elseif ($action === 'create_rs') {
         $name = $isNew ? trim($newItemNames[$i] ?? '') : null;
         $cat = $isNew ? trim($newCategories[$i] ?? 'Materials') : null;
         $unit = $isNew ? trim($newUnits[$i] ?? 'pcs') : null;
+        $note = trim($itemNotes[$i] ?? '') ?: null;
 
         if ($isNew && empty($code)) {
             $code = 'ITM-' . rand(1000, 9999);
         }
 
         if (!empty($code) && $qty > 0) {
-            $itemStmt->execute([$requisition_id, $code, $qty, $isNew, $name, $cat, $unit]);
+            $itemStmt->execute([$requisition_id, $code, $qty, $isNew, $name, $cat, $unit, $note]);
         }
     }
 
     // Conflict Check Engine
+
     $conflicts = [];
     $conflictItems = [];
     if ($type !== 'restock') {
@@ -240,29 +244,108 @@ elseif ($action === 'create_rs') {
     exit;
 }
 
-// --- APPROVE REQUISITION ---
+// --- APPROVE REQUISITION (Per-Item) ---
 elseif ($action === 'approve_rs') {
     if (!in_array($_SESSION['user_role'], ['management', 'admin'])) {
         throw new Exception("Only Management or Admins can approve requisitions.");
     }
 
-    $stmt = $pdo->prepare("UPDATE requisitions SET status = 'Approved' WHERE id = ?");
-    $stmt->execute([$_POST['rs_id']]);
+    $rs_id      = (int)$_POST['rs_id'];
+    $itemStatuses = $_POST['item_statuses'] ?? [];  // [item_id => 'Approved'|'Rejected']
+    $itemRemarks  = $_POST['item_remarks']  ?? [];  // [item_id => 'reason text']
 
-    $rsData = $pdo->prepare("SELECT rs_no, requestor_id FROM requisitions WHERE id = ?");
-    $rsData->execute([$_POST['rs_id']]);
+    if (empty($itemStatuses)) {
+        $_SESSION['message'] = "No item statuses were submitted.";
+        $_SESSION['msg_type'] = "danger";
+        header("Location: ../requisitions");
+        exit;
+    }
+
+    // Update each item row
+    $itemUpdateStmt = $pdo->prepare(
+        "UPDATE requisition_items SET item_status = ?, item_remarks = ? WHERE id = ? AND requisition_id = ?"
+    );
+    foreach ($itemStatuses as $itemId => $status) {
+        $remark = trim($itemRemarks[$itemId] ?? '');
+        $cleanStatus = in_array($status, ['Approved', 'Rejected']) ? $status : 'Approved';
+        $itemUpdateStmt->execute([$cleanStatus, $remark ?: null, (int)$itemId, $rs_id]);
+    }
+
+    // Derive RS-level status
+    $countStmt = $pdo->prepare(
+        "SELECT
+            SUM(item_status = 'Approved')  AS approved_count,
+            SUM(item_status = 'Rejected')  AS rejected_count,
+            COUNT(*)                        AS total_count
+         FROM requisition_items WHERE requisition_id = ?"
+    );
+    $countStmt->execute([$rs_id]);
+    $counts = $countStmt->fetch(PDO::FETCH_ASSOC);
+
+    $approvedCount = (int)$counts['approved_count'];
+    $rejectedCount = (int)$counts['rejected_count'];
+    $totalCount    = (int)$counts['total_count'];
+
+    if ($approvedCount === 0) {
+        $rsStatus = 'Rejected';
+    } elseif ($rejectedCount === 0) {
+        $rsStatus = 'Approved';
+    } else {
+        $rsStatus = 'Partially Approved';
+    }
+
+    $pdo->prepare("UPDATE requisitions SET status = ? WHERE id = ?")
+        ->execute([$rsStatus, $rs_id]);
+
+    // Fetch RS info for notifications
+    $rsData = $pdo->prepare("SELECT rs_no, requestor_id, type FROM requisitions WHERE id = ?");
+    $rsData->execute([$rs_id]);
     $rs = $rsData->fetch();
 
-    $pdo->prepare("INSERT INTO notifications (target_user_id, title, message) VALUES (?, 'Requisition Approved', ?)")
-        ->execute([$rs['requestor_id'], "Your request {$rs['rs_no']} has been approved."]);
-    $pdo->prepare("INSERT INTO notifications (target_role, title, message) VALUES ('purchasing', 'Ready for PO', ?)")
-        ->execute(["{$rs['rs_no']} was approved. Please generate a PO."]);
+    // Build a detailed list of rejected items for the notification
+    $rejectedItemDetails = '';
+    if ($rejectedCount > 0) {
+        $rejStmt = $pdo->prepare("
+            SELECT COALESCE(i.item_name, ri.new_item_name, ri.item_code) as item_name, ri.item_remarks
+            FROM requisition_items ri
+            LEFT JOIN inventory i ON ri.item_code = i.item_code
+            WHERE ri.requisition_id = ? AND ri.item_status = 'Rejected'
+        ");
+        $rejStmt->execute([$rs_id]);
+        $rejectedItems = $rejStmt->fetchAll(PDO::FETCH_ASSOC);
+        $lines = [];
+        foreach ($rejectedItems as $ri) {
+            $line = '• ' . $ri['item_name'];
+            if (!empty($ri['item_remarks'])) {
+                $line .= ' — Reason: ' . $ri['item_remarks'];
+            }
+            $lines[] = $line;
+        }
+        $rejectedItemDetails = "\n" . implode("\n", $lines);
+    }
 
-    sendPushNotification($pdo, 'Requisition Approved', "Your request {$rs['rs_no']} has been approved.", null, (int)$rs['requestor_id']);
-    sendPushNotification($pdo, 'Ready for PO', "{$rs['rs_no']} was approved. Please generate a PO.", 'purchasing', null);
+    // Notify requestor
+    $notifMsg = match($rsStatus) {
+        'Approved'           => "Your request {$rs['rs_no']} has been fully approved. All items were approved by management.",
+        'Partially Approved' => "Your request {$rs['rs_no']} was partially approved — {$approvedCount} of {$totalCount} items approved, {$rejectedCount} rejected.{$rejectedItemDetails}",
+        'Rejected'           => "Your request {$rs['rs_no']} was rejected. All items were declined by management.{$rejectedItemDetails}",
+        default              => "Your request {$rs['rs_no']} status has been updated to: {$rsStatus}."
+    };
+    $pdo->prepare("INSERT INTO notifications (target_user_id, title, message) VALUES (?, ?, ?)")
+        ->execute([$rs['requestor_id'], "Requisition {$rsStatus}", $notifMsg]);
+    sendPushNotification($pdo, "Requisition {$rsStatus}", $notifMsg, null, (int)$rs['requestor_id']);
 
-    $_SESSION['message'] = "Requisition Approved. Ready for Purchasing.";
-    $_SESSION['msg_type'] = "success";
+    // Notify purchasing only if something was approved
+    if ($approvedCount > 0 && $rs['type'] !== 'restock') {
+        $purchasingMsg = "{$rs['rs_no']} was {$rsStatus}. Please generate a PO for the approved items.";
+        $pdo->prepare("INSERT INTO notifications (target_role, title, message) VALUES ('purchasing', 'Ready for PO', ?)")
+            ->execute([$purchasingMsg]);
+        sendPushNotification($pdo, 'Ready for PO', $purchasingMsg, 'purchasing', null);
+    }
+
+    $msgType = $rsStatus === 'Rejected' ? 'danger' : ($rsStatus === 'Partially Approved' ? 'warning' : 'success');
+    $_SESSION['message'] = "Requisition {$rsStatus}. ({$approvedCount} approved, {$rejectedCount} rejected out of {$totalCount} items)";
+    $_SESSION['msg_type'] = $msgType;
     header("Location: ../requisitions");
     exit;
 }
