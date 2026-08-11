@@ -69,6 +69,11 @@
                                     <h6 class="fw-bold mb-0 text-dark" id="smsActiveTitle">Select a conversation</h6>
                                 </div>
                             </div>
+                            <div>
+                                <a href="#" id="smsActiveViberBtn" class="btn btn-sm btn-viber fw-bold shadow-sm d-none" style="font-size: 0.8rem;" title="Open supplier conversation in Viber Desktop">
+                                    <i class="fa-brands fa-viber me-1"></i> Open in Viber
+                                </a>
+                            </div>
                         </div>
 
                         <!-- Messages Conversation Container -->
