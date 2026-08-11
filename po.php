@@ -18,6 +18,7 @@ $role = $_SESSION['user_role'];
 try {
     $pdo->exec("ALTER TABLE purchase_orders ADD COLUMN status VARCHAR(50) DEFAULT 'Generated'");
     $pdo->exec("ALTER TABLE purchase_orders ADD COLUMN delay_remarks TEXT");
+    $pdo->exec("UPDATE purchase_orders SET status = 'Viber Order Sent' WHERE status = 'SMS Sent'");
 } catch (PDOException $e) { /* Columns already exist */
 }
 
@@ -34,7 +35,7 @@ $pos = $pdo->query($query)->fetchAll(PDO::FETCH_ASSOC);
 
 // Calculate Stats
 $totalPO = count($pos);
-$pendingDelivery = count(array_filter($pos, fn($p) => in_array($p['status'], ['Generated', 'SMS Sent', 'Pending Delivery'])));
+$pendingDelivery = count(array_filter($pos, fn($p) => in_array($p['status'], ['Generated', 'Viber Order Sent', 'Pending Delivery'])));
 $delayedPO = count(array_filter($pos, fn($p) => strpos($p['status'], 'Delayed') !== false));
 
 // Fetch suppliers, officers, and projects list for filter dropdowns
@@ -230,20 +231,26 @@ include 'layout/header.php';
         <!-- Main Datatable Top Header -->
         <div class="row align-items-center mb-3 g-2">
             <div class="col-12 col-md-5">
-                <h4 class="mb-0 fw-bold text-dark"><i class="bi bi-file-earmark-text me-2 text-primary"></i>Purchase Orders</h4>
+                <h4 class="mb-0 fw-bold text-dark"><i class="bi bi-file-earmark-text me-2 text-primary"></i>Purchase
+                    Orders</h4>
                 <small class="text-muted">Manage, track deliveries, and view PO manifests</small>
             </div>
 
             <div class="col-12 col-md-7">
                 <div class="d-flex flex-wrap justify-content-md-end align-items-center gap-2">
                     <!-- Search Bar -->
-                    <div class="input-group shadow-sm flex-grow-1 flex-md-grow-0" style="max-width: 280px; min-width: 180px;">
-                        <span class="input-group-text bg-white border-end-0 text-muted"><i class="bi bi-search"></i></span>
-                        <input type="text" id="searchPo" class="form-control border-start-0 ps-0 bg-white fw-bold" placeholder="Search PO No, Supplier...">
+                    <div class="input-group shadow-sm flex-grow-1 flex-md-grow-0"
+                        style="max-width: 280px; min-width: 180px;">
+                        <span class="input-group-text bg-white border-end-0 text-muted"><i
+                                class="bi bi-search"></i></span>
+                        <input type="text" id="searchPo" class="form-control border-start-0 ps-0 bg-white fw-bold"
+                            placeholder="Search PO No, Supplier...">
                     </div>
 
                     <!-- Filter Toggle Button -->
-                    <button class="btn btn-outline-secondary fw-bold shadow-sm d-flex align-items-center gap-1" type="button" data-bs-toggle="collapse" data-bs-target="#poFilterCollapse" aria-expanded="false" aria-controls="poFilterCollapse">
+                    <button class="btn btn-outline-secondary fw-bold shadow-sm d-flex align-items-center gap-1"
+                        type="button" data-bs-toggle="collapse" data-bs-target="#poFilterCollapse" aria-expanded="false"
+                        aria-controls="poFilterCollapse">
                         <i class="bi bi-funnel-fill text-primary"></i>
                         <span>Filter</span>
                         <span class="badge bg-primary rounded-pill ms-1 d-none" id="activeFilterBadge">0</span>
@@ -251,7 +258,8 @@ include 'layout/header.php';
 
                     <!-- Create PO Button -->
                     <?php if (in_array($role, ['admin', 'purchasing'])): ?>
-                        <button class="btn btn-brand fw-bold text-nowrap shadow-sm px-3" data-bs-toggle="modal" data-bs-target="#poModal">
+                        <button class="btn btn-brand fw-bold text-nowrap shadow-sm px-3" data-bs-toggle="modal"
+                            data-bs-target="#poModal">
                             <i class="bi bi-plus-lg me-1"></i> Create PO
                         </button>
                     <?php endif; ?>
@@ -263,17 +271,21 @@ include 'layout/header.php';
         <div class="collapse mb-3" id="poFilterCollapse">
             <div class="card card-body bg-light border-0 shadow-sm p-3 rounded-3">
                 <div class="d-flex justify-content-between align-items-center mb-2">
-                    <h6 class="fw-bold text-dark mb-0 small text-uppercase"><i class="bi bi-sliders me-1 text-primary"></i> Filter Purchase Orders</h6>
-                    <button type="button" class="btn btn-sm btn-link text-danger text-decoration-none fw-bold p-0" onclick="resetAllPoFilters()">
+                    <h6 class="fw-bold text-dark mb-0 small text-uppercase"><i
+                            class="bi bi-sliders me-1 text-primary"></i> Filter Purchase Orders</h6>
+                    <button type="button" class="btn btn-sm btn-link text-danger text-decoration-none fw-bold p-0"
+                        onclick="resetAllPoFilters()">
                         <i class="bi bi-arrow-counterclockwise me-1"></i>Reset All Filters
                     </button>
                 </div>
                 <div class="row g-2">
                     <!-- 1. Created By Filter -->
                     <div class="col-12 col-sm-6 col-md-4">
-                        <label class="form-label fw-bold text-muted small mb-1 text-uppercase">Created By Officer</label>
+                        <label class="form-label fw-bold text-muted small mb-1 text-uppercase">Created By
+                            Officer</label>
                         <div class="input-group shadow-sm">
-                            <span class="input-group-text bg-white text-muted"><i class="bi bi-person-fill text-primary"></i></span>
+                            <span class="input-group-text bg-white text-muted"><i
+                                    class="bi bi-person-fill text-primary"></i></span>
                             <select id="filterCreator" class="form-select bg-white fw-bold small">
                                 <option value="all">All Officers</option>
                                 <option value="me">👤 Created by Me</option>
@@ -290,7 +302,8 @@ include 'layout/header.php';
                     <div class="col-12 col-sm-6 col-md-4">
                         <label class="form-label fw-bold text-muted small mb-1 text-uppercase">Supplier</label>
                         <div class="input-group shadow-sm">
-                            <span class="input-group-text bg-white text-muted"><i class="bi bi-building text-info"></i></span>
+                            <span class="input-group-text bg-white text-muted"><i
+                                    class="bi bi-building text-info"></i></span>
                             <select id="filterSupplier" class="form-select bg-white fw-bold small">
                                 <option value="all">All Suppliers</option>
                                 <?php foreach ($suppliersList as $sup): ?>
@@ -302,9 +315,11 @@ include 'layout/header.php';
 
                     <!-- 3. Project / Destination Filter -->
                     <div class="col-12 col-sm-6 col-md-4">
-                        <label class="form-label fw-bold text-muted small mb-1 text-uppercase">Project Destination</label>
+                        <label class="form-label fw-bold text-muted small mb-1 text-uppercase">Project
+                            Destination</label>
                         <div class="input-group shadow-sm">
-                            <span class="input-group-text bg-white text-muted"><i class="bi bi-geo-alt-fill text-danger"></i></span>
+                            <span class="input-group-text bg-white text-muted"><i
+                                    class="bi bi-geo-alt-fill text-danger"></i></span>
                             <select id="filterProject" class="form-select bg-white fw-bold small">
                                 <option value="all">All Destinations</option>
                                 <option value="Warehouse Restock">📦 Warehouse Restock</option>
@@ -319,11 +334,12 @@ include 'layout/header.php';
                     <div class="col-12 col-sm-6 col-md-4">
                         <label class="form-label fw-bold text-muted small mb-1 text-uppercase">Order Status</label>
                         <div class="input-group shadow-sm">
-                            <span class="input-group-text bg-white text-muted"><i class="bi bi-tag-fill text-success"></i></span>
+                            <span class="input-group-text bg-white text-muted"><i
+                                    class="bi bi-tag-fill text-success"></i></span>
                             <select id="filterStatus" class="form-select bg-white fw-bold small">
                                 <option value="all">All Statuses</option>
                                 <option value="Generated">Generated / Draft</option>
-                                <option value="SMS Sent">SMS Sent</option>
+                                <option value="Viber Order Sent">Viber Order Sent</option>
                                 <option value="Pending Delivery">Pending Delivery</option>
                                 <option value="Delivered">Delivered (Complete)</option>
                                 <option value="Delivered (Discrepancy)">Delivered (Discrepancy)</option>
@@ -334,9 +350,11 @@ include 'layout/header.php';
 
                     <!-- 5. Delivery Urgency / ETA Filter -->
                     <div class="col-12 col-sm-6 col-md-4">
-                        <label class="form-label fw-bold text-muted small mb-1 text-uppercase">Logistics ETA Urgency</label>
+                        <label class="form-label fw-bold text-muted small mb-1 text-uppercase">Logistics ETA
+                            Urgency</label>
                         <div class="input-group shadow-sm">
-                            <span class="input-group-text bg-white text-muted"><i class="bi bi-truck-flatbed text-primary"></i></span>
+                            <span class="input-group-text bg-white text-muted"><i
+                                    class="bi bi-truck-flatbed text-primary"></i></span>
                             <select id="filterEtaUrgency" class="form-select bg-white fw-bold small">
                                 <option value="all">All Deliveries</option>
                                 <option value="today">🚚 Arriving Today</option>
@@ -350,9 +368,11 @@ include 'layout/header.php';
                     <div class="col-12 col-sm-6 col-md-4">
                         <label class="form-label fw-bold text-muted small mb-1 text-uppercase">Date Created</label>
                         <div class="input-group shadow-sm">
-                            <span class="input-group-text bg-white text-muted"><i class="bi bi-calendar-event text-warning"></i></span>
+                            <span class="input-group-text bg-white text-muted"><i
+                                    class="bi bi-calendar-event text-warning"></i></span>
                             <input type="date" id="filterDate" class="form-control bg-white fw-bold small">
-                            <button type="button" class="btn btn-outline-secondary" title="Clear Date" onclick="document.getElementById('filterDate').value=''; filterPoTable();">
+                            <button type="button" class="btn btn-outline-secondary" title="Clear Date"
+                                onclick="document.getElementById('filterDate').value=''; filterPoTable();">
                                 <i class="bi bi-x-circle"></i>
                             </button>
                         </div>
@@ -378,18 +398,22 @@ include 'layout/header.php';
                     <?php if (count($pos) > 0): ?>
                         <?php foreach ($pos as $po): ?>
                             <?php
+                            $displayStatus = $po['status'] ?? 'Generated';
+                            if ($displayStatus === 'SMS Sent') {
+                                $displayStatus = 'Viber Order Sent';
+                            }
                             $statusClass = 'bg-secondary';
-                            if ($po['status'] === 'Generated')
+                            if ($displayStatus === 'Generated')
                                 $statusClass = 'bg-info text-dark';
-                            if ($po['status'] === 'SMS Sent')
-                                $statusClass = 'bg-info text-dark';
-                            if ($po['status'] === 'Pending Delivery')
+                            if ($displayStatus === 'Viber Order Sent')
+                                $statusClass = 'bg-viber text-white';
+                            if ($displayStatus === 'Pending Delivery')
                                 $statusClass = 'bg-warning text-dark';
-                            if (strpos($po['status'], 'Delayed') !== false)
+                            if (strpos($displayStatus, 'Delayed') !== false)
                                 $statusClass = 'bg-danger';
-                            if ($po['status'] === 'Delivered')
+                            if ($displayStatus === 'Delivered')
                                 $statusClass = 'bg-success';
-                            if ($po['status'] === 'Delivered (Discrepancy)')
+                            if ($displayStatus === 'Delivered (Discrepancy)')
                                 $statusClass = 'bg-warning text-dark';
 
                             // Compute ETA Badges & Urgency Filter Attribute
@@ -408,7 +432,7 @@ include 'layout/header.php';
                                 } else {
                                     $todayTs = strtotime(date('Y-m-d'));
                                     $etaTs = strtotime($etaDateStr);
-                                    $daysDiff = (int)(($etaTs - $todayTs) / 86400);
+                                    $daysDiff = (int) (($etaTs - $todayTs) / 86400);
 
                                     if ($daysDiff == 0) {
                                         $etaBadge = '<span class="badge bg-warning text-dark shadow-sm"><i class="bi bi-truck-flatbed me-1"></i>Arriving Today</span>';
@@ -424,9 +448,8 @@ include 'layout/header.php';
                                 }
                             }
                             ?>
-                             <tr class="po-row" 
-                                data-prepared-by="<?= htmlspecialchars($po['prepared_by'] ?? '') ?>" 
-                                data-supplier-id="<?= htmlspecialchars($po['supplier_id'] ?? '') ?>" 
+                            <tr class="po-row" data-prepared-by="<?= htmlspecialchars($po['prepared_by'] ?? '') ?>"
+                                data-supplier-id="<?= htmlspecialchars($po['supplier_id'] ?? '') ?>"
                                 data-created-date="<?= !empty($po['created_at']) ? date('Y-m-d', strtotime($po['created_at'])) : '' ?>"
                                 data-status="<?= htmlspecialchars($po['status'] ?? 'Generated') ?>"
                                 data-project="<?= htmlspecialchars($po['project_name'] ?? 'Warehouse Restock') ?>"
@@ -436,13 +459,17 @@ include 'layout/header.php';
 
                                 <td data-label="Date & Time Created">
                                     <span class="d-block text-dark fw-semibold small">
-                                        <i class="bi bi-calendar3 me-1 text-muted"></i><?= !empty($po['created_at']) ? date('M d, Y', strtotime($po['created_at'])) : 'N/A' ?>
+                                        <i
+                                            class="bi bi-calendar3 me-1 text-muted"></i><?= !empty($po['created_at']) ? date('M d, Y', strtotime($po['created_at'])) : 'N/A' ?>
                                     </span>
                                     <small class="text-muted d-block" style="font-size:0.73rem;">
-                                        <i class="bi bi-clock me-1 text-primary"></i><?= !empty($po['created_at']) ? date('g:i A', strtotime($po['created_at'])) : '' ?>
+                                        <i
+                                            class="bi bi-clock me-1 text-primary"></i><?= !empty($po['created_at']) ? date('g:i A', strtotime($po['created_at'])) : '' ?>
                                     </small>
-                                    <div class="mt-1 small fw-bold text-secondary" style="font-size: 0.78rem;" title="Created By Officer">
-                                        <i class="bi bi-person-fill me-1 text-primary"></i><?= htmlspecialchars($po['prepared_by_name'] ?? 'System') ?>
+                                    <div class="mt-1 small fw-bold text-secondary" style="font-size: 0.78rem;"
+                                        title="Created By Officer">
+                                        <i
+                                            class="bi bi-person-fill me-1 text-primary"></i><?= htmlspecialchars($po['prepared_by_name'] ?? 'System') ?>
                                     </div>
                                 </td>
 
@@ -464,7 +491,7 @@ include 'layout/header.php';
                                 <td data-label="Status">
                                     <span class="badge <?= $statusClass ?> px-3 py-2 shadow-sm text-uppercase"
                                         id="status_<?= $po['id'] ?>">
-                                        <?= htmlspecialchars($po['status'] ?? 'Generated') ?>
+                                        <?= htmlspecialchars($displayStatus) ?>
                                     </span>
                                     <?php if ($po['status'] === 'Delayed (Weather)'): ?>
                                         <small class="d-block text-danger mt-2 fw-bold"
@@ -477,7 +504,10 @@ include 'layout/header.php';
                                     <div class="d-flex align-items-center gap-1">
                                         <?= $etaBadge ?>
                                         <?php if (in_array($role, ['admin', 'purchasing'])): ?>
-                                            <button type="button" class="btn btn-sm btn-link text-muted p-0 ms-1 text-decoration-none" title="Update ETA" onclick="openEditEtaModal(<?= $po['id'] ?>, '<?= $po['po_no'] ?>', '<?= $po['expected_delivery_date'] ?? '' ?>')">
+                                            <button type="button"
+                                                class="btn btn-sm btn-link text-muted p-0 ms-1 text-decoration-none"
+                                                title="Update ETA"
+                                                onclick="openEditEtaModal(<?= $po['id'] ?>, '<?= $po['po_no'] ?>', '<?= $po['expected_delivery_date'] ?? '' ?>')">
                                                 <i class="bi bi-pencil-square fs-6 text-primary"></i>
                                             </button>
                                         <?php endif; ?>
@@ -486,14 +516,8 @@ include 'layout/header.php';
 
                                 <td class="text-center" data-label="Actions">
                                     <?php if (in_array($role, ['admin', 'purchasing']) && !in_array($po['status'], ['Delivered', 'Delivered (Discrepancy)'])): ?>
-                                        <button class="btn btn-sm btn-outline-success fw-bold shadow-sm me-1"
-                                            id="smsBtn_<?= $po['id'] ?>"
-                                            onclick="openSmsPreviewModal(<?= $po['id'] ?>, '<?= $po['po_no'] ?>', <?= (int) $po['supplier_id'] ?>, '<?= $po['contact_number'] ?>')">
-                                            <i class="bi bi-chat-text-fill"></i> <span class="ms-1">SMS</span>
-                                        </button>
-                                        <button class="btn btn-sm btn-viber fw-bold shadow-sm me-1"
-                                            title="Send PO via Viber"
-                                            onclick="openSmsPreviewModal(<?= $po['id'] ?>, '<?= $po['po_no'] ?>', <?= (int) $po['supplier_id'] ?>, '<?= $po['contact_number'] ?>')">
+                                        <button class="btn btn-sm btn-viber fw-bold shadow-sm me-1" title="Send PO via Viber"
+                                            onclick="openViberPreviewModal(<?= $po['id'] ?>, '<?= $po['po_no'] ?>', <?= (int) $po['supplier_id'] ?>, '<?= $po['contact_number'] ?>')">
                                             <i class="fa-brands fa-viber me-1"></i>Viber
                                         </button>
                                         <button class="btn btn-sm btn-outline-danger fw-bold shadow-sm me-1"
@@ -510,32 +534,33 @@ include 'layout/header.php';
                                         </button>
                                     <?php endif; ?>
 
-                                    <?php if (!empty($po['proof_of_receipt'])): 
+                                    <?php if (!empty($po['proof_of_receipt'])):
                                         $receiptFile = basename($po['proof_of_receipt']);
                                         $secureReceiptUrl = 'secure-image?type=receipts&file=' . urlencode($receiptFile);
-                                    ?>
-                                        <a href="<?= htmlspecialchars($secureReceiptUrl) ?>" onclick="event.preventDefault(); window.openPhotoWindow('<?= htmlspecialchars($secureReceiptUrl) ?>');"
-                                            class="btn btn-sm btn-outline-info fw-bold shadow-sm me-1" title="View Proof of Receipt">
+                                        ?>
+                                        <a href="<?= htmlspecialchars($secureReceiptUrl) ?>"
+                                            onclick="event.preventDefault(); window.openPhotoWindow('<?= htmlspecialchars($secureReceiptUrl) ?>');"
+                                            class="btn btn-sm btn-outline-info fw-bold shadow-sm me-1"
+                                            title="View Proof of Receipt">
                                             <i class="bi bi-paperclip"></i> <span class="ms-1">Receipt</span>
                                         </a>
                                     <?php endif; ?>
 
-                                    <?php if (in_array($role, ['admin', 'management', 'purchasing']) && $po['status'] === 'Delivered (Discrepancy)'): 
+                                    <?php if (in_array($role, ['admin', 'management', 'purchasing']) && $po['status'] === 'Delivered (Discrepancy)'):
                                         $receiptFile = !empty($po['proof_of_receipt']) ? basename($po['proof_of_receipt']) : '';
                                         $secureReceiptUrl = $receiptFile ? ('secure-image?type=receipts&file=' . urlencode($receiptFile)) : '';
-                                    ?>
+                                        ?>
                                         <!-- VIEW DISCREPANCY BUTTON -->
                                         <button type="button" class="btn btn-sm btn-danger fw-bold shadow-sm me-1"
                                             title="View Discrepancy" data-pono="<?= htmlspecialchars($po['po_no']) ?>"
                                             data-remarks="<?= htmlspecialchars($po['delay_remarks'] ?? 'No remarks provided.') ?>"
-                                            data-proof="<?= htmlspecialchars($secureReceiptUrl) ?>"
-                                            onclick="viewDiscrepancy(this)">
+                                            data-proof="<?= htmlspecialchars($secureReceiptUrl) ?>" onclick="viewDiscrepancy(this)">
                                             <i class="bi bi-search"></i> <span class="ms-1">View Issue</span>
                                         </button>
                                     <?php endif; ?>
 
-                                    <button class="btn btn-sm btn-outline-secondary fw-bold shadow-sm" title="View/Print Virtual PO Document"
-                                        onclick="openPoPrintModal(<?= $po['id'] ?>)">
+                                    <button class="btn btn-sm btn-outline-secondary fw-bold shadow-sm"
+                                        title="View/Print Virtual PO Document" onclick="openPoPrintModal(<?= $po['id'] ?>)">
                                         <i class="bi bi-printer"></i> <span class="ms-1">Print</span>
                                     </button>
                                 </td>
@@ -567,7 +592,7 @@ include 'layout/header.php';
     // ==========================================
     // NEW: FETCH RS ITEMS & SUPPLIER HISTORY
     // ==========================================
-    document.addEventListener('DOMContentLoaded', function () {
+    window.initPoRsPreview = function () {
         const rsSelect = document.getElementById('poRsSelect');
         if (rsSelect) {
             rsSelect.addEventListener('change', async function () {
@@ -618,7 +643,8 @@ include 'layout/header.php';
                 }
             });
         }
-    });
+    };
+    window.initPoRsPreview();
 
     // ==========================================
     // NEW: RECEIVE MODAL LOGIC (Discrepancy Checks & Price Entry)
@@ -626,6 +652,22 @@ include 'layout/header.php';
     window.openReceiveModal = async function (id, po_no) {
         document.getElementById('receivePoId').value = id;
         document.getElementById('receivePoNo').value = po_no;
+
+        // Reset proof file input & camera state
+        const fileInput = document.getElementById('proofOfReceiptFileInput');
+        if (fileInput) fileInput.value = '';
+        const base64Input = document.getElementById('capturedProofBase64');
+        if (base64Input) base64Input.value = '';
+
+        // Reset tab to Upload Image by default
+        const uploadTabBtn = document.getElementById('upload-receipt-tab');
+        if (uploadTabBtn && typeof bootstrap !== 'undefined') {
+            const tab = bootstrap.Tab.getOrCreateInstance(uploadTabBtn);
+            tab.show();
+        }
+        if (typeof window.stopReceiptCamera === 'function') {
+            window.stopReceiptCamera();
+        }
 
         const tbody = document.getElementById('receiveItemsBody');
         tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4"><div class="spinner-border text-success spinner-border-sm me-2"></div> Fetching Manifest...</td></tr>';
@@ -753,10 +795,10 @@ include 'layout/header.php';
                         track.stop();
                         track.enabled = false;
                     });
-                } catch (e) {}
+                } catch (e) { }
                 video.srcObject = null;
             }
-            try { video.pause(); } catch (e) {}
+            try { video.pause(); } catch (e) { }
             video.classList.add('d-none');
         }
 
@@ -767,7 +809,7 @@ include 'layout/header.php';
                     track.stop();
                     track.enabled = false;
                 });
-            } catch (e) {}
+            } catch (e) { }
             window.receiptStream = null;
         }
 
@@ -837,7 +879,7 @@ include 'layout/header.php';
                     track.stop();
                     track.enabled = false;
                 });
-            } catch (e) {}
+            } catch (e) { }
             video.srcObject = null;
         }
         if (window.receiptStream) {
@@ -846,7 +888,7 @@ include 'layout/header.php';
                     track.stop();
                     track.enabled = false;
                 });
-            } catch (e) {}
+            } catch (e) { }
             window.receiptStream = null;
         }
 
@@ -870,7 +912,7 @@ include 'layout/header.php';
     // ==========================================
     // VIRTUAL PO DOCUMENT & PRINT LOGIC
     // ==========================================
-    window.openPoPrintModal = async function(poId) {
+    window.openPoPrintModal = async function (poId) {
         const spinner = document.getElementById('poPrintLoadingSpinner');
         const paper = document.getElementById('poPrintPaper');
         if (spinner) spinner.classList.remove('d-none');
@@ -895,7 +937,11 @@ include 'layout/header.php';
             if (data.status === 'success') {
                 const po = data.po;
                 document.getElementById('printPoNo').innerText = po.po_no;
-                document.getElementById('printPoStatus').innerText = po.status || 'Generated';
+                let docStatus = po.status || 'Generated';
+                if (docStatus === 'Viber Order Sent' || docStatus === 'SMS Sent') {
+                    docStatus = 'Order Sent';
+                }
+                document.getElementById('printPoStatus').innerText = docStatus;
                 document.getElementById('printPoDate').innerText = data.formatted_date;
                 document.getElementById('printRsNo').innerText = po.rs_no || 'N/A';
                 document.getElementById('printProjectName').innerText = po.project_name || 'Warehouse Restock';
@@ -918,8 +964,8 @@ include 'layout/header.php';
                             <td class="fw-bold text-muted">${item.item_code}</td>
                             <td class="fw-bold text-dark">${item.item_name} <span class="text-muted fw-normal">(${item.unit || 'units'})</span></td>
                             <td class="text-center fw-bold text-primary">${item.quantity}</td>
-                            <td class="text-end">₱${parseFloat(item.unit_price || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
-                            <td class="text-end fw-bold">₱${parseFloat(item.subtotal || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                            <td class="text-end">₱${parseFloat(item.unit_price || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                            <td class="text-end fw-bold">₱${parseFloat(item.subtotal || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                         `;
                         tbody.appendChild(tr);
                     });
@@ -927,7 +973,7 @@ include 'layout/header.php';
                     tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-3">No items listed.</td></tr>';
                 }
 
-                document.getElementById('printPoTotalValue').innerText = '₱' + parseFloat(data.total_amount || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                document.getElementById('printPoTotalValue').innerText = '₱' + parseFloat(data.total_amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
                 // Logistics / Discrepancy Remarks
                 const remarksSec = document.getElementById('printRemarksSection');
@@ -951,7 +997,7 @@ include 'layout/header.php';
         }
     };
 
-    window.printPoDocument = function() {
+    window.printPoDocument = function () {
         const printContent = document.getElementById('poPrintPaper').innerHTML;
         const originalBody = document.body.innerHTML;
 
@@ -1009,7 +1055,7 @@ include 'layout/header.php';
         const dateVal = dateInput ? dateInput.value : '';
 
         let visibleCount = 0;
-        const currentUserId = '<?= (string)$_SESSION['user_id'] ?>';
+        const currentUserId = '<?= (string) $_SESSION['user_id'] ?>';
 
         document.querySelectorAll('.po-row').forEach(row => {
             const no = (row.querySelector('.po-no')?.textContent || '').toLowerCase();
@@ -1113,28 +1159,28 @@ include 'layout/header.php';
     };
     window.initPoSearch();
 
-    // Make sure openSmsPreviewModal is attached to window for SPA compatibility
-    window.openSmsPreviewModal = async function (poId, poNo, supplierId, phone) {
-        document.getElementById('smsPoId').value = poId;
-        document.getElementById('smsPoNo').value = poNo;
-        document.getElementById('smsPhone').value = phone || '';
+    // Make sure openViberPreviewModal is attached to window
+    window.openViberPreviewModal = async function (poId, poNo, supplierId, phone) {
+        document.getElementById('viberPoId').value = poId;
+        document.getElementById('viberPoNo').value = poNo;
+        document.getElementById('viberPhone').value = phone || '';
 
-        const supplierSelect = document.getElementById('smsSupplierSelect');
+        const supplierSelect = document.getElementById('viberSupplierSelect');
         if (supplierSelect) {
             supplierSelect.value = supplierId;
         }
 
-        const tbody = document.getElementById('smsItemsBody');
+        const tbody = document.getElementById('viberItemsBody');
         tbody.innerHTML = '<tr><td colspan="2" class="text-center text-muted py-3"><div class="spinner-border spinner-border-sm me-2"></div> Loading items...</td></tr>';
-        document.getElementById('smsMessageText').value = 'Loading SMS message template...';
+        document.getElementById('viberMessageText').value = 'Loading Viber message template...';
 
-        var myModalEl = document.getElementById('smsPreviewModal');
-        var smsModal = bootstrap.Modal.getInstance(myModalEl);
-        if (!smsModal) smsModal = new bootstrap.Modal(myModalEl);
-        smsModal.show();
+        var myModalEl = document.getElementById('viberPreviewModal');
+        var viberModal = bootstrap.Modal.getInstance(myModalEl);
+        if (!viberModal) viberModal = new bootstrap.Modal(myModalEl);
+        viberModal.show();
 
         let formData = new FormData();
-        formData.append('action', 'fetch_po_sms_preview');
+        formData.append('action', 'fetch_po_viber_preview');
         formData.append('po_id', poId);
 
         try {
@@ -1160,218 +1206,88 @@ include 'layout/header.php';
                 }
 
                 const msg = `Genetian Builders Construction PO: ${poNo}\nItems to purchase:\n${data.item_list}If you have any concerns or clarifications text or email here`;
-                document.getElementById('smsMessageText').value = msg;
-
-                // Load recent SMS history for this supplier / PO
-                loadPoSmsConversation(poId, phone, supplierId);
+                document.getElementById('viberMessageText').value = msg;
             } else {
                 tbody.innerHTML = '<tr><td colspan="2" class="text-center text-danger py-2">Failed to load items.</td></tr>';
-                document.getElementById('smsMessageText').value = 'Error loading items template.';
+                document.getElementById('viberMessageText').value = 'Error loading items template.';
             }
         } catch (e) {
             tbody.innerHTML = '<tr><td colspan="2" class="text-center text-danger py-2">Network error.</td></tr>';
-            document.getElementById('smsMessageText').value = 'Network error loading template.';
+            document.getElementById('viberMessageText').value = 'Network error loading template.';
         }
     };
 
-    async function loadPoSmsConversation(poId, phone, supplierId) {
-        const section = document.getElementById('smsPoConversationSection');
-        const container = document.getElementById('smsPoConversationThread');
-        if (!section || !container) return;
+    // Handle Send via Viber
+    window.triggerViberPoSend = async function () {
+        const poId = document.getElementById('viberPoId').value;
+        const poNo = document.getElementById('viberPoNo').value;
+        const phone = document.getElementById('viberPhone').value || '';
+        const supplierId = document.getElementById('viberSupplierSelect').value;
+        const message = document.getElementById('viberMessageText').value || '';
 
-        section.classList.remove('d-none');
-        container.innerHTML = '<div class="text-center text-muted py-2"><span class="spinner-border spinner-border-sm me-2"></span>Loading SMS thread...</div>';
+        if (!phone || !message) {
+            alert("Please enter a valid phone number and message content.");
+            return;
+        }
+
+        let cleanPhone = phone.replace(/[^0-9]/g, '');
+        if (cleanPhone.startsWith('09')) {
+            cleanPhone = '63' + cleanPhone.substring(1);
+        }
+        if (!cleanPhone.startsWith('+')) {
+            cleanPhone = '+' + cleanPhone;
+        }
 
         try {
-            const formData = new FormData();
-            formData.append('action', 'fetch_sms_messages');
-            formData.append('po_id', poId);
-            if (phone) formData.append('sender_number', phone);
-            if (supplierId) formData.append('supplier_id', supplierId);
-
-            const res = await fetch('process/process.php', { method: 'POST', body: formData });
-            const data = await res.json();
-
-            if (data.status === 'success' && data.messages && data.messages.length > 0) {
-                let html = '';
-                data.messages.forEach(m => {
-                    const isInbound = m.direction === 'inbound';
-                    const badge = isInbound ? '<span class="badge bg-primary me-1">Supplier Reply</span>' : '<span class="badge bg-success me-1">Sent PO SMS</span>';
-                    html += `
-                        <div class="mb-2 pb-2 border-bottom">
-                            <div class="d-flex justify-content-between text-muted small mb-1">
-                                <span>${badge} <strong>${isInbound ? (m.company_name || m.sender_number) : 'CIMS'}</strong></span>
-                                <span>${m.created_at}</span>
-                            </div>
-                            <div class="text-dark">${escapeSmsHtml(m.message_text)}</div>
-                        </div>
-                    `;
-                });
-                container.innerHTML = html;
-            } else {
-                container.innerHTML = '<div class="text-muted text-center py-2">No previous SMS replies from this supplier yet.</div>';
-            }
+            await navigator.clipboard.writeText(message);
         } catch (err) {
-            container.innerHTML = '<div class="text-muted text-center py-2">Could not load conversation history.</div>';
-        }
-    }
-
-    // Attach form and select change listeners
-    document.addEventListener('DOMContentLoaded', function () {
-        const smsForm = document.getElementById('smsPreviewForm');
-        if (smsForm) {
-            smsForm.addEventListener('submit', async function (e) {
-                e.preventDefault();
-
-                const poId = document.getElementById('smsPoId').value;
-                const poNo = document.getElementById('smsPoNo').value;
-                const phone = document.getElementById('smsPhone').value;
-                const supplierId = document.getElementById('smsSupplierSelect').value;
-                const message = document.getElementById('smsMessageText').value;
-
-                if (!phone || phone.trim() === '') {
-                    alert("Please specify a valid recipient phone number.");
-                    return;
-                }
-
-                const submitBtn = document.getElementById('sendSmsSubmitBtn');
-                const originalHtml = submitBtn.innerHTML;
-
-                submitBtn.disabled = true;
-                submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Sending...';
-
-                const tableBtn = document.getElementById('smsBtn_' + poId);
-                let tableBtnHtml = '';
-                if (tableBtn) {
-                    tableBtnHtml = tableBtn.innerHTML;
-                    tableBtn.disabled = true;
-                    tableBtn.classList.replace('btn-outline-success', 'btn-success');
-                    tableBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
-                }
-
-                let formData = new FormData();
-                formData.append('action', 'send_po_sms');
-                formData.append('po_id', poId);
-                formData.append('po_no', poNo);
-                formData.append('supplier_id', supplierId);
-                formData.append('contact_number', phone);
-                formData.append('message', message);
-
-                try {
-                    const response = await fetch('process/process.php', {
-                        method: 'POST',
-                        body: formData
-                    });
-                    const data = await response.json();
-
-                    if (data.status === 'success') {
-                        new Audio('assets/sounds/success.mp3').play().catch(e => { });
-
-                        var myModalEl = document.getElementById('smsPreviewModal');
-                        var smsModal = bootstrap.Modal.getInstance(myModalEl);
-                        if (smsModal) smsModal.hide();
-
-                        alert("SMS sent successfully to supplier!");
-
-                        if (tableBtn) {
-                            tableBtn.innerHTML = '<i class="bi bi-check-circle-fill"></i>';
-                            tableBtn.disabled = false;
-                        }
-                        const statusBadge = document.getElementById('status_' + poId);
-                        if (statusBadge) {
-                            statusBadge.className = 'badge bg-success px-3 py-2 shadow-sm text-uppercase';
-                            statusBadge.innerText = 'SMS Sent';
-                        }
-
-                        window.location.reload();
-                    } else {
-                        alert("Error sending SMS: " + data.message);
-                        submitBtn.disabled = false;
-                        submitBtn.innerHTML = originalHtml;
-                        if (tableBtn) {
-                            tableBtn.disabled = false;
-                            tableBtn.innerHTML = tableBtnHtml;
-                            tableBtn.classList.replace('btn-success', 'btn-outline-success');
-                        }
-                    }
-                } catch (err) {
-                    alert("Network Error: Could not connect to SMS Gateway.");
-                    submitBtn.disabled = false;
-                    submitBtn.innerHTML = originalHtml;
-                    if (tableBtn) {
-                        tableBtn.disabled = false;
-                        tableBtn.innerHTML = tableBtnHtml;
-                        tableBtn.classList.replace('btn-success', 'btn-outline-success');
-                    }
-                }
-            });
+            const tempArea = document.createElement('textarea');
+            tempArea.value = message;
+            document.body.appendChild(tempArea);
+            tempArea.select();
+            document.execCommand('copy');
+            document.body.removeChild(tempArea);
         }
 
-        // Handle Send via Viber
-        window.triggerViberPoSend = async function () {
-            const poId = document.getElementById('smsPoId').value;
-            const poNo = document.getElementById('smsPoNo').value;
-            const phone = document.getElementById('smsPhone').value || '';
-            const supplierId = document.getElementById('smsSupplierSelect').value;
-            const message = document.getElementById('smsMessageText').value || '';
+        const formData = new FormData();
+        formData.append('action', 'log_viber_order_sent');
+        formData.append('po_id', poId);
+        formData.append('po_no', poNo);
+        formData.append('supplier_id', supplierId);
+        formData.append('contact_number', phone);
+        formData.append('message', message);
 
-            if (!phone || !message) {
-                alert("Please enter a valid phone number and message content.");
-                return;
-            }
+        try {
+            await fetch('process/process.php', { method: 'POST', body: formData });
+        } catch (e) {
+            console.error('Error logging Viber order send:', e);
+        }
 
-            let cleanPhone = phone.replace(/[^0-9]/g, '');
-            if (cleanPhone.startsWith('09')) {
-                cleanPhone = '63' + cleanPhone.substring(1);
-            }
-            if (!cleanPhone.startsWith('+')) {
-                cleanPhone = '+' + cleanPhone;
-            }
+        const statusBadge = document.getElementById('status_' + poId);
+        if (statusBadge) {
+            statusBadge.className = 'badge bg-viber text-white px-3 py-2 shadow-sm text-uppercase';
+            statusBadge.innerText = 'Viber Order Sent';
+        }
 
-            try {
-                await navigator.clipboard.writeText(message);
-            } catch (err) {
-                const tempArea = document.createElement('textarea');
-                tempArea.value = message;
-                document.body.appendChild(tempArea);
-                tempArea.select();
-                document.execCommand('copy');
-                document.body.removeChild(tempArea);
-            }
+        const myModalEl = document.getElementById('viberPreviewModal');
+        const viberModal = bootstrap.Modal.getInstance(myModalEl);
+        if (viberModal) viberModal.hide();
 
-            const formData = new FormData();
-            formData.append('action', 'log_viber_order_sent');
-            formData.append('po_id', poId);
-            formData.append('po_no', poNo);
-            formData.append('supplier_id', supplierId);
-            formData.append('contact_number', phone);
-            formData.append('message', message);
+        alert("PO details copied to clipboard!\nOpening Viber Desktop for " + cleanPhone + "...\n\nPress Ctrl + V in Viber to paste your order.");
 
-            try {
-                await fetch('process/process.php', { method: 'POST', body: formData });
-            } catch (e) {
-                console.error('Error logging Viber order send:', e);
-            }
+        window.location.href = "viber://chat?number=" + encodeURIComponent(cleanPhone);
+    };
 
-            const myModalEl = document.getElementById('smsPreviewModal');
-            const smsModal = bootstrap.Modal.getInstance(myModalEl);
-            if (smsModal) smsModal.hide();
-
-            alert("PO details copied to clipboard!\nOpening Viber Desktop for " + cleanPhone + "...\n\nPress Ctrl + V in Viber to paste your order.");
-
-            window.location.href = "viber://chat?number=" + encodeURIComponent(cleanPhone);
-        };
-
-        const smsSupplierSelect = document.getElementById('smsSupplierSelect');
-        if (smsSupplierSelect) {
-            smsSupplierSelect.addEventListener('change', function () {
+    window.initPoModalEvents = function () {
+        const viberSupplierSelect = document.getElementById('viberSupplierSelect');
+        if (viberSupplierSelect) {
+            viberSupplierSelect.addEventListener('change', function () {
                 const selectedOption = this.options[this.selectedIndex];
                 const phone = selectedOption.getAttribute('data-phone');
-                document.getElementById('smsPhone').value = phone || '';
+                document.getElementById('viberPhone').value = phone || '';
             });
         }
 
-        // Check URL parameters for shortcut auto-open modals
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.get('action') === 'new') {
             const poModalEl = document.getElementById('poModal');
@@ -1379,7 +1295,8 @@ include 'layout/header.php';
                 new bootstrap.Modal(poModalEl).show();
             }
         }
-    });
+    };
+    window.initPoModalEvents();
 </script>
 
 <?php include 'layout/footer.php'; ?>
