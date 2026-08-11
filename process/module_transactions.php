@@ -1,7 +1,7 @@
 <?php
 // ============================================================================
 // MODULE TRANSACTIONS ROUTER
-// Routes transaction requests (Requisitions, POs, Withdrawals, SMS, Alerts)
+// Routes transaction requests (Requisitions, POs, Withdrawals, Viber, Alerts)
 // to their respective modular handlers under process/transactions/
 // ============================================================================
 
@@ -21,14 +21,13 @@ elseif (in_array($action, ['fetch_supplier_delivery_history', 'fetch_po_items', 
 elseif ($action === 'create_withdrawal') {
     require __DIR__ . '/transactions/withdrawal_actions.php';
 }
-// 4. SMS & Viber Messaging Actions
-elseif (in_array($action, ['send_po_sms', 'log_viber_order_sent', 'fetch_po_sms_preview', 'fetch_sms_threads', 'fetch_sms_messages', 'send_supplier_reply_sms', 'mark_sms_thread_read'])) {
-    require __DIR__ . '/transactions/sms_actions.php';
+// 4. Viber Messaging Actions
+elseif (in_array($action, ['log_viber_order_sent', 'fetch_po_viber_preview'])) {
+    require __DIR__ . '/transactions/viber_actions.php';
 }
 // 5. Alert Actions
 elseif ($action === 'fetch_combined_alerts') {
     require __DIR__ . '/transactions/alert_actions.php';
-}
-else {
+} else {
     throw new Exception("Unknown transaction action: " . htmlspecialchars($action));
 }
