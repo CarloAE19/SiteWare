@@ -15,8 +15,17 @@ $suppliers = $pdo->query("
     GROUP BY s.id
     ORDER BY s.company_name ASC
 ")->fetchAll(PDO::FETCH_ASSOC);
-// Fetch only Approved Restock Requisitions meant for supplier Purchase Orders (excluding site project stock-out requests)
-$approvedRS = $pdo->query("SELECT id, rs_no, project_name FROM requisitions WHERE status = 'Approved' AND (type = 'restock' OR project_name = 'Warehouse Restock') ORDER BY created_at DESC")->fetchAll(PDO::FETCH_ASSOC);
+// Fetch Approved AND Partially Approved Restock Requisitions for PO creation
+// Partially Approved RSes are valid for PO — only their approved items will be included
+$approvedRS = $pdo->query("
+    SELECT id, rs_no, project_name, status 
+    FROM requisitions 
+    WHERE status IN ('Approved', 'Partially Approved') 
+      AND (type = 'restock' OR project_name = 'Warehouse Restock') 
+    ORDER BY 
+        FIELD(status, 'Approved', 'Partially Approved'),
+        created_at DESC
+")->fetchAll(PDO::FETCH_ASSOC);
 ?>
 
 <!-- ==========================================
@@ -47,14 +56,17 @@ $approvedRS = $pdo->query("SELECT id, rs_no, project_name FROM requisitions WHER
                             (RS) <span class="text-danger">*</span></label>
                         <select class="form-select fw-bold shadow-sm" name="rs_id" id="poRsSelect" required>
                             <option value="" disabled selected>-- Select an Approved RS --</option>
-                            <?php foreach ($approvedRS as $rs): ?>
+                            <?php foreach ($approvedRS as $rs):
+                                $isPartial = $rs['status'] === 'Partially Approved';
+                                $statusLabel = $isPartial ? ' ⚠️ [Partially Approved]' : ' ✅ [Approved]';
+                            ?>
                                 <option value="<?= $rs['id'] ?>"><?= $rs['rs_no'] ?> -
-                                    <?= htmlspecialchars($rs['project_name']) ?>
+                                    <?= htmlspecialchars($rs['project_name']) ?><?= $statusLabel ?>
                                 </option>
                             <?php endforeach; ?>
                         </select>
                         <small class="text-muted d-block mt-2" style="font-size: 0.75rem;"><i
-                                class="bi bi-info-circle me-1"></i>Only RS approved by Management appear here.</small>
+                                class="bi bi-info-circle me-1"></i>Approved and Partially Approved RSes appear here. Only approved items from each RS will be included in the PO.</small>
                     </div>
 
                     <!-- NEW: Item History Preview -->
