@@ -560,26 +560,26 @@ INSERT INTO `suppliers` (`id`, `supplier_code`, `company_name`, `contact_person`
 -- --------------------------------------------------------
 
 --
--- Table structure for table `supplier_sms_replies`
+-- Table structure for table `supplier_viber_logs`
 --
 
-CREATE TABLE `supplier_sms_replies` (
+CREATE TABLE `supplier_viber_logs` (
   `id` int(11) NOT NULL,
   `supplier_id` int(11) DEFAULT NULL,
   `po_id` int(11) DEFAULT NULL,
-  `direction` enum('inbound','outbound') NOT NULL DEFAULT 'inbound',
+  `direction` enum('inbound','outbound') NOT NULL DEFAULT 'outbound',
   `sender_number` varchar(50) NOT NULL,
   `receiver_number` varchar(50) NOT NULL,
   `message_text` text NOT NULL,
-  `is_read` tinyint(1) DEFAULT 0,
+  `is_read` tinyint(1) DEFAULT 1,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
--- Dumping data for table `supplier_sms_replies`
+-- Dumping data for table `supplier_viber_logs`
 --
 
-INSERT INTO `supplier_sms_replies` (`id`, `supplier_id`, `po_id`, `direction`, `sender_number`, `receiver_number`, `message_text`, `is_read`, `created_at`) VALUES
+INSERT INTO `supplier_viber_logs` (`id`, `supplier_id`, `po_id`, `direction`, `sender_number`, `receiver_number`, `message_text`, `is_read`, `created_at`) VALUES
 (1, NULL, NULL, 'inbound', '+639098702199', '+639098702199', 'Hello CIMS, we have 40 bags of Holcim cement available for immediate delivery.', 1, '2026-07-24 08:51:22'),
 (2, NULL, NULL, 'outbound', '+639098702199', '+639098702199', 'Test', 1, '2026-07-24 09:08:37'),
 (3, NULL, NULL, 'inbound', '+639098702199', '+639098702199', 'Hello CIMS, this is an automated supplier test response!', 1, '2026-07-24 09:11:17'),
@@ -815,9 +815,9 @@ ALTER TABLE `suppliers`
   ADD UNIQUE KEY `supplier_code` (`supplier_code`);
 
 --
--- Indexes for table `supplier_sms_replies`
+-- Indexes for table `supplier_viber_logs`
 --
-ALTER TABLE `supplier_sms_replies`
+ALTER TABLE `supplier_viber_logs`
   ADD PRIMARY KEY (`id`),
   ADD KEY `supplier_id` (`supplier_id`),
   ADD KEY `po_id` (`po_id`);
@@ -929,9 +929,9 @@ ALTER TABLE `suppliers`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
--- AUTO_INCREMENT for table `supplier_sms_replies`
+-- AUTO_INCREMENT for table `supplier_viber_logs`
 --
-ALTER TABLE `supplier_sms_replies`
+ALTER TABLE `supplier_viber_logs`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
 
 --
@@ -995,11 +995,11 @@ ALTER TABLE `requisition_items`
   ADD CONSTRAINT `requisition_items_ibfk_1` FOREIGN KEY (`requisition_id`) REFERENCES `requisitions` (`id`) ON DELETE CASCADE;
 
 --
--- Constraints for table `supplier_sms_replies`
+-- Constraints for table `supplier_viber_logs`
 --
-ALTER TABLE `supplier_sms_replies`
-  ADD CONSTRAINT `supplier_sms_replies_ibfk_1` FOREIGN KEY (`supplier_id`) REFERENCES `suppliers` (`id`) ON DELETE SET NULL,
-  ADD CONSTRAINT `supplier_sms_replies_ibfk_2` FOREIGN KEY (`po_id`) REFERENCES `purchase_orders` (`id`) ON DELETE SET NULL;
+ALTER TABLE `supplier_viber_logs`
+  ADD CONSTRAINT `supplier_viber_logs_ibfk_1` FOREIGN KEY (`supplier_id`) REFERENCES `suppliers` (`id`) ON DELETE SET NULL,
+  ADD CONSTRAINT `supplier_viber_logs_ibfk_2` FOREIGN KEY (`po_id`) REFERENCES `purchase_orders` (`id`) ON DELETE SET NULL;
 
 --
 -- Constraints for table `withdrawals`
