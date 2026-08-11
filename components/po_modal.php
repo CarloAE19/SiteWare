@@ -221,52 +221,79 @@ $approvedRS = $pdo->query("SELECT id, rs_no, project_name FROM requisitions WHER
                         prices and <strong>Total Inventory Value</strong>.
                     </div>
 
-                    <div class="card border-0 shadow-sm bg-white mb-3 p-3 text-center">
-                        <label class="form-label fw-bold small text-muted text-uppercase mb-2">
-                            <i class="bi bi-camera-fill me-1 text-primary"></i> Live Photo Capture (Delivery Receipt /
-                            Invoice)
+                    <div class="card border-0 shadow-sm bg-white mb-3 p-3">
+                        <label class="form-label fw-bold small text-muted text-uppercase mb-2 text-center d-block">
+                            <i class="bi bi-paperclip me-1 text-primary"></i> Proof of Receipt (Upload Image or Take Live Photo)
                         </label>
 
-                        <div id="receiptCameraContainer" class="d-flex flex-column align-items-center">
-                            <!-- Start Camera Trigger Button -->
-                            <button type="button" id="openCameraBtn"
-                                class="btn btn-outline-primary fw-bold shadow-sm px-4 py-2"
-                                onclick="startReceiptCamera()">
-                                <i class="bi bi-camera-fill me-1"></i> Open Camera
-                            </button>
-
-                            <!-- Compact Video Stream Viewport -->
-                            <video id="receiptCameraVideo" autoplay playsinline
-                                class="rounded-3 border border-2 border-primary shadow-sm d-none mt-2"
-                                style="width: 100%; max-width: 360px; height: 180px; object-fit: cover; background: #1a1a1a;"></video>
-                            <canvas id="receiptCameraCanvas" class="d-none"></canvas>
-
-                            <!-- Captured Image Preview -->
-                            <img id="receiptCapturedImage"
-                                class="rounded-3 border border-2 border-success shadow-sm d-none mt-2"
-                                style="width: 100%; max-width: 360px; height: 180px; object-fit: contain; background: #f8f9fa;">
-
-                            <input type="hidden" name="captured_proof_base64" id="capturedProofBase64">
-
-                            <!-- Action Buttons -->
-                            <div class="d-flex justify-content-center gap-2 mt-2">
-                                <button type="button" id="captureReceiptBtn"
-                                    class="btn btn-primary btn-sm fw-bold shadow-sm px-4 d-none"
-                                    onclick="takeReceiptPhoto()">
-                                    <i class="bi bi-camera me-1"></i> Snap Photo
+                        <!-- Nav Pills for Dual Options: Upload Image vs Live Camera -->
+                        <ul class="nav nav-pills nav-justified mb-3 shadow-sm bg-light p-1 rounded-3" id="receiptProofTab" role="tablist">
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link active fw-bold small py-2" id="upload-receipt-tab" data-bs-toggle="pill" data-bs-target="#uploadReceiptPane" type="button" role="tab" onclick="if(typeof stopReceiptCamera==='function') stopReceiptCamera();">
+                                    <i class="bi bi-upload me-1"></i> Upload Image / File
                                 </button>
-                                <button type="button" id="retakeReceiptBtn"
-                                    class="btn btn-outline-secondary btn-sm fw-bold shadow-sm px-3 d-none"
-                                    onclick="startReceiptCamera()">
-                                    <i class="bi bi-arrow-counterclockwise me-1"></i> Retake Photo
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link fw-bold small py-2" id="camera-receipt-tab" data-bs-toggle="pill" data-bs-target="#cameraReceiptPane" type="button" role="tab">
+                                    <i class="bi bi-camera-fill me-1"></i> Live Camera Capture
                                 </button>
+                            </li>
+                        </ul>
+
+                        <div class="tab-content" id="receiptProofTabContent">
+                            <!-- Option 1: File Upload -->
+                            <div class="tab-pane fade show active p-2" id="uploadReceiptPane" role="tabpanel">
+                                <div class="mb-2">
+                                    <input type="file" name="proof_of_receipt" id="proofOfReceiptFileInput" class="form-control fw-bold shadow-sm" accept="image/*,.pdf">
+                                </div>
+                                <small class="text-muted d-block text-center" style="font-size: 0.75rem;">
+                                    <i class="bi bi-info-circle me-1"></i>Upload a photo or scanned file of the delivery receipt / invoice (JPG, PNG, WEBP, PDF).
+                                </small>
+                            </div>
+
+                            <!-- Option 2: Live Camera Capture -->
+                            <div class="tab-pane fade p-2 text-center" id="cameraReceiptPane" role="tabpanel">
+                                <div id="receiptCameraContainer" class="d-flex flex-column align-items-center">
+                                    <!-- Start Camera Trigger Button -->
+                                    <button type="button" id="openCameraBtn"
+                                        class="btn btn-outline-primary fw-bold shadow-sm px-4 py-2"
+                                        onclick="startReceiptCamera()">
+                                        <i class="bi bi-camera-fill me-1"></i> Open Camera
+                                    </button>
+
+                                    <!-- Compact Video Stream Viewport -->
+                                    <video id="receiptCameraVideo" autoplay playsinline
+                                        class="rounded-3 border border-2 border-primary shadow-sm d-none mt-2"
+                                        style="width: 100%; max-width: 360px; height: 180px; object-fit: cover; background: #1a1a1a;"></video>
+                                    <canvas id="receiptCameraCanvas" class="d-none"></canvas>
+
+                                    <!-- Captured Image Preview -->
+                                    <img id="receiptCapturedImage"
+                                        class="rounded-3 border border-2 border-success shadow-sm d-none mt-2"
+                                        style="width: 100%; max-width: 360px; height: 180px; object-fit: contain; background: #f8f9fa;">
+
+                                    <input type="hidden" name="captured_proof_base64" id="capturedProofBase64">
+
+                                    <!-- Action Buttons -->
+                                    <div class="d-flex justify-content-center gap-2 mt-2">
+                                        <button type="button" id="captureReceiptBtn"
+                                            class="btn btn-primary btn-sm fw-bold shadow-sm px-4 d-none"
+                                            onclick="takeReceiptPhoto()">
+                                            <i class="bi bi-camera me-1"></i> Snap Photo
+                                        </button>
+                                        <button type="button" id="retakeReceiptBtn"
+                                            class="btn btn-outline-secondary btn-sm fw-bold shadow-sm px-3 d-none"
+                                            onclick="startReceiptCamera()">
+                                            <i class="bi bi-arrow-counterclockwise me-1"></i> Retake Photo
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <small class="text-muted d-block mt-2" style="font-size: 0.75rem;">
+                                    <i class="bi bi-info-circle me-1"></i>Click "Open Camera" to capture live photo proof of delivery.
+                                </small>
                             </div>
                         </div>
-
-                        <small class="text-muted d-block mt-2" style="font-size: 0.75rem;">
-                            <i class="bi bi-info-circle me-1"></i>Click "Open Camera" to capture live photo proof of
-                            delivery.
-                        </small>
                     </div>
 
                     <div class="table-responsive border rounded shadow-sm bg-white mb-2">
@@ -336,112 +363,75 @@ $approvedRS = $pdo->query("SELECT id, rs_no, project_name FROM requisitions WHER
 </div>
 
 <!-- ==========================================
-  5. MODAL: REVIEW AND SEND SMS ORDER
+  5. MODAL: REVIEW AND SEND VIBER ORDER
 =========================================== -->
-<div class="modal fade" id="smsPreviewModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+<div class="modal fade" id="viberPreviewModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
     <div class="modal-dialog modal-dialog-centered modal-lg">
-        <div class="modal-content border-0 shadow-lg border-top border-success border-4">
+        <div class="modal-content border-0 shadow-lg" style="border-top: 4px solid #7360f2 !important;">
             <div class="modal-header bg-white">
-                <h5 class="modal-title text-success fw-bold"><i class="bi bi-chat-text-fill me-2"></i>Review & Send SMS
-                    Order</h5>
+                <h5 class="modal-title fw-bold" style="color: #7360f2;"><i class="fa-brands fa-viber me-2"></i>Review & Send Viber Order</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <form id="smsPreviewForm">
+            <form id="viberPreviewForm">
                 <div class="modal-body p-4 bg-light">
                     <!-- PO Details Info -->
                     <div class="row g-3 mb-4">
                         <div class="col-12 col-md-6">
-                            <label class="form-label fw-bold small text-muted text-uppercase">Purchase Order
-                                Number</label>
-                            <input type="text" id="smsPoNo" class="form-control fw-bold bg-white text-primary shadow-sm"
-                                readonly>
-                            <input type="hidden" id="smsPoId">
+                            <label class="form-label fw-bold small text-muted text-uppercase">Purchase Order Number</label>
+                            <input type="text" id="viberPoNo" class="form-control fw-bold bg-white text-primary shadow-sm" readonly>
+                            <input type="hidden" id="viberPoId">
                         </div>
                         <div class="col-12 col-md-6">
-                            <label class="form-label fw-bold small text-muted text-uppercase">Recipient Phone
-                                Number</label>
+                            <label class="form-label fw-bold small text-muted text-uppercase">Recipient Phone Number</label>
                             <div class="input-group shadow-sm">
-                                <span class="input-group-text bg-white text-muted"><i
-                                        class="bi bi-telephone-fill"></i></span>
-                                <input type="text" id="smsPhone" class="form-control fw-bold bg-white text-dark"
-                                    placeholder="Enter recipient phone number..." required>
+                                <span class="input-group-text bg-white text-muted"><i class="bi bi-telephone-fill"></i></span>
+                                <input type="text" id="viberPhone" class="form-control fw-bold bg-white text-dark" placeholder="Enter recipient phone number..." required>
                             </div>
                         </div>
                     </div>
 
                     <!-- Select Supplier Dropdown -->
                     <div class="mb-4">
-                        <label class="form-label fw-bold small text-muted text-uppercase">Select Supplier <span
-                                class="text-danger">*</span></label>
-                        <select class="form-select fw-bold shadow-sm" id="smsSupplierSelect" required>
+                        <label class="form-label fw-bold small text-muted text-uppercase">Select Supplier <span class="text-danger">*</span></label>
+                        <select class="form-select fw-bold shadow-sm" id="viberSupplierSelect" required>
                             <option value="" disabled>-- Select Supplier --</option>
                             <?php foreach ($suppliers as $sup): ?>
-                                <option value="<?= $sup['id'] ?>"
-                                    data-phone="<?= htmlspecialchars($sup['contact_number'] ?? '') ?>">
-                                    <?= htmlspecialchars($sup['company_name']) ?>
-                                    (<?= htmlspecialchars($sup['contact_number'] ?: 'No Phone') ?>)
+                                <option value="<?= $sup['id'] ?>" data-phone="<?= htmlspecialchars($sup['contact_number'] ?? '') ?>">
+                                    <?= htmlspecialchars($sup['company_name']) ?> (<?= htmlspecialchars($sup['contact_number'] ?: 'No Phone') ?>)
                                 </option>
                             <?php endforeach; ?>
                         </select>
-                        <small class="text-muted d-block mt-2"><i class="bi bi-info-circle me-1"></i>Changing the
-                            supplier will send the order to the selected supplier and update this PO's record.</small>
+                        <small class="text-muted d-block mt-2"><i class="bi bi-info-circle me-1"></i>Changing the supplier will send the order to the selected supplier and update this PO's record.</small>
                     </div>
 
                     <!-- Materials to Buy List Preview -->
                     <div class="mb-4">
-                        <label class="form-label fw-bold small text-muted text-uppercase">Materials to Buy
-                            Preview</label>
-                        <div class="table-responsive border rounded shadow-sm bg-white"
-                            style="max-height: 200px; overflow-y: auto;">
-                            <table class="table table-sm table-hover align-middle mb-0 text-nowrap"
-                                style="font-size: 0.85rem;">
+                        <label class="form-label fw-bold small text-muted text-uppercase">Materials to Buy Preview</label>
+                        <div class="table-responsive border rounded shadow-sm bg-white" style="max-height: 200px; overflow-y: auto;">
+                            <table class="table table-sm table-hover align-middle mb-0 text-nowrap" style="font-size: 0.85rem;">
                                 <thead class="table-light text-muted">
                                     <tr>
                                         <th>Item Name</th>
                                         <th class="text-center">Quantity</th>
                                     </tr>
                                 </thead>
-                                <tbody id="smsItemsBody">
+                                <tbody id="viberItemsBody">
                                     <!-- Populated dynamically via JS -->
                                 </tbody>
                             </table>
                         </div>
                     </div>
 
-                    <!-- Recent Supplier SMS Replies Preview -->
-                    <div class="mb-4 d-none" id="smsPoConversationSection">
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <label class="form-label fw-bold small text-muted text-uppercase mb-0"><i
-                                    class="bi bi-chat-left-dots text-primary me-1"></i> Supplier SMS Conversation
-                                History</label>
-                            <button type="button"
-                                class="btn btn-sm btn-link p-0 text-decoration-none text-primary fw-bold"
-                                style="font-size: 0.8rem;" onclick="openSmsInboxModal()"><i
-                                    class="bi bi-box-arrow-up-right me-1"></i>Open Full Inbox</button>
-                        </div>
-                        <div class="border rounded p-3 bg-white overflow-auto shadow-sm" id="smsPoConversationThread"
-                            style="max-height: 160px; font-size: 0.85rem;">
-                            <!-- Populated dynamically via JS -->
-                        </div>
-                    </div>
-
-                    <!-- SMS Message Editor -->
+                    <!-- Viber Message Editor -->
                     <div class="mb-2">
-                        <label class="form-label fw-bold small text-muted text-uppercase">Edit SMS Message
-                            Content</label>
-                        <textarea class="form-control fw-bold text-dark shadow-sm" id="smsMessageText" rows="6"
-                            style="font-family: monospace; font-size: 0.9rem;" required></textarea>
-                        <small class="text-muted d-block mt-2"><i class="bi bi-info-circle me-1"></i>You can review and
-                            modify the message above before sending.</small>
+                        <label class="form-label fw-bold small text-muted text-uppercase">Edit Viber Message Content</label>
+                        <textarea class="form-control fw-bold text-dark shadow-sm" id="viberMessageText" rows="6" style="font-family: monospace; font-size: 0.9rem;" required></textarea>
+                        <small class="text-muted d-block mt-2"><i class="bi bi-info-circle me-1"></i>You can review and modify the message above before dispatching via Viber.</small>
                     </div>
                 </div>
                 <div class="modal-footer bg-white border-top-0 justify-content-between p-3">
-                    <button type="button" class="btn btn-light text-muted fw-bold px-4"
-                        data-bs-dismiss="modal">Cancel</button>
-                    <div class="d-flex gap-2">
-                        <button type="button" id="sendViberSubmitBtn" class="btn btn-viber fw-bold px-3 shadow-sm" onclick="triggerViberPoSend()"><i class="fa-brands fa-viber me-1"></i> Send via Viber</button>
-                        <button type="submit" id="sendSmsSubmitBtn" class="btn btn-success fw-bold px-4 shadow-sm"><i class="bi bi-send me-1"></i> Send SMS Order</button>
-                    </div>
+                    <button type="button" class="btn btn-light text-muted fw-bold px-4" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" id="sendViberSubmitBtn" class="btn btn-viber fw-bold px-4 shadow-sm" onclick="triggerViberPoSend()"><i class="fa-brands fa-viber me-1"></i> Send via Viber</button>
                 </div>
             </form>
         </div>
