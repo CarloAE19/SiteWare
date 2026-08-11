@@ -207,11 +207,12 @@ elseif ($action === 'create_po') {
     $stmt->execute([$po_no, $rs_id, $supplier_id, $prepared_by, $expected_delivery_date]);
     $po_id = $pdo->lastInsertId();
 
+    // Only copy items that management approved (excludes rejected items from Partially Approved RSes)
     $rsItemsStmt = $pdo->prepare("
         SELECT ri.item_code, ri.quantity, ri.is_new_item, ri.new_item_name, ri.new_category, ri.new_unit, i.unit_price 
         FROM requisition_items ri 
         LEFT JOIN inventory i ON ri.item_code = i.item_code 
-        WHERE ri.requisition_id = ?
+        WHERE ri.requisition_id = ? AND ri.item_status = 'Approved'
     ");
     $rsItemsStmt->execute([$rs_id]);
     $rsItems = $rsItemsStmt->fetchAll(PDO::FETCH_ASSOC);
