@@ -21,8 +21,8 @@ elseif (in_array($action, ['fetch_supplier_delivery_history', 'fetch_po_items', 
 elseif ($action === 'create_withdrawal') {
     require __DIR__ . '/transactions/withdrawal_actions.php';
 }
-// 4. SMS Messaging Actions
-elseif (in_array($action, ['send_po_sms', 'fetch_po_sms_preview', 'fetch_sms_threads', 'fetch_sms_messages', 'send_supplier_reply_sms', 'mark_sms_thread_read'])) {
+// 4. SMS & Viber Messaging Actions
+elseif (in_array($action, ['send_po_sms', 'log_viber_order_sent', 'fetch_po_sms_preview', 'fetch_sms_threads', 'fetch_sms_messages', 'send_supplier_reply_sms', 'mark_sms_thread_read'])) {
     require __DIR__ . '/transactions/sms_actions.php';
 }
 // 5. Alert Actions
