@@ -15,6 +15,8 @@ window.viewRsDetails = function(rsNo, project, remarks, status, requestor, date,
             statusEl.classList.add('bg-warning', 'text-dark');
         } else if (status === 'Approved') {
             statusEl.classList.add('bg-success');
+        } else if (status === 'Partially Approved') {
+            statusEl.classList.add('bg-warning', 'text-dark');
         } else if (status === 'Staged (Ready for Pickup)') {
             statusEl.classList.add('bg-info', 'text-dark');
         } else if (status === 'Rejected') {
@@ -45,7 +47,7 @@ window.viewRsDetails = function(rsNo, project, remarks, status, requestor, date,
         printBtn.classList.remove('d-none');
     } else {
         qrContainer.classList.add('d-none');
-        if (status === 'Approved' || status === 'PO Created' || status === 'Staged (Ready for Pickup)') {
+        if (status === 'Approved' || status === 'Partially Approved' || status === 'PO Created' || status === 'Staged (Ready for Pickup)') {
             printBtn.classList.remove('d-none');
         } else {
             printBtn.classList.add('d-none');
@@ -68,6 +70,22 @@ window.viewRsDetails = function(rsNo, project, remarks, status, requestor, date,
                 const reqQty = parseInt(item.quantity);
                 const curStock = parseInt(item.current_stock) || 0;
                 const totalPending = parseInt(item.total_pending) || 0;
+
+                // --- Per-item notes (requestor) ---
+                const itemNotesHtml = item.item_notes
+                    ? `<div class="text-muted small mt-1 fst-italic"><i class="bi bi-chat-left-text me-1"></i>${item.item_notes}</div>`
+                    : '';
+
+                // --- Per-item status badge ---
+                const iStatus = item.item_status || 'Pending';
+                const statusBadgeMap = { 'Pending': 'bg-warning text-dark', 'Approved': 'bg-success', 'Rejected': 'bg-danger' };
+                const statusIconMap  = { 'Pending': 'bi-hourglass-split', 'Approved': 'bi-check-circle-fill', 'Rejected': 'bi-x-circle-fill' };
+                const sBadgeClass = statusBadgeMap[iStatus] || 'bg-secondary';
+                const sIcon       = statusIconMap[iStatus]  || 'bi-question';
+                let itemStatusHtml = `<span class="badge ${sBadgeClass} shadow-sm"><i class="bi ${sIcon} me-1"></i>${iStatus}</span>`;
+                if (item.item_remarks) {
+                    itemStatusHtml += `<div class="text-danger mt-1 fst-italic item-remark-text"><i class="bi bi-chat-right-text me-1"></i>${item.item_remarks}</div>`;
+                }
                 
                 let stockDisplay = '';
                 if (isNewItem) {
@@ -137,26 +155,33 @@ window.viewRsDetails = function(rsNo, project, remarks, status, requestor, date,
                 }
                 
                 const isRequestor = window.currentUserRole === 'requestor';
+                // Non-requestors get Item Status + Stock + Pending columns
                 const stockColsHtml = isRequestor ? '' : `
+                    <td class="text-center align-middle d-print-none">${itemStatusHtml}</td>
                     <td class="text-center align-middle d-print-none">${stockDisplay}</td>
                     <td class="text-center align-middle d-print-none">${pendingDisplay}</td>
                 `;
+                // Requestors only see Item Status
+                const requestorStatusCol = isRequestor
+                    ? `<td class="text-center align-middle d-print-none">${itemStatusHtml}</td>`
+                    : '';
 
                 tbody.innerHTML += `
                     <tr>
                         <td class="text-muted small align-middle">${item.item_code}</td>
-                        <td class="fw-bold align-middle">${itemName}</td>
+                        <td class="fw-bold align-middle">${itemName}${itemNotesHtml}</td>
                         <td class="text-dark fw-bold text-center align-middle fs-5">${reqQty} <span class="fs-6 fw-normal">${unit}</span></td>
+                        ${requestorStatusCol}
                         ${stockColsHtml}
                     </tr>
                 `;
             });
         } else {
-            const colspan = window.currentUserRole === 'requestor' ? 3 : 5;
+            const colspan = window.currentUserRole === 'requestor' ? 4 : 6;
             tbody.innerHTML = `<tr><td colspan="${colspan}" class="text-center text-muted py-3">No items found.</td></tr>`;
         }
     } catch (e) {
-        tbody.innerHTML = `<tr><td colspan="5" class="text-center text-danger py-3">Error loading items.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" class="text-center text-danger py-3">Error loading items.</td></tr>`;
     }
     
     new bootstrap.Modal(document.getElementById('viewRsModal')).show();
@@ -167,6 +192,87 @@ window.openRejectModal = function(id, rsNo) {
     document.getElementById('rejectRsNoDisplay').innerText = rsNo;
     new bootstrap.Modal(document.getElementById('rejectRsModal')).show();
 }
+
+// --- Approve Items Modal ---
+window.openApproveItemsModal = function(rsId, rsNo, itemsB64) {
+    document.getElementById('approveRsIdField').value = rsId;
+    document.getElementById('approveRsNoLabel').innerText = rsNo;
+
+    const list = document.getElementById('approveItemsList');
+    list.innerHTML = '<div class="text-center text-muted py-4"><i class="bi bi-hourglass-split me-2"></i>Loading items...</div>';
+
+    try {
+        const items = JSON.parse(atob(itemsB64));
+        if (!items || items.length === 0) {
+            list.innerHTML = '<div class="alert alert-warning">No items found for this requisition.</div>';
+        } else {
+            list.innerHTML = items.map((item) => {
+                const itemId   = item.item_id || '';
+                const itemName = item.item_name || item.item_code || 'Unknown Item';
+                const qty      = parseInt(item.quantity) || 0;
+                const unit     = item.unit || '';
+                const notes    = item.item_notes
+                    ? `<div class="text-muted small fst-italic mt-1"><i class="bi bi-chat-left-text me-1"></i>${item.item_notes}</div>`
+                    : '';
+
+                return `
+                <div class="card border shadow-sm mb-3 approve-item-card" data-item-id="${itemId}">
+                    <div class="card-body py-3 px-3">
+                        <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+                            <div>
+                                <div class="fw-bold text-dark">${itemName}</div>
+                                <div class="text-muted small">${item.item_code} &bull; Qty: <strong>${qty} ${unit}</strong></div>
+                                ${notes}
+                            </div>
+                            <div class="btn-group btn-group-sm shadow-sm" role="group">
+                                <input type="radio" class="btn-check" name="item_statuses[${itemId}]" id="approve_${itemId}" value="Approved" required checked>
+                                <label class="btn btn-outline-success fw-bold px-3" for="approve_${itemId}"><i class="bi bi-check-lg me-1"></i>Approve</label>
+                                <input type="radio" class="btn-check" name="item_statuses[${itemId}]" id="reject_${itemId}" value="Rejected">
+                                <label class="btn btn-outline-danger fw-bold px-3" for="reject_${itemId}"><i class="bi bi-x-lg me-1"></i>Reject</label>
+                            </div>
+                        </div>
+                        <div class="mt-2 remark-field">
+                            <input type="text" class="form-control form-control-sm" name="item_remarks[${itemId}]" placeholder="Remark (optional)..." maxlength="255">
+                        </div>
+                    </div>
+                </div>`;
+            }).join('');
+
+            // Dynamic remark field styling based on approve/reject selection
+            list.querySelectorAll('input[type="radio"]').forEach(radio => {
+                radio.addEventListener('change', function() {
+                    const card = this.closest('.approve-item-card');
+                    const remarkInput = card.querySelector('.remark-field input');
+                    if (this.value === 'Rejected') {
+                        remarkInput.classList.add('border-danger');
+                        remarkInput.placeholder = 'Reason for rejection (required)...';
+                        remarkInput.required = true;
+                    } else {
+                        remarkInput.classList.remove('border-danger');
+                        remarkInput.placeholder = 'Remark (optional)...';
+                        remarkInput.required = false;
+                    }
+                });
+            });
+        }
+    } catch(e) {
+        list.innerHTML = '<div class="alert alert-danger">Error loading items. Please try again.</div>';
+    }
+
+    new bootstrap.Modal(document.getElementById('approveItemsModal')).show();
+};
+
+window.setAllItemStatuses = function(status) {
+    const radioPrefix = status === 'Approved' ? 'approve_' : 'reject_';
+    document.querySelectorAll('#approveItemsList .approve-item-card').forEach(card => {
+        const itemId = card.dataset.itemId;
+        const radio = document.getElementById(radioPrefix + itemId);
+        if (radio) {
+            radio.checked = true;
+            radio.dispatchEvent(new Event('change'));
+        }
+    });
+};
 
 window.printRSDocument = function() {
     const printContent = document.getElementById('rsPrintArea').innerHTML;
@@ -193,6 +299,8 @@ window.rsGlobalClickListener = function(e) {
             if (select) select.value = '';
             const qtyInput = newRow.querySelector('input[name="quantities[]"]');
             if (qtyInput) qtyInput.value = '';
+            const notesInput = newRow.querySelector('input[name="item_notes[]"]');
+            if (notesInput) notesInput.value = '';
             newRow.querySelector('.remove-row').disabled = false;
             container.appendChild(newRow);
         }
@@ -207,6 +315,8 @@ window.rsGlobalClickListener = function(e) {
             if (select) select.value = '';
             const qtyInput = newRow.querySelector('input[name="quantities[]"]');
             if (qtyInput) qtyInput.value = '';
+            const notesInput = newRow.querySelector('input[name="item_notes[]"]');
+            if (notesInput) notesInput.value = '';
             newRow.querySelector('.remove-row').disabled = false;
             restockContainer.appendChild(newRow);
         }
@@ -268,6 +378,9 @@ window.appendNewItemRow = function(container) {
                 <label class="form-label small fw-bold text-muted mb-1">Qty <span class="text-danger">*</span></label>
                 <input type="number" class="form-control form-control-sm fw-bold text-center text-primary" name="quantities[]" placeholder="Qty" required min="1">
             </div>
+        </div>
+        <div class="mt-2">
+            <input type="text" class="form-control form-control-sm text-muted" name="item_notes[]" placeholder="Optional: Notes for this item..." maxlength="255">
         </div>
     `;
     container.appendChild(row);
