@@ -58,9 +58,9 @@ elseif ($action === 'fetch_po_viber_preview') {
     $po_id = $_POST['po_id'] ?? 0;
 
     $stmt = $pdo->prepare("
-        SELECT pi.quantity, i.item_name 
+        SELECT pi.quantity, COALESCE(i.item_name, pi.custom_item_name, pi.item_code) as item_name 
         FROM po_items pi 
-        JOIN inventory i ON pi.item_code = i.item_code 
+        LEFT JOIN inventory i ON pi.item_code = i.item_code 
         WHERE pi.po_id = ?
     ");
     $stmt->execute([$po_id]);
