@@ -432,20 +432,6 @@ foreach ($notifications as $n) {
                             class="bi bi-list fs-5"></i></button>
 
                     <div class="d-flex align-items-center ms-auto">
-                        <!-- 1. SMS Inbox Quick Button -->
-                        <?php if (in_array($currentUserRole, ['admin', 'purchasing', 'management'])): ?>
-                            <div class="me-3 position-relative">
-                                <button type="button"
-                                    class="btn btn-link text-muted p-0 position-relative text-decoration-none"
-                                    onclick="openSmsInboxModal()" title="Supplier SMS Inbox">
-                                    <i class="bi bi-chat-left-text fs-5"></i>
-                                    <span
-                                        class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-success d-none"
-                                        id="smsGlobalUnreadBadge" style="font-size: 0.65rem;">0</span>
-                                </button>
-                            </div>
-                        <?php endif; ?>
-
                         <!-- 2. DEDICATED SUPPLY LOGISTICS UPDATES & ETAS DROPDOWN -->
                         <div class="dropdown me-3">
                             <a href="#"
