@@ -506,6 +506,20 @@ async function openSmsChatThread(phone, supplierId, companyName) {
     if (document.getElementById('smsActiveSubtitle')) document.getElementById('smsActiveSubtitle').textContent = `Phone: ${phone}`;
     if (document.getElementById('smsActiveAvatar')) document.getElementById('smsActiveAvatar').textContent = (companyName || '?').charAt(0).toUpperCase();
 
+    // Update Viber button
+    const viberBtn = document.getElementById('smsActiveViberBtn');
+    if (viberBtn) {
+        if (phone) {
+            let cleanPhone = phone.replace(/[^0-9]/g, '');
+            if (cleanPhone.startsWith('09')) cleanPhone = '63' + cleanPhone.substring(1);
+            if (!cleanPhone.startsWith('+')) cleanPhone = '+' + cleanPhone;
+            viberBtn.href = "viber://chat?number=" + encodeURIComponent(cleanPhone);
+            viberBtn.classList.remove('d-none');
+        } else {
+            viberBtn.classList.add('d-none');
+        }
+    }
+
     // Enable inputs
     if (document.getElementById('smsReplyText')) document.getElementById('smsReplyText').disabled = false;
     if (document.getElementById('smsSendReplyBtn')) document.getElementById('smsSendReplyBtn').disabled = false;
