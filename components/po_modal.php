@@ -438,8 +438,10 @@ $approvedRS = $pdo->query("SELECT id, rs_no, project_name FROM requisitions WHER
                 <div class="modal-footer bg-white border-top-0 justify-content-between p-3">
                     <button type="button" class="btn btn-light text-muted fw-bold px-4"
                         data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" id="sendSmsSubmitBtn" class="btn btn-success fw-bold px-4 shadow-sm"><i
-                            class="bi bi-send me-1"></i> Send SMS Order</button>
+                    <div class="d-flex gap-2">
+                        <button type="button" id="sendViberSubmitBtn" class="btn btn-viber fw-bold px-3 shadow-sm" onclick="triggerViberPoSend()"><i class="fa-brands fa-viber me-1"></i> Send via Viber</button>
+                        <button type="submit" id="sendSmsSubmitBtn" class="btn btn-success fw-bold px-4 shadow-sm"><i class="bi bi-send me-1"></i> Send SMS Order</button>
+                    </div>
                 </div>
             </form>
         </div>
