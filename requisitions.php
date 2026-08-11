@@ -39,9 +39,12 @@ if ($role === 'requestor') {
     $statTitle = "";
 }
 
-$itemsQuery = $pdo->query("SELECT ri.requisition_id, ri.quantity, ri.item_code, COALESCE(i.item_name, ri.new_item_name, ri.item_code) as item_name, COALESCE(i.unit, ri.new_unit, 'pcs') as unit, ri.is_new_item, ri.new_category, i.quantity as current_stock,
+$itemsQuery = $pdo->query("SELECT ri.id as item_id, ri.requisition_id, ri.quantity, ri.item_code, COALESCE(i.item_name, ri.new_item_name, ri.item_code) as item_name, COALESCE(i.unit, ri.new_unit, 'pcs') as unit, ri.is_new_item, ri.new_category, i.quantity as current_stock,
                                   COALESCE(p.total_pending, 0) as total_pending,
-                                  p.pending_details
+                                  p.pending_details,
+                                  ri.item_status,
+                                  ri.item_remarks,
+                                  ri.item_notes
                            FROM requisition_items ri 
                            LEFT JOIN inventory i ON ri.item_code = i.item_code
                            LEFT JOIN (
@@ -60,7 +63,7 @@ foreach ($allItems as $item) {
 
 $totalRS = count($requisitions);
 $pendingRS = count(array_filter($requisitions, fn($r) => $r['status'] === 'Pending Approval'));
-$approvedRS = count(array_filter($requisitions, fn($r) => in_array($r['status'], ['Approved', 'PO Created', 'Staged (Ready for Pickup)'])));
+$approvedRS = count(array_filter($requisitions, fn($r) => in_array($r['status'], ['Approved', 'Partially Approved', 'PO Created', 'Staged (Ready for Pickup)'])));
 $stagedRS = count(array_filter($requisitions, fn($r) => $r['status'] === 'Staged (Ready for Pickup)'));
 
 include 'layout/header.php';
@@ -197,7 +200,27 @@ include 'layout/header.php';
             width: 100% !important;
             font-size: 0.82rem !important;
             padding: 0.45rem 0.5rem !important;
+
         }
+    }
+
+    /* View RS Modal — item table column behaviour */
+    #viewRsModal #viewRsItemsBody td {
+        vertical-align: middle;
+        white-space: normal;
+        word-break: break-word;
+    }
+    #viewRsModal #viewRsItemsBody td:first-child {
+        white-space: nowrap;   /* keep item code on one line */
+        font-size: 0.78rem;
+        color: #6c757d;
+    }
+    /* Item-remarks (management note) wraps cleanly */
+    #viewRsModal .item-remark-text {
+        white-space: normal;
+        word-break: break-word;
+        max-width: 160px;
+        font-size: 0.75rem;
     }
 </style>
 
@@ -359,6 +382,7 @@ include 'layout/header.php';
                                     $statusClass = 'bg-secondary';
                                     if ($rs['status'] == 'Pending Approval') $statusClass = 'bg-warning text-dark';
                                     if ($rs['status'] == 'Approved') $statusClass = 'bg-success';
+                                    if ($rs['status'] == 'Partially Approved') $statusClass = 'bg-warning text-dark';
                                     if ($rs['status'] == 'Staged (Ready for Pickup)') $statusClass = 'bg-info text-dark';
                                     if ($rs['status'] == 'Rejected') $statusClass = 'bg-danger';
                                     if ($rs['status'] == 'PO Created') $statusClass = 'bg-info text-dark';
@@ -382,11 +406,10 @@ include 'layout/header.php';
                                     </button>
 
                                     <?php if (in_array($role, ['management', 'admin']) && $rs['status'] === 'Pending Approval'): ?>
-                                        <form method="POST" action="process/process.php" class="d-inline">
-                                            <input type="hidden" name="action" value="approve_rs">
-                                            <input type="hidden" name="rs_id" value="<?= $rs['id'] ?>">
-                                            <button class="btn btn-sm btn-success shadow-sm me-1" title="Approve RS"><i class="bi bi-check-lg"></i></button>
-                                        </form>
+                                        <button type="button" class="btn btn-sm btn-success fw-bold shadow-sm me-1" title="Review &amp; Approve Items"
+                                            onclick="openApproveItemsModal(<?= $rs['id'] ?>, '<?= $rs['rs_no'] ?>', '<?= $itemsB64 ?>')">
+                                            <i class="bi bi-check2-square me-1"></i>Review
+                                        </button>
 
                                         <button type="button" class="btn btn-sm btn-danger shadow-sm" title="Reject RS" onclick="openRejectModal(<?= $rs['id'] ?>, '<?= $rs['rs_no'] ?>')">
                                             <i class="bi bi-x-lg"></i>
