@@ -30,13 +30,16 @@ try {
 
     // 2. Fetch items for this requisition
     $itemsStmt = $pdo->prepare("
-        SELECT ri.requisition_id, ri.quantity, ri.item_code, 
+        SELECT ri.id as item_id, ri.requisition_id, ri.quantity, ri.item_code, 
                COALESCE(i.item_name, ri.new_item_name, ri.item_code) as item_name, 
                COALESCE(i.unit, ri.new_unit, 'pcs') as unit, 
                ri.is_new_item, ri.new_category, 
                i.quantity as current_stock,
                COALESCE(p.total_pending, 0) as total_pending,
-               p.pending_details
+               p.pending_details,
+               ri.item_status,
+               ri.item_remarks,
+               ri.item_notes
         FROM requisition_items ri 
         LEFT JOIN inventory i ON ri.item_code = i.item_code
         LEFT JOIN (
@@ -51,6 +54,7 @@ try {
     ");
     $itemsStmt->execute([$rs['id']]);
     $items = $itemsStmt->fetchAll(PDO::FETCH_ASSOC);
+
 
     // 3. Format Date
     $createdTime = strtotime($rs['created_at']);
