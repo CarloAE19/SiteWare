@@ -86,44 +86,7 @@ if ($action === 'fetch_combined_alerts') {
         ];
     }
 
-    // 2. Fetch Supplier SMS Replies
-    if (in_array($userRole, ['admin', 'purchasing', 'management'])) {
-        $smsStmt = $pdo->prepare("
-            SELECT r.*, s.company_name, p.po_no
-            FROM supplier_sms_replies r
-            LEFT JOIN suppliers s ON r.supplier_id = s.id
-            LEFT JOIN purchase_orders p ON r.po_id = p.id
-            WHERE r.direction = 'inbound'
-            ORDER BY r.created_at DESC
-            LIMIT 5
-        ");
-        $smsStmt->execute();
-        $smsReplies = $smsStmt->fetchAll(PDO::FETCH_ASSOC);
 
-        foreach ($smsReplies as $sms) {
-            if ($sms['is_read'] == 0) $totalUnread++;
-
-            $hasDate = preg_match('/(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec|\d{1,2}\/\d{1,2}|\d{4}-\d{2}-\d{2}|today|tomorrow|monday|tuesday|wednesday|thursday|friday|saturday|sunday)/i', $sms['message_text']);
-
-            $combinedAlerts[] = [
-                'id' => 'sms_' . $sms['id'],
-                'type' => 'sms_reply',
-                'category' => 'sms',
-                'supplier_name' => $sms['company_name'] ?: 'Supplier',
-                'sender_number' => $sms['sender_number'],
-                'po_id' => $sms['po_id'],
-                'po_no' => $sms['po_no'],
-                'title' => "💬 SMS: " . ($sms['company_name'] ?: $sms['sender_number']),
-                'message' => "\"" . mb_strimwidth($sms['message_text'], 0, 85, '...') . "\"",
-                'time_ago' => time_elapsed_string($sms['created_at']),
-                'is_read' => (int) $sms['is_read'],
-                'badge_class' => 'bg-purple',
-                'icon' => 'bi-chat-left-text-fill',
-                'has_date_mention' => $hasDate ? 1 : 0,
-                'created_at' => $sms['created_at']
-            ];
-        }
-    }
 
     // 3. Fetch System Notifications
     $notifStmt = $pdo->prepare("
