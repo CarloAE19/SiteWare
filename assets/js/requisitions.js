@@ -61,14 +61,18 @@ window.viewRsDetails = function(rsNo, project, remarks, status, requestor, date,
         
         if (items.length > 0) {
             items.forEach(item => {
-                const itemName = item.item_name ? item.item_name : '<span class="text-danger">Item deleted</span>';
+                const isNewItem = parseInt(item.is_new_item) === 1;
+                const newBadge = isNewItem ? `<span class="badge bg-success ms-2 shadow-sm" style="font-size: 0.65rem;"><i class="bi bi-sparkles me-1"></i>NEW ITEM</span>` : '';
+                const itemName = (item.item_name ? item.item_name : '<span class="text-danger">Item deleted</span>') + newBadge;
                 const unit = item.unit ? item.unit : '';
                 const reqQty = parseInt(item.quantity);
                 const curStock = parseInt(item.current_stock) || 0;
                 const totalPending = parseInt(item.total_pending) || 0;
                 
                 let stockDisplay = '';
-                if (type === 'restock') {
+                if (isNewItem) {
+                    stockDisplay = `<span class="badge bg-info text-dark fs-6 shadow-sm"><i class="bi bi-plus-circle me-1"></i>New Item (0 Stock)</span>`;
+                } else if (type === 'restock') {
                     if (curStock === 0) {
                         stockDisplay = `<span class="badge bg-danger fs-6 shadow-sm">0 (Out of Stock)</span>`;
                     } else {
