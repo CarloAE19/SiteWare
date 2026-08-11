@@ -31,14 +31,20 @@ if (!function_exists('loadEnv')) {
         $lines = file($filePath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
 
         foreach ($lines as $line) {
-            // Skip comments
-            if (strpos(trim($line), '#') === 0)
+            $line = trim($line);
+            // Skip comments, empty lines, or lines without '='
+            if (empty($line) || strpos($line, '#') === 0 || strpos($line, '=') === false) {
                 continue;
+            }
 
             // Split "KEY=VALUE"
             list($name, $value) = explode('=', $line, 2);
             $name = trim($name);
             $value = trim($value);
+
+            if (empty($name)) {
+                continue;
+            }
 
             // Inject into PHP's global environment variables
             if (!array_key_exists($name, $_SERVER) && !array_key_exists($name, $_ENV)) {
@@ -62,15 +68,6 @@ if (!defined('AI_MODEL') && isset($_ENV['AI_MODEL'])) {
 }
 if (!defined('AI_SYSTEM_PROMPT') && isset($_ENV['AI_SYSTEM_PROMPT'])) {
     define('AI_SYSTEM_PROMPT', trim($_ENV['AI_SYSTEM_PROMPT'], '"\''));
-}
-if (!defined('SMS_API_KEY') && isset($_ENV['SMS_API_KEY'])) {
-    define('SMS_API_KEY', trim($_ENV['SMS_API_KEY']));
-}
-if (!defined('SMS_FROM_NUMBER') && isset($_ENV['SMS_FROM_NUMBER'])) {
-    define('SMS_FROM_NUMBER', $_ENV['SMS_FROM_NUMBER']);
-}
-if (!defined('SMS_GATEWAY_URL') && isset($_ENV['SMS_GATEWAY_URL'])) {
-    define('SMS_GATEWAY_URL', $_ENV['SMS_GATEWAY_URL']);
 }
 
 try {
@@ -169,17 +166,21 @@ try {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     ");
 
-    // 6b. Create Supplier SMS Replies Table
+    // 6b. Create Supplier Viber Order Logs Table
+    try {
+        $pdo->exec("RENAME TABLE supplier_sms_replies TO supplier_viber_logs");
+    } catch (PDOException $e) { }
+
     $pdo->exec("
-        CREATE TABLE IF NOT EXISTS supplier_sms_replies (
+        CREATE TABLE IF NOT EXISTS supplier_viber_logs (
             id INT AUTO_INCREMENT PRIMARY KEY,
             supplier_id INT NULL,
             po_id INT NULL,
-            direction ENUM('inbound', 'outbound') NOT NULL DEFAULT 'inbound',
+            direction ENUM('inbound', 'outbound') NOT NULL DEFAULT 'outbound',
             sender_number VARCHAR(50) NOT NULL,
             receiver_number VARCHAR(50) NOT NULL,
             message_text TEXT NOT NULL,
-            is_read TINYINT(1) DEFAULT 0,
+            is_read TINYINT(1) DEFAULT 1,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (supplier_id) REFERENCES suppliers(id) ON DELETE SET NULL,
             FOREIGN KEY (po_id) REFERENCES purchase_orders(id) ON DELETE SET NULL
