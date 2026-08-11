@@ -147,6 +147,49 @@ if ($action === 'send_po_sms') {
     exit;
 }
 
+// --- LOG PO VIBER DISPATCH ---
+elseif ($action === 'log_viber_order_sent') {
+    if (!in_array($_SESSION['user_role'], ['purchasing', 'admin'])) {
+        echo json_encode(['status' => 'error', 'message' => 'Unauthorized']);
+        exit;
+    }
+
+    $po_id = $_POST['po_id'] ?? null;
+    $po_no = $_POST['po_no'] ?? '';
+    $supplier_id = $_POST['supplier_id'] ?? null;
+    $phone = $_POST['contact_number'] ?? '';
+    $viberMessage = $_POST['message'] ?? '';
+
+    if ($supplier_id && $po_id) {
+        $updateStmt = $pdo->prepare("UPDATE purchase_orders SET supplier_id = ? WHERE id = ?");
+        $updateStmt->execute([$supplier_id, $po_id]);
+    }
+
+    $company = 'Supplier';
+    if ($supplier_id) {
+        $compStmt = $pdo->prepare("SELECT company_name FROM suppliers WHERE id = ?");
+        $compStmt->execute([$supplier_id]);
+        $company = $compStmt->fetchColumn() ?: 'Supplier';
+    }
+
+    if ($po_id) {
+        $pdo->prepare("UPDATE purchase_orders SET status = 'SMS Sent' WHERE id = ?")->execute([$po_id]);
+    }
+
+    // Record outbound log in supplier_sms_replies
+    $logStmt = $pdo->prepare("
+        INSERT INTO supplier_sms_replies (supplier_id, po_id, direction, sender_number, receiver_number, message_text, is_read)
+        VALUES (?, ?, 'outbound', 'VIBER', ?, ?, 1)
+    ");
+    $logStmt->execute([$supplier_id, $po_id, $phone ?: 'SYSTEM', "[Viber Dispatched]\n" . $viberMessage]);
+
+    $notif = $pdo->prepare("INSERT INTO notifications (target_role, title, message) VALUES ('management', 'Viber Order Dispatched', ?)");
+    $notif->execute(["Viber Order message was dispatched to {$company} for {$po_no}."]);
+
+    echo json_encode(['status' => 'success', 'message' => 'Viber order logged successfully']);
+    exit;
+}
+
 // --- FETCH PO SMS PREVIEW ---
 elseif ($action === 'fetch_po_sms_preview') {
     if (!in_array($_SESSION['user_role'], ['purchasing', 'admin'])) {
