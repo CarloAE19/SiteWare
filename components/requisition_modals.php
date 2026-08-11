@@ -14,7 +14,7 @@ $units = $units ?? [];
 <!-- MODAL: VIEW DETAILS & PRINT QR DOCUMENT                  -->
 <!-- ======================================================== -->
 <div class="modal fade" id="viewRsModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
         <div class="modal-content border-0 shadow-lg">
             <div class="modal-header" style="background-color: var(--gb-dark); color: white;">
                 <h5 class="modal-title fw-bold"><i class="bi bi-card-list me-2" style="color: var(--gb-yellow);"></i>Requisition Document</h5>
@@ -49,15 +49,15 @@ $units = $units ?? [];
 
                 <h6 class="fw-bold text-uppercase small text-muted mb-2">Requested Items:</h6>
                 <div class="table-responsive mb-4 rounded border shadow-sm">
-                    <table class="table table-sm table-hover mb-0 bg-white text-nowrap">
+                    <table class="table table-sm table-hover mb-0 bg-white" style="min-width: 500px;">
                         <thead class="table-light">
                             <tr>
-                                <th>Item Code</th>
-                                <th>Item Name</th>
-                                <!-- FIXED: Shortened headers so they fit perfectly inside the mobile modal without wrapping -->
-                                <th class="text-center">Qty</th>
-                                <th class="text-center d-print-none text-primary">Stock</th>
-                                <th class="text-center d-print-none text-warning">Pending Demand</th>
+                                <th style="width:90px;">Item Code</th>
+                                <th>Item Name / Notes</th>
+                                <th class="text-center" style="width:80px;">Qty</th>
+                                <th class="text-center d-print-none" style="width:130px;">Item Status</th>
+                                <th class="text-center d-print-none text-primary" style="width:90px;">Stock</th>
+                                <th class="text-center d-print-none text-warning" style="width:130px;">Pending</th>
                             </tr>
                         </thead>
                         <tbody id="viewRsItemsBody"></tbody>
@@ -77,6 +77,7 @@ $units = $units ?? [];
         </div>
     </div>
 </div>
+
 
 <!-- ======================================================== -->
 <!-- MODAL: REJECT REASON                                     -->
@@ -163,22 +164,27 @@ $units = $units ?? [];
                                 </button>
                             </div>
                             <div class="card-body p-3 bg-light" id="materialsContainer">
-                                <div class="row g-2 material-row mb-2 align-items-center bg-white p-2 rounded border shadow-sm mx-0">
-                                    <div class="col-md-7">
-                                        <select class="form-select fw-bold text-dark" name="items[]" required>
-                                            <option value="">Select Material from Inventory...</option>
-                                            <?php foreach ($inventoryItems as $item): ?>
-                                                <option value="<?= $item['item_code'] ?>">
-                                                    [<?= $item['item_code'] ?>] <?= htmlspecialchars($item['item_name']) ?>
-                                                </option>
-                                            <?php endforeach; ?>
-                                        </select>
+                                <div class="material-row mb-2 bg-white p-3 rounded border shadow-sm mx-0">
+                                    <div class="row g-2 align-items-center">
+                                        <div class="col-md-7">
+                                            <select class="form-select fw-bold text-dark" name="items[]" required>
+                                                <option value="">Select Material from Inventory...</option>
+                                                <?php foreach ($inventoryItems as $item): ?>
+                                                    <option value="<?= $item['item_code'] ?>">
+                                                        [<?= $item['item_code'] ?>] <?= htmlspecialchars($item['item_name']) ?>
+                                                    </option>
+                                                <?php endforeach; ?>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-3 mt-2 mt-md-0">
+                                            <input type="number" class="form-control fw-bold text-center text-primary" name="quantities[]" placeholder="Qty" required min="1">
+                                        </div>
+                                        <div class="col-md-2 text-center mt-2 mt-md-0">
+                                            <button type="button" class="btn btn-outline-danger w-100 remove-row" disabled><i class="bi bi-trash3"></i></button>
+                                        </div>
                                     </div>
-                                    <div class="col-md-3 mt-2 mt-md-0">
-                                        <input type="number" class="form-control fw-bold text-center text-primary" name="quantities[]" placeholder="Qty" required min="1">
-                                    </div>
-                                    <div class="col-md-2 text-center mt-2 mt-md-0">
-                                        <button type="button" class="btn btn-outline-danger w-100 remove-row" disabled><i class="bi bi-trash3"></i></button>
+                                    <div class="mt-2">
+                                        <input type="text" class="form-control form-control-sm text-muted" name="item_notes[]" placeholder="Optional: Notes for this item (e.g. specific brand, size, color)..." maxlength="255">
                                     </div>
                                 </div>
                             </div>
@@ -249,26 +255,31 @@ $units = $units ?? [];
                                 </div>
                             </div>
                             <div class="card-body p-3 bg-light" id="restockMaterialsContainer">
-                                <div class="row g-2 material-row mb-2 align-items-center bg-white p-2 rounded border shadow-sm mx-0">
+                                <div class="material-row mb-2 bg-white p-3 rounded border shadow-sm mx-0">
                                     <input type="hidden" name="is_new_items[]" value="0">
                                     <input type="hidden" name="new_item_names[]" value="">
                                     <input type="hidden" name="new_categories[]" value="">
                                     <input type="hidden" name="new_units[]" value="">
-                                    <div class="col-md-7">
-                                        <select class="form-select fw-bold text-dark" name="items[]" required>
-                                            <option value="">Select Material from Inventory...</option>
-                                            <?php foreach ($inventoryItems as $item): ?>
-                                                <option value="<?= $item['item_code'] ?>">
-                                                    [<?= $item['item_code'] ?>] <?= htmlspecialchars($item['item_name']) ?>
-                                                </option>
-                                            <?php endforeach; ?>
-                                        </select>
+                                    <div class="row g-2 align-items-center">
+                                        <div class="col-md-7">
+                                            <select class="form-select fw-bold text-dark" name="items[]" required>
+                                                <option value="">Select Material from Inventory...</option>
+                                                <?php foreach ($inventoryItems as $item): ?>
+                                                    <option value="<?= $item['item_code'] ?>">
+                                                        [<?= $item['item_code'] ?>] <?= htmlspecialchars($item['item_name']) ?>
+                                                    </option>
+                                                <?php endforeach; ?>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-3 mt-2 mt-md-0">
+                                            <input type="number" class="form-control fw-bold text-center text-primary" name="quantities[]" placeholder="Qty" required min="1">
+                                        </div>
+                                        <div class="col-md-2 text-center mt-2 mt-md-0">
+                                            <button type="button" class="btn btn-outline-danger w-100 remove-row" disabled><i class="bi bi-trash3"></i></button>
+                                        </div>
                                     </div>
-                                    <div class="col-md-3 mt-2 mt-md-0">
-                                        <input type="number" class="form-control fw-bold text-center text-primary" name="quantities[]" placeholder="Qty" required min="1">
-                                    </div>
-                                    <div class="col-md-2 text-center mt-2 mt-md-0">
-                                        <button type="button" class="btn btn-outline-danger w-100 remove-row" disabled><i class="bi bi-trash3"></i></button>
+                                    <div class="mt-2">
+                                        <input type="text" class="form-control form-control-sm text-muted" name="item_notes[]" placeholder="Optional: Notes for this item (e.g. target quantity, reason for restock)..." maxlength="255">
                                     </div>
                                 </div>
                             </div>
@@ -301,3 +312,42 @@ $units = $units ?? [];
         <?php endforeach; ?>
     </select>
 <?php endif; ?>
+
+<!-- ======================================================== -->
+<!-- MODAL: PER-ITEM APPROVAL (MANAGEMENT / ADMIN)            -->
+<!-- ======================================================== -->
+<?php if (in_array($role, ['management', 'admin'])): ?>
+<div class="modal fade" id="approveItemsModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header" style="background-color: var(--gb-dark); color: white;">
+                <h5 class="modal-title fw-bold"><i class="bi bi-check2-square me-2" style="color: var(--gb-yellow);"></i>Review &amp; Approve Items — <span id="approveRsNoLabel">RS-0000</span></h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="process/process.php" id="approveItemsForm">
+                <div class="modal-body bg-light p-4">
+                    <input type="hidden" name="action" value="approve_rs">
+                    <input type="hidden" name="rs_id" id="approveRsIdField">
+
+                    <p class="text-muted small mb-3"><i class="bi bi-info-circle-fill me-1 text-primary"></i>For each item, choose <strong>Approve</strong> or <strong>Reject</strong>. Add a remark for any rejected item.</p>
+
+                    <div id="approveItemsList">
+                        <!-- Populated by JS openApproveItemsModal() -->
+                        <div class="text-center text-muted py-4"><i class="bi bi-hourglass-split me-2"></i>Loading items...</div>
+                    </div>
+                </div>
+                <div class="modal-footer bg-white border-top-0 d-flex justify-content-between">
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-sm btn-outline-success fw-bold" onclick="setAllItemStatuses('Approved')"><i class="bi bi-check2-all me-1"></i>Approve All</button>
+                        <button type="button" class="btn btn-sm btn-outline-danger fw-bold" onclick="setAllItemStatuses('Rejected')"><i class="bi bi-x-circle me-1"></i>Reject All</button>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-secondary fw-bold px-4" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-success fw-bold px-4 shadow-sm"><i class="bi bi-send me-2"></i>Submit Decision</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
