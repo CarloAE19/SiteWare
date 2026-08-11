@@ -27,6 +27,10 @@
     color: #ffffff !important;
     transition: all 0.2s ease-in-out;
 }
+.bg-viber, .bg-purple {
+    background-color: #7360f2 !important;
+    color: #ffffff !important;
+}
 .btn-viber:hover, .btn-viber:focus, .btn-viber:active {
     background-color: #5e4bd8 !important;
     border-color: #5e4bd8 !important;
