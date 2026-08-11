@@ -217,8 +217,17 @@ include 'layout/header.php';
                                         class="bi bi-envelope me-1"></i><?= htmlspecialchars($sup['email']) ?></span>
                             </td>
 
-                            <td class="text-primary fw-bold" data-label="Contact Number"><i
-                                    class="bi bi-telephone text-muted me-1 d-none d-md-inline"></i><?= htmlspecialchars($sup['contact_number']) ?>
+                            <td class="text-primary fw-bold" data-label="Contact Number">
+                                <i class="bi bi-telephone text-muted me-1 d-none d-md-inline"></i><?= htmlspecialchars($sup['contact_number']) ?>
+                                <?php if (!empty($sup['contact_number'])): 
+                                    $cleanViberPhone = preg_replace('/[^0-9]/', '', $sup['contact_number']);
+                                    if (strpos($cleanViberPhone, '09') === 0) { $cleanViberPhone = '63' . substr($cleanViberPhone, 1); }
+                                    if (strpos($cleanViberPhone, '+') !== 0) { $cleanViberPhone = '+' . $cleanViberPhone; }
+                                ?>
+                                    <a href="viber://chat?number=<?= urlencode($cleanViberPhone) ?>" class="btn btn-sm btn-viber ms-2 px-2 py-1 shadow-sm fw-semibold" style="font-size: 0.78rem;" title="Chat via Viber">
+                                        <i class="fa-brands fa-viber me-1"></i>Viber
+                                    </a>
+                                <?php endif; ?>
                             </td>
 
                             <td data-label="Status">
