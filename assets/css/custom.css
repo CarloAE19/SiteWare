@@ -20,6 +20,38 @@
 
 .diff-badge { transition: all 0.3s ease; }
 
+/* Viber Brand Styling & SVG Icons */
+.btn-viber {
+    background-color: #7360f2 !important;
+    border-color: #7360f2 !important;
+    color: #ffffff !important;
+    transition: all 0.2s ease-in-out;
+}
+.btn-viber:hover, .btn-viber:focus, .btn-viber:active {
+    background-color: #5e4bd8 !important;
+    border-color: #5e4bd8 !important;
+    color: #ffffff !important;
+    box-shadow: 0 4px 10px rgba(115, 96, 242, 0.4) !important;
+}
+.btn-outline-viber {
+    border-color: #7360f2 !important;
+    color: #7360f2 !important;
+    background-color: transparent !important;
+    transition: all 0.2s ease-in-out;
+}
+.btn-outline-viber:hover, .btn-outline-viber:focus, .btn-outline-viber:active {
+    background-color: #7360f2 !important;
+    color: #ffffff !important;
+    box-shadow: 0 4px 10px rgba(115, 96, 242, 0.3) !important;
+}
+.viber-icon-svg {
+    width: 1.15em;
+    height: 1.15em;
+    vertical-align: -0.18em;
+    fill: currentColor;
+    display: inline-block;
+}
+
 /* ==========================================================
  * MOBILE RESPONSIVE FIXES
  * ========================================================== */
