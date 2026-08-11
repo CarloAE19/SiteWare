@@ -491,6 +491,11 @@ include 'layout/header.php';
                                             onclick="openSmsPreviewModal(<?= $po['id'] ?>, '<?= $po['po_no'] ?>', <?= (int) $po['supplier_id'] ?>, '<?= $po['contact_number'] ?>')">
                                             <i class="bi bi-chat-text-fill"></i> <span class="ms-1">SMS</span>
                                         </button>
+                                        <button class="btn btn-sm btn-viber fw-bold shadow-sm me-1"
+                                            title="Send PO via Viber"
+                                            onclick="openSmsPreviewModal(<?= $po['id'] ?>, '<?= $po['po_no'] ?>', <?= (int) $po['supplier_id'] ?>, '<?= $po['contact_number'] ?>')">
+                                            <i class="fa-brands fa-viber me-1"></i>Viber
+                                        </button>
                                         <button class="btn btn-sm btn-outline-danger fw-bold shadow-sm me-1"
                                             onclick="openDelayModal(<?= $po['id'] ?>, '<?= $po['po_no'] ?>', '<?= $po['expected_delivery_date'] ?? '' ?>')">
                                             <i class="bi bi-cloud-lightning-rain-fill"></i> <span class="ms-1">Delay</span>
@@ -1301,6 +1306,61 @@ include 'layout/header.php';
                 }
             });
         }
+
+        // Handle Send via Viber
+        window.triggerViberPoSend = async function () {
+            const poId = document.getElementById('smsPoId').value;
+            const poNo = document.getElementById('smsPoNo').value;
+            const phone = document.getElementById('smsPhone').value || '';
+            const supplierId = document.getElementById('smsSupplierSelect').value;
+            const message = document.getElementById('smsMessageText').value || '';
+
+            if (!phone || !message) {
+                alert("Please enter a valid phone number and message content.");
+                return;
+            }
+
+            let cleanPhone = phone.replace(/[^0-9]/g, '');
+            if (cleanPhone.startsWith('09')) {
+                cleanPhone = '63' + cleanPhone.substring(1);
+            }
+            if (!cleanPhone.startsWith('+')) {
+                cleanPhone = '+' + cleanPhone;
+            }
+
+            try {
+                await navigator.clipboard.writeText(message);
+            } catch (err) {
+                const tempArea = document.createElement('textarea');
+                tempArea.value = message;
+                document.body.appendChild(tempArea);
+                tempArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(tempArea);
+            }
+
+            const formData = new FormData();
+            formData.append('action', 'log_viber_order_sent');
+            formData.append('po_id', poId);
+            formData.append('po_no', poNo);
+            formData.append('supplier_id', supplierId);
+            formData.append('contact_number', phone);
+            formData.append('message', message);
+
+            try {
+                await fetch('process/process.php', { method: 'POST', body: formData });
+            } catch (e) {
+                console.error('Error logging Viber order send:', e);
+            }
+
+            const myModalEl = document.getElementById('smsPreviewModal');
+            const smsModal = bootstrap.Modal.getInstance(myModalEl);
+            if (smsModal) smsModal.hide();
+
+            alert("PO details copied to clipboard!\nOpening Viber Desktop for " + cleanPhone + "...\n\nPress Ctrl + V in Viber to paste your order.");
+
+            window.location.href = "viber://chat?number=" + encodeURIComponent(cleanPhone);
+        };
 
         const smsSupplierSelect = document.getElementById('smsSupplierSelect');
         if (smsSupplierSelect) {
