@@ -54,14 +54,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $bg_image = 'assets/img/default_login_bg.png';
+$bg_blur = 12; // default blur in px
 if (!defined('DB_OFFLINE') && isset($pdo)) {
     try {
-        $stmt = $pdo->prepare("SELECT setting_value FROM system_settings WHERE setting_key = 'login_background'");
+        $stmt = $pdo->prepare("SELECT setting_key, setting_value FROM system_settings WHERE setting_key IN ('login_background','login_blur')");
         $stmt->execute();
-        $custom_bg = $stmt->fetchColumn();
-        if ($custom_bg) {
-            $bg_image = $custom_bg;
-        }
+        $settings = $stmt->fetchAll(PDO::FETCH_KEY_PAIR);
+        if (!empty($settings['login_background'])) $bg_image = $settings['login_background'];
+        if (isset($settings['login_blur']) && $settings['login_blur'] !== '') $bg_blur = (int)$settings['login_blur'];
     } catch (Exception $e) {
         // Fallback
     }
@@ -71,6 +71,10 @@ if (!defined('DB_OFFLINE') && isset($pdo)) {
 $app_base = rtrim(str_replace('\\', '/', dirname($_SERVER['PHP_SELF'])), '/');
 $bg_version = file_exists($bg_image) ? filemtime($bg_image) : time();
 $bg_image_url = $app_base . '/' . ltrim($bg_image, '/') . '?v=' . $bg_version;
+$bg_blur = max(0, min(30, $bg_blur)); // clamp 0–30
+// Scale factor: more blur needs more scale to hide edge artifacts
+$bg_scale = 1 + ($bg_blur * 0.006);
+
 
 ?>
 <!DOCTYPE html>
@@ -106,7 +110,7 @@ $bg_image_url = $app_base . '/' . ltrim($bg_image, '/') . '?v=' . $bg_version;
 
     <div class="login-wrapper">
         <!-- Full Screen Blurred Background -->
-        <div class="login-bg-container" style="background-image: url('<?= htmlspecialchars($bg_image_url) ?>');"></div>
+        <div class="login-bg-container" style="background-image: url('<?= htmlspecialchars($bg_image_url) ?>'); filter: blur(<?= $bg_blur ?>px); transform: scale(<?= $bg_scale ?>);"></div>
 
         <!-- Centered Login Card -->
         <div class="login-card">
