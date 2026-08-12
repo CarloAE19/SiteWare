@@ -416,7 +416,11 @@ include 'layout/header.php';
                                         </button>
                                     <?php endif; ?>
 
-                                    <?php if (in_array($role, ['warehouse', 'admin']) && $rs['status'] === 'Approved'): ?>
+                                    <?php 
+                                    $isRestock = (($rs['type'] ?? 'project') === 'restock' || $rs['project_name'] === 'Warehouse Restock');
+                                    ?>
+
+                                    <?php if (in_array($role, ['warehouse', 'admin']) && $rs['status'] === 'Approved' && !$isRestock): ?>
                                         <form method="POST" action="process/process.php" class="d-inline">
                                             <input type="hidden" name="action" value="stage_rs_materials">
                                             <input type="hidden" name="rs_id" value="<?= $rs['id'] ?>">
