@@ -61,10 +61,9 @@ body {
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
-    filter: blur(12px);
-    transform: scale(1.08); /* Scales up to prevent edge artifacts from blur */
+    /* filter & transform are applied via inline style from PHP (DB-driven blur intensity) */
     z-index: -1;
-    transition: background-image 0.5s ease-in-out;
+    transition: background-image 0.5s ease-in-out, filter 0.4s ease-in-out;
 }
 
 /* Dark overlay to ensure white text & card pop */
