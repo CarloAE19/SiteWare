@@ -19,6 +19,25 @@ try {
     $pdo->exec("ALTER TABLE purchase_orders ADD COLUMN status VARCHAR(50) DEFAULT 'Generated'");
     $pdo->exec("ALTER TABLE purchase_orders ADD COLUMN delay_remarks TEXT");
     $pdo->exec("UPDATE purchase_orders SET status = 'Viber Order Sent' WHERE status = 'SMS Sent'");
+
+    // Clean existing duplicated discrepancy records in delay_remarks if present
+    $dupPos = $pdo->query("SELECT id, delay_remarks FROM purchase_orders WHERE delay_remarks LIKE '%[DELIVERY DISCREPANCY]:%[DELIVERY DISCREPANCY]:%'")->fetchAll(PDO::FETCH_ASSOC);
+    foreach ($dupPos as $dupPo) {
+        $parts = explode('[DELIVERY DISCREPANCY]:', $dupPo['delay_remarks']);
+        $unique = [];
+        foreach ($parts as $p) {
+            $t = trim($p);
+            if (!empty($t) && !in_array($t, $unique)) {
+                $unique[] = $t;
+            }
+        }
+        if (!empty($unique)) {
+            $cleanedText = implode("\n\n[DELIVERY DISCREPANCY]:\n", array_map(fn($u) => "[DELIVERY DISCREPANCY]:\n" . $u, $unique));
+            $cleanedText = str_replace("[DELIVERY DISCREPANCY]:\n[DELIVERY DISCREPANCY]:", "[DELIVERY DISCREPANCY]:", $cleanedText);
+            $cleanStmt = $pdo->prepare("UPDATE purchase_orders SET delay_remarks = ? WHERE id = ?");
+            $cleanStmt->execute([$cleanedText, $dupPo['id']]);
+        }
+    }
 } catch (PDOException $e) { /* Columns already exist */
 }
 
@@ -750,9 +769,32 @@ include 'layout/header.php';
     window.viewDiscrepancy = function (btnElem) {
         document.getElementById('discPoNo').innerText = btnElem.getAttribute('data-pono');
 
-        let rawText = btnElem.getAttribute('data-remarks');
-        rawText = rawText.replace(/\[DELIVERY DISCREPANCY\]:/g, '<span class="d-block text-danger fw-bold mb-1 border-bottom border-danger border-opacity-25 pb-2"><i class="bi bi-x-circle-fill me-1"></i> DELIVERY DISCREPANCY ISSUES</span>');
-        document.getElementById('discRemarks').innerHTML = rawText;
+        let rawText = btnElem.getAttribute('data-remarks') || '';
+
+        // Split by '[DELIVERY DISCREPANCY]:' and deduplicate entries
+        const parts = rawText.split('[DELIVERY DISCREPANCY]:');
+        const uniqueBlocks = [];
+        parts.forEach(part => {
+            const trimmed = part.trim();
+            if (trimmed && !uniqueBlocks.includes(trimmed)) {
+                uniqueBlocks.push(trimmed);
+            }
+        });
+
+        let cleanHtml = '';
+        if (uniqueBlocks.length > 0) {
+            uniqueBlocks.forEach(block => {
+                cleanHtml += `<div class="text-danger fw-bold mb-2 mt-2 pb-1 border-bottom border-danger border-opacity-25"><i class="bi bi-exclamation-triangle-fill me-1"></i> DELIVERY DISCREPANCY RECORD</div>`;
+                let blockText = block.replace(/⚠️ \[UNSUPPLIED \/ SOLD OUT\]/g, '<span class="badge bg-warning text-dark ms-1 shadow-sm"><i class="bi bi-x-circle-fill me-1"></i> UNSUPPLIED / SOLD OUT</span>');
+                blockText = blockText.replace(/\n/g, '<br>');
+                cleanHtml += `<div class="mb-3">${blockText}</div>`;
+            });
+        } else {
+            let blockText = rawText.replace(/⚠️ \[UNSUPPLIED \/ SOLD OUT\]/g, '<span class="badge bg-warning text-dark ms-1 shadow-sm"><i class="bi bi-x-circle-fill me-1"></i> UNSUPPLIED / SOLD OUT</span>');
+            cleanHtml = blockText.replace(/\n/g, '<br>');
+        }
+
+        document.getElementById('discRemarks').innerHTML = cleanHtml;
 
         let proofPath = btnElem.getAttribute('data-proof');
         if (proofPath && proofPath.includes('uploads/receipts/')) {
@@ -980,7 +1022,21 @@ include 'layout/header.php';
                 const remarksText = document.getElementById('printPoRemarks');
                 if (po.delay_remarks && po.delay_remarks.trim() !== '') {
                     remarksSec.classList.remove('d-none');
-                    remarksText.innerText = po.delay_remarks;
+                    let rawRemarks = po.delay_remarks.trim();
+                    const parts = rawRemarks.split('[DELIVERY DISCREPANCY]:');
+                    const uniqueBlocks = [];
+                    parts.forEach(part => {
+                        const trimmed = part.trim();
+                        if (trimmed && !uniqueBlocks.includes(trimmed)) {
+                            uniqueBlocks.push(trimmed);
+                        }
+                    });
+
+                    if (uniqueBlocks.length > 0) {
+                        remarksText.innerText = uniqueBlocks.map(b => '[DELIVERY DISCREPANCY]:\n' + b).join('\n\n');
+                    } else {
+                        remarksText.innerText = rawRemarks;
+                    }
                 } else {
                     remarksSec.classList.add('d-none');
                 }
