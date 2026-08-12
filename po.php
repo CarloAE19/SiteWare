@@ -19,6 +19,9 @@ try {
     $pdo->exec("ALTER TABLE purchase_orders ADD COLUMN status VARCHAR(50) DEFAULT 'Generated'");
     $pdo->exec("ALTER TABLE purchase_orders ADD COLUMN delay_remarks TEXT");
     $pdo->exec("UPDATE purchase_orders SET status = 'Viber Order Sent' WHERE status = 'SMS Sent'");
+    try {
+        $pdo->exec("ALTER TABLE requisitions ADD COLUMN approved_by INT NULL AFTER status");
+    } catch (PDOException $e) {}
 
     // Clean existing duplicated discrepancy records in delay_remarks if present
     $dupPos = $pdo->query("SELECT id, delay_remarks FROM purchase_orders WHERE delay_remarks LIKE '%[DELIVERY DISCREPANCY]:%[DELIVERY DISCREPANCY]:%'")->fetchAll(PDO::FETCH_ASSOC);
@@ -989,6 +992,10 @@ include 'layout/header.php';
                 document.getElementById('printProjectName').innerText = po.project_name || 'Warehouse Restock';
                 document.getElementById('printPoEta').innerText = data.formatted_eta;
                 document.getElementById('printPreparedBy').innerText = po.prepared_by_name || 'Purchasing Department';
+                const appByElem = document.getElementById('printApprovedBy');
+                if (appByElem) {
+                    appByElem.innerText = po.approved_by_name || 'Management / Supplier Authorization';
+                }
 
                 document.getElementById('printSupplierName').innerText = po.company_name || 'N/A';
                 document.getElementById('printSupplierContact').innerText = 'Attn: ' + (po.contact_person || 'N/A');
@@ -1249,19 +1256,22 @@ include 'layout/header.php';
             if (data.status === 'success') {
                 tbody.innerHTML = '';
                 if (data.items.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="2" class="text-center text-muted py-2">No items found.</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted py-2">No items found.</td></tr>';
                 } else {
                     data.items.forEach(item => {
                         const tr = document.createElement('tr');
+                        const unit = item.unit || 'pcs';
+                        const cat = item.category || 'General';
                         tr.innerHTML = `
                             <td class="fw-bold text-dark text-wrap">${item.item_name}</td>
-                            <td class="text-center fw-bold text-danger">${item.quantity}</td>
+                            <td class="text-muted"><span class="badge bg-light text-dark border">${cat}</span></td>
+                            <td class="text-center fw-bold text-danger">${item.quantity} ${unit}</td>
                         `;
                         tbody.appendChild(tr);
                     });
                 }
 
-                const msg = `Genetian Builders Construction PO: ${poNo}\nItems to purchase:\n${data.item_list}If you have any concerns or clarifications text or email here`;
+                const msg = `Genetian Builders Construction PO: ${poNo}\nItems to purchase:\n${data.item_list}\nIf you have any concerns or clarifications text or email here`;
                 document.getElementById('viberMessageText').value = msg;
             } else {
                 tbody.innerHTML = '<tr><td colspan="2" class="text-center text-danger py-2">Failed to load items.</td></tr>';
