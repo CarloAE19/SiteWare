@@ -357,12 +357,16 @@ elseif ($action === 'stage_rs_materials') {
     }
 
     $rs_id = $_POST['rs_id'];
-    $stmt = $pdo->prepare("UPDATE requisitions SET status = 'Staged (Ready for Pickup)' WHERE id = ?");
-    $stmt->execute([$rs_id]);
-
-    $rsData = $pdo->prepare("SELECT rs_no, requestor_id FROM requisitions WHERE id = ?");
+    $rsData = $pdo->prepare("SELECT rs_no, requestor_id, type, project_name FROM requisitions WHERE id = ?");
     $rsData->execute([$rs_id]);
     $rs = $rsData->fetch();
+
+    if ($rs && (($rs['type'] ?? '') === 'restock' || ($rs['project_name'] ?? '') === 'Warehouse Restock')) {
+        throw new Exception("Warehouse Restock requisitions cannot be staged for pickup. Please generate a Purchase Order instead.");
+    }
+
+    $stmt = $pdo->prepare("UPDATE requisitions SET status = 'Staged (Ready for Pickup)' WHERE id = ?");
+    $stmt->execute([$rs_id]);
 
     if ($rs && !empty($rs['requestor_id'])) {
         $msg = "Your requested materials for {$rs['rs_no']} have been pre-picked & staged by the Warehouse In-Charge. Ready for express pickup!";
