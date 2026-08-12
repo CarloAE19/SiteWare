@@ -294,8 +294,8 @@ elseif ($action === 'approve_rs') {
         $rsStatus = 'Partially Approved';
     }
 
-    $pdo->prepare("UPDATE requisitions SET status = ? WHERE id = ?")
-        ->execute([$rsStatus, $rs_id]);
+    $pdo->prepare("UPDATE requisitions SET status = ?, approved_by = ? WHERE id = ?")
+        ->execute([$rsStatus, $_SESSION['user_id'], $rs_id]);
 
     // Fetch RS info for notifications
     $rsData = $pdo->prepare("SELECT rs_no, requestor_id, type FROM requisitions WHERE id = ?");
