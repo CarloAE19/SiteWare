@@ -121,15 +121,18 @@ include 'layout/header.php';
 
             <?php if (in_array($_SESSION['user_role'], ['admin', 'management'])): ?>
                 <?php
-                // Fetch current login background setting
+                // Fetch current login background + blur settings
                 $bg_path = 'assets/img/default_login_bg.png';
+                $cur_blur = 12;
                 if (isset($pdo)) {
                     try {
-                        $stmt = $pdo->prepare("SELECT setting_value FROM system_settings WHERE setting_key = 'login_background'");
+                        $stmt = $pdo->prepare("SELECT setting_key, setting_value FROM system_settings WHERE setting_key IN ('login_background','login_blur')");
                         $stmt->execute();
-                        $db_bg = $stmt->fetchColumn();
-                        if ($db_bg)
-                            $bg_path = $db_bg;
+                        $lc_settings = $stmt->fetchAll(PDO::FETCH_KEY_PAIR);
+                        if (!empty($lc_settings['login_background']))
+                            $bg_path = $lc_settings['login_background'];
+                        if (isset($lc_settings['login_blur']) && $lc_settings['login_blur'] !== '')
+                            $cur_blur = (int) $lc_settings['login_blur'];
                     } catch (Exception $e) {
                     }
                 }
@@ -137,52 +140,256 @@ include 'layout/header.php';
                 // Build a root-relative URL to the background image
                 $profile_app_base = rtrim(str_replace('\\', '/', dirname($_SERVER['PHP_SELF'])), '/');
                 $bg_preview_url = $profile_app_base . '/' . ltrim($bg_path, '/') . '?v=' . $bg_version;
+                $cur_blur = max(0, min(30, $cur_blur));
+                $cur_scale = round(1 + ($cur_blur * 0.006), 3);
                 ?>
                 <div class="card border-0 shadow-sm mt-4">
                     <div class="card-header bg-white fw-bold py-3">
                         <i class="bi bi-image text-primary me-2"></i>Login Page Customization
                     </div>
                     <div class="card-body p-4">
-                        <h6 class="fw-bold mb-3 border-bottom pb-2">Custom Login Background</h6>
 
-                        <div class="row align-items-center">
-                            <div class="col-12 col-md-5 mb-3 mb-md-0">
-                                <label class="d-block fw-bold mb-2">Current Background Preview</label>
-                                <div class="position-relative border rounded overflow-hidden bg-light"
-                                    style="height: 140px;">
-                                    <img src="<?= htmlspecialchars($bg_preview_url) ?>" alt="Current Login Background"
-                                        class="w-100 h-100" style="object-fit: cover;">
+                        <!-- ===== LIVE PREVIEW ===== -->
+                        <h6 class="fw-bold mb-3 border-bottom pb-2">
+                            <i class="bi bi-eye me-1 text-primary"></i>Live Preview
+                        </h6>
+                        <div id="loginPreviewWrap" style="
+                            position: relative;
+                            width: 100%;
+                            height: 320px;
+                            border-radius: 12px;
+                            overflow: hidden;
+                            border: 1.5px solid #e2e8f0;
+                            background: #0f172a;
+                            margin-bottom: 1.5rem;
+                            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+                        ">
+                            <!-- Blurred background layer -->
+                            <div id="previewBgLayer" style="
+                                position: absolute; inset: 0;
+                                background-image: url('<?= htmlspecialchars($bg_preview_url) ?>');
+                                background-size: cover;
+                                background-position: center;
+                                filter: blur(<?= $cur_blur ?>px);
+                                transform: scale(<?= $cur_scale ?>);
+                                transform-origin: center;
+                                transition: filter 0.25s ease, transform 0.25s ease;
+                            "></div>
+                            <!-- Dark overlay -->
+                            <div style="position: absolute; inset: 0; background: rgba(15,23,42,0.45);"></div>
+
+                            <!-- ★ Scaled accurate login page replica ★ -->
+                            <div style="
+                                position: absolute; inset: 0;
+                                display: flex; flex-direction: column;
+                                align-items: center; justify-content: center;
+                                padding-bottom: 18px;
+                            ">
+                                <!-- Login card — full real size, then CSS-scaled down -->
+                                <div style="
+                                    transform: scale(0.52);
+                                    transform-origin: center center;
+                                    background: #ffffff;
+                                    width: 440px;
+                                    border-radius: 20px;
+                                    padding: 36px 40px 32px;
+                                    box-shadow: 0 25px 50px -12px rgba(0,0,0,0.35);
+                                    text-align: center;
+                                    flex-shrink: 0;
+                                    pointer-events: none;
+                                    user-select: none;
+                                ">
+                                    <!-- Logo -->
+                                    <img src="<?= $profile_app_base ?>/assets/LogoGB.png" alt="Logo" style="width:68px;height:68px;object-fit:contain;border-radius:14px;
+                                                background:#fff;padding:5px;
+                                                box-shadow:0 4px 12px rgba(0,0,0,0.08);
+                                                margin-bottom:10px;display:block;margin-left:auto;margin-right:auto;">
+                                    <!-- Brand name -->
+                                    <div
+                                        style="font-size:1.45rem;font-weight:800;color:#0f172a;letter-spacing:-0.02em;margin-bottom:2px;font-family:'Inter',sans-serif;">
+                                        SiteWare</div>
+                                    <!-- Heading -->
+                                    <div
+                                        style="font-size:1.55rem;font-weight:700;color:#0f172a;letter-spacing:-0.02em;margin-bottom:24px;font-family:'Inter',sans-serif;">
+                                        Login</div>
+
+                                    <!-- Username field -->
+                                    <div style="margin-bottom:18px;text-align:left;">
+                                        <div
+                                            style="font-size:0.78rem;font-weight:600;color:#475569;margin-bottom:6px;letter-spacing:0.02em;">
+                                            Username</div>
+                                        <div style="position:relative;">
+                                            <i class="bi bi-person"
+                                                style="position:absolute;left:14px;top:50%;transform:translateY(-50%);color:#64748b;font-size:1.05rem;z-index:1;"></i>
+                                            <div
+                                                style="width:100%;padding:11px 14px 11px 42px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:0.92rem;color:#94a3b8;background:#f1f5f9;font-family:'Inter',sans-serif;">
+                                                Enter you username
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Password field -->
+                                    <div style="margin-bottom:18px;text-align:left;">
+                                        <div
+                                            style="font-size:0.78rem;font-weight:600;color:#475569;margin-bottom:6px;letter-spacing:0.02em;">
+                                            Password</div>
+                                        <div style="position:relative;">
+                                            <i class="bi bi-lock"
+                                                style="position:absolute;left:14px;top:50%;transform:translateY(-50%);color:#64748b;font-size:1.05rem;z-index:1;"></i>
+                                            <i class="bi bi-eye-slash"
+                                                style="position:absolute;right:14px;top:50%;transform:translateY(-50%);color:#64748b;font-size:1.05rem;z-index:1;"></i>
+                                            <div
+                                                style="width:100%;padding:11px 42px 11px 42px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:0.92rem;color:#94a3b8;background:#f1f5f9;font-family:'Inter',sans-serif;">
+                                                Enter your password
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Login button -->
+                                    <div
+                                        style="background:linear-gradient(135deg,#4f46e5 0%,#3730a3 100%);color:#fff;font-size:0.95rem;font-weight:700;border-radius:10px;padding:13px;text-align:center;letter-spacing:0.02em;font-family:'Inter',sans-serif;box-shadow:0 4px 12px rgba(79,70,229,0.25);">
+                                        Login
+                                    </div>
                                 </div>
                             </div>
 
-                            <div class="col-12 col-md-7">
-                                <form method="POST" action="process/process.php" enctype="multipart/form-data" class="mb-3">
+                            <!-- Page footer replica -->
+                            <div
+                                style="position:absolute;bottom:8px;left:0;right:0;text-align:center;font-size:0.62rem;color:rgba(255,255,255,0.85);text-shadow:0 1px 3px rgba(0,0,0,0.7);letter-spacing:0.01em;pointer-events:none;">
+                                &copy; 2026 Genetian Builders &amp; Enterprises Inc. &nbsp;|&nbsp; Powered by <span
+                                    style="font-weight:700;text-decoration:underline;">The Medyas</span>
+                            </div>
+
+                            <!-- Blur badge -->
+                            <div style="
+                                position: absolute; top: 10px; right: 10px;
+                                background: rgba(0,0,0,0.55); backdrop-filter: blur(6px);
+                                color: #fff; font-size: 0.72rem; font-weight: 700;
+                                padding: 3px 9px; border-radius: 20px; letter-spacing: 0.02em;
+                            ">
+                                Blur: <span id="blurBadge"><?= $cur_blur ?>px</span>
+                            </div>
+                        </div>
+
+                        <div class="row g-4">
+                            <!-- LEFT: Background image upload -->
+                            <div class="col-12 col-md-6">
+                                <h6 class="fw-bold mb-3 border-bottom pb-2">
+                                    <i class="bi bi-image-fill me-1 text-primary"></i>Background Image
+                                </h6>
+                                <form method="POST" action="process/process.php" enctype="multipart/form-data" class="mb-3"
+                                    id="bgUploadForm">
                                     <input type="hidden" name="action" value="update_login_bg">
-                                    <label class="form-label fw-bold">Upload New Background Image</label>
+                                    <label class="form-label fw-bold small">Upload New Background</label>
                                     <div class="input-group mb-2">
-                                        <input type="file" class="form-control" name="login_bg" accept="image/*" required>
-                                        <button class="btn btn-brand fw-bold px-3" type="submit">
-                                            <i class="bi bi-upload me-1"></i> Upload
+                                        <input type="file" class="form-control form-control-sm" name="login_bg"
+                                            accept="image/jpeg,image/png,image/webp,image/gif" id="bgFileInput" required>
+                                        <button class="btn btn-brand btn-sm fw-bold px-3" type="submit">
+                                            <i class="bi bi-upload me-1"></i>Upload
                                         </button>
                                     </div>
-                                    <small class="text-muted d-block"><i class="bi bi-info-circle me-1"></i> Supported
-                                        formats: JPG, PNG, WEBP, GIF. Max file size: 5MB.</small>
+                                    <small class="text-muted"><i class="bi bi-info-circle me-1"></i>JPG, PNG, WEBP, GIF ·
+                                        Max 5MB</small>
                                 </form>
 
                                 <?php if ($bg_path !== 'assets/img/default_login_bg.png'): ?>
                                     <form method="POST" action="process/process.php">
                                         <input type="hidden" name="action" value="reset_login_bg">
                                         <button class="btn btn-outline-danger btn-sm fw-bold w-100" type="submit"
-                                            onclick="return confirm('Are you sure you want to reset the background image to default?');">
-                                            <i class="bi bi-arrow-counterclockwise me-1"></i> Reset to Default Image
+                                            onclick="return confirm('Reset the background image to default?');">
+                                            <i class="bi bi-arrow-counterclockwise me-1"></i>Reset to Default Image
                                         </button>
                                     </form>
                                 <?php endif; ?>
                             </div>
-                        </div>
-                    </div>
-                </div>
+
+                            <!-- RIGHT: Blur intensity slider -->
+                            <div class="col-12 col-md-6">
+                                <h6 class="fw-bold mb-3 border-bottom pb-2">
+                                    <i class="bi bi-sliders me-1 text-primary"></i>Blur Intensity
+                                </h6>
+                                <form method="POST" action="process/process.php" id="blurForm">
+                                    <input type="hidden" name="action" value="update_login_blur">
+
+                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                        <label class="form-label fw-bold small mb-0" for="blurSlider">Blur Amount</label>
+                                        <span class="badge bg-primary" id="blurValueBadge"><?= $cur_blur ?>px</span>
+                                    </div>
+
+                                    <input type="range" class="form-range" id="blurSlider" name="login_blur" min="0"
+                                        max="30" step="1" value="<?= $cur_blur ?>" style="accent-color: #4f46e5;">
+
+                                    <div class="d-flex justify-content-between text-muted"
+                                        style="font-size: 0.72rem; margin-top: -2px;">
+                                        <span>0px (No blur)</span>
+                                        <span>30px (Max blur)</span>
+                                    </div>
+
+                                    <!-- Preset buttons -->
+                                    <div class="d-flex gap-2 flex-wrap mt-3 mb-3">
+                                        <button type="button" class="btn btn-outline-secondary btn-sm blur-preset"
+                                            data-val="0">None</button>
+                                        <button type="button" class="btn btn-outline-secondary btn-sm blur-preset"
+                                            data-val="6">Light</button>
+                                        <button type="button" class="btn btn-outline-secondary btn-sm blur-preset"
+                                            data-val="12">Medium</button>
+                                        <button type="button" class="btn btn-outline-secondary btn-sm blur-preset"
+                                            data-val="20">Heavy</button>
+                                        <button type="button" class="btn btn-outline-secondary btn-sm blur-preset"
+                                            data-val="30">Max</button>
+                                    </div>
+
+                                    <button type="submit" class="btn btn-brand fw-bold w-100" id="saveBlurBtn">
+                                        <i class="bi bi-save me-1"></i>Save Blur Setting
+                                    </button>
+                                </form>
+                            </div>
+                        </div><!-- /row -->
+
+                    </div><!-- /card-body -->
+                </div><!-- /card -->
+
+                <script>
+                    (function () {
+                        const slider = document.getElementById('blurSlider');
+                        const valueBadge = document.getElementById('blurValueBadge');
+                        const blurBadge = document.getElementById('blurBadge');
+                        const bgLayer = document.getElementById('previewBgLayer');
+                        const bgFileInput = document.getElementById('bgFileInput');
+
+                        function applyBlur(val) {
+                            val = Math.max(0, Math.min(30, parseInt(val)));
+                            const scale = (1 + val * 0.006).toFixed(3);
+                            bgLayer.style.filter = `blur(${val}px)`;
+                            bgLayer.style.transform = `scale(${scale})`;
+                            valueBadge.textContent = val + 'px';
+                            blurBadge.textContent = val + 'px';
+                        }
+
+                        slider.addEventListener('input', () => applyBlur(slider.value));
+
+                        // Preset buttons
+                        document.querySelectorAll('.blur-preset').forEach(btn => {
+                            btn.addEventListener('click', () => {
+                                slider.value = btn.dataset.val;
+                                applyBlur(btn.dataset.val);
+                            });
+                        });
+
+                        // Image file picker → live preview
+                        bgFileInput.addEventListener('change', function () {
+                            const file = this.files[0];
+                            if (!file) return;
+                            const reader = new FileReader();
+                            reader.onload = e => {
+                                bgLayer.style.backgroundImage = `url('${e.target.result}')`;
+                            };
+                            reader.readAsDataURL(file);
+                        });
+                    })();
+                </script>
             <?php endif; ?>
+
 
         </div>
     </div>
