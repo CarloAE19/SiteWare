@@ -214,5 +214,22 @@ elseif ($action === 'add_project') {
     $_SESSION['msg_type'] = "success";
     header("Location: ../profile");
     exit;
+
+// --- LOGIN BLUR INTENSITY ---
+} elseif ($action === 'update_login_blur') {
+    if (!in_array($_SESSION['user_role'], ['admin', 'management'])) {
+        throw new Exception("Unauthorized. Only Admins and Management can change settings.");
+    }
+
+    $blur = isset($_POST['login_blur']) ? (int)$_POST['login_blur'] : 12;
+    $blur = max(0, min(30, $blur)); // clamp 0–30
+
+    $stmt = $pdo->prepare("INSERT INTO system_settings (setting_key, setting_value) VALUES ('login_blur', ?) ON DUPLICATE KEY UPDATE setting_value = ?");
+    $stmt->execute([$blur, $blur]);
+
+    $_SESSION['message'] = "Blur intensity updated to {$blur}px successfully!";
+    $_SESSION['msg_type'] = "success";
+    header("Location: ../profile");
+    exit;
 }
 ?>
