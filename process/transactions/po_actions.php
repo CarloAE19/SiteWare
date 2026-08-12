@@ -361,8 +361,9 @@ elseif ($action === 'mark_po_delivered') {
 
         if ($actual != $expected) {
             $hasDiscrepancy = true;
-            $discrepancyLog .= "\n- {$itemName} [Code: {$code}]: Expected {$expected}, Received {$actual}";
-            if ($unit_price > 0) {
+            $soldOutNote = ($actual == 0) ? " ⚠️ [UNSUPPLIED / SOLD OUT]" : "";
+            $discrepancyLog .= "\n- {$itemName} [Code: {$code}]: Expected {$expected}, Received {$actual}{$soldOutNote}";
+            if ($unit_price > 0 && $actual > 0) {
                 $discrepancyLog .= " (Unit Price: ₱" . number_format($unit_price, 2) . ")";
             }
         }
@@ -371,8 +372,22 @@ elseif ($action === 'mark_po_delivered') {
     if ($hasDiscrepancy) {
         $cleanDesc = trim($discrepancyLog);
 
-        $pdo->prepare("UPDATE purchase_orders SET status = 'Delivered (Discrepancy)', delay_remarks = CONCAT(IFNULL(delay_remarks,''), '\n\n[DELIVERY DISCREPANCY]:\n', ?), proof_of_receipt = COALESCE(?, proof_of_receipt), received_by = ? WHERE id = ?")
-            ->execute([$cleanDesc, $proofPath, $received_by, $po_id]);
+        // Fetch existing remarks and strip previous discrepancy blocks to prevent duplicate appends
+        $existingRemarksStmt = $pdo->prepare("SELECT delay_remarks FROM purchase_orders WHERE id = ?");
+        $existingRemarksStmt->execute([$po_id]);
+        $existingRemarks = $existingRemarksStmt->fetchColumn() ?: '';
+
+        if (strpos($existingRemarks, '[DELIVERY DISCREPANCY]:') !== false) {
+            $existingRemarks = preg_replace('/\[DELIVERY DISCREPANCY\]:.*$/s', '', $existingRemarks);
+            $existingRemarks = trim($existingRemarks);
+        }
+
+        $newRemarks = !empty($existingRemarks) 
+            ? $existingRemarks . "\n\n[DELIVERY DISCREPANCY]:\n" . $cleanDesc
+            : "[DELIVERY DISCREPANCY]:\n" . $cleanDesc;
+
+        $pdo->prepare("UPDATE purchase_orders SET status = 'Delivered (Discrepancy)', delay_remarks = ?, proof_of_receipt = COALESCE(?, proof_of_receipt), received_by = ? WHERE id = ?")
+            ->execute([$newRemarks, $proofPath, $received_by, $po_id]);
 
         $alertMsg = "DISCREPANCY ALERT for {$po_no}: Order arrived physically with missing or excess items!{$discrepancyLog}";
         $pdo->prepare("INSERT INTO notifications (target_role, title, message) VALUES ('purchasing', 'PO Discrepancy Found', ?)")->execute([$alertMsg]);
