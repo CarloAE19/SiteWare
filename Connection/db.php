@@ -137,10 +137,15 @@ try {
             urgency VARCHAR(50) DEFAULT 'Normal',
             remarks TEXT,
             status VARCHAR(50) DEFAULT 'Pending Approval',
+            approved_by INT NULL,
             type VARCHAR(50) DEFAULT 'project',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     ");
+
+    try {
+        $pdo->exec("ALTER TABLE requisitions ADD COLUMN approved_by INT NULL AFTER status");
+    } catch (PDOException $e) {}
 
     // 5. Create Requisition Items Table
     $pdo->exec("
