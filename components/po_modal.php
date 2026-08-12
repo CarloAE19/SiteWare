@@ -59,14 +59,15 @@ $approvedRS = $pdo->query("
                             <?php foreach ($approvedRS as $rs):
                                 $isPartial = $rs['status'] === 'Partially Approved';
                                 $statusLabel = $isPartial ? ' ⚠️ [Partially Approved]' : ' ✅ [Approved]';
-                            ?>
+                                ?>
                                 <option value="<?= $rs['id'] ?>"><?= $rs['rs_no'] ?> -
-                                    <?= htmlspecialchars($rs['project_name']) ?><?= $statusLabel ?>
+                                    <?= htmlspecialchars($rs['project_name']) ?>     <?= $statusLabel ?>
                                 </option>
                             <?php endforeach; ?>
                         </select>
                         <small class="text-muted d-block mt-2" style="font-size: 0.75rem;"><i
-                                class="bi bi-info-circle me-1"></i>Approved and Partially Approved RSes appear here. Only approved items from each RS will be included in the PO.</small>
+                                class="bi bi-info-circle me-1"></i>Approved and Partially Approved RSes appear here.
+                            Only approved items from each RS will be included in the PO.</small>
                     </div>
 
                     <!-- NEW: Item History Preview -->
@@ -235,18 +236,23 @@ $approvedRS = $pdo->query("
 
                     <div class="card border-0 shadow-sm bg-white mb-3 p-3">
                         <label class="form-label fw-bold small text-muted text-uppercase mb-2 text-center d-block">
-                            <i class="bi bi-paperclip me-1 text-primary"></i> Proof of Receipt (Upload Image or Take Live Photo)
+                            <i class="bi bi-paperclip me-1 text-primary"></i> Proof of Receipt (Upload Image or Take
+                            Live Photo)
                         </label>
 
                         <!-- Nav Pills for Dual Options: Upload Image vs Live Camera -->
-                        <ul class="nav nav-pills nav-justified mb-3 shadow-sm bg-light p-1 rounded-3" id="receiptProofTab" role="tablist">
+                        <ul class="nav nav-pills nav-justified mb-3 shadow-sm bg-light p-1 rounded-3"
+                            id="receiptProofTab" role="tablist">
                             <li class="nav-item" role="presentation">
-                                <button class="nav-link active fw-bold small py-2" id="upload-receipt-tab" data-bs-toggle="pill" data-bs-target="#uploadReceiptPane" type="button" role="tab" onclick="if(typeof stopReceiptCamera==='function') stopReceiptCamera();">
+                                <button class="nav-link active fw-bold small py-2" id="upload-receipt-tab"
+                                    data-bs-toggle="pill" data-bs-target="#uploadReceiptPane" type="button" role="tab"
+                                    onclick="if(typeof stopReceiptCamera==='function') stopReceiptCamera();">
                                     <i class="bi bi-upload me-1"></i> Upload Image / File
                                 </button>
                             </li>
                             <li class="nav-item" role="presentation">
-                                <button class="nav-link fw-bold small py-2" id="camera-receipt-tab" data-bs-toggle="pill" data-bs-target="#cameraReceiptPane" type="button" role="tab">
+                                <button class="nav-link fw-bold small py-2" id="camera-receipt-tab"
+                                    data-bs-toggle="pill" data-bs-target="#cameraReceiptPane" type="button" role="tab">
                                     <i class="bi bi-camera-fill me-1"></i> Live Camera Capture
                                 </button>
                             </li>
@@ -256,10 +262,12 @@ $approvedRS = $pdo->query("
                             <!-- Option 1: File Upload -->
                             <div class="tab-pane fade show active p-2" id="uploadReceiptPane" role="tabpanel">
                                 <div class="mb-2">
-                                    <input type="file" name="proof_of_receipt" id="proofOfReceiptFileInput" class="form-control fw-bold shadow-sm" accept="image/*,.pdf">
+                                    <input type="file" name="proof_of_receipt" id="proofOfReceiptFileInput"
+                                        class="form-control fw-bold shadow-sm" accept="image/*,.pdf">
                                 </div>
                                 <small class="text-muted d-block text-center" style="font-size: 0.75rem;">
-                                    <i class="bi bi-info-circle me-1"></i>Upload a photo or scanned file of the delivery receipt / invoice (JPG, PNG, WEBP, PDF).
+                                    <i class="bi bi-info-circle me-1"></i>Upload a photo or scanned file of the delivery
+                                    receipt / invoice (JPG, PNG, WEBP, PDF).
                                 </small>
                             </div>
 
@@ -302,7 +310,8 @@ $approvedRS = $pdo->query("
                                 </div>
 
                                 <small class="text-muted d-block mt-2" style="font-size: 0.75rem;">
-                                    <i class="bi bi-info-circle me-1"></i>Click "Open Camera" to capture live photo proof of delivery.
+                                    <i class="bi bi-info-circle me-1"></i>Click "Open Camera" to capture live photo
+                                    proof of delivery.
                                 </small>
                             </div>
                         </div>
@@ -381,7 +390,8 @@ $approvedRS = $pdo->query("
     <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content border-0 shadow-lg" style="border-top: 4px solid #7360f2 !important;">
             <div class="modal-header bg-white">
-                <h5 class="modal-title fw-bold" style="color: #7360f2;"><i class="fa-brands fa-viber me-2"></i>Review & Send Viber Order</h5>
+                <h5 class="modal-title fw-bold" style="color: #7360f2;"><i class="fa-brands fa-viber me-2"></i>Review &
+                    Send Viber Order</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <form id="viberPreviewForm">
@@ -389,42 +399,55 @@ $approvedRS = $pdo->query("
                     <!-- PO Details Info -->
                     <div class="row g-3 mb-4">
                         <div class="col-12 col-md-6">
-                            <label class="form-label fw-bold small text-muted text-uppercase">Purchase Order Number</label>
-                            <input type="text" id="viberPoNo" class="form-control fw-bold bg-white text-primary shadow-sm" readonly>
+                            <label class="form-label fw-bold small text-muted text-uppercase">Purchase Order
+                                Number</label>
+                            <input type="text" id="viberPoNo"
+                                class="form-control fw-bold bg-white text-primary shadow-sm" readonly>
                             <input type="hidden" id="viberPoId">
                         </div>
                         <div class="col-12 col-md-6">
-                            <label class="form-label fw-bold small text-muted text-uppercase">Recipient Phone Number</label>
+                            <label class="form-label fw-bold small text-muted text-uppercase">Recipient Phone
+                                Number</label>
                             <div class="input-group shadow-sm">
-                                <span class="input-group-text bg-white text-muted"><i class="bi bi-telephone-fill"></i></span>
-                                <input type="text" id="viberPhone" class="form-control fw-bold bg-white text-dark" placeholder="Enter recipient phone number..." required>
+                                <span class="input-group-text bg-white text-muted"><i
+                                        class="bi bi-telephone-fill"></i></span>
+                                <input type="text" id="viberPhone" class="form-control fw-bold bg-white text-dark"
+                                    placeholder="Enter recipient phone number..." required>
                             </div>
                         </div>
                     </div>
 
                     <!-- Select Supplier Dropdown -->
                     <div class="mb-4">
-                        <label class="form-label fw-bold small text-muted text-uppercase">Select Supplier <span class="text-danger">*</span></label>
+                        <label class="form-label fw-bold small text-muted text-uppercase">Select Supplier <span
+                                class="text-danger">*</span></label>
                         <select class="form-select fw-bold shadow-sm" id="viberSupplierSelect" required>
                             <option value="" disabled>-- Select Supplier --</option>
                             <?php foreach ($suppliers as $sup): ?>
-                                <option value="<?= $sup['id'] ?>" data-phone="<?= htmlspecialchars($sup['contact_number'] ?? '') ?>">
-                                    <?= htmlspecialchars($sup['company_name']) ?> (<?= htmlspecialchars($sup['contact_number'] ?: 'No Phone') ?>)
+                                <option value="<?= $sup['id'] ?>"
+                                    data-phone="<?= htmlspecialchars($sup['contact_number'] ?? '') ?>">
+                                    <?= htmlspecialchars($sup['company_name']) ?>
+                                    (<?= htmlspecialchars($sup['contact_number'] ?: 'No Phone') ?>)
                                 </option>
                             <?php endforeach; ?>
                         </select>
-                        <small class="text-muted d-block mt-2"><i class="bi bi-info-circle me-1"></i>Changing the supplier will send the order to the selected supplier and update this PO's record.</small>
+                        <small class="text-muted d-block mt-2"><i class="bi bi-info-circle me-1"></i>Changing the
+                            supplier will send the order to the selected supplier and update this PO's record.</small>
                     </div>
 
                     <!-- Materials to Buy List Preview -->
                     <div class="mb-4">
-                        <label class="form-label fw-bold small text-muted text-uppercase">Materials to Buy Preview</label>
-                        <div class="table-responsive border rounded shadow-sm bg-white" style="max-height: 200px; overflow-y: auto;">
-                            <table class="table table-sm table-hover align-middle mb-0 text-nowrap" style="font-size: 0.85rem;">
+                        <label class="form-label fw-bold small text-muted text-uppercase">Materials to Buy
+                            Preview</label>
+                        <div class="table-responsive border rounded shadow-sm bg-white"
+                            style="max-height: 200px; overflow-y: auto;">
+                            <table class="table table-sm table-hover align-middle mb-0 text-nowrap"
+                                style="font-size: 0.85rem;">
                                 <thead class="table-light text-muted">
                                     <tr>
                                         <th>Item Name</th>
-                                        <th class="text-center">Quantity</th>
+                                        <th>Category</th>
+                                        <th class="text-center">Quantity & Unit</th>
                                     </tr>
                                 </thead>
                                 <tbody id="viberItemsBody">
@@ -436,14 +459,19 @@ $approvedRS = $pdo->query("
 
                     <!-- Viber Message Editor -->
                     <div class="mb-2">
-                        <label class="form-label fw-bold small text-muted text-uppercase">Edit Viber Message Content</label>
-                        <textarea class="form-control fw-bold text-dark shadow-sm" id="viberMessageText" rows="6" style="font-family: monospace; font-size: 0.9rem;" required></textarea>
-                        <small class="text-muted d-block mt-2"><i class="bi bi-info-circle me-1"></i>You can review and modify the message above before dispatching via Viber.</small>
+                        <label class="form-label fw-bold small text-muted text-uppercase">Edit Viber Message
+                            Content</label>
+                        <textarea class="form-control fw-bold text-dark shadow-sm" id="viberMessageText" rows="6"
+                            style="font-family: monospace; font-size: 0.9rem;" required></textarea>
+                        <small class="text-muted d-block mt-2"><i class="bi bi-info-circle me-1"></i>You can review and
+                            modify the message above before dispatching via Viber.</small>
                     </div>
                 </div>
                 <div class="modal-footer bg-white border-top-0 justify-content-between p-3">
-                    <button type="button" class="btn btn-light text-muted fw-bold px-4" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" id="sendViberSubmitBtn" class="btn btn-viber fw-bold px-4 shadow-sm" onclick="triggerViberPoSend()"><i class="fa-brands fa-viber me-1"></i> Send via Viber</button>
+                    <button type="button" class="btn btn-light text-muted fw-bold px-4"
+                        data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" id="sendViberSubmitBtn" class="btn btn-viber fw-bold px-4 shadow-sm"
+                        onclick="triggerViberPoSend()"><i class="fa-brands fa-viber me-1"></i> Send via Viber</button>
                 </div>
             </form>
         </div>
@@ -560,14 +588,25 @@ $approvedRS = $pdo->query("
                         Purchase Manifest</h6>
                     <div class="table-responsive border rounded mb-4">
                         <table class="table table-bordered align-middle mb-0 text-nowrap" style="font-size: 0.9rem;">
-                            <thead class="table-dark text-uppercase small" style="background-color: #212529 !important; color: #ffffff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact;">
+                            <thead class="table-dark text-uppercase small"
+                                style="background-color: #212529 !important; color: #ffffff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact;">
                                 <tr style="background-color: #212529 !important; color: #ffffff !important;">
-                                    <th class="text-center" style="width: 40px; background-color: #212529 !important; color: #ffffff !important;">#</th>
-                                    <th style="background-color: #212529 !important; color: #ffffff !important;">Item Code</th>
-                                    <th style="background-color: #212529 !important; color: #ffffff !important;">Item Name</th>
-                                    <th class="text-center" style="background-color: #212529 !important; color: #ffffff !important;">Quantity</th>
-                                    <th class="text-end" style="background-color: #212529 !important; color: #ffffff !important;">Unit Price (₱)</th>
-                                    <th class="text-end" style="background-color: #212529 !important; color: #ffffff !important;">Total Amount (₱)</th>
+                                    <th class="text-center"
+                                        style="width: 40px; background-color: #212529 !important; color: #ffffff !important;">
+                                        #</th>
+                                    <th style="background-color: #212529 !important; color: #ffffff !important;">Item
+                                        Code</th>
+                                    <th style="background-color: #212529 !important; color: #ffffff !important;">Item
+                                        Name</th>
+                                    <th class="text-center"
+                                        style="background-color: #212529 !important; color: #ffffff !important;">
+                                        Quantity</th>
+                                    <th class="text-end"
+                                        style="background-color: #212529 !important; color: #ffffff !important;">Unit
+                                        Price (₱)</th>
+                                    <th class="text-end"
+                                        style="background-color: #212529 !important; color: #ffffff !important;">Total
+                                        Amount (₱)</th>
                                 </tr>
                             </thead>
                             <tbody id="printPoItemsBody">
@@ -597,10 +636,10 @@ $approvedRS = $pdo->query("
                                 style="font-size: 0.75rem;">Prepared By (Purchasing Officer)</small>
                         </div>
                         <div class="col-6">
-                            <div class="border-bottom border-dark pb-1 fw-bold text-dark">Management / Supplier
-                                Authorization</div>
+                            <div class="border-bottom border-dark pb-1 fw-bold text-dark" id="printApprovedBy">
+                                Management Authorization</div>
                             <small class="text-muted text-uppercase fw-bold d-block mt-1"
-                                style="font-size: 0.75rem;">Authorized Signature & Date</small>
+                                style="font-size: 0.75rem;">Approved By</small>
                         </div>
                     </div>
                 </div>
