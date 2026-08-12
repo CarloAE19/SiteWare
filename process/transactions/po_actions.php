@@ -143,11 +143,13 @@ elseif ($action === 'fetch_po_details') {
             s.address AS supplier_address, 
             r.rs_no, 
             r.project_name, 
-            u.name AS prepared_by_name
+            u.name AS prepared_by_name,
+            app_u.name AS approved_by_name
         FROM purchase_orders p
         LEFT JOIN suppliers s ON p.supplier_id = s.id
         LEFT JOIN requisitions r ON p.rs_id = r.id
         LEFT JOIN users u ON p.prepared_by = u.id
+        LEFT JOIN users app_u ON r.approved_by = app_u.id
         WHERE p.id = ?
     ");
     $poStmt->execute([$po_id]);
@@ -156,6 +158,16 @@ elseif ($action === 'fetch_po_details') {
     if (!$po) {
         echo json_encode(['status' => 'error', 'message' => 'Purchase Order not found.']);
         exit;
+    }
+
+    if (empty($po['approved_by_name'])) {
+        $mgrStmt = $pdo->query("SELECT name FROM users WHERE role = 'management' LIMIT 1");
+        $mgrName = $mgrStmt->fetchColumn();
+        if (!$mgrName) {
+            $adminStmt = $pdo->query("SELECT name FROM users WHERE role = 'admin' LIMIT 1");
+            $mgrName = $adminStmt->fetchColumn();
+        }
+        $po['approved_by_name'] = $mgrName ?: 'Management / Supplier Authorization';
     }
 
     $itemsStmt = $pdo->prepare("
