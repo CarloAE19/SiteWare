@@ -296,6 +296,10 @@ try {
     $stmt = $pdo->prepare("INSERT IGNORE INTO system_settings (setting_key, setting_value) VALUES ('login_background', 'assets/img/default_login_bg.png')");
     $stmt->execute();
 
+    // Seed default blur intensity (12px) if not exists
+    $stmt = $pdo->prepare("INSERT IGNORE INTO system_settings (setting_key, setting_value) VALUES ('login_blur', '12')");
+    $stmt->execute();
+
     // 15. Create Categories Table
     $pdo->exec("
         CREATE TABLE IF NOT EXISTS categories (
