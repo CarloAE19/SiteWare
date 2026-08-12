@@ -58,7 +58,11 @@ elseif ($action === 'fetch_po_viber_preview') {
     $po_id = $_POST['po_id'] ?? 0;
 
     $stmt = $pdo->prepare("
-        SELECT pi.quantity, COALESCE(i.item_name, pi.custom_item_name, pi.item_code) as item_name 
+        SELECT 
+            pi.quantity, 
+            COALESCE(i.item_name, pi.custom_item_name, pi.item_code) AS item_name,
+            COALESCE(i.unit, pi.unit, 'pcs') AS unit,
+            COALESCE(i.category, pi.category, 'General') AS category
         FROM po_items pi 
         LEFT JOIN inventory i ON pi.item_code = i.item_code 
         WHERE pi.po_id = ?
@@ -68,7 +72,8 @@ elseif ($action === 'fetch_po_viber_preview') {
 
     $itemList = "";
     foreach ($items as $item) {
-        $itemList .= "- {$item['quantity']}x {$item['item_name']}\n";
+        $unit = !empty($item['unit']) ? $item['unit'] : 'pcs';
+        $itemList .= "- {$item['quantity']} {$unit} {$item['item_name']}\n";
     }
 
     echo json_encode([
