@@ -6,7 +6,7 @@ require_once 'Connection/db.php';
 $role = $_SESSION['user_role'];
 
 // Fetch all Withdrawals
-$query = "SELECT w.*, u.name as releaser_name, r.requestor_name 
+$query = "SELECT w.*, u.name as releaser_name, u.signature_path as releaser_signature_path, r.requestor_name 
           FROM withdrawals w
           LEFT JOIN users u ON w.released_by = u.id
           LEFT JOIN requisitions r ON (w.remarks LIKE CONCAT('%', r.rs_no, '%') AND r.rs_no != '')
@@ -147,7 +147,7 @@ include 'layout/header.php';
                                 
                                 <td class="text-center" data-label="Actions">
                                     <?php $currentItemsJson = htmlspecialchars(json_encode($wdItemsGrouped[$wd['id']] ?? []), ENT_QUOTES, 'UTF-8'); ?>
-                                    <button class="btn btn-sm btn-outline-secondary fw-bold shadow-sm px-3" title="View Details" onclick="viewWdDetails('<?= $wd['withdrawal_no'] ?>', '<?= addslashes($wd['project_name']) ?>', '<?= addslashes($wd['remarks'] ?? '') ?>', '<?= $currentItemsJson ?>', '<?= addslashes($wd['releaser_name'] ?? '') ?>', '<?= addslashes($wd['requestor_name'] ?? 'N/A') ?>', '<?= addslashes($wd['received_by'] ?? 'N/A') ?>', '<?= addslashes($wd['signature_path'] ?? '') ?>', '<?= addslashes($wd['photo_proof_path'] ?? '') ?>')">
+                                    <button class="btn btn-sm btn-outline-secondary fw-bold shadow-sm px-3" title="View Details" onclick="viewWdDetails('<?= $wd['withdrawal_no'] ?>', '<?= addslashes($wd['project_name']) ?>', '<?= addslashes($wd['remarks'] ?? '') ?>', '<?= $currentItemsJson ?>', '<?= addslashes($wd['releaser_name'] ?? '') ?>', '<?= addslashes($wd['requestor_name'] ?? 'N/A') ?>', '<?= addslashes($wd['received_by'] ?? 'N/A') ?>', '<?= addslashes($wd['signature_path'] ?? '') ?>', '<?= addslashes($wd['photo_proof_path'] ?? '') ?>', '<?= addslashes($wd['releaser_signature_path'] ?? '') ?>')">
                                         <i class="bi bi-qr-code-scan me-1"></i> View Trail
                                     </button>
                                 </td>
