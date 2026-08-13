@@ -9,7 +9,14 @@ window.openPhotoWindow = function(url) {
 };
 
 // 1. VIEW WITHDRAWAL DETAILS MODAL
-window.viewWdDetails = function(wdNo, project, remarks, itemsJson, releaser = '', requestor = '', receivedBy = '', signaturePath = '', photoProofPath = '') {
+window.viewWdDetails = function(wdNo, project, remarks, itemsJson, releaser = '', requestor = '', receivedBy = '', signaturePath = '', photoProofPath = '', releaserSignaturePath = '') {
+    window.currentWdData = {
+        releaserSignaturePath: releaserSignaturePath || '',
+        signaturePath: signaturePath || '',
+        releaser: releaser || '',
+        receivedBy: receivedBy || ''
+    };
+
     document.getElementById('viewWdNo').innerText = wdNo;
     document.getElementById('viewWdProject').innerText = project;
     document.getElementById('viewWdRemarks').innerText = remarks ? remarks : 'No remarks.';
@@ -21,7 +28,7 @@ window.viewWdDetails = function(wdNo, project, remarks, itemsJson, releaser = ''
     function getSecureImageUrl(path, type) {
         if (!path || path.trim() === '') return '';
         const filename = path.split('/').pop();
-        return `secure-image?type=${type}&file=${encodeURIComponent(filename)}`;
+        return `secure_image.php?type=${type}&file=${encodeURIComponent(filename)}`;
     }
 
     // Signature Image
@@ -97,11 +104,26 @@ window.triggerWdPrint = function() {
     const remarks = document.getElementById('viewWdRemarks')?.innerText || 'No remarks.';
     const qrSrc = document.getElementById('viewWdQrCode')?.src || '';
 
-    const sigImg = document.getElementById('viewWdSignatureImg');
-    const photoImg = document.getElementById('viewWdPhotoImg');
+    let releaserSigSrc = '';
+    const releaserSigImg = document.getElementById('viewWdReleaserSigImg');
+    if (releaserSigImg && releaserSigImg.src && releaserSigImg.src.includes('secure')) {
+        releaserSigSrc = releaserSigImg.src;
+    } else if (window.currentWdData && window.currentWdData.releaserSignaturePath) {
+        const fn = window.currentWdData.releaserSignaturePath.split('/').pop();
+        releaserSigSrc = `secure_image.php?type=signatures&file=${encodeURIComponent(fn)}`;
+    }
 
-    const sigSrc = (sigImg && sigImg.src && sigImg.parentElement.style.display !== 'none') ? sigImg.src : '';
-    const photoSrc = (photoImg && photoImg.src && photoImg.parentElement.parentElement.style.display !== 'none') ? photoImg.src : '';
+    let receiverSigSrc = '';
+    const receiverSigImg = document.getElementById('viewWdReceiverSigImg') || document.getElementById('viewWdSignatureImg');
+    if (receiverSigImg && receiverSigImg.src && receiverSigImg.src.includes('secure')) {
+        receiverSigSrc = receiverSigImg.src;
+    } else if (window.currentWdData && window.currentWdData.signaturePath) {
+        const fn = window.currentWdData.signaturePath.split('/').pop();
+        receiverSigSrc = `secure_image.php?type=signatures&file=${encodeURIComponent(fn)}`;
+    }
+
+    const photoImg = document.getElementById('viewWdPhotoImg');
+    const photoSrc = (photoImg && photoImg.src && photoImg.src.includes('secure')) ? photoImg.src : '';
 
     // Copy rows from viewWdItemsBody
     const tbodySource = document.getElementById('viewWdItemsBody');
@@ -196,18 +218,20 @@ window.triggerWdPrint = function() {
             </div>
 
             <!-- SIGNATURE FORM FOOTER -->
-            <div style="display: flex; justify-content: space-between; margin-top: 20px; padding-top: 10px; border-top: 1px solid #888; page-break-inside: avoid;">
+            <div style="display: flex; justify-content: space-between; margin-top: 25px; padding-top: 10px; border-top: 1px solid #888; page-break-inside: avoid;">
                 <div style="text-align: center; width: 45%; position: relative;">
-                    <div style="height: 45px;"></div>
-                    <div style="font-weight: bold; border-top: 1px solid #000; padding-top: 3px; font-size: 13px;">${releaser}</div>
-                    <div style="font-size: 10px; color: #555; text-transform: uppercase; font-weight: bold;">Released By (Warehouse Officer)</div>
+                    <div style="min-height: 40px; display: flex; align-items: flex-end; justify-content: center;">
+                        ${releaserSigSrc ? `<img src="${releaserSigSrc}" style="max-height: 60px; max-width: 200px; object-fit: contain; background: transparent; margin-bottom: -18px; position: relative; z-index: 2;">` : '<div style="height: 40px;"></div>'}
+                    </div>
+                    <div style="font-weight: bold; border-top: 1px solid #000; padding-top: 3px; font-size: 13px; text-transform: uppercase; position: relative; z-index: 1;">${releaser}</div>
+                    <div style="font-size: 10px; color: #555; text-transform: uppercase; font-weight: bold; margin-top: 2px;">Released By (Warehouse Officer)</div>
                 </div>
                 <div style="text-align: center; width: 45%; position: relative;">
-                    <div style="min-height: 45px; display: flex; align-items: flex-end; justify-content: center;">
-                        ${sigSrc ? `<img src="${sigSrc}" style="max-height: 50px; max-width: 180px; object-fit: contain; background: transparent; margin-bottom: -8px; z-index: 2;">` : '<div style="height: 45px;"></div>'}
+                    <div style="min-height: 40px; display: flex; align-items: flex-end; justify-content: center;">
+                        ${receiverSigSrc ? `<img src="${receiverSigSrc}" style="max-height: 60px; max-width: 200px; object-fit: contain; background: transparent; margin-bottom: -18px; position: relative; z-index: 2;">` : '<div style="height: 40px;"></div>'}
                     </div>
-                    <div style="font-weight: bold; border-top: 1px solid #000; padding-top: 3px; font-size: 13px; position: relative; z-index: 1;">${receivedBy}</div>
-                    <div style="font-size: 10px; color: #555; text-transform: uppercase; font-weight: bold;">Received By (Authorized Recipient)</div>
+                    <div style="font-weight: bold; border-top: 1px solid #000; padding-top: 3px; font-size: 13px; text-transform: uppercase; position: relative; z-index: 1;">${receivedBy}</div>
+                    <div style="font-size: 10px; color: #555; text-transform: uppercase; font-weight: bold; margin-top: 2px;">Received By (Authorized Recipient)</div>
                 </div>
             </div>
         </div>
@@ -292,8 +316,11 @@ window.updateWdDeleteButtons = function(container) {
 window.html5RsScanner = window.html5RsScanner || null;
 
 window.startRsScanner = function() {
-    const modal = new bootstrap.Modal(document.getElementById('rsScannerModal'));
-    modal.show();
+    const scannerEl = document.getElementById('rsScannerModal');
+    if (scannerEl) {
+        const modal = bootstrap.Modal.getOrCreateInstance(scannerEl);
+        modal.show();
+    }
 
     document.getElementById('rsReader').style.display = 'block';
     document.getElementById('rsScannerResult').innerHTML = "Point your camera at the Approved RS Document QR Code...";
@@ -315,10 +342,16 @@ window.startRsScanner = function() {
             // Fetch data from backend via AJAX
             window.loadRsDataToWithdrawalForm(decodedText, function(success, msg) {
                 if (success) {
-                    bootstrap.Modal.getInstance(document.getElementById('rsScannerModal')).hide();
+                    if (scannerEl) {
+                        const scannerInstance = bootstrap.Modal.getInstance(scannerEl);
+                        if (scannerInstance) scannerInstance.hide();
+                    }
                     setTimeout(() => {
-                        new bootstrap.Modal(document.getElementById('withdrawModal')).show();
-                    }, 500);
+                        const withdrawModalEl = document.getElementById('withdrawModal');
+                        if (withdrawModalEl) {
+                            bootstrap.Modal.getOrCreateInstance(withdrawModalEl).show();
+                        }
+                    }, 400);
                 } else {
                     document.getElementById('rsScannerResult').innerHTML = `<span class="text-danger fw-bold"><i class="bi bi-x-circle me-1"></i> ${msg}</span>`;
                 }
@@ -548,7 +581,27 @@ document.addEventListener('DOMContentLoaded', function() {
         const sigDataInput = document.getElementById('signatureData');
         const clearBtn = document.getElementById('clearSignatureBtn');
 
+        function ensureCanvasSize() {
+            const rect = canvas.getBoundingClientRect();
+            if (rect.width > 0 && rect.height > 0 && (canvas.width === 0 || canvas.height === 0 || canvas.width !== Math.round(rect.width))) {
+                canvas.width = Math.round(rect.width);
+                canvas.height = Math.round(rect.height);
+                ctx.lineWidth = 2.5;
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+                ctx.strokeStyle = '#000000';
+            }
+        }
+
+        const withdrawModalEl = document.getElementById('withdrawModal');
+        if (withdrawModalEl) {
+            withdrawModalEl.addEventListener('shown.bs.modal', function () {
+                setTimeout(ensureCanvasSize, 100);
+            });
+        }
+
         function getPos(e) {
+            ensureCanvasSize();
             const rect = canvas.getBoundingClientRect();
             const clientX = (e.touches && e.touches.length > 0) ? e.touches[0].clientX : e.clientX;
             const clientY = (e.touches && e.touches.length > 0) ? e.touches[0].clientY : e.clientY;
@@ -609,8 +662,22 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Fullscreen Signature Pad logic
+    document.addEventListener('click', function(e) {
+        const btn = e.target.closest('#openFullSigBtn');
+        if (btn) {
+            e.preventDefault();
+            e.stopPropagation();
+            const fullModalEl = document.getElementById('fullSigModal');
+            if (fullModalEl) {
+                const modalInstance = bootstrap.Modal.getOrCreateInstance(fullModalEl);
+                modalInstance.show();
+            }
+        }
+    });
+
     const fullModalEl = document.getElementById('fullSigModal');
     const fullCanvas = document.getElementById('fullSigCanvas');
+
     if (fullModalEl && fullCanvas) {
         const fullCtx = fullCanvas.getContext('2d');
         let fullIsDrawing = false;
@@ -620,6 +687,9 @@ document.addEventListener('DOMContentLoaded', function() {
         const saveFullBtn = document.getElementById('saveFullSigBtn');
 
         fullModalEl.addEventListener('shown.bs.modal', function () {
+            const botContainer = document.getElementById('cims-chatbot-container');
+            if (botContainer) botContainer.style.setProperty('display', 'none', 'important');
+
             const rect = fullCanvas.getBoundingClientRect();
             const isRotated = window.matchMedia("(max-width: 991px) and (orientation: portrait)").matches;
 
@@ -649,15 +719,43 @@ document.addEventListener('DOMContentLoaded', function() {
         });
 
         fullModalEl.addEventListener('hidden.bs.modal', function () {
+            const botContainer = document.getElementById('cims-chatbot-container');
+            if (botContainer) botContainer.style.removeProperty('display');
+
             if (screen.orientation && screen.orientation.unlock) {
                 try { screen.orientation.unlock(); } catch(e) {}
             } else if (screen.unlockOrientation) {
                 try { screen.unlockOrientation(); } catch(e) {}
             }
+
+            // Restore modal-open state so withdrawModal stays active and scrollable
+            const withdrawModalEl = document.getElementById('withdrawModal');
+            if (withdrawModalEl && (withdrawModalEl.classList.contains('show') || withdrawModalEl.style.display === 'block')) {
+                document.body.classList.add('modal-open');
+                if (!document.querySelector('.modal-backdrop')) {
+                    const backdrop = document.createElement('div');
+                    backdrop.className = 'modal-backdrop fade show';
+                    document.body.appendChild(backdrop);
+                }
+            }
         });
 
         function getFullPos(e) {
             const rect = fullCanvas.getBoundingClientRect();
+            if ((fullCanvas.width === 0 || fullCanvas.height === 0) && rect.width > 0 && rect.height > 0) {
+                const isRotated = window.matchMedia("(max-width: 991px) and (orientation: portrait)").matches;
+                if (isRotated) {
+                    fullCanvas.width = Math.round(rect.height);
+                    fullCanvas.height = Math.round(rect.width);
+                } else {
+                    fullCanvas.width = Math.round(rect.width);
+                    fullCanvas.height = Math.round(rect.height);
+                }
+                fullCtx.lineWidth = 3;
+                fullCtx.lineCap = 'round';
+                fullCtx.lineJoin = 'round';
+                fullCtx.strokeStyle = '#000000';
+            }
             const clientX = (e.touches && e.touches.length > 0) ? e.touches[0].clientX : e.clientX;
             const clientY = (e.touches && e.touches.length > 0) ? e.touches[0].clientY : e.clientY;
 
@@ -721,6 +819,15 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
 
+        const cancelFullBtn = document.getElementById('cancelFullSigBtn');
+        if (cancelFullBtn) {
+            cancelFullBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                const modalInstance = bootstrap.Modal.getInstance(fullModalEl);
+                if (modalInstance) modalInstance.hide();
+            });
+        }
+
         if (saveFullBtn) {
             saveFullBtn.addEventListener('click', function() {
                 if (!fullHasSignature) {
@@ -729,26 +836,31 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
                 const dataUrl = fullCanvas.toDataURL('image/png');
                 
-                // Transfer to inline canvas
-                const inlineCanvas = document.getElementById('signatureCanvas');
                 const sigDataInput = document.getElementById('signatureData');
-                const placeholder = document.getElementById('sigPlaceholder');
+                const drawnPreviewWrap = document.getElementById('wdSigDrawnPreview');
+                const previewImg = document.getElementById('wdSigPreviewImg');
 
-                if (inlineCanvas) {
-                    const inlineCtx = inlineCanvas.getContext('2d');
-                    const img = new Image();
-                    img.onload = function() {
-                        inlineCtx.clearRect(0, 0, inlineCanvas.width, inlineCanvas.height);
-                        inlineCtx.drawImage(img, 0, 0, inlineCanvas.width, inlineCanvas.height);
-                        if (placeholder) placeholder.style.display = 'none';
-                        if (sigDataInput) sigDataInput.value = dataUrl;
-                    };
-                    img.src = dataUrl;
-                }
+                if (sigDataInput) sigDataInput.value = dataUrl;
+                if (previewImg) previewImg.src = dataUrl;
+                if (drawnPreviewWrap) drawnPreviewWrap.classList.remove('d-none');
                 
                 // Hide modal
                 const modalInstance = bootstrap.Modal.getInstance(fullModalEl);
                 if (modalInstance) modalInstance.hide();
+            });
+        }
+
+        const clearWdDrawnBtn = document.getElementById('clearWdDrawnSigBtn');
+        if (clearWdDrawnBtn) {
+            clearWdDrawnBtn.addEventListener('click', function() {
+                const sigDataInput = document.getElementById('signatureData');
+                const drawnPreviewWrap = document.getElementById('wdSigDrawnPreview');
+                const previewImg = document.getElementById('wdSigPreviewImg');
+
+                if (sigDataInput) sigDataInput.value = '';
+                if (previewImg) previewImg.src = '';
+                if (drawnPreviewWrap) drawnPreviewWrap.classList.add('d-none');
+                fullHasSignature = false;
             });
         }
     }
