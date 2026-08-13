@@ -375,6 +375,37 @@ html, body {
     color: var(--gb-dark-text-muted) !important;
 }
 
+/* E-Signature Canvas & Preview Contrast Protection for Dark Mode */
+.sig-preview-box,
+.sig-white-bg,
+#profileFullSigCanvas,
+#fullSigCanvas,
+#profileSigDrawnPreview {
+    background-color: #ffffff !important;
+}
+
+[data-bs-theme="dark"] .sig-preview-box,
+[data-bs-theme="dark"] .sig-white-bg,
+[data-bs-theme="dark"] #profileFullSigCanvas,
+[data-bs-theme="dark"] #fullSigCanvas,
+[data-bs-theme="dark"] #profileSigDrawnPreview {
+    background-color: #ffffff !important;
+    color: #0f172a !important;
+}
+
+[data-bs-theme="dark"] #profileFullSigPlaceholder,
+[data-bs-theme="dark"] #fullSigPlaceholder {
+    color: #6c757d !important;
+}
+
+/* Hide Chatbot Assistant when Fullscreen Signature Modal is Active */
+#fullSigModal.show ~ #cims-chatbot-container,
+#profileFullSigModal.show ~ #cims-chatbot-container,
+body:has(#fullSigModal.show) #cims-chatbot-container,
+body:has(#profileFullSigModal.show) #cims-chatbot-container {
+    display: none !important;
+}
+
 /* Cards & Containers */
 [data-bs-theme="dark"] .card {
     background-color: var(--gb-dark-surface) !important;
