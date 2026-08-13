@@ -339,6 +339,34 @@ window.openPoModalByNo = async function(poNo) {
         document.getElementById('viewPoPreparedBy').innerText = po.prepared_by;
         document.getElementById('viewPoTotalVal').innerText = '₱' + Number(po.total_value).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+        const prepByText = document.getElementById('viewPoPreparedByText');
+        if (prepByText) prepByText.innerText = po.prepared_by || '-';
+        const prepWrap = document.getElementById('viewPoPrepSigWrap');
+        const prepImg = document.getElementById('viewPoPrepSigImg');
+        if (prepWrap && prepImg) {
+            if (po.prepared_signature && po.prepared_signature.trim() !== '') {
+                const fn = po.prepared_signature.split('/').pop();
+                prepImg.src = `${basePath}/secure_image.php?type=signatures&file=${encodeURIComponent(fn)}`;
+                prepWrap.classList.remove('d-none');
+            } else {
+                prepWrap.classList.add('d-none');
+            }
+        }
+
+        const appByText = document.getElementById('viewPoApprovedByText');
+        if (appByText) appByText.innerText = po.approved_by || 'Management Authorization';
+        const appWrap = document.getElementById('viewPoAppSigWrap');
+        const appImg = document.getElementById('viewPoAppSigImg');
+        if (appWrap && appImg) {
+            if (po.approved_signature && po.approved_signature.trim() !== '') {
+                const fn = po.approved_signature.split('/').pop();
+                appImg.src = `${basePath}/secure_image.php?type=signatures&file=${encodeURIComponent(fn)}`;
+                appWrap.classList.remove('d-none');
+            } else {
+                appWrap.classList.add('d-none');
+            }
+        }
+
         const statusEl = document.getElementById('viewPoStatus');
         if (statusEl) {
             statusEl.innerText = po.status;
@@ -411,12 +439,47 @@ window.openWithdrawalModalByNo = async function(withdrawalNo) {
         const wd = data.withdrawal;
         const items = data.items || [];
 
+        window.currentWdData = {
+            releaserSignaturePath: wd.releaser_signature_path || '',
+            signaturePath: wd.signature_path || '',
+            releaser: wd.releaser_name || '',
+            receivedBy: wd.received_by || ''
+        };
+
         document.getElementById('viewWdNo').innerText = wd.withdrawal_no;
         document.getElementById('viewWdProject').innerText = wd.project_name;
         document.getElementById('viewWdDate').innerText = wd.date_withdrawn;
         document.getElementById('viewWdReleaser').innerText = wd.releaser_name;
         document.getElementById('viewWdReceiver').innerText = wd.received_by;
         document.getElementById('viewWdRemarks').innerText = wd.remarks;
+
+        const releaserText = document.getElementById('viewWdReleaserText');
+        if (releaserText) releaserText.innerText = wd.releaser_name || '-';
+        const relWrap = document.getElementById('viewWdReleaserSigWrap');
+        const relImg = document.getElementById('viewWdReleaserSigImg');
+        if (relWrap && relImg) {
+            if (wd.releaser_signature_path && wd.releaser_signature_path.trim() !== '') {
+                const fn = wd.releaser_signature_path.split('/').pop();
+                relImg.src = `${basePath}/secure_image.php?type=signatures&file=${encodeURIComponent(fn)}`;
+                relWrap.classList.remove('d-none');
+            } else {
+                relWrap.classList.add('d-none');
+            }
+        }
+
+        const receiverText = document.getElementById('viewWdReceiverText');
+        if (receiverText) receiverText.innerText = wd.received_by || '-';
+        const recWrap = document.getElementById('viewWdReceiverSigWrap');
+        const recImg = document.getElementById('viewWdReceiverSigImg');
+        if (recWrap && recImg) {
+            if (wd.signature_path && wd.signature_path.trim() !== '') {
+                const fn = wd.signature_path.split('/').pop();
+                recImg.src = `${basePath}/secure_image.php?type=signatures&file=${encodeURIComponent(fn)}`;
+                recWrap.classList.remove('d-none');
+            } else {
+                recWrap.classList.add('d-none');
+            }
+        }
 
         const tbody = document.getElementById('viewWdItemsBody');
         if (tbody) {
