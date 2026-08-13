@@ -628,18 +628,28 @@ $approvedRS = $pdo->query("
                         <div class="p-3 bg-light border rounded small text-dark" id="printPoRemarks"></div>
                     </div>
 
-                    <!-- Official Signatures Footer -->
-                    <div class="row text-center mt-5 pt-3">
+                    <!-- Official Signatures Footer (Signature Over Printed Name) -->
+                    <div class="row text-center mt-4 pt-3">
                         <div class="col-6">
-                            <div class="border-bottom border-dark pb-1 fw-bold text-dark" id="printPreparedBy">-</div>
+                            <div class="d-flex flex-column align-items-center justify-content-end" style="min-height: 45px;">
+                                <div id="preparedSigImgWrap" class="d-none" style="position: relative; margin-bottom: -22px; z-index: 2; pointer-events: none;">
+                                    <img id="printPreparedSigImg" src="" alt="Purchasing Signature" style="max-height: 65px; max-width: 220px; object-fit: contain;">
+                                </div>
+                            </div>
+                            <div class="border-bottom border-dark pb-1 fw-bold text-dark text-uppercase position-relative" style="z-index: 1;" id="printPreparedBy">-</div>
                             <small class="text-muted text-uppercase fw-bold d-block mt-1"
                                 style="font-size: 0.75rem;">Prepared By (Purchasing Officer)</small>
                         </div>
                         <div class="col-6">
-                            <div class="border-bottom border-dark pb-1 fw-bold text-dark" id="printApprovedBy">
+                            <div class="d-flex flex-column align-items-center justify-content-end" style="min-height: 45px;">
+                                <div id="approvedSigImgWrap" class="d-none" style="position: relative; margin-bottom: -22px; z-index: 2; pointer-events: none;">
+                                    <img id="printApprovedSigImg" src="" alt="Management Signature" style="max-height: 65px; max-width: 220px; object-fit: contain;">
+                                </div>
+                            </div>
+                            <div class="border-bottom border-dark pb-1 fw-bold text-dark text-uppercase position-relative" style="z-index: 1;" id="printApprovedBy">
                                 Management Authorization</div>
                             <small class="text-muted text-uppercase fw-bold d-block mt-1"
-                                style="font-size: 0.75rem;">Approved By</small>
+                                style="font-size: 0.75rem;">Approved By (Management)</small>
                         </div>
                     </div>
                 </div>
