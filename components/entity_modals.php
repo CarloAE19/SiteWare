@@ -56,6 +56,28 @@ define('CIMS_ENTITY_MODALS_LOADED', true);
                         <tbody id="viewPoItemsBody"></tbody>
                     </table>
                 </div>
+
+                <!-- Signature Over Printed Name Footer -->
+                <div class="row text-center mt-4 pt-3 border-top">
+                    <div class="col-6">
+                        <div class="d-flex flex-column align-items-center justify-content-end" style="min-height: 45px;">
+                            <div id="viewPoPrepSigWrap" class="d-none" style="position: relative; margin-bottom: -20px; z-index: 2; pointer-events: none;">
+                                <img id="viewPoPrepSigImg" src="" alt="Purchasing Signature" style="max-height: 60px; max-width: 200px; object-fit: contain;">
+                            </div>
+                        </div>
+                        <div class="border-bottom border-dark pb-1 fw-bold text-dark text-uppercase small position-relative" style="z-index: 1;" id="viewPoPreparedByText">-</div>
+                        <small class="text-muted text-uppercase fw-bold d-block mt-1" style="font-size: 0.7rem;">Prepared By (Purchasing Officer)</small>
+                    </div>
+                    <div class="col-6">
+                        <div class="d-flex flex-column align-items-center justify-content-end" style="min-height: 45px;">
+                            <div id="viewPoAppSigWrap" class="d-none" style="position: relative; margin-bottom: -20px; z-index: 2; pointer-events: none;">
+                                <img id="viewPoAppSigImg" src="" alt="Management Signature" style="max-height: 60px; max-width: 200px; object-fit: contain;">
+                            </div>
+                        </div>
+                        <div class="border-bottom border-dark pb-1 fw-bold text-dark text-uppercase small position-relative" style="z-index: 1;" id="viewPoApprovedByText">Management Authorization</div>
+                        <small class="text-muted text-uppercase fw-bold d-block mt-1" style="font-size: 0.7rem;">Approved By (Management)</small>
+                    </div>
+                </div>
             </div>
 
             <div class="modal-footer justify-content-end bg-white border-top-0">
@@ -105,9 +127,31 @@ define('CIMS_ENTITY_MODALS_LOADED', true);
                     </table>
                 </div>
 
-                <div>
+                <div class="mb-3">
                     <h6 class="fw-bold mb-2 text-dark small text-uppercase">Remarks / Transaction Notes:</h6>
                     <p class="text-muted small border p-3 bg-white rounded shadow-sm mb-0" id="viewWdRemarks">No remarks provided.</p>
+                </div>
+
+                <!-- Signature Over Printed Name Footer -->
+                <div class="row text-center mt-4 pt-3 border-top">
+                    <div class="col-6">
+                        <div class="d-flex flex-column align-items-center justify-content-end" style="min-height: 45px;">
+                            <div id="viewWdReleaserSigWrap" class="d-none" style="position: relative; margin-bottom: -20px; z-index: 2; pointer-events: none;">
+                                <img id="viewWdReleaserSigImg" src="" alt="Releaser Signature" style="max-height: 60px; max-width: 200px; object-fit: contain;">
+                            </div>
+                        </div>
+                        <div class="border-bottom border-dark pb-1 fw-bold text-dark text-uppercase small position-relative" style="z-index: 1;" id="viewWdReleaserText">-</div>
+                        <small class="text-muted text-uppercase fw-bold d-block mt-1" style="font-size: 0.7rem;">Released By (Warehouse Officer)</small>
+                    </div>
+                    <div class="col-6">
+                        <div class="d-flex flex-column align-items-center justify-content-end" style="min-height: 45px;">
+                            <div id="viewWdReceiverSigWrap" class="d-none" style="position: relative; margin-bottom: -20px; z-index: 2; pointer-events: none;">
+                                <img id="viewWdReceiverSigImg" src="" alt="Recipient Signature" style="max-height: 60px; max-width: 200px; object-fit: contain;">
+                            </div>
+                        </div>
+                        <div class="border-bottom border-dark pb-1 fw-bold text-dark text-uppercase small position-relative" style="z-index: 1;" id="viewWdReceiverText">-</div>
+                        <small class="text-muted text-uppercase fw-bold d-block mt-1" style="font-size: 0.7rem;">Received By (Recipient / Requestor)</small>
+                    </div>
                 </div>
             </div>
 
