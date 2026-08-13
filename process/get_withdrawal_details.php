@@ -20,7 +20,7 @@ if (empty($withdrawalNo)) {
 try {
     // 1. Fetch Withdrawal details
     $wStmt = $pdo->prepare("
-        SELECT w.*, u.name as releaser_name, r.requestor_name
+        SELECT w.*, u.name as releaser_name, u.signature_path as releaser_signature_path, r.requestor_name
         FROM withdrawals w
         LEFT JOIN users u ON w.released_by = u.id
         LEFT JOIN requisitions r ON (w.remarks LIKE CONCAT('%', r.rs_no, '%') AND r.rs_no != '')
@@ -32,6 +32,17 @@ try {
     if (!$withdrawal) {
         echo json_encode(['success' => false, 'error' => 'Withdrawal Slip ' . htmlspecialchars($withdrawalNo) . ' not found.']);
         exit;
+    }
+
+    if (empty($withdrawal['releaser_signature_path'])) {
+        $whStmt = $pdo->query("SELECT signature_path, name FROM users WHERE role IN ('warehouse', 'admin') AND signature_path IS NOT NULL AND signature_path != '' ORDER BY role ASC LIMIT 1");
+        $whUser = $whStmt->fetch(PDO::FETCH_ASSOC);
+        if ($whUser) {
+            $withdrawal['releaser_signature_path'] = $whUser['signature_path'];
+            if (empty($withdrawal['releaser_name']) || $withdrawal['releaser_name'] === 'Warehouse Officer') {
+                $withdrawal['releaser_name'] = $whUser['name'];
+            }
+        }
     }
 
     // 2. Fetch items for this Withdrawal
@@ -53,6 +64,7 @@ try {
             'withdrawal_no' => $withdrawal['withdrawal_no'],
             'project_name' => $withdrawal['project_name'] ?: 'N/A',
             'releaser_name' => $withdrawal['releaser_name'] ?: 'Warehouse Officer',
+            'releaser_signature_path' => $withdrawal['releaser_signature_path'] ?: null,
             'received_by' => $withdrawal['received_by'] ?: 'N/A',
             'requestor_name' => $withdrawal['requestor_name'] ?: 'N/A',
             'remarks' => $withdrawal['remarks'] ?: 'No remarks provided.',
