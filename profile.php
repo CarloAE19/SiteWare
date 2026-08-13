@@ -9,7 +9,7 @@ require_once 'Connection/db.php';
 $userId = $_SESSION['user_id'];
 
 // Fetch current user's data
-$stmt = $pdo->prepare("SELECT name, username, role, created_at FROM users WHERE id = ?");
+$stmt = $pdo->prepare("SELECT name, username, role, created_at, signature_path FROM users WHERE id = ?");
 $stmt->execute([$userId]);
 $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -116,6 +116,199 @@ include 'layout/header.php';
                             </button>
                         </div>
                     </form>
+                </div>
+            </div>
+
+            <!-- E-SIGNATURE CARD -->
+            <div class="card border-0 shadow-sm mt-4">
+                <div
+                    class="card-header bg-white fw-bold py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <div>
+                        <i class="bi bi-pen-fill text-primary me-2"></i>Official Digital E-Signature
+                    </div>
+                </div>
+                <div class="card-body p-4">
+                    <p class="text-muted small mb-3">
+                        Your registered E-Signature will automatically be attached above your printed name on official
+                        <strong>Purchase Orders</strong> and <strong>Withdrawal Slips</strong> when creating or
+                        approving transactions.
+                    </p>
+
+                    <div class="row align-items-center mb-2">
+                        <div class="col-12 col-md-5 text-center mb-3 mb-md-0 border-end pe-md-4">
+                            <label class="form-label fw-bold d-block text-secondary small text-uppercase mb-2">Current
+                                Registered Signature</label>
+                            <?php if (!empty($user['signature_path']) && file_exists(__DIR__ . '/' . $user['signature_path'])): ?>
+                                <div class="p-2 border rounded sig-preview-box d-inline-block shadow-sm w-100 mb-2" style="background-color: #ffffff !important;">
+                                    <img src="secure_image.php?type=signatures&file=<?= urlencode(basename($user['signature_path'])) ?>&v=<?= time() ?>"
+                                        alt="User Signature" class="img-fluid"
+                                        style="max-height: 90px; object-fit: contain;">
+                                </div>
+                                <div>
+                                    <span class="badge bg-success-subtle text-success border border-success-subtle">
+                                        <i class="bi bi-check-circle-fill me-1"></i>Active Signature Registered
+                                    </span>
+                                </div>
+                            <?php else: ?>
+                                <div class="p-3 border rounded bg-light text-muted d-block text-center w-100 mb-2">
+                                    <i class="bi bi-file-earmark-x display-6 d-block mb-1 text-secondary"></i>
+                                    <span class="small fw-bold">No Signature Registered</span>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+
+                        <div class="col-12 col-md-7 ps-md-4">
+                            <!-- Nav tabs for Draw vs Upload -->
+                            <ul class="nav nav-pills nav-fill mb-3 bg-light p-1 rounded border" id="sigTypeTabs"
+                                role="tablist">
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link active fw-bold btn-sm py-1" id="draw-tab"
+                                        data-bs-toggle="tab" data-bs-target="#draw-sig-pane" type="button" role="tab">
+                                        <i class="bi bi-pencil-square me-1"></i> Draw Pad
+                                    </button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link fw-bold btn-sm py-1" id="upload-tab" data-bs-toggle="tab"
+                                        data-bs-target="#upload-sig-pane" type="button" role="tab">
+                                        <i class="bi bi-cloud-arrow-up me-1"></i> Upload Image
+                                    </button>
+                                </li>
+                            </ul>
+
+                            <div class="tab-content" id="sigTypeTabContent">
+                                <!-- TAB 1: DRAW CANVAS -->
+                                <div class="tab-pane fade show active" id="draw-sig-pane" role="tabpanel">
+                                    <form method="POST" action="process/update_signature.php" id="drawSigForm">
+                                        <input type="hidden" name="signature_data" id="profileSigData">
+
+                                        <div class="mb-3 text-center">
+                                            <!-- Drawn Signature Preview Box (shown after drawing in modal) -->
+                                            <div id="profileSigDrawnPreview"
+                                                class="d-none border rounded p-3 mb-3 sig-preview-box shadow-sm position-relative" style="background-color: #ffffff !important;">
+                                                <small class="d-block fw-bold text-uppercase mb-2"
+                                                    style="font-size: 0.7rem; color: #475569 !important;">Newly Drawn Signature Preview</small>
+                                                <img id="profileSigPreviewImg" src="" alt="Drawn Signature"
+                                                    style="max-height: 90px; object-fit: contain;">
+                                                <button type="button"
+                                                    class="btn btn-sm btn-outline-danger position-absolute top-0 end-0 m-2 py-0 px-2"
+                                                    id="clearProfileDrawnSigBtn" title="Clear drawn signature">
+                                                    <i class="bi bi-x-lg"></i>
+                                                </button>
+                                            </div>
+
+                                            <!-- Open Fullscreen Pad Button -->
+                                            <button type="button"
+                                                class="btn btn-outline-primary fw-bold w-100 py-3 shadow-sm border-2"
+                                                id="openProfileFullSigBtn" data-bs-toggle="modal"
+                                                data-bs-target="#profileFullSigModal">
+                                                <i
+                                                    class="bi bi-arrows-fullscreen display-6 d-block mb-2 text-primary"></i>
+                                                <span class="fs-6">Open Fullscreen Signature Pad</span>
+                                                <small class="d-block text-muted fw-normal mt-1"
+                                                    style="font-size: 0.75rem;">Touch or click to open full-screen
+                                                    pad</small>
+                                            </button>
+                                        </div>
+
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <button type="button"
+                                                class="btn btn-sm btn-outline-secondary fw-bold me-auto d-none"
+                                                id="clearProfileSigBtn">
+                                                <i class="bi bi-eraser me-1"></i> Reset
+                                            </button>
+                                            <button type="submit" class="btn btn-sm btn-primary fw-bold px-4 ms-auto"
+                                                id="saveDrawnSigSubmitBtn" disabled>
+                                                <i class="bi bi-check-lg me-1"></i> Save Drawn Signature
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
+
+                                <!-- TAB 2: UPLOAD IMAGE -->
+                                <div class="tab-pane fade" id="upload-sig-pane" role="tabpanel">
+                                    <form method="POST" action="process/update_signature.php"
+                                        enctype="multipart/form-data">
+                                        <div class="mb-3">
+                                            <label class="form-label small fw-bold">Select Signature Image (PNG /
+                                                JPEG)</label>
+                                            <input type="file" name="signature_file"
+                                                class="form-control form-control-sm"
+                                                accept="image/png, image/jpeg, image/jpg" required>
+                                            <div class="form-text text-muted" style="font-size: 0.75rem;">Transparent
+                                                PNG with dark signature stroke is recommended.</div>
+                                        </div>
+                                        <div class="text-end">
+                                            <button type="submit" class="btn btn-sm btn-primary fw-bold px-3">
+                                                <i class="bi bi-upload me-1"></i> Upload Signature File
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ======================================================== -->
+            <!-- MODAL: PROFILE FULLSCREEN SIGNATURE PAD                  -->
+            <!-- ======================================================== -->
+            <style>
+                /* Forced Landscape Mode for Mobile Signature Modal */
+                @media screen and (max-width: 991px) and (orientation: portrait) {
+                    #profileFullSigModal .modal-dialog {
+                        margin: 0 !important;
+                        max-width: 100vw !important;
+                        width: 100vw !important;
+                        height: 100vh !important;
+                        overflow: hidden !important;
+                    }
+
+                    #profileFullSigModal .modal-content {
+                        position: fixed !important;
+                        top: 50% !important;
+                        left: 50% !important;
+                        width: 100vh !important;
+                        height: 100vw !important;
+                        transform: translate(-50%, -50%) rotate(90deg) !important;
+                        transform-origin: center center !important;
+                        border-radius: 0 !important;
+                    }
+                }
+            </style>
+            <div class="modal fade" id="profileFullSigModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+                <div class="modal-dialog modal-fullscreen">
+                    <div class="modal-content border-0">
+                        <div class="modal-header bg-dark text-white py-2">
+                            <div class="d-flex align-items-center">
+                                <button type="button" class="btn-close btn-close-white me-2" data-bs-dismiss="modal"
+                                    aria-label="Close"></button>
+                                <h6 class="modal-title fw-bold text-uppercase mb-0">
+                                    <i class="bi bi-pen text-warning me-2"></i> Official E-Signature - Fullscreen Pad
+                                </h6>
+                            </div>
+                            <div>
+                                <button type="button" class="btn btn-sm btn-outline-light fw-bold me-2"
+                                    id="clearProfileFullSigBtn">
+                                    <i class="bi bi-eraser me-1"></i> Clear
+                                </button>
+                                <button type="button" class="btn btn-sm btn-success fw-bold px-3"
+                                    id="saveProfileFullSigBtn">
+                                    <i class="bi bi-check-lg me-1"></i> Use Signature
+                                </button>
+                            </div>
+                        </div>
+                        <div class="modal-body p-2 bg-light d-flex flex-column justify-content-center align-items-center position-relative"
+                            style="overflow: hidden;">
+                            <canvas id="profileFullSigCanvas" class="border rounded shadow-sm sig-white-bg"
+                                style="width: 100%; height: 100%; touch-action: none; cursor: crosshair; background-color: #ffffff !important;"></canvas>
+                            <div id="profileFullSigPlaceholder"
+                                class="position-absolute top-50 start-50 translate-middle fw-bold pe-none fs-5 text-center"
+                                style="pointer-events: none; opacity: 0.6; color: #6c757d !important;">
+                                <i class="bi bi-phone-landscape me-2 fs-3 d-block mb-1"></i> Sign here with finger...
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -733,7 +926,189 @@ include 'layout/header.php';
             input.type = "password";
             icon.classList.replace("bi-eye", "bi-eye-slash");
         }
-    }
+    };
+
+    // E-Signature Profile Fullscreen Modal & Preview Handler
+    (function initProfileSigCanvas() {
+        const fullModalEl = document.getElementById('profileFullSigModal');
+        const fullCanvas = document.getElementById('profileFullSigCanvas');
+        if (!fullModalEl || !fullCanvas) return;
+
+        const fullCtx = fullCanvas.getContext('2d');
+        let fullIsDrawing = false;
+        let fullHasSignature = false;
+
+        const fullPlaceholder = document.getElementById('profileFullSigPlaceholder');
+        const clearFullBtn = document.getElementById('clearProfileFullSigBtn');
+        const saveFullBtn = document.getElementById('saveProfileFullSigBtn');
+        const sigDataInput = document.getElementById('profileSigData');
+        const drawnPreviewWrap = document.getElementById('profileSigDrawnPreview');
+        const previewImg = document.getElementById('profileSigPreviewImg');
+        const submitBtn = document.getElementById('saveDrawnSigSubmitBtn');
+        const clearDrawnBtn = document.getElementById('clearProfileDrawnSigBtn');
+
+        fullModalEl.addEventListener('shown.bs.modal', function () {
+            const botContainer = document.getElementById('cims-chatbot-container');
+            if (botContainer) botContainer.style.setProperty('display', 'none', 'important');
+
+            const rect = fullCanvas.getBoundingClientRect();
+            const isRotated = window.matchMedia("(max-width: 991px) and (orientation: portrait)").matches;
+
+            if (isRotated) {
+                fullCanvas.width = rect.height;
+                fullCanvas.height = rect.width;
+            } else {
+                fullCanvas.width = rect.width;
+                fullCanvas.height = rect.height;
+            }
+
+            fullCtx.clearRect(0, 0, fullCanvas.width, fullCanvas.height);
+            fullCtx.lineWidth = 3;
+            fullCtx.lineCap = 'round';
+            fullCtx.lineJoin = 'round';
+            fullCtx.strokeStyle = '#0f172a';
+
+            fullHasSignature = false;
+            if (fullPlaceholder) fullPlaceholder.style.display = '';
+
+            if (screen.orientation && screen.orientation.lock) {
+                screen.orientation.lock('landscape').catch(() => { });
+            } else if (screen.lockOrientation) {
+                screen.lockOrientation('landscape');
+            }
+        });
+
+        fullModalEl.addEventListener('hidden.bs.modal', function () {
+            const botContainer = document.getElementById('cims-chatbot-container');
+            if (botContainer) botContainer.style.removeProperty('display');
+
+            if (screen.orientation && screen.orientation.unlock) {
+                try { screen.orientation.unlock(); } catch (e) { }
+            } else if (screen.unlockOrientation) {
+                try { screen.unlockOrientation(); } catch (e) { }
+            }
+        });
+
+        function getFullPos(e) {
+            const rect = fullCanvas.getBoundingClientRect();
+            if ((fullCanvas.width === 0 || fullCanvas.height === 0) && rect.width > 0 && rect.height > 0) {
+                const isRotated = window.matchMedia("(max-width: 991px) and (orientation: portrait)").matches;
+                if (isRotated) {
+                    fullCanvas.width = Math.round(rect.height);
+                    fullCanvas.height = Math.round(rect.width);
+                } else {
+                    fullCanvas.width = Math.round(rect.width);
+                    fullCanvas.height = Math.round(rect.height);
+                }
+                fullCtx.lineWidth = 3;
+                fullCtx.lineCap = 'round';
+                fullCtx.lineJoin = 'round';
+                fullCtx.strokeStyle = '#0f172a';
+            }
+            const clientX = (e.touches && e.touches.length > 0) ? e.touches[0].clientX : e.clientX;
+            const clientY = (e.touches && e.touches.length > 0) ? e.touches[0].clientY : e.clientY;
+
+            const isRotated = window.matchMedia("(max-width: 991px) and (orientation: portrait)").matches;
+
+            if (isRotated) {
+                const x = (clientY - rect.top) * (fullCanvas.width / (rect.height || 1));
+                const y = (rect.right - clientX) * (fullCanvas.height / (rect.width || 1));
+                return { x: x, y: y };
+            } else {
+                return {
+                    x: (clientX - rect.left) * (fullCanvas.width / (rect.width || 1)),
+                    y: (clientY - rect.top) * (fullCanvas.height / (rect.height || 1))
+                };
+            }
+        }
+
+        function startFullDrawing(e) {
+            fullIsDrawing = true;
+            const pos = getFullPos(e);
+            fullCtx.beginPath();
+            fullCtx.moveTo(pos.x, pos.y);
+            if (fullPlaceholder) fullPlaceholder.style.display = 'none';
+            fullHasSignature = true;
+        }
+
+        function drawFull(e) {
+            if (!fullIsDrawing) return;
+            e.preventDefault();
+            const pos = getFullPos(e);
+            fullCtx.lineWidth = 3;
+            fullCtx.lineCap = 'round';
+            fullCtx.lineJoin = 'round';
+            fullCtx.strokeStyle = '#0f172a';
+            fullCtx.lineTo(pos.x, pos.y);
+            fullCtx.stroke();
+        }
+
+        function stopFullDrawing() {
+            if (fullIsDrawing) {
+                fullIsDrawing = false;
+                fullCtx.beginPath();
+            }
+        }
+
+        fullCanvas.addEventListener('mousedown', startFullDrawing);
+        fullCanvas.addEventListener('mousemove', drawFull);
+        fullCanvas.addEventListener('mouseup', stopFullDrawing);
+        fullCanvas.addEventListener('mouseleave', stopFullDrawing);
+
+        fullCanvas.addEventListener('touchstart', startFullDrawing, { passive: false });
+        fullCanvas.addEventListener('touchmove', drawFull, { passive: false });
+        fullCanvas.addEventListener('touchend', stopFullDrawing);
+
+        if (clearFullBtn) {
+            clearFullBtn.addEventListener('click', function () {
+                fullCtx.clearRect(0, 0, fullCanvas.width, fullCanvas.height);
+                fullCtx.beginPath();
+                fullHasSignature = false;
+                if (fullPlaceholder) fullPlaceholder.style.display = '';
+            });
+        }
+
+        function resetDrawnSignature() {
+            if (sigDataInput) sigDataInput.value = '';
+            if (previewImg) previewImg.src = '';
+            if (drawnPreviewWrap) drawnPreviewWrap.classList.add('d-none');
+            if (submitBtn) submitBtn.disabled = true;
+            fullHasSignature = false;
+        }
+
+        if (clearDrawnBtn) {
+            clearDrawnBtn.addEventListener('click', resetDrawnSignature);
+        }
+
+        if (saveFullBtn) {
+            saveFullBtn.addEventListener('click', function () {
+                if (!fullHasSignature) {
+                    alert("Please sign on the canvas first.");
+                    return;
+                }
+                const dataUrl = fullCanvas.toDataURL('image/png');
+                if (sigDataInput) sigDataInput.value = dataUrl;
+                if (previewImg) previewImg.src = dataUrl;
+                if (drawnPreviewWrap) drawnPreviewWrap.classList.remove('d-none');
+                if (submitBtn) submitBtn.disabled = false;
+
+                const modalInstance = bootstrap.Modal.getInstance(fullModalEl);
+                if (modalInstance) modalInstance.hide();
+            });
+        }
+
+        const drawForm = document.getElementById('drawSigForm');
+        if (drawForm) {
+            drawForm.addEventListener('submit', function (e) {
+                const sigVal = sigDataInput ? sigDataInput.value : '';
+                if (!sigVal || sigVal.trim() === '') {
+                    e.preventDefault();
+                    alert("Please draw your signature using the fullscreen pad before saving.");
+                    return false;
+                }
+            });
+        }
+    })();
 </script>
 
 <?php include 'layout/footer.php'; ?>
