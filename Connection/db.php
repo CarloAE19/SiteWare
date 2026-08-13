@@ -400,6 +400,38 @@ try {
     } catch (PDOException $e) {
     }
 
+    // Auto-patch: Support E-Signatures for Users & Purchase Orders
+    try {
+        $pdo->exec("ALTER TABLE users ADD COLUMN signature_path VARCHAR(255) NULL");
+    } catch (PDOException $e) {}
+    try {
+        $pdo->exec("ALTER TABLE purchase_orders ADD COLUMN approved_by INT NULL");
+    } catch (PDOException $e) {}
+    try {
+        $pdo->exec("ALTER TABLE purchase_orders ADD COLUMN prepared_signature VARCHAR(255) NULL");
+    } catch (PDOException $e) {}
+    try {
+        $pdo->exec("ALTER TABLE purchase_orders ADD COLUMN approved_signature VARCHAR(255) NULL");
+    } catch (PDOException $e) {}
+
+    // Auto-sync: Backfill signatures for existing Purchase Orders from profile signatures
+    try {
+        $pdo->exec("
+            UPDATE purchase_orders po
+            JOIN users u ON po.prepared_by = u.id
+            SET po.prepared_signature = u.signature_path
+            WHERE (po.prepared_signature IS NULL OR po.prepared_signature = '') 
+              AND u.signature_path IS NOT NULL AND u.signature_path != ''
+        ");
+        $pdo->exec("
+            UPDATE purchase_orders po
+            JOIN users u ON COALESCE(po.approved_by, (SELECT approved_by FROM requisitions r WHERE r.id = po.rs_id)) = u.id
+            SET po.approved_signature = u.signature_path
+            WHERE (po.approved_signature IS NULL OR po.approved_signature = '') 
+              AND u.signature_path IS NOT NULL AND u.signature_path != ''
+        ");
+    } catch (PDOException $e) {}
+
     // Auto-patch: Support New Item Restock Requests in Requisition Items & PO Items
     try {
         $pdo->exec("ALTER TABLE requisition_items ADD COLUMN is_new_item TINYINT(1) DEFAULT 0");
