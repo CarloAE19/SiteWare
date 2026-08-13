@@ -992,9 +992,34 @@ include 'layout/header.php';
                 document.getElementById('printProjectName').innerText = po.project_name || 'Warehouse Restock';
                 document.getElementById('printPoEta').innerText = data.formatted_eta;
                 document.getElementById('printPreparedBy').innerText = po.prepared_by_name || 'Purchasing Department';
+                const prepSigWrap = document.getElementById('preparedSigImgWrap');
+                const prepSigImg = document.getElementById('printPreparedSigImg');
+                const prepSig = po.prepared_signature || po.prepared_user_sig;
+                if (prepSigWrap && prepSigImg) {
+                    if (prepSig && prepSig.trim() !== '') {
+                        const filename = prepSig.split('/').pop();
+                        prepSigImg.src = `secure_image.php?type=signatures&file=${encodeURIComponent(filename)}`;
+                        prepSigWrap.classList.remove('d-none');
+                    } else {
+                        prepSigWrap.classList.add('d-none');
+                    }
+                }
+
                 const appByElem = document.getElementById('printApprovedBy');
                 if (appByElem) {
                     appByElem.innerText = po.approved_by_name || 'Management / Supplier Authorization';
+                }
+                const appSigWrap = document.getElementById('approvedSigImgWrap');
+                const appSigImg = document.getElementById('printApprovedSigImg');
+                const appSig = po.approved_signature || po.approved_user_sig;
+                if (appSigWrap && appSigImg) {
+                    if (appSig && appSig.trim() !== '') {
+                        const filename = appSig.split('/').pop();
+                        appSigImg.src = `secure_image.php?type=signatures&file=${encodeURIComponent(filename)}`;
+                        appSigWrap.classList.remove('d-none');
+                    } else {
+                        appSigWrap.classList.add('d-none');
+                    }
                 }
 
                 document.getElementById('printSupplierName').innerText = po.company_name || 'N/A';
