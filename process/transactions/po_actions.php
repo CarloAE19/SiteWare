@@ -144,12 +144,14 @@ elseif ($action === 'fetch_po_details') {
             r.rs_no, 
             r.project_name, 
             u.name AS prepared_by_name,
-            app_u.name AS approved_by_name
+            u.signature_path AS prepared_user_sig,
+            app_u.name AS approved_by_name,
+            app_u.signature_path AS approved_user_sig
         FROM purchase_orders p
         LEFT JOIN suppliers s ON p.supplier_id = s.id
         LEFT JOIN requisitions r ON p.rs_id = r.id
         LEFT JOIN users u ON p.prepared_by = u.id
-        LEFT JOIN users app_u ON r.approved_by = app_u.id
+        LEFT JOIN users app_u ON COALESCE(p.approved_by, r.approved_by) = app_u.id
         WHERE p.id = ?
     ");
     $poStmt->execute([$po_id]);
@@ -160,14 +162,25 @@ elseif ($action === 'fetch_po_details') {
         exit;
     }
 
+    if (empty($po['prepared_signature']) && !empty($po['prepared_user_sig'])) {
+        $po['prepared_signature'] = $po['prepared_user_sig'];
+    }
+
+    if (empty($po['approved_signature']) && !empty($po['approved_user_sig'])) {
+        $po['approved_signature'] = $po['approved_user_sig'];
+    }
+
     if (empty($po['approved_by_name'])) {
-        $mgrStmt = $pdo->query("SELECT name FROM users WHERE role = 'management' LIMIT 1");
-        $mgrName = $mgrStmt->fetchColumn();
-        if (!$mgrName) {
-            $adminStmt = $pdo->query("SELECT name FROM users WHERE role = 'admin' LIMIT 1");
-            $mgrName = $adminStmt->fetchColumn();
+        $mgrStmt = $pdo->query("SELECT name, signature_path FROM users WHERE role IN ('management', 'admin') ORDER BY role DESC LIMIT 1");
+        $mgr = $mgrStmt->fetch(PDO::FETCH_ASSOC);
+        if ($mgr) {
+            $po['approved_by_name'] = $mgr['name'];
+            if (empty($po['approved_signature'])) {
+                $po['approved_signature'] = $mgr['signature_path'];
+            }
+        } else {
+            $po['approved_by_name'] = 'Management Authorization';
         }
-        $po['approved_by_name'] = $mgrName ?: 'Management / Supplier Authorization';
     }
 
     $itemsStmt = $pdo->prepare("
@@ -215,8 +228,26 @@ elseif ($action === 'create_po') {
     $prepared_by = $_SESSION['user_id'];
     $expected_delivery_date = !empty($_POST['expected_delivery_date']) ? $_POST['expected_delivery_date'] : null;
 
-    $stmt = $pdo->prepare("INSERT INTO purchase_orders (po_no, rs_id, supplier_id, prepared_by, expected_delivery_date) VALUES (?, ?, ?, ?, ?)");
-    $stmt->execute([$po_no, $rs_id, $supplier_id, $prepared_by, $expected_delivery_date]);
+    // Fetch Purchasing Officer Signature Path
+    $prepUserStmt = $pdo->prepare("SELECT signature_path FROM users WHERE id = ?");
+    $prepUserStmt->execute([$prepared_by]);
+    $prepared_signature = $prepUserStmt->fetchColumn() ?: null;
+
+    // Fetch Requisition Approved By & Signature Path
+    $rsApprovedStmt = $pdo->prepare("
+        SELECT r.approved_by, u.signature_path 
+        FROM requisitions r 
+        LEFT JOIN users u ON r.approved_by = u.id 
+        WHERE r.id = ?
+    ");
+    $rsApprovedStmt->execute([$rs_id]);
+    $rsApp = $rsApprovedStmt->fetch(PDO::FETCH_ASSOC);
+
+    $approved_by = $rsApp['approved_by'] ?? null;
+    $approved_signature = $rsApp['signature_path'] ?? null;
+
+    $stmt = $pdo->prepare("INSERT INTO purchase_orders (po_no, rs_id, supplier_id, prepared_by, prepared_signature, approved_by, approved_signature, expected_delivery_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+    $stmt->execute([$po_no, $rs_id, $supplier_id, $prepared_by, $prepared_signature, $approved_by, $approved_signature, $expected_delivery_date]);
     $po_id = $pdo->lastInsertId();
 
     // Only copy items that management approved (excludes rejected items from Partially Approved RSes)
