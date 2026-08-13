@@ -23,12 +23,14 @@ try {
         SELECT p.*, 
                s.company_name, s.contact_person, s.contact_number, s.email AS supplier_email, s.address AS supplier_address, 
                r.rs_no, r.project_name, 
-               u.name AS prepared_by_name,
+               u.name AS prepared_by_name, u.signature_path AS prepared_user_sig,
+               app_u.name AS approved_by_name, app_u.signature_path AS approved_user_sig,
                u_rec.name AS received_by_name
         FROM purchase_orders p
         LEFT JOIN suppliers s ON p.supplier_id = s.id
         LEFT JOIN requisitions r ON p.rs_id = r.id
         LEFT JOIN users u ON p.prepared_by = u.id
+        LEFT JOIN users app_u ON COALESCE(p.approved_by, r.approved_by) = app_u.id
         LEFT JOIN users u_rec ON p.received_by = u_rec.id
         WHERE p.po_no = ?
     ");
@@ -38,6 +40,23 @@ try {
     if (!$po) {
         echo json_encode(['success' => false, 'error' => 'Purchase Order ' . htmlspecialchars($poNo) . ' not found.']);
         exit;
+    }
+
+    $prepSig = $po['prepared_signature'] ?: ($po['prepared_user_sig'] ?: null);
+    $appSig = $po['approved_signature'] ?: ($po['approved_user_sig'] ?: null);
+    $appBy = $po['approved_by_name'];
+
+    if (empty($appBy)) {
+        $mgrStmt = $pdo->query("SELECT name, signature_path FROM users WHERE role IN ('management', 'admin') ORDER BY role DESC LIMIT 1");
+        $mgr = $mgrStmt->fetch(PDO::FETCH_ASSOC);
+        if ($mgr) {
+            $appBy = $mgr['name'];
+            if (empty($appSig)) {
+                $appSig = $mgr['signature_path'];
+            }
+        } else {
+            $appBy = 'Management / Approver';
+        }
     }
 
     // 2. Fetch items for this PO
@@ -77,7 +96,10 @@ try {
             'supplier_email' => $po['supplier_email'] ?: 'N/A',
             'rs_no' => $po['rs_no'] ?: 'N/A',
             'project_name' => $po['project_name'] ?: 'Warehouse Restock',
-            'prepared_by' => $po['prepared_by_name'] ?: 'System Officer',
+            'prepared_by' => $po['prepared_by_name'] ?: 'Purchasing Officer',
+            'prepared_signature' => $prepSig,
+            'approved_by' => $appBy,
+            'approved_signature' => $appSig,
             'received_by' => $po['received_by_name'] ?: 'N/A',
             'expected_delivery' => $formattedETA,
             'delay_remarks' => $po['delay_remarks'] ?: null,
