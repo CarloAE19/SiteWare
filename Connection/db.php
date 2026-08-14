@@ -70,6 +70,9 @@ if (!defined('AI_SYSTEM_PROMPT') && isset($_ENV['AI_SYSTEM_PROMPT'])) {
     define('AI_SYSTEM_PROMPT', trim($_ENV['AI_SYSTEM_PROMPT'], '"\''));
 }
 
+// 4. Load Centralized Rate Limiter
+require_once __DIR__ . '/rate_limiter.php';
+
 try {
     // Connect to MySQL server (Without DB name first, to allow creation)
     $pdo = new PDO("mysql:host=" . $_ENV['DB_HOST'], $_ENV['DB_USER'], $_ENV['DB_PASS']);
@@ -458,6 +461,49 @@ try {
     try {
         $pdo->exec("ALTER TABLE po_items ADD COLUMN unit VARCHAR(50) NULL");
     } catch (PDOException $e) {}
+
+    // Auto-patch: Performance Indexes (One-time migration check for maximum Hostinger performance)
+    $indexFlagFile = __DIR__ . '/../uploads/.db_indexes_applied';
+    if (!file_exists($indexFlagFile)) {
+        $autoIndexes = [
+            "ALTER TABLE inventory ADD INDEX idx_inventory_item_name (item_name)",
+            "ALTER TABLE inventory ADD INDEX idx_inventory_status (status)",
+            "ALTER TABLE inventory ADD INDEX idx_inventory_last_updated (last_updated)",
+            "ALTER TABLE inventory_audits ADD INDEX idx_audits_created_at (created_at)",
+            "ALTER TABLE inventory_audits ADD INDEX idx_audits_conducted_by (conducted_by)",
+            "ALTER TABLE audit_items ADD INDEX idx_audit_items_audit_id (audit_id)",
+            "ALTER TABLE audit_items ADD INDEX idx_audit_items_item_code (item_code)",
+            "ALTER TABLE requisitions ADD INDEX idx_req_status (status)",
+            "ALTER TABLE requisitions ADD INDEX idx_req_type (type)",
+            "ALTER TABLE requisitions ADD INDEX idx_req_requestor_id (requestor_id)",
+            "ALTER TABLE requisitions ADD INDEX idx_req_created_at (created_at)",
+            "ALTER TABLE requisition_items ADD INDEX idx_req_items_req_id (requisition_id)",
+            "ALTER TABLE requisition_items ADD INDEX idx_req_items_item_code (item_code)",
+            "ALTER TABLE requisition_items ADD INDEX idx_req_items_req_status (requisition_id, item_status)",
+            "ALTER TABLE purchase_orders ADD INDEX idx_po_rs_id (rs_id)",
+            "ALTER TABLE purchase_orders ADD INDEX idx_po_status (status)",
+            "ALTER TABLE purchase_orders ADD INDEX idx_po_created_at (created_at)",
+            "ALTER TABLE po_items ADD INDEX idx_po_items_po_id (po_id)",
+            "ALTER TABLE po_items ADD INDEX idx_po_items_item_code (item_code)",
+            "ALTER TABLE withdrawals ADD INDEX idx_withdrawals_date (date_withdrawn)",
+            "ALTER TABLE withdrawal_items ADD INDEX idx_wd_items_withdrawal_id (withdrawal_id)",
+            "ALTER TABLE withdrawal_items ADD INDEX idx_wd_items_item_code (item_code)",
+            "ALTER TABLE notifications ADD INDEX idx_notif_target_role (target_role)",
+            "ALTER TABLE notifications ADD INDEX idx_notif_target_user_id (target_user_id)",
+            "ALTER TABLE notifications ADD INDEX idx_notif_created_at (created_at)",
+            "ALTER TABLE supplier_viber_logs ADD INDEX idx_viber_supplier_id (supplier_id)",
+            "ALTER TABLE supplier_viber_logs ADD INDEX idx_viber_po_id (po_id)"
+        ];
+        foreach ($autoIndexes as $idxSql) {
+            try {
+                $pdo->exec($idxSql);
+            } catch (PDOException $e) {}
+        }
+        if (!file_exists(dirname($indexFlagFile))) {
+            @mkdir(dirname($indexFlagFile), 0777, true);
+        }
+        @file_put_contents($indexFlagFile, date('Y-m-d H:i:s'));
+    }
 
 } catch (PDOException $e) {
     // 1. Define global constant to signify DB offline status
