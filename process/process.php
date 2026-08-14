@@ -35,6 +35,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         header('Content-Type: application/json');
     }
 
+    // Anti-Double Submit / Rapid Spam Throttling on Mutating Actions
+    $mutatingActions = ['create_rs', 'create_withdrawal', 'create_po', 'mark_po_delivered', 'submit_audit', 'add', 'edit', 'delete', 'add_user', 'add_supplier'];
+    if (in_array($action, $mutatingActions)) {
+        $throttleKey = 'post_' . $action . '_user_' . $_SESSION['user_id'];
+        $throttle = check_rate_limit($throttleKey, 1, 2);
+        if (!$throttle['allowed']) {
+            throw new Exception("Please wait a moment before submitting again (anti-duplicate protection).");
+        }
+        record_rate_limit_attempt($throttleKey);
+    }
+
     try {
         // Route the request to the specific module file based on the action
         if (in_array($action, ['live_sync', 'stock_in_scanned', 'add', 'edit', 'delete'])) {
