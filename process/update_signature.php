@@ -68,8 +68,8 @@ if ($signaturePath) {
         $poPrepStmt = $pdo->prepare("UPDATE purchase_orders SET prepared_signature = ? WHERE prepared_by = ?");
         $poPrepStmt->execute([$signaturePath, $userId]);
 
-        $poAppStmt = $pdo->prepare("UPDATE purchase_orders SET approved_signature = ? WHERE approved_by = ?");
-        $poAppStmt->execute([$signaturePath, $userId]);
+        $poAppStmt = $pdo->prepare("UPDATE purchase_orders SET approved_signature = ? WHERE approved_by = ? OR (approved_by IS NULL AND approved_signature LIKE ?)");
+        $poAppStmt->execute([$signaturePath, $userId, '%user_sig_' . $userId . '_%']);
     } catch (Exception $e) {}
 
     $_SESSION['message'] = "Official E-Signature updated successfully!";
