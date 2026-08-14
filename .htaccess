@@ -31,7 +31,9 @@ RewriteRule ^media/([^/]+)/([^/]+)$ secure_image.php?type=$1&file=$2 [QSA,L]
 # Redirect direct .php requests to clean URL (e.g. /login.php -> /login)
 RewriteCond %{REQUEST_METHOD} !POST
 RewriteCond %{THE_REQUEST} \s/+(.+)\.php[\s?] [NC]
-RewriteRule ^ /%1 [R=301,L]
+RewriteCond %{REQUEST_URI} !secure_image\.php [NC]
+RewriteCond %{REQUEST_URI} !process/ [NC]
+RewriteRule ^ %1 [R=301,L]
 
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteCond %{REQUEST_FILENAME} !-f
