@@ -204,29 +204,6 @@ $homeText = $isLoggedIn ? 'Go to Dashboard' : 'Sign In';
             border: 2px solid #ffffff;
         }
 
-        .status-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            background: var(--theme-glow);
-            color: var(--theme-color);
-            font-size: 0.78rem;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.06em;
-            padding: 5px 14px;
-            border-radius: 999px;
-            margin-bottom: 1rem;
-        }
-
-        .status-badge-dot {
-            width: 7px;
-            height: 7px;
-            border-radius: 50%;
-            background-color: var(--theme-color);
-            display: inline-block;
-        }
-
         .error-title {
             font-size: 1.65rem;
             font-weight: 700;
@@ -395,14 +372,6 @@ $homeText = $isLoggedIn ? 'Go to Dashboard' : 'Sign In';
                         <i class="bi <?= $errorData['icon'] ?>"></i>
                     </div>
                 </div>
-            </div>
-
-            <!-- Status Badge -->
-            <div>
-                <span class="status-badge">
-                    <span class="status-badge-dot"></span>
-                    <?= htmlspecialchars($errorData['badge']) ?>
-                </span>
             </div>
 
             <!-- Title & Description -->
