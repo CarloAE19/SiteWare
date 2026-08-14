@@ -93,6 +93,38 @@ if ($action === 'create_withdrawal') {
             }
         }
 
+        // Cryptographically Seal Material Withdrawal with RSA-2048 PKI Signature
+        try {
+            require_once __DIR__ . '/../../helpers/crypto_helper.php';
+            $signerKeys = getOrCreateUserKeyPair($pdo, $released_by);
+            if ($signerKeys) {
+                $wdHeaderData = [
+                    'withdrawal_no'  => $withdrawal_no,
+                    'project_name'   => $project_name,
+                    'released_by'    => $released_by,
+                    'received_by'    => $received_by,
+                    'date_withdrawn' => date('Y-m-d H:i:s')
+                ];
+                $wdItemsData = [];
+                for ($k = 0; $k < count($items); $k++) {
+                    if (!empty($items[$k]) && !empty($quantities[$k])) {
+                        $wdItemsData[] = [
+                            'item_code' => $items[$k],
+                            'quantity'  => $quantities[$k]
+                        ];
+                    }
+                }
+                $payload = buildCanonicalWdPayload($wdHeaderData, $wdItemsData);
+                $signed = cryptographicallySignPayload($payload, $signerKeys['private']);
+                if ($signed) {
+                    $pdo->prepare("UPDATE withdrawals SET crypto_signature = ?, document_hash = ?, signed_at = NOW() WHERE id = ?")
+                        ->execute([$signed['signature'], $signed['hash'], $withdrawal_id]);
+                }
+            }
+        } catch (Exception $cryptoEx) {
+            error_log("WD Crypto Signing Notice: " . $cryptoEx->getMessage());
+        }
+
         // If this withdrawal was created via QR scan or manual RS lookup, expire it
         if (!empty($_POST['rs_no'])) {
             $rs_no_input = trim($_POST['rs_no']);
