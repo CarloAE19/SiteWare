@@ -13,6 +13,13 @@ Options -Indexes
     Deny from all
 </FilesMatch>
 
+# CUSTOM ERROR PAGES
+ErrorDocument 400 /CIMS/error.php?code=400
+ErrorDocument 403 /CIMS/error.php?code=403
+ErrorDocument 404 /CIMS/error.php?code=404
+ErrorDocument 500 /CIMS/error.php?code=500
+ErrorDocument 503 /CIMS/error.php?code=503
+
 # 3. CLEAN URLS (Hide .php extensions)
 # Allows users to visit /dashboard instead of /dashboard.php and /secure-image or /media/ proof URLs
 RewriteEngine On
@@ -20,6 +27,11 @@ RewriteEngine On
 # Clean Media Proxy Routes (Maps secure-image and /media/ to secure_image.php)
 RewriteRule ^secure-image$ secure_image.php [QSA,L]
 RewriteRule ^media/([^/]+)/([^/]+)$ secure_image.php?type=$1&file=$2 [QSA,L]
+
+# Redirect direct .php requests to clean URL (e.g. /login.php -> /login)
+RewriteCond %{REQUEST_METHOD} !POST
+RewriteCond %{THE_REQUEST} \s/+(.+)\.php[\s?] [NC]
+RewriteRule ^ /%1 [R=301,L]
 
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteCond %{REQUEST_FILENAME} !-f
