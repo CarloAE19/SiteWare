@@ -16,11 +16,26 @@ if (isset($_SESSION['user_id'])) {
 }
 
 $error = '';
+$is_locked_out = false;
+$lockout_retry_after = 0;
+
 if (defined('DB_OFFLINE')) {
     $error = "Can't connect to database. You're offline.";
+} else {
+    // 🛡️ Brute-Force Check (5 failed attempts per 15 minutes per IP/username)
+    $entered_username = trim($_POST['username'] ?? '');
+    $rlKey = 'login_' . (!empty($entered_username) ? strtolower($entered_username) : 'anon');
+    $rateLimit = check_rate_limit($rlKey, 5, 900, true);
+
+    if (!$rateLimit['allowed']) {
+        $is_locked_out = true;
+        $lockout_retry_after = $rateLimit['retry_after'];
+        $mins = ceil($lockout_retry_after / 60);
+        $error = "Too many failed login attempts. Please wait {$mins} minute(s) before trying again.";
+    }
 }
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$is_locked_out) {
     if (defined('DB_OFFLINE')) {
         $error = "Can't connect to database. You're offline.";
     } else {
@@ -32,7 +47,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } elseif (preg_match('/[^a-zA-Z0-9]/', $username)) {
             $error = 'Special characters not allowed in username';
         } elseif (strlen($password) < 8) {
-            $error = 'Invalid username or password.';
+            record_rate_limit_attempt($rlKey, true);
+            $newRl = check_rate_limit($rlKey, 5, 900, true);
+            if (!$newRl['allowed']) {
+                $is_locked_out = true;
+                $lockout_retry_after = $newRl['retry_after'];
+                $mins = ceil($lockout_retry_after / 60);
+                $error = "Too many failed login attempts. Please wait {$mins} minute(s) before trying again.";
+            } else {
+                $error = 'Invalid username or password.';
+            }
         } else {
             // 🛡️ SQL Injection Prevention (Prepared Statements)
             $stmt = $pdo->prepare("SELECT * FROM users WHERE username = ?");
@@ -41,13 +65,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             // 🛡️ Bcrypt Password Verification + Session Hijacking Prevention
             if ($user && password_verify($password, $user['password'])) {
+                clear_rate_limit($rlKey, true);
                 session_regenerate_id(true);
                 $_SESSION['user_id'] = $user['id'];
                 $_SESSION['user_name'] = $user['name'];
                 $_SESSION['user_role'] = $user['role'];
                 redirectUserByRole($user['role']);
             } else {
-                $error = 'Invalid username or password.';
+                record_rate_limit_attempt($rlKey, true);
+                $newRl = check_rate_limit($rlKey, 5, 900, true);
+                if (!$newRl['allowed']) {
+                    $is_locked_out = true;
+                    $lockout_retry_after = $newRl['retry_after'];
+                    $mins = ceil($lockout_retry_after / 60);
+                    $error = "Too many failed login attempts. Please wait {$mins} minute(s) before trying again.";
+                } else {
+                    $remaining = $newRl['remaining'];
+                    if ($remaining <= 2 && $remaining > 0) {
+                        $error = "Invalid username or password. ({$remaining} attempt(s) remaining before temporary lockout)";
+                    } else {
+                        $error = 'Invalid username or password.';
+                    }
+                }
             }
         }
     }
@@ -164,7 +203,7 @@ $bg_scale = 1 + ($bg_blur * 0.006);
                     id="usernameFloat">
                     <label for="usernameField">Username</label>
                     <input type="text" id="usernameField" name="username" placeholder="Enter you username"
-                        value="<?= htmlspecialchars($_POST['username'] ?? '') ?>" autocomplete="username" required>
+                        value="<?= htmlspecialchars($_POST['username'] ?? '') ?>" autocomplete="username" <?= $is_locked_out ? 'disabled' : '' ?> required>
                     <i class="bi bi-person field-icon"></i>
                 </div>
 
@@ -183,9 +222,9 @@ $bg_scale = 1 + ($bg_blur * 0.006);
                 <div class="input-float">
                     <label for="passwordField">Password</label>
                     <input type="password" id="passwordField" name="password" placeholder="Enter your password"
-                        autocomplete="current-password" required>
+                        autocomplete="current-password" <?= $is_locked_out ? 'disabled' : '' ?> required>
                     <i class="bi bi-lock field-icon"></i>
-                    <button type="button" class="toggle-pass" onclick="togglePass()" aria-label="Toggle password">
+                    <button type="button" class="toggle-pass" onclick="togglePass()" aria-label="Toggle password" <?= $is_locked_out ? 'disabled' : '' ?>>
                         <i class="bi bi-eye-slash" id="toggleIcon"></i>
                     </button>
                 </div>
@@ -198,8 +237,12 @@ $bg_scale = 1 + ($bg_blur * 0.006);
                     Install GB Inventory App
                 </button>
 
-                <button type="submit" class="btn-signin" id="signInBtn" <?= (defined('DB_OFFLINE') || $error === 'Special characters not allowed in username') ? 'disabled' : '' ?>>
-                    Login
+                <button type="submit" class="btn-signin" id="signInBtn" <?= (defined('DB_OFFLINE') || $error === 'Special characters not allowed in username' || $is_locked_out) ? 'disabled' : '' ?>>
+                    <?php if ($is_locked_out): ?>
+                        <i class="bi bi-lock-fill"></i> Locked (<span id="lockTimer">--:--</span>)
+                    <?php else: ?>
+                        Login
+                    <?php endif; ?>
                 </button>
 
             </form>
@@ -214,6 +257,47 @@ $bg_scale = 1 + ($bg_blur * 0.006);
 
     <!-- Login Scripts -->
     <script src="assets/js/login.js?v=<?= time() ?>"></script>
+
+    <?php if ($is_locked_out && $lockout_retry_after > 0): ?>
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        let timeLeft = <?= (int)$lockout_retry_after ?>;
+        const btn = document.getElementById('signInBtn');
+        const timerSpan = document.getElementById('lockTimer');
+        const userField = document.getElementById('usernameField');
+        const passField = document.getElementById('passwordField');
+
+        function formatTimer(sec) {
+            const m = Math.floor(sec / 60);
+            const s = sec % 60;
+            return `${m}:${s < 10 ? '0' : ''}${s}`;
+        }
+
+        if (timerSpan) timerSpan.innerText = formatTimer(timeLeft);
+
+        const countdownInterval = setInterval(function() {
+            timeLeft--;
+            if (timeLeft <= 0) {
+                clearInterval(countdownInterval);
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = 'Login';
+                }
+                if (userField) userField.disabled = false;
+                if (passField) passField.disabled = false;
+                const errBlock = document.getElementById('phpErrorBlock');
+                if (errBlock) {
+                    errBlock.style.transition = 'opacity 0.5s ease';
+                    errBlock.style.opacity = '0';
+                    setTimeout(() => errBlock.remove(), 500);
+                }
+            } else {
+                if (timerSpan) timerSpan.innerText = formatTimer(timeLeft);
+            }
+        }, 1000);
+    });
+    </script>
+    <?php endif; ?>
 </body>
 
 </html>
