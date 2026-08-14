@@ -19,10 +19,9 @@ if ($action === 'fetch_rs_data') {
     $stmt = $pdo->prepare("
         SELECT id, rs_no, requestor_name, project_name, status, type 
         FROM requisitions 
-        WHERE REPLACE(REPLACE(UPPER(rs_no), '-', ''), ' ', '') = ? 
-           OR UPPER(rs_no) = ?
+        WHERE rs_no = ? OR rs_no = ? OR rs_no = ?
     ");
-    $stmt->execute([$rs_no_clean, strtoupper($input_raw)]);
+    $stmt->execute([$input_raw, $rs_no_clean, strtoupper($input_raw)]);
     $rs = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if (!$rs) {
@@ -84,7 +83,7 @@ elseif ($action === 'fetch_rs_with_history') {
     $stmt->execute([$rs_id]);
     $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    foreach ($items as &$item) {
+    if (!empty($items)) {
         $histStmt = $pdo->prepare("
             SELECT s.company_name, po.created_at 
             FROM po_items pi 
@@ -94,15 +93,18 @@ elseif ($action === 'fetch_rs_with_history') {
             ORDER BY po.created_at DESC 
             LIMIT 1
         ");
-        $histStmt->execute([$item['item_code']]);
-        $history = $histStmt->fetch(PDO::FETCH_ASSOC);
 
-        if ($history) {
-            $item['last_supplier'] = $history['company_name'];
-            $item['last_purchased'] = date('M d, Y', strtotime($history['created_at']));
-        } else {
-            $item['last_supplier'] = '<span class="text-muted fst-italic">No History</span>';
-            $item['last_purchased'] = '';
+        foreach ($items as &$item) {
+            $histStmt->execute([$item['item_code']]);
+            $history = $histStmt->fetch(PDO::FETCH_ASSOC);
+
+            if ($history) {
+                $item['last_supplier'] = $history['company_name'];
+                $item['last_purchased'] = date('M d, Y', strtotime($history['created_at']));
+            } else {
+                $item['last_supplier'] = '<span class="text-muted fst-italic">No History</span>';
+                $item['last_purchased'] = '';
+            }
         }
     }
 
@@ -117,107 +119,110 @@ elseif ($action === 'create_rs') {
     $reqId = $_SESSION['user_id'] ?? $_POST['requestor_id'];
     $reqName = $_SESSION['user_name'] ?? $_POST['requestor_name'];
 
-    $stmt = $pdo->prepare("
-        INSERT INTO requisitions (rs_no, requestor_id, requestor_name, project_name, urgency, remarks, status, type) 
-        VALUES (?, ?, ?, ?, ?, ?, 'Pending Approval', ?)
-    ");
-    $stmt->execute([
-        $_POST['rs_no'], 
-        $reqId, 
-        $reqName, 
-        $projectName, 
-        $_POST['urgency'], 
-        $_POST['remarks'], 
-        $type
-    ]);
-    $requisition_id = $pdo->lastInsertId();
+    try {
+        $pdo->beginTransaction();
 
-    $items = $_POST['items'] ?? [];
-    $quantities = $_POST['quantities'] ?? [];
-    $isNewItems = $_POST['is_new_items'] ?? [];
-    $newItemNames = $_POST['new_item_names'] ?? [];
-    $newCategories = $_POST['new_categories'] ?? [];
-    $newUnits = $_POST['new_units'] ?? [];
-    $itemNotes = $_POST['item_notes'] ?? [];
-
-    $itemStmt = $pdo->prepare("
-        INSERT INTO requisition_items (requisition_id, item_code, quantity, is_new_item, new_item_name, new_category, new_unit, item_notes) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    ");
-    for ($i = 0; $i < count($items); $i++) {
-        $isNew = !empty($isNewItems[$i]) ? 1 : 0;
-        $code = trim($items[$i] ?? '');
-        $qty = (int)($quantities[$i] ?? 0);
-        $name = $isNew ? trim($newItemNames[$i] ?? '') : null;
-        $cat = $isNew ? trim($newCategories[$i] ?? 'Materials') : null;
-        $unit = $isNew ? trim($newUnits[$i] ?? 'pcs') : null;
-        $note = trim($itemNotes[$i] ?? '') ?: null;
-
-        if ($isNew && empty($code)) {
-            $code = 'ITM-' . rand(1000, 9999);
-        }
-
-        if (!empty($code) && $qty > 0) {
-            $itemStmt->execute([$requisition_id, $code, $qty, $isNew, $name, $cat, $unit, $note]);
-        }
-    }
-
-    // Conflict Check Engine
-
-    $conflicts = [];
-    $conflictItems = [];
-    if ($type !== 'restock') {
-        $conflictStmt = $pdo->prepare("
-            SELECT ri.item_code, i.item_name, i.quantity as current_stock,
-                   COALESCE(p.total_pending, 0) as total_pending
-            FROM requisition_items ri
-            LEFT JOIN inventory i ON ri.item_code = i.item_code
-            LEFT JOIN (
-                SELECT ri2.item_code, SUM(ri2.quantity) as total_pending
-                FROM requisition_items ri2
-                JOIN requisitions r2 ON ri2.requisition_id = r2.id
-                WHERE r2.status = 'Pending Approval'
-                GROUP BY ri2.item_code
-            ) p ON ri.item_code = p.item_code
-            WHERE ri.requisition_id = ? AND COALESCE(p.total_pending, 0) > i.quantity
+        $stmt = $pdo->prepare("
+            INSERT INTO requisitions (rs_no, requestor_id, requestor_name, project_name, urgency, remarks, status, type) 
+            VALUES (?, ?, ?, ?, ?, ?, 'Pending Approval', ?)
         ");
-        $conflictStmt->execute([$requisition_id]);
-        $conflicts = $conflictStmt->fetchAll(PDO::FETCH_ASSOC);
+        $stmt->execute([
+            $_POST['rs_no'], 
+            $reqId, 
+            $reqName, 
+            $projectName, 
+            $_POST['urgency'], 
+            $_POST['remarks'], 
+            $type
+        ]);
+        $requisition_id = $pdo->lastInsertId();
 
-        foreach ($conflicts as $c) {
-            $conflictItems[] = $c['item_name'];
+        $items = $_POST['items'] ?? [];
+        $quantities = $_POST['quantities'] ?? [];
+        $isNewItems = $_POST['is_new_items'] ?? [];
+        $newItemNames = $_POST['new_item_names'] ?? [];
+        $newCategories = $_POST['new_categories'] ?? [];
+        $newUnits = $_POST['new_units'] ?? [];
+        $itemNotes = $_POST['item_notes'] ?? [];
+
+        $itemStmt = $pdo->prepare("
+            INSERT INTO requisition_items (requisition_id, item_code, quantity, is_new_item, new_item_name, new_category, new_unit, item_notes) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ");
+        for ($i = 0; $i < count($items); $i++) {
+            $isNew = !empty($isNewItems[$i]) ? 1 : 0;
+            $code = trim($items[$i] ?? '');
+            $qty = (int)($quantities[$i] ?? 0);
+            $name = $isNew ? trim($newItemNames[$i] ?? '') : null;
+            $cat = $isNew ? trim($newCategories[$i] ?? 'Materials') : null;
+            $unit = $isNew ? trim($newUnits[$i] ?? 'pcs') : null;
+            $note = trim($itemNotes[$i] ?? '') ?: null;
+
+            if ($isNew && empty($code)) {
+                $code = 'ITM-' . rand(1000, 9999);
+            }
+
+            if (!empty($code) && $qty > 0) {
+                $itemStmt->execute([$requisition_id, $code, $qty, $isNew, $name, $cat, $unit, $note]);
+            }
         }
-    }
 
-    $conflictWarning = "";
-    if (!empty($conflictItems)) {
-        $conflictWarning = " ⚠️ Conflict alert: Stock deficit for " . implode(', ', $conflictItems) . ".";
-    }
-
-    $notif = $pdo->prepare("INSERT INTO notifications (target_role, title, message) VALUES ('management', 'New Requisition Pending', ?)");
-    $notifText = ($type === 'restock')
-        ? "{$_POST['requestor_name']} submitted a Warehouse Restock request ({$_POST['rs_no']})."
-        : "{$_POST['requestor_name']} submitted {$_POST['rs_no']} for {$projectName}." . $conflictWarning;
-
-    $notif->execute([$notifText]);
-    sendPushNotification($pdo, 'New Requisition Pending', $notifText, 'management', null);
-
-    // If there is a conflict, notify the submitting requestor and other affected requestors
-    if (!empty($conflicts)) {
-        // 1. Notify self
-        $msgToSelf = "Requisition submitted, but warning: stock conflicts detected for " . implode(', ', $conflictItems) . ".";
-        $pdo->prepare("INSERT INTO notifications (target_user_id, title, message) VALUES (?, 'Requisition Conflict Warning', ?)")
-            ->execute([$_POST['requestor_id'], $msgToSelf]);
-        sendPushNotification($pdo, 'Requisition Conflict Warning', $msgToSelf, null, (int)$_POST['requestor_id']);
-
-        // 2. Notify other requestors who also have pending requests for the same items
-        foreach ($conflicts as $c) {
-            $otherReqStmt = $pdo->prepare("
-                SELECT DISTINCT r.requestor_id, r.requestor_name, r.rs_no, r.project_name
+        // Conflict Check Engine
+        $conflicts = [];
+        $conflictItems = [];
+        if ($type !== 'restock') {
+            $conflictStmt = $pdo->prepare("
+                SELECT ri.item_code, i.item_name, i.quantity as current_stock,
+                       COALESCE(p.total_pending, 0) as total_pending
                 FROM requisition_items ri
-                JOIN requisitions r ON ri.requisition_id = r.id
-                WHERE ri.item_code = ? AND r.status = 'Pending Approval' AND r.id != ?
+                LEFT JOIN inventory i ON ri.item_code = i.item_code
+                LEFT JOIN (
+                    SELECT ri2.item_code, SUM(ri2.quantity) as total_pending
+                    FROM requisition_items ri2
+                    JOIN requisitions r2 ON ri2.requisition_id = r2.id
+                    WHERE r2.status = 'Pending Approval'
+                    GROUP BY ri2.item_code
+                ) p ON ri.item_code = p.item_code
+                WHERE ri.requisition_id = ? AND COALESCE(p.total_pending, 0) > i.quantity
             ");
+            $conflictStmt->execute([$requisition_id]);
+            $conflicts = $conflictStmt->fetchAll(PDO::FETCH_ASSOC);
+
+            foreach ($conflicts as $c) {
+                $conflictItems[] = $c['item_name'];
+            }
+        }
+
+        $conflictWarning = "";
+        if (!empty($conflictItems)) {
+            $conflictWarning = " ⚠️ Conflict alert: Stock deficit for " . implode(', ', $conflictItems) . ".";
+        }
+
+        $notif = $pdo->prepare("INSERT INTO notifications (target_role, title, message) VALUES ('management', 'New Requisition Pending', ?)");
+        $notifText = ($type === 'restock')
+            ? "{$_POST['requestor_name']} submitted a Warehouse Restock request ({$_POST['rs_no']})."
+            : "{$_POST['requestor_name']} submitted {$_POST['rs_no']} for {$projectName}." . $conflictWarning;
+
+        $notif->execute([$notifText]);
+        sendPushNotification($pdo, 'New Requisition Pending', $notifText, 'management', null);
+
+        // If there is a conflict, notify the submitting requestor and other affected requestors
+        if (!empty($conflicts)) {
+            // 1. Notify self
+            $msgToSelf = "Requisition submitted, but warning: stock conflicts detected for " . implode(', ', $conflictItems) . ".";
+            $pdo->prepare("INSERT INTO notifications (target_user_id, title, message) VALUES (?, 'Requisition Conflict Warning', ?)")
+                ->execute([$_POST['requestor_id'], $msgToSelf]);
+            sendPushNotification($pdo, 'Requisition Conflict Warning', $msgToSelf, null, (int)$_POST['requestor_id']);
+
+            // 2. Notify other requestors who also have pending requests for the same items
+            foreach ($conflicts as $c) {
+                $otherReqStmt = $pdo->prepare("
+                    SELECT DISTINCT r.requestor_id, r.requestor_name, r.rs_no, r.project_name
+                    FROM requisition_items ri
+                    JOIN requisitions r ON ri.requisition_id = r.id
+                    WHERE ri.item_code = ? AND r.status = 'Pending Approval' AND r.id != ?
+                ");
+
             $otherReqStmt->execute([$c['item_code'], $requisition_id]);
             $otherRequestors = $otherReqStmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -236,12 +241,20 @@ elseif ($action === 'create_rs') {
         sendPushNotification($pdo, 'Requisition Conflict Alert', $msgToAdmin, 'admin', null);
     }
 
+    $pdo->commit();
+
     $_SESSION['message'] = ($type === 'restock')
         ? "Restock request created successfully and sent to Management for approval."
         : "Requisition created successfully and sent to Management for approval.";
     $_SESSION['msg_type'] = "success";
     header("Location: ../requisitions");
     exit;
+    } catch (Exception $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        throw $e;
+    }
 }
 
 // --- APPROVE REQUISITION (Per-Item) ---
@@ -261,15 +274,18 @@ elseif ($action === 'approve_rs') {
         exit;
     }
 
-    // Update each item row
-    $itemUpdateStmt = $pdo->prepare(
-        "UPDATE requisition_items SET item_status = ?, item_remarks = ? WHERE id = ? AND requisition_id = ?"
-    );
-    foreach ($itemStatuses as $itemId => $status) {
-        $remark = trim($itemRemarks[$itemId] ?? '');
-        $cleanStatus = in_array($status, ['Approved', 'Rejected']) ? $status : 'Approved';
-        $itemUpdateStmt->execute([$cleanStatus, $remark ?: null, (int)$itemId, $rs_id]);
-    }
+    try {
+        $pdo->beginTransaction();
+
+        // Update each item row
+        $itemUpdateStmt = $pdo->prepare(
+            "UPDATE requisition_items SET item_status = ?, item_remarks = ? WHERE id = ? AND requisition_id = ?"
+        );
+        foreach ($itemStatuses as $itemId => $status) {
+            $remark = trim($itemRemarks[$itemId] ?? '');
+            $cleanStatus = in_array($status, ['Approved', 'Rejected']) ? $status : 'Approved';
+            $itemUpdateStmt->execute([$cleanStatus, $remark ?: null, (int)$itemId, $rs_id]);
+        }
 
     // Derive RS-level status
     $countStmt = $pdo->prepare(
@@ -344,10 +360,19 @@ elseif ($action === 'approve_rs') {
     }
 
     $msgType = $rsStatus === 'Rejected' ? 'danger' : ($rsStatus === 'Partially Approved' ? 'warning' : 'success');
+
+    $pdo->commit();
+
     $_SESSION['message'] = "Requisition {$rsStatus}. ({$approvedCount} approved, {$rejectedCount} rejected out of {$totalCount} items)";
     $_SESSION['msg_type'] = $msgType;
     header("Location: ../requisitions");
     exit;
+    } catch (Exception $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        throw $e;
+    }
 }
 
 // --- STAGE RS MATERIALS ---
