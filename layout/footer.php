@@ -303,7 +303,8 @@
         }
     }
 </style>
-<div id="cims-chatbot-container" data-user-role="<?= htmlspecialchars(strtolower($_SESSION['user_role'] ?? 'requestor')) ?>">
+<div id="cims-chatbot-container"
+    data-user-role="<?= htmlspecialchars(strtolower($_SESSION['user_role'] ?? 'requestor')) ?>">
     <!-- Floating Trigger Button -->
     <button id="cims-chatbot-trigger" class="btn shadow-lg" title="CIMS AI Assistant">
         <i class="bi bi-chat-dots-fill text-white fs-4"></i>
@@ -377,138 +378,146 @@ let supplyUpdatesData = [];
 let currentSupplyFilter = 'all';
 
 async function loadSupplyUpdates() {
-    const container = document.getElementById('supplyUpdatesContainer');
-    const badge = document.getElementById('supplyUpdatesBadge');
+const container = document.getElementById('supplyUpdatesContainer');
+const badge = document.getElementById('supplyUpdatesBadge');
 
-    try {
-        const formData = new FormData();
-        formData.append('action', 'fetch_combined_alerts');
+try {
+const formData = new FormData();
+formData.append('action', 'fetch_combined_alerts');
 
-        const res = await fetch('process/process.php', { method: 'POST', body: formData });
-        const data = await res.json();
+const res = await fetch('process/process.php', { method: 'POST', body: formData });
+const data = await res.json();
 
-        if (data.status === 'success') {
-            // Filter to supply items only (supply_eta & sms_reply)
-            const allItems = data.alerts || [];
-            supplyUpdatesData = allItems.filter(a => a.type === 'supply_eta' || a.type === 'sms_reply');
-            
-            // Count urgent items (arriving today, overdue, unread SMS)
-            const urgentCount = supplyUpdatesData.filter(a => a.category === 'arriving_today' || a.category === 'overdue' || (a.type === 'sms_reply' && a.is_read === 0)).length;
-            const icon = document.getElementById('supplyTruckIcon');
+if (data.status === 'success') {
+// Filter to supply items only (supply_eta & sms_reply)
+const allItems = data.alerts || [];
+supplyUpdatesData = allItems.filter(a => a.type === 'supply_eta' || a.type === 'sms_reply');
 
-            if (urgentCount > 0) {
-                if (badge) {
-                    badge.textContent = urgentCount > 99 ? '99+' : urgentCount;
-                    badge.classList.remove('d-none');
-                }
-                if (icon) {
-                    // HIGHLIGHT: Filled warning yellow triangle
-                    icon.className = 'bi bi-exclamation-triangle-fill fs-5 text-warning';
-                }
-            } else {
-                if (badge) {
-                    badge.classList.add('d-none');
-                }
-                if (icon) {
-                    // UNHIGHLIGHT: Muted grey outline triangle
-                    icon.className = 'bi bi-exclamation-triangle fs-5 text-muted';
-                }
-            }
+// Count urgent items (arriving today, overdue, unread SMS)
+const urgentCount = supplyUpdatesData.filter(a => a.category === 'arriving_today' || a.category === 'overdue' || (a.type
+=== 'sms_reply' && a.is_read === 0)).length;
+const icon = document.getElementById('supplyTruckIcon');
 
-            renderSupplyUpdates(currentSupplyFilter);
-        } else {
-            if (container) container.innerHTML = `<div class="p-3 text-center text-muted small">Unable to load supply updates.</div>`;
-        }
-    } catch (err) {
-        console.error('Error loading supply updates:', err);
-    }
+if (urgentCount > 0) {
+if (badge) {
+badge.textContent = urgentCount > 99 ? '99+' : urgentCount;
+badge.classList.remove('d-none');
+}
+if (icon) {
+// HIGHLIGHT: Filled warning yellow triangle
+icon.className = 'bi bi-exclamation-triangle-fill fs-5 text-warning';
+}
+} else {
+if (badge) {
+badge.classList.add('d-none');
+}
+if (icon) {
+// UNHIGHLIGHT: Muted grey outline triangle
+icon.className = 'bi bi-exclamation-triangle fs-5 text-muted';
+}
+}
+
+renderSupplyUpdates(currentSupplyFilter);
+} else {
+if (container) container.innerHTML = `<div class="p-3 text-center text-muted small">Unable to load supply updates.</div>
+`;
+}
+} catch (err) {
+console.error('Error loading supply updates:', err);
+}
 }
 
 function filterSupplyUpdates(filter, btnEl) {
-    currentSupplyFilter = filter;
+currentSupplyFilter = filter;
 
-    const container = btnEl ? btnEl.closest('.dropdown-menu') : null;
-    if (container) {
-        const tabs = container.querySelectorAll('.supply-tab-btn');
-        tabs.forEach(t => {
-            t.classList.remove('btn-primary', 'active');
-            t.classList.add('btn-outline-secondary');
-        });
-    }
+const container = btnEl ? btnEl.closest('.dropdown-menu') : null;
+if (container) {
+const tabs = container.querySelectorAll('.supply-tab-btn');
+tabs.forEach(t => {
+t.classList.remove('btn-primary', 'active');
+t.classList.add('btn-outline-secondary');
+});
+}
 
-    if (btnEl) {
-        btnEl.classList.remove('btn-outline-secondary');
-        btnEl.classList.add('btn-primary', 'active');
-    }
+if (btnEl) {
+btnEl.classList.remove('btn-outline-secondary');
+btnEl.classList.add('btn-primary', 'active');
+}
 
-    renderSupplyUpdates(filter);
+renderSupplyUpdates(filter);
 }
 
 function renderSupplyUpdates(filter) {
-    const container = document.getElementById('supplyUpdatesContainer');
-    if (!container) return;
+const container = document.getElementById('supplyUpdatesContainer');
+if (!container) return;
 
-    let items = supplyUpdatesData;
-    if (filter === 'arriving_today') {
-        items = supplyUpdatesData.filter(a => a.category === 'arriving_today');
-    } else if (filter === 'overdue') {
-        items = supplyUpdatesData.filter(a => a.category === 'overdue');
-    }
+let items = supplyUpdatesData;
+if (filter === 'arriving_today') {
+items = supplyUpdatesData.filter(a => a.category === 'arriving_today');
+} else if (filter === 'overdue') {
+items = supplyUpdatesData.filter(a => a.category === 'overdue');
+}
 
-    if (items.length === 0) {
-        container.innerHTML = `
-            <div class="text-center text-muted py-4 px-3">
-                <i class="bi bi-truck display-6 opacity-25 d-block mb-2 text-primary"></i>
-                <p class="small mb-0 fw-semibold">No supply updates found</p>
-                <small class="text-muted" style="font-size: 0.72rem;">No active shipments matching filter.</small>
-            </div>
-        `;
-        return;
-    }
+if (items.length === 0) {
+container.innerHTML = `
+<div class="text-center text-muted py-4 px-3">
+    <i class="bi bi-truck display-6 opacity-25 d-block mb-2 text-primary"></i>
+    <p class="small mb-0 fw-semibold">No supply updates found</p>
+    <small class="text-muted" style="font-size: 0.72rem;">No active shipments matching filter.</small>
+</div>
+`;
+return;
+}
 
-    let html = '';
-    items.forEach(item => {
-        const isUnread = item.is_read === 0 || item.category === 'arriving_today' || item.category === 'overdue';
-        const bgClass = isUnread ? 'bg-light border-start border-4 border-primary' : 'bg-white';
-        
-        let actionBtn = '';
-        if (item.type === 'supply_eta') {
-            actionBtn = `<a href="po" class="btn btn-xs btn-outline-primary py-0 px-2 fw-bold mt-1" style="font-size:0.7rem;"><i class="bi bi-box-arrow-up-right me-1"></i>View PO</a>`;
-            if (item.po_id && ['purchasing', 'admin'].includes(window.currentUserRole)) {
-                actionBtn += ` <button type="button" class="btn btn-xs btn-link text-primary py-0 px-1 fw-bold mt-1 text-decoration-none" style="font-size:0.7rem;" onclick="openEditEtaModal(${item.po_id}, '${item.po_no}', '')"><i class="bi bi-pencil-square me-1"></i>Edit ETA</button>`;
-            }
-        } else if (item.type === 'sms_reply') {
-            actionBtn = `
-                <button type="button" class="btn btn-xs btn-primary py-0 px-2 fw-bold mt-1 me-1" style="font-size:0.7rem;" onclick="openSmsInboxModal()"><i class="bi bi-chat-dots me-1"></i>Reply SMS</button>
-            `;
-        }
+let html = '';
+items.forEach(item => {
+const isUnread = item.is_read === 0 || item.category === 'arriving_today' || item.category === 'overdue';
+const bgClass = isUnread ? 'bg-light border-start border-4 border-primary' : 'bg-white';
 
-        html += `
-            <div class="p-3 border-bottom ${bgClass} transition-all">
-                <div class="d-flex align-items-start justify-content-between">
-                    <div class="d-flex align-items-center mb-1">
-                        <span class="badge ${item.badge_class} me-2" style="font-size:0.65rem;">
-                            <i class="bi ${item.icon} me-1"></i>${item.category ? item.category.replace('_', ' ').toUpperCase() : 'SUPPLY'}
-                        </span>
-                        <strong class="text-dark small" style="font-size:0.82rem;">${escapeSmsHtml(item.title)}</strong>
-                    </div>
-                    <small class="text-muted text-nowrap ms-2" style="font-size:0.68rem;">${item.time_ago}</small>
-                </div>
-                <p class="mb-1 text-secondary" style="font-size:0.78rem; line-height: 1.35;">${escapeSmsHtml(item.message)}</p>
-                ${actionBtn}
-            </div>
-        `;
-    });
+let actionBtn = '';
+if (item.type === 'supply_eta') {
+actionBtn = `<a href="po" class="btn btn-xs btn-outline-primary py-0 px-2 fw-bold mt-1" style="font-size:0.7rem;"><i
+        class="bi bi-box-arrow-up-right me-1"></i>View PO</a>`;
+if (item.po_id && ['purchasing', 'admin'].includes(window.currentUserRole)) {
+actionBtn += ` <button type="button"
+    class="btn btn-xs btn-link text-primary py-0 px-1 fw-bold mt-1 text-decoration-none" style="font-size:0.7rem;"
+    onclick="openEditEtaModal(${item.po_id}, '${item.po_no}', '')"><i class="bi bi-pencil-square me-1"></i>Edit
+    ETA</button>`;
+}
+} else if (item.type === 'sms_reply') {
+actionBtn = `
+<button type="button" class="btn btn-xs btn-primary py-0 px-2 fw-bold mt-1 me-1" style="font-size:0.7rem;"
+    onclick="openSmsInboxModal()"><i class="bi bi-chat-dots me-1"></i>Reply SMS</button>
+`;
+}
 
-    container.innerHTML = html;
+html += `
+<div class="p-3 border-bottom ${bgClass} transition-all">
+    <div class="d-flex align-items-start justify-content-between">
+        <div class="d-flex align-items-center mb-1">
+            <span class="badge ${item.badge_class} me-2" style="font-size:0.65rem;">
+                <i class="bi ${item.icon} me-1"></i>${item.category ? item.category.replace('_', ' ').toUpperCase() :
+                'SUPPLY'}
+            </span>
+            <strong class="text-dark small" style="font-size:0.82rem;">${escapeSmsHtml(item.title)}</strong>
+        </div>
+        <small class="text-muted text-nowrap ms-2" style="font-size:0.68rem;">${item.time_ago}</small>
+    </div>
+    <p class="mb-1 text-secondary" style="font-size:0.78rem; line-height: 1.35;">${escapeSmsHtml(item.message)}</p>
+    ${actionBtn}
+</div>
+`;
+});
+
+container.innerHTML = html;
 }
 
 // Poll for supply updates every 25 seconds
 document.addEventListener('DOMContentLoaded', () => {
-    loadSmsThreads();
-    loadSupplyUpdates();
-    setInterval(loadSmsThreads, 30000);
-    setInterval(loadSupplyUpdates, 25000);
+loadSmsThreads();
+loadSupplyUpdates();
+setInterval(loadSmsThreads, 30000);
+setInterval(loadSupplyUpdates, 25000);
 });
 <!-- ======================================================== -->
 <!-- MODAL: IN-APP PWA & MOBILE MEDIA PROOF VIEWER           -->
@@ -517,21 +526,29 @@ document.addEventListener('DOMContentLoaded', () => {
     <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content border-0 shadow-lg" style="border-radius: 12px; overflow: hidden;">
             <div class="modal-header bg-dark text-white py-2">
-                <h6 class="modal-title fw-bold text-uppercase mb-0" id="pwaMediaViewerTitle" style="font-size: 0.85rem;">
+                <h6 class="modal-title fw-bold text-uppercase mb-0" id="pwaMediaViewerTitle"
+                    style="font-size: 0.85rem;">
                     <i class="bi bi-image text-warning me-2"></i> Media Proof Viewer
                 </h6>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                    aria-label="Close"></button>
             </div>
-            <div class="modal-body p-2 text-center bg-dark d-flex flex-column align-items-center justify-content-center" style="min-height: 250px;">
-                <img id="pwaMediaViewerImg" src="" class="img-fluid rounded shadow-sm" style="max-height: 75vh; object-fit: contain; background: #fff;">
+            <div class="modal-body p-2 text-center bg-dark d-flex flex-column align-items-center justify-content-center"
+                style="min-height: 250px;">
+                <img id="pwaMediaViewerImg" src="" class="img-fluid rounded shadow-sm"
+                    style="max-height: 75vh; object-fit: contain; background: #fff;">
             </div>
-            <div class="modal-footer bg-dark border-top border-secondary border-opacity-25 py-2 d-flex justify-content-between align-items-center">
-                <span class="text-white-50 small text-truncate pe-2 font-monospace" id="pwaMediaViewerUrl" style="max-width: 60%; font-size: 0.72rem;"></span>
+            <div
+                class="modal-footer bg-dark border-top border-secondary border-opacity-25 py-2 d-flex justify-content-between align-items-center">
+                <span class="text-white-50 small text-truncate pe-2 font-monospace" id="pwaMediaViewerUrl"
+                    style="max-width: 60%; font-size: 0.72rem;"></span>
                 <div>
-                    <a id="pwaMediaViewerOpenBtn" href="#" target="_blank" class="btn btn-sm btn-outline-light me-1 fw-bold" style="font-size: 0.75rem;">
+                    <a id="pwaMediaViewerOpenBtn" href="#" target="_blank"
+                        class="btn btn-sm btn-outline-light me-1 fw-bold" style="font-size: 0.75rem;">
                         <i class="bi bi-box-arrow-up-right me-1"></i> Open Window
                     </a>
-                    <button type="button" class="btn btn-sm btn-secondary fw-bold" data-bs-dismiss="modal" style="font-size: 0.75rem;">Close</button>
+                    <button type="button" class="btn btn-sm btn-secondary fw-bold" data-bs-dismiss="modal"
+                        style="font-size: 0.75rem;">Close</button>
                 </div>
             </div>
         </div>
