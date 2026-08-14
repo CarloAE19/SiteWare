@@ -1,5 +1,5 @@
 // Global Popup Window Helper for Secure Media Viewing
-window.openPhotoWindow = function(url) {
+window.openPhotoWindow = function (url) {
     if (!url || url === '#' || url === 'javascript:void(0);') return;
     const width = 850;
     const height = 700;
@@ -9,7 +9,7 @@ window.openPhotoWindow = function(url) {
 };
 
 // 1. VIEW WITHDRAWAL DETAILS MODAL
-window.viewWdDetails = function(wdNo, project, remarks, itemsJson, releaser = '', requestor = '', receivedBy = '', signaturePath = '', photoProofPath = '', releaserSignaturePath = '') {
+window.viewWdDetails = function (wdNo, project, remarks, itemsJson, releaser = '', requestor = '', receivedBy = '', signaturePath = '', photoProofPath = '', releaserSignaturePath = '') {
     window.currentWdData = {
         releaserSignaturePath: releaserSignaturePath || '',
         signaturePath: signaturePath || '',
@@ -53,7 +53,7 @@ window.viewWdDetails = function(wdNo, project, remarks, itemsJson, releaser = ''
             photoImg.src = secureUrl;
             if (photoLink) {
                 photoLink.href = secureUrl;
-                photoLink.onclick = function(e) {
+                photoLink.onclick = function (e) {
                     e.preventDefault();
                     window.openPhotoWindow(secureUrl);
                 };
@@ -74,28 +74,29 @@ window.viewWdDetails = function(wdNo, project, remarks, itemsJson, releaser = ''
         }
     }
 
-    const qrData = encodeURIComponent(`Slip: ${wdNo} | Proj: ${project}`);
-    document.getElementById('viewWdQrCode').src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${qrData}`;
-    
+    const basePath = window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/'));
+    const verifyUrl = `${window.location.origin}${basePath}/verify?type=wd&ref=${encodeURIComponent(wdNo)}`;
+    document.getElementById('viewWdQrCode').src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(verifyUrl)}`;
+
     const tbody = document.getElementById('viewWdItemsBody');
-    tbody.innerHTML = ''; 
+    tbody.innerHTML = '';
     try {
         const items = JSON.parse(itemsJson);
-        items.forEach(item => { 
+        items.forEach(item => {
             tbody.innerHTML += `
                 <tr>
                     <td class="text-muted small align-middle">${item.item_code}</td>
                     <td class="fw-bold align-middle">${item.item_name}</td>
                     <td class="text-danger fw-bold text-end align-middle">-${item.quantity} ${item.unit}</td>
-                </tr>`; 
+                </tr>`;
         });
     } catch (e) { tbody.innerHTML = `<tr><td colspan="3" class="text-center text-muted py-3">Error loading items.</td></tr>`; }
-    
-    new bootstrap.Modal(document.getElementById('viewWdModal')).show();
-}
 
-// 1.5 PRINT WITHDRAWAL SLIP VOUCHER
-window.triggerWdPrint = function() {
+    new bootstrap.Modal(document.getElementById('viewWdModal')).show();
+};
+
+// 1.5 PRINT WITHDRAWAL SLIP VOUCHER (Compact 1-Page Layout for A4 Portrait / Half-Fold)
+window.triggerWdPrint = function () {
     const wdNo = document.getElementById('viewWdNo')?.innerText || 'WD-0000';
     const project = document.getElementById('viewWdProject')?.innerText || 'Project Name';
     const requestor = document.getElementById('viewWdRequestor')?.innerText || 'N/A';
@@ -135,9 +136,9 @@ window.triggerWdPrint = function() {
             if (cols.length >= 3) {
                 itemsRowsHtml += `
                     <tr>
-                        <td style="padding: 8px; border: 1px solid #000; font-family: monospace; font-weight: bold;">${cols[0].innerText}</td>
-                        <td style="padding: 8px; border: 1px solid #000; font-weight: bold;">${cols[1].innerText}</td>
-                        <td style="padding: 8px; border: 1px solid #000; text-align: right; font-weight: bold; color: #cc0000;">${cols[2].innerText}</td>
+                        <td style="padding: 4px 6px; border: 1px solid #000; font-family: monospace;">${cols[0].innerText}</td>
+                        <td style="padding: 4px 6px; border: 1px solid #000; font-weight: bold;">${cols[1].innerText}</td>
+                        <td style="padding: 4px 6px; border: 1px solid #000; text-align: right; font-weight: bold; color: #cc0000;">${cols[2].innerText}</td>
                     </tr>
                 `;
             }
@@ -147,59 +148,59 @@ window.triggerWdPrint = function() {
     let photoBlockHtml = '';
     if (photoSrc) {
         photoBlockHtml = `
-            <div style="margin-bottom: 10px;">
-                <div style="font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 4px; color: #444;">Handed-Over Photo Proof</div>
-                <div style="border: 1px solid #ccc; padding: 6px; border-radius: 4px; background: #fff; display: inline-block;">
-                    <img src="${photoSrc}" style="max-height: 70px; max-width: 250px; object-fit: cover; border-radius: 3px;">
+            <div style="margin-bottom: 6px;">
+                <div style="font-size: 9.5px; font-weight: bold; text-transform: uppercase; margin-bottom: 2px; color: #444;">Handed-Over Photo Proof</div>
+                <div style="border: 1px solid #ccc; padding: 4px; border-radius: 4px; background: #fff; display: inline-block;">
+                    <img src="${photoSrc}" style="max-height: 52px; max-width: 200px; object-fit: cover; border-radius: 3px;">
                 </div>
             </div>
         `;
     }
 
     const printContent = `
-        <div id="printWdVoucher" style="font-family: Arial, sans-serif; color: #000; width: 100%; max-width: 780px; margin: 0 auto; padding: 10px 15px;">
+        <div id="printWdVoucher" style="font-family: Arial, sans-serif; color: #000; width: 100%; max-width: 780px; margin: 0 auto; padding: 4px 8px;">
             <!-- HEADER -->
-            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #000; padding-bottom: 8px; margin-bottom: 10px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #000; padding-bottom: 4px; margin-bottom: 6px;">
                 <div style="display: flex; align-items: center;">
-                    <img src="assets/LogoGB.png" alt="GB Logo" style="height: 48px; width: auto; object-fit: contain; margin-right: 12px;">
+                    <img src="assets/LogoGB.png" alt="GB Logo" style="height: 38px; width: auto; object-fit: contain; margin-right: 10px;">
                     <div>
-                        <h4 style="margin: 0; font-weight: bold; color: #0033CC; text-transform: uppercase; letter-spacing: 0.5px;">GENETIAN BUILDERS & ENTERPRISES INC.</h4>
-                        <div style="font-size: 11px; color: #555; font-weight: bold;">Official Construction Inventory Management System</div>
-                        <h5 style="margin: 4px 0 0 0; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; color: #111;">MATERIAL WITHDRAWAL SLIP</h5>
+                        <h4 style="margin: 0; font-size: 13px; font-weight: bold; color: #0033CC; text-transform: uppercase; letter-spacing: 0.5px;">GENETIAN BUILDERS & ENTERPRISES INC.</h4>
+                        <div style="font-size: 9.5px; color: #555; font-weight: bold;">Official Construction Inventory Management System</div>
+                        <h5 style="margin: 2px 0 0 0; font-size: 11.5px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; color: #111;">MATERIAL WITHDRAWAL SLIP</h5>
                     </div>
                 </div>
-                ${qrSrc ? `<img src="${qrSrc}" style="width: 70px; height: 70px; border: 1px solid #ccc; padding: 3px; border-radius: 4px;">` : ''}
+                ${qrSrc ? `<img src="${qrSrc}" style="width: 52px; height: 52px; border: 1px solid #ccc; padding: 2px; border-radius: 4px;">` : ''}
             </div>
 
             <!-- META INFO GRID -->
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; background: #f8f9fa; border: 1px solid #ccc; padding: 8px 12px; border-radius: 6px; margin-bottom: 10px;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 3px 8px; background: #f8f9fa; border: 1px solid #ccc; padding: 5px 8px; border-radius: 4px; margin-bottom: 6px;">
                 <div>
-                    <span style="font-size: 10px; text-transform: uppercase; color: #666; font-weight: bold; display: block;">Withdrawal Slip No:</span>
-                    <strong style="font-size: 16px; color: #0033CC;">${wdNo}</strong>
+                    <span style="font-size: 9px; text-transform: uppercase; color: #666; font-weight: bold; display: block;">Withdrawal Slip No:</span>
+                    <strong style="font-size: 13px; color: #0033CC;">${wdNo}</strong>
                 </div>
                 <div style="text-align: right;">
-                    <span style="font-size: 10px; text-transform: uppercase; color: #666; font-weight: bold; display: block;">Project Name:</span>
-                    <strong style="font-size: 15px; color: #111;">${project}</strong>
+                    <span style="font-size: 9px; text-transform: uppercase; color: #666; font-weight: bold; display: block;">Project Name:</span>
+                    <strong style="font-size: 12px; color: #111;">${project}</strong>
                 </div>
-                <div style="margin-top: 2px;">
-                    <span style="font-size: 10px; text-transform: uppercase; color: #666; font-weight: bold; display: block;">Requested By:</span>
-                    <strong style="font-size: 13px;">${requestor}</strong>
+                <div style="margin-top: 1px;">
+                    <span style="font-size: 9px; text-transform: uppercase; color: #666; font-weight: bold; display: block;">Requested By:</span>
+                    <strong style="font-size: 11.5px;">${requestor}</strong>
                 </div>
-                <div style="margin-top: 2px; text-align: right;">
-                    <span style="font-size: 10px; text-transform: uppercase; color: #666; font-weight: bold; display: block;">Received By (Pickup):</span>
-                    <strong style="font-size: 13px; color: #008800;">${receivedBy}</strong>
+                <div style="margin-top: 1px; text-align: right;">
+                    <span style="font-size: 9px; text-transform: uppercase; color: #666; font-weight: bold; display: block;">Received By (Pickup):</span>
+                    <strong style="font-size: 11.5px; color: #008800;">${receivedBy}</strong>
                 </div>
             </div>
 
             <!-- ITEMS TABLE -->
-            <div style="margin-bottom: 10px;">
-                <div style="font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 4px; color: #444;">Released Material Items</div>
-                <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+            <div style="margin-bottom: 6px;">
+                <div style="font-size: 9.5px; font-weight: bold; text-transform: uppercase; margin-bottom: 2px; color: #444;">Released Material Items</div>
+                <table style="width: 100%; border-collapse: collapse; font-size: 11px;">
                     <thead>
                         <tr style="background: #212529; color: #ffffff;">
-                            <th style="padding: 6px 8px; border: 1px solid #000; text-align: left; width: 25%;">Item Code</th>
-                            <th style="padding: 6px 8px; border: 1px solid #000; text-align: left;">Item Description / Name</th>
-                            <th style="padding: 6px 8px; border: 1px solid #000; text-align: right; width: 25%;">Qty Released</th>
+                            <th style="padding: 3.5px 6px; border: 1px solid #000; text-align: left; width: 25%;">Item Code</th>
+                            <th style="padding: 3.5px 6px; border: 1px solid #000; text-align: left;">Item Description / Name</th>
+                            <th style="padding: 3.5px 6px; border: 1px solid #000; text-align: right; width: 25%;">Qty Released</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -212,30 +213,54 @@ window.triggerWdPrint = function() {
             ${photoBlockHtml}
 
             <!-- REMARKS -->
-            <div style="margin-bottom: 12px;">
-                <div style="font-size: 10px; font-weight: bold; text-transform: uppercase; margin-bottom: 3px; color: #444;">Remarks / Notes:</div>
-                <div style="padding: 6px 10px; border: 1px solid #ccc; background: #fff; font-size: 11px; border-radius: 4px;">${remarks}</div>
+            <div style="margin-bottom: 6px;">
+                <div style="font-size: 9px; font-weight: bold; text-transform: uppercase; margin-bottom: 2px; color: #444;">Remarks / Notes:</div>
+                <div style="padding: 3px 6px; border: 1px solid #ccc; background: #fff; font-size: 10px; border-radius: 4px; line-height: 1.2;">${remarks}</div>
             </div>
 
             <!-- SIGNATURE FORM FOOTER -->
-            <div style="display: flex; justify-content: space-between; margin-top: 25px; padding-top: 10px; border-top: 1px solid #888; page-break-inside: avoid;">
+            <div style="display: flex; justify-content: space-between; margin-top: 10px; padding-top: 6px; border-top: 1px solid #888; page-break-inside: avoid;">
                 <div style="text-align: center; width: 45%; position: relative;">
-                    <div style="min-height: 40px; display: flex; align-items: flex-end; justify-content: center;">
-                        ${releaserSigSrc ? `<img src="${releaserSigSrc}" style="max-height: 60px; max-width: 200px; object-fit: contain; background: transparent; margin-bottom: -18px; position: relative; z-index: 2;">` : '<div style="height: 40px;"></div>'}
+                    <div style="min-height: 32px; display: flex; align-items: flex-end; justify-content: center;">
+                        ${releaserSigSrc ? `<img src="${releaserSigSrc}" style="max-height: 48px; max-width: 180px; object-fit: contain; background: transparent; margin-bottom: -15px; position: relative; z-index: 2;">` : '<div style="height: 32px;"></div>'}
                     </div>
-                    <div style="font-weight: bold; border-top: 1px solid #000; padding-top: 3px; font-size: 13px; text-transform: uppercase; position: relative; z-index: 1;">${releaser}</div>
-                    <div style="font-size: 10px; color: #555; text-transform: uppercase; font-weight: bold; margin-top: 2px;">Released By (Warehouse Officer)</div>
+                    <div style="font-weight: bold; border-top: 1px solid #000; padding-top: 2px; font-size: 11px; text-transform: uppercase; position: relative; z-index: 1;">${releaser}</div>
+                    <div style="font-size: 8.5px; color: #555; text-transform: uppercase; font-weight: bold; margin-top: 1px;">Released By (Warehouse Officer)</div>
                 </div>
                 <div style="text-align: center; width: 45%; position: relative;">
-                    <div style="min-height: 40px; display: flex; align-items: flex-end; justify-content: center;">
-                        ${receiverSigSrc ? `<img src="${receiverSigSrc}" style="max-height: 60px; max-width: 200px; object-fit: contain; background: transparent; margin-bottom: -18px; position: relative; z-index: 2;">` : '<div style="height: 40px;"></div>'}
+                    <div style="min-height: 32px; display: flex; align-items: flex-end; justify-content: center;">
+                        ${receiverSigSrc ? `<img src="${receiverSigSrc}" style="max-height: 48px; max-width: 180px; object-fit: contain; background: transparent; margin-bottom: -15px; position: relative; z-index: 2;">` : '<div style="height: 32px;"></div>'}
                     </div>
-                    <div style="font-weight: bold; border-top: 1px solid #000; padding-top: 3px; font-size: 13px; text-transform: uppercase; position: relative; z-index: 1;">${receivedBy}</div>
-                    <div style="font-size: 10px; color: #555; text-transform: uppercase; font-weight: bold; margin-top: 2px;">Received By (Authorized Recipient)</div>
+                    <div style="font-weight: bold; border-top: 1px solid #000; padding-top: 2px; font-size: 11px; text-transform: uppercase; position: relative; z-index: 1;">${receivedBy}</div>
+                    <div style="font-size: 8.5px; color: #555; text-transform: uppercase; font-weight: bold; margin-top: 1px;">Received By (Authorized Recipient)</div>
+                </div>
+            </div>
+
+            <!-- CRYPTOGRAPHIC SEAL & VERIFICATION QR (Clean Minimalist PKI Style) -->
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px; padding-top: 6px; border-top: 1px solid #e2e8f0;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <div style="display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; min-width: 28px; border-radius: 50%; background-color: #d1e7dd; color: #0f5132; font-size: 13px; font-weight: bold;">
+                        ✓
+                    </div>
+                    <div>
+                        <div style="font-weight: bold; color: #0f172a; font-size: 9px; letter-spacing: -0.2px;">
+                            Certified Document
+                        </div>
+                        <div style="color: #64748b; font-size: 7.5px; margin-top: 2px;">
+                            <em>Scan QR code for tamper-evident audit trail</em>
+                        </div>
+                    </div>
+                </div>
+                <div style="text-align: right; padding-left: 8px;">
+                    <img src="${qrSrc}" style="width: 48px; height: 48px; border: 1px solid #cbd5e1; padding: 1px; background: #fff; border-radius: 4px; object-fit: contain;">
                 </div>
             </div>
         </div>
     `;
+
+    const rowCount = tbodySource ? tbodySource.querySelectorAll('tr').length : 1;
+    const isDense = rowCount >= 6 && rowCount <= 12;
+    const isMultiPage = rowCount > 12;
 
     const printWindow = window.open('', '_blank', 'width=850,height=900');
     if (!printWindow) {
@@ -247,26 +272,50 @@ window.triggerWdPrint = function() {
         <html>
         <head>
             <title>Material Withdrawal Slip - ${wdNo}</title>
-            <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
             <style>
-                @media print {
-                    @page { size: A4 portrait; margin: 8mm 10mm; }
-                    html, body { background: #fff !important; color: #000 !important; height: auto !important; margin: 0 !important; padding: 0 !important; }
-                    #printWdVoucher { page-break-inside: avoid !important; padding: 0 !important; }
+                @page { size: portrait; margin: 4mm 6mm; }
+                * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; box-sizing: border-box; }
+                thead { display: table-header-group; }
+                tr { page-break-inside: avoid; }
+                body {
+                    font-family: Arial, sans-serif;
+                    background: #ffffff;
+                    color: #000;
+                    margin: 0;
+                    padding: 0;
+                    font-size: ${isDense ? '9.5px' : '11px'};
                 }
-                body { background: #ffffff; padding: 15px; }
+                #printWdVoucher {
+                    width: 100% !important;
+                    max-width: 100% !important;
+                    margin: 0 !important;
+                    padding: 0 !important;
+                    ${isMultiPage ? '' : 'page-break-inside: avoid;'}
+                }
+                td, th {
+                    padding: ${isDense ? '2px 4px' : '3.5px 6px'} !important;
+                }
+                .fold-guide {
+                    margin-top: 14px;
+                    border-top: 1px dashed #aaa;
+                    text-align: center;
+                    font-size: 8px;
+                    color: #888;
+                    text-transform: uppercase;
+                    letter-spacing: 1px;
+                    padding-top: 2px;
+                }
             </style>
         </head>
         <body>
             ${printContent}
+            <div class="fold-guide">&bull; &bull; &bull; FOLD LINE (A4 HALF / A5 FORMAT) &bull; &bull; &bull;</div>
             <script>
                 window.onload = function() {
-                    setTimeout(function() {
-                        window.print();
-                        window.close();
-                    }, 400);
+                    window.print();
+                    window.close();
                 };
-            </script>
+            <\/script>
         </body>
         </html>
     `);
@@ -276,20 +325,22 @@ window.triggerWdPrint = function() {
 // 2. DYNAMIC ROWS FOR MANUAL WITHDRAWALS
 if (!window.wdGlobalListenersAttached) {
     window.wdGlobalListenersAttached = true;
-    
-    document.body.addEventListener('click', function(e) {
+
+    document.body.addEventListener('click', function (e) {
         const container = document.getElementById('wdMaterialsContainer');
         if (!container) return;
 
         // Add Row
         if (e.target.closest('#addWdMaterialBtn')) {
             const firstRow = container.querySelector('.wd-material-row');
-            const newRow = firstRow.cloneNode(true);
-            newRow.querySelector('select').value = '';
-            newRow.querySelector('input[type="number"]').value = '';
-            newRow.querySelector('.remove-wd-row').disabled = false;
-            container.appendChild(newRow);
-            window.updateWdDeleteButtons(container);
+            if (firstRow) {
+                const newRow = firstRow.cloneNode(true);
+                newRow.querySelector('select').value = '';
+                newRow.querySelector('input[type="number"]').value = '';
+                newRow.querySelector('.remove-wd-row').disabled = false;
+                container.appendChild(newRow);
+                window.updateWdDeleteButtons(container);
+            }
         }
 
         // Remove Row
@@ -303,19 +354,19 @@ if (!window.wdGlobalListenersAttached) {
     });
 }
 
-window.updateWdDeleteButtons = function(container) {
+window.updateWdDeleteButtons = function (container) {
     const rows = container.querySelectorAll('.wd-material-row');
     if (rows.length === 1) {
         rows[0].querySelector('.remove-wd-row').disabled = true;
     } else {
         rows.forEach(row => row.querySelector('.remove-wd-row').disabled = false);
     }
-}
+};
 
 // 3. THE MAGIC RS SCANNER ENGINE
 window.html5RsScanner = window.html5RsScanner || null;
 
-window.startRsScanner = function() {
+window.startRsScanner = function () {
     const scannerEl = document.getElementById('rsScannerModal');
     if (scannerEl) {
         const modal = bootstrap.Modal.getOrCreateInstance(scannerEl);
@@ -326,21 +377,21 @@ window.startRsScanner = function() {
     document.getElementById('rsScannerResult').innerHTML = "Point your camera at the Approved RS Document QR Code...";
 
     if (!window.html5RsScanner) {
-        window.html5RsScanner = new Html5QrcodeScanner("rsReader", { fps: 10, qrbox: {width: 250, height: 250} }, false);
+        window.html5RsScanner = new Html5QrcodeScanner("rsReader", { fps: 10, qrbox: { width: 250, height: 250 } }, false);
     }
 
     window.html5RsScanner.render((decodedText) => {
         // Only accept valid RS QR Codes
-        if(decodedText.startsWith("REQ-DATA:")) {
-            new Audio('assets/sounds/scan.mp3').play().catch(e => {});
-            
+        if (decodedText.startsWith("REQ-DATA:")) {
+            new Audio('assets/sounds/scan.mp3').play().catch(e => { });
+
             // Stop Camera
-            window.html5RsScanner.clear().then(() => { window.html5RsScanner = null; }).catch(e=>{});
+            window.html5RsScanner.clear().then(() => { window.html5RsScanner = null; }).catch(e => { });
             document.getElementById('rsReader').style.display = 'none';
             document.getElementById('rsScannerResult').innerHTML = `<span class="spinner-border spinner-border-sm me-2 text-primary"></span>Fetching RS Data from Server...`;
 
             // Fetch data from backend via AJAX
-            window.loadRsDataToWithdrawalForm(decodedText, function(success, msg) {
+            window.loadRsDataToWithdrawalForm(decodedText, function (success, msg) {
                 if (success) {
                     if (scannerEl) {
                         const scannerInstance = bootstrap.Modal.getInstance(scannerEl);
@@ -359,14 +410,14 @@ window.startRsScanner = function() {
         } else {
             document.getElementById('rsScannerResult').innerHTML = `<span class="text-danger fw-bold">Invalid QR Code format. Scan an RS Document.</span>`;
         }
-    }, (error) => {});
-}
+    }, (error) => { });
+};
 
-window.stopRsScanner = function() {
+window.stopRsScanner = function () {
     if (window.html5RsScanner) {
-        window.html5RsScanner.clear().then(() => { window.html5RsScanner = null; }).catch(e=>{});
+        window.html5RsScanner.clear().then(() => { window.html5RsScanner = null; }).catch(e => { });
     }
-}
+};
 
 // Reset form and container on modal hidden (SPA Router Safe)
 function setupWithdrawalModalListeners() {
@@ -392,7 +443,7 @@ function setupWithdrawalModalListeners() {
             if (form) form.reset();
             const rsNoField = document.getElementById('wdRsNo');
             if (rsNoField) rsNoField.value = '';
-            
+
             // Restore default template row in materials container
             if (container && wdRowTemplate) {
                 container.innerHTML = '';
@@ -412,7 +463,7 @@ if (document.readyState === "loading") {
 // 4. INITIALIZE PAGE
 function initWithdrawalsPage() {
     // Real-time Search
-    document.getElementById('searchWithdrawals')?.addEventListener('keyup', function(e) {
+    document.getElementById('searchWithdrawals')?.addEventListener('keyup', function (e) {
         const term = e.target.value.toLowerCase();
         const rows = document.querySelectorAll('.withdrawal-row');
         rows.forEach(row => {
@@ -436,7 +487,7 @@ function initWithdrawalsPage() {
 
     const wrapper = document.createElement('div');
     wrapper.className = 'd-flex justify-content-between align-items-center p-3 bg-white border-top pagination-wrapper';
-    
+
     const info = document.createElement('span'); info.className = 'text-muted small fw-bold';
     const btnGroup = document.createElement('div'); btnGroup.className = 'btn-group shadow-sm';
 
@@ -472,7 +523,7 @@ function initWithdrawalsPage() {
 }
 
 // Global Manual RS Lookup Helper
-window.loadRsDataToWithdrawalForm = function(rsNo, callback) {
+window.loadRsDataToWithdrawalForm = function (rsNo, callback) {
     const feedbackEl = document.getElementById('manualRsStatusFeedback');
     if (feedbackEl) {
         feedbackEl.classList.remove('d-none', 'text-danger', 'text-success');
@@ -485,83 +536,83 @@ window.loadRsDataToWithdrawalForm = function(rsNo, callback) {
     formData.append('rs_no', rsNo);
 
     fetch('process/process.php', { method: 'POST', body: formData })
-    .then(response => response.json())
-    .then(data => {
-        if(data.status === 'success') {
-            document.getElementById('wdProjectName').value = data.project_name;
-            if (data.rs_status === 'Staged (Ready for Pickup)') {
-                document.getElementById('wdRemarks').value = "Pre-picked & Staged Express Pickup for " + data.rs_no;
-            } else {
-                document.getElementById('wdRemarks').value = "Auto-filled via RS Lookup for " + data.rs_no;
-            }
-            
-            let rsNoField = document.getElementById('wdRsNo');
-            if (!rsNoField) {
-                rsNoField = document.createElement('input');
-                rsNoField.type = 'hidden';
-                rsNoField.name = 'rs_no';
-                rsNoField.id = 'wdRsNo';
-                const form = document.getElementById('withdrawalForm');
-                if (form) form.appendChild(rsNoField);
-            }
-            if (rsNoField) rsNoField.value = data.rs_no;
-            
-            const reqDisplay = document.getElementById('wdRequestorDisplay');
-            if (reqDisplay) reqDisplay.value = data.requestor_name || 'N/A';
-            const projInput = document.getElementById('wdProjectName');
-            if (projInput) projInput.value = data.project_name;
-            const projDisplay = document.getElementById('wdProjectNameDisplay');
-            if (projDisplay) projDisplay.value = data.project_name;
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                document.getElementById('wdProjectName').value = data.project_name;
+                if (data.rs_status === 'Staged (Ready for Pickup)') {
+                    document.getElementById('wdRemarks').value = "Pre-picked & Staged Express Pickup for " + data.rs_no;
+                } else {
+                    document.getElementById('wdRemarks').value = "Auto-filled via RS Lookup for " + data.rs_no;
+                }
 
-            const container = document.getElementById('wdMaterialsContainer');
-            container.innerHTML = '';
-            
-            data.items.forEach((item) => {
-                const row = document.createElement('div');
-                row.className = 'row g-2 wd-material-row mb-2 align-items-center bg-white p-2 rounded border shadow-sm mx-0';
-                row.innerHTML = `
+                let rsNoField = document.getElementById('wdRsNo');
+                if (!rsNoField) {
+                    rsNoField = document.createElement('input');
+                    rsNoField.type = 'hidden';
+                    rsNoField.name = 'rs_no';
+                    rsNoField.id = 'wdRsNo';
+                    const form = document.getElementById('withdrawalForm');
+                    if (form) form.appendChild(rsNoField);
+                }
+                if (rsNoField) rsNoField.value = data.rs_no;
+
+                const reqDisplay = document.getElementById('wdRequestorDisplay');
+                if (reqDisplay) reqDisplay.value = data.requestor_name || 'N/A';
+                const projInput = document.getElementById('wdProjectName');
+                if (projInput) projInput.value = data.project_name;
+                const projDisplay = document.getElementById('wdProjectNameDisplay');
+                if (projDisplay) projDisplay.value = data.project_name;
+
+                const container = document.getElementById('wdMaterialsContainer');
+                container.innerHTML = '';
+
+                data.items.forEach((item) => {
+                    const row = document.createElement('div');
+                    row.className = 'row g-2 wd-material-row mb-2 align-items-center bg-white p-2 rounded border shadow-sm mx-0';
+                    row.innerHTML = `
                     <div class="col-md-8">
                         <input type="text" class="form-control fw-bold text-dark bg-white" value="[${item.item_code}] ${item.item_name}" readonly>
                         <input type="hidden" name="items[]" value="${item.item_code}">
                     </div>
-                    <div class="col-md-4 mt-2 mt-md-0">
+                    <div class="col-md-4">
                         <input type="number" class="form-control fw-bold text-center text-danger bg-white" name="quantities[]" value="${item.quantity}" readonly>
                     </div>
                 `;
-                container.appendChild(row);
-            });
-            
-            const addBtn = document.getElementById('addWdMaterialBtn');
-            if (addBtn) addBtn.style.display = 'none';
+                    container.appendChild(row);
+                });
 
-            if (feedbackEl) {
-                feedbackEl.classList.remove('text-muted', 'text-danger');
-                feedbackEl.classList.add('text-success');
-                feedbackEl.innerHTML = `<i class="bi bi-check-circle-fill me-1"></i> Loaded ${data.rs_no} (${data.rs_status}) successfully! ${data.items.length} item(s) auto-filled.`;
+                const addBtn = document.getElementById('addWdMaterialBtn');
+                if (addBtn) addBtn.style.display = 'none';
+
+                if (feedbackEl) {
+                    feedbackEl.classList.remove('text-muted', 'text-danger');
+                    feedbackEl.classList.add('text-success');
+                    feedbackEl.innerHTML = `<i class="bi bi-check-circle-fill me-1"></i> Loaded ${data.rs_no} (${data.rs_status}) successfully! ${data.items.length} item(s) auto-filled.`;
+                }
+
+                if (callback) callback(true, 'Success');
+            } else {
+                if (feedbackEl) {
+                    feedbackEl.classList.remove('text-muted', 'text-success');
+                    feedbackEl.classList.add('text-danger');
+                    feedbackEl.innerHTML = `<i class="bi bi-exclamation-triangle-fill me-1"></i> ${data.message || 'RS not found or invalid.'}`;
+                }
+
+                if (callback) callback(false, data.message || 'RS not found or invalid.');
             }
-
-            if (callback) callback(true, 'Success');
-        } else {
+        })
+        .catch(err => {
             if (feedbackEl) {
                 feedbackEl.classList.remove('text-muted', 'text-success');
                 feedbackEl.classList.add('text-danger');
-                feedbackEl.innerHTML = `<i class="bi bi-exclamation-triangle-fill me-1"></i> ${data.message || 'RS not found or invalid.'}`;
+                feedbackEl.innerHTML = `<i class="bi bi-exclamation-triangle-fill me-1"></i> Server error fetching RS data.`;
             }
-
-            if (callback) callback(false, data.message || 'RS not found or invalid.');
-        }
-    })
-    .catch(err => {
-        if (feedbackEl) {
-            feedbackEl.classList.remove('text-muted', 'text-success');
-            feedbackEl.classList.add('text-danger');
-            feedbackEl.innerHTML = `<i class="bi bi-exclamation-triangle-fill me-1"></i> Server error fetching RS data.`;
-        }
-        if (callback) callback(false, 'Server error fetching RS data.');
-    });
+            if (callback) callback(false, 'Server error fetching RS data.');
+        });
 };
 
-window.lookupManualRsInput = function() {
+window.lookupManualRsInput = function () {
     const inputVal = document.getElementById('manualRsInputText')?.value.trim();
     if (!inputVal) {
         alert("Please enter or select an RS Number.");
@@ -571,7 +622,7 @@ window.lookupManualRsInput = function() {
 };
 
 // Signature Pad & Photo Proof Initialization
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     const canvas = document.getElementById('signatureCanvas');
     if (canvas) {
         const ctx = canvas.getContext('2d');
@@ -651,7 +702,7 @@ document.addEventListener('DOMContentLoaded', function() {
         canvas.addEventListener('touchend', stopDrawing);
 
         if (clearBtn) {
-            clearBtn.addEventListener('click', function() {
+            clearBtn.addEventListener('click', function () {
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
                 ctx.beginPath();
                 hasSignature = false;
@@ -662,7 +713,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Fullscreen Signature Pad logic
-    document.addEventListener('click', function(e) {
+    document.addEventListener('click', function (e) {
         const btn = e.target.closest('#openFullSigBtn');
         if (btn) {
             e.preventDefault();
@@ -700,7 +751,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 fullCanvas.width = rect.width;
                 fullCanvas.height = rect.height;
             }
-            
+
             fullCtx.clearRect(0, 0, fullCanvas.width, fullCanvas.height);
             fullCtx.lineWidth = 3;
             fullCtx.lineCap = 'round';
@@ -712,7 +763,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             // Attempt screen orientation lock to landscape on mobile devices
             if (screen.orientation && screen.orientation.lock) {
-                screen.orientation.lock('landscape').catch(() => {});
+                screen.orientation.lock('landscape').catch(() => { });
             } else if (screen.lockOrientation) {
                 screen.lockOrientation('landscape');
             }
@@ -723,9 +774,9 @@ document.addEventListener('DOMContentLoaded', function() {
             if (botContainer) botContainer.style.removeProperty('display');
 
             if (screen.orientation && screen.orientation.unlock) {
-                try { screen.orientation.unlock(); } catch(e) {}
+                try { screen.orientation.unlock(); } catch (e) { }
             } else if (screen.unlockOrientation) {
-                try { screen.unlockOrientation(); } catch(e) {}
+                try { screen.unlockOrientation(); } catch (e) { }
             }
 
             // Restore modal-open state so withdrawModal stays active and scrollable
@@ -811,7 +862,7 @@ document.addEventListener('DOMContentLoaded', function() {
         fullCanvas.addEventListener('touchend', stopFullDrawing);
 
         if (clearFullBtn) {
-            clearFullBtn.addEventListener('click', function() {
+            clearFullBtn.addEventListener('click', function () {
                 fullCtx.clearRect(0, 0, fullCanvas.width, fullCanvas.height);
                 fullCtx.beginPath();
                 fullHasSignature = false;
@@ -821,7 +872,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         const cancelFullBtn = document.getElementById('cancelFullSigBtn');
         if (cancelFullBtn) {
-            cancelFullBtn.addEventListener('click', function(e) {
+            cancelFullBtn.addEventListener('click', function (e) {
                 e.preventDefault();
                 const modalInstance = bootstrap.Modal.getInstance(fullModalEl);
                 if (modalInstance) modalInstance.hide();
@@ -829,13 +880,13 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         if (saveFullBtn) {
-            saveFullBtn.addEventListener('click', function() {
+            saveFullBtn.addEventListener('click', function () {
                 if (!fullHasSignature) {
                     alert("Please sign on the canvas first.");
                     return;
                 }
                 const dataUrl = fullCanvas.toDataURL('image/png');
-                
+
                 const sigDataInput = document.getElementById('signatureData');
                 const drawnPreviewWrap = document.getElementById('wdSigDrawnPreview');
                 const previewImg = document.getElementById('wdSigPreviewImg');
@@ -843,7 +894,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (sigDataInput) sigDataInput.value = dataUrl;
                 if (previewImg) previewImg.src = dataUrl;
                 if (drawnPreviewWrap) drawnPreviewWrap.classList.remove('d-none');
-                
+
                 // Hide modal
                 const modalInstance = bootstrap.Modal.getInstance(fullModalEl);
                 if (modalInstance) modalInstance.hide();
@@ -852,7 +903,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         const clearWdDrawnBtn = document.getElementById('clearWdDrawnSigBtn');
         if (clearWdDrawnBtn) {
-            clearWdDrawnBtn.addEventListener('click', function() {
+            clearWdDrawnBtn.addEventListener('click', function () {
                 const sigDataInput = document.getElementById('signatureData');
                 const drawnPreviewWrap = document.getElementById('wdSigDrawnPreview');
                 const previewImg = document.getElementById('wdSigPreviewImg');
@@ -870,11 +921,11 @@ document.addEventListener('DOMContentLoaded', function() {
     const photoPreview = document.getElementById('photoProofPreview');
     const photoContainer = document.getElementById('photoProofPreviewContainer');
     if (photoInput && photoPreview && photoContainer) {
-        photoInput.addEventListener('change', function() {
+        photoInput.addEventListener('change', function () {
             const file = this.files[0];
             if (file) {
                 const reader = new FileReader();
-                reader.onload = function(e) {
+                reader.onload = function (e) {
                     photoPreview.src = e.target.result;
                     photoContainer.classList.remove('d-none');
                 };
@@ -888,7 +939,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Form Submit Signature Check
     const form = document.getElementById('withdrawalForm');
     if (form) {
-        form.addEventListener('submit', function(e) {
+        form.addEventListener('submit', function (e) {
             const sigInput = document.getElementById('signatureData');
             if (sigInput && (!sigInput.value || sigInput.value.trim() === '')) {
                 e.preventDefault();
@@ -940,4 +991,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-if (document.readyState === "loading") { document.addEventListener("DOMContentLoaded", initWithdrawalsPage); } else { initWithdrawalsPage(); }
+if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initWithdrawalsPage);
+} else {
+    initWithdrawalsPage();
+}
