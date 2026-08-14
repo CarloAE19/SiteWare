@@ -4,7 +4,20 @@
 // Verifies user session before serving sensitive signatures & photo proofs
 // ==========================================================
 
-session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    $is_https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ||
+        (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && strtolower($_SERVER['HTTP_X_FORWARDED_PROTO']) === 'https');
+
+    session_set_cookie_params([
+        'lifetime' => 0,
+        'path' => '/',
+        'domain' => '',
+        'secure' => $is_https,
+        'httponly' => true,
+        'samesite' => 'Lax'
+    ]);
+    session_start();
+}
 
 // 1. Check Authentication: User must be logged in
 if (!isset($_SESSION['user_id'])) {
@@ -60,6 +73,6 @@ if (!$mimeType || !in_array($mimeType, ['image/png', 'image/jpeg', 'image/jpg', 
 // 6. Send Headers and Stream Binary File Content
 header('Content-Type: ' . $mimeType);
 header('Content-Length: ' . filesize($filePath));
-header('Cache-Control: private, max-age=86400'); // Cache securely per user session
+header('Cache-Control: private, no-cache, no-store, must-revalidate');
 readfile($filePath);
 exit;
