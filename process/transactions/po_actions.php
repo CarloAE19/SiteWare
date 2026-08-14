@@ -162,26 +162,45 @@ elseif ($action === 'fetch_po_details') {
         exit;
     }
 
-    if (empty($po['prepared_signature']) && !empty($po['prepared_user_sig'])) {
-        $po['prepared_signature'] = $po['prepared_user_sig'];
+    $baseDir = dirname(__DIR__, 2) . '/';
+
+    // Helper: checks if file exists on disk
+    $checkSig = function($path) use ($baseDir) {
+        if (empty($path)) return '';
+        $clean = ltrim($path, '/');
+        return file_exists($baseDir . $clean) ? $path : '';
+    };
+
+    // 1. Resolve Prepared By Signature
+    $prepSig = $checkSig($po['prepared_signature'] ?? '');
+    if (empty($prepSig)) {
+        $prepSig = $checkSig($po['prepared_user_sig'] ?? '');
+    }
+    $po['prepared_signature'] = $prepSig;
+
+    // 2. Resolve Approved By Signature & Name
+    $appSig = $checkSig($po['approved_signature'] ?? '');
+    if (empty($appSig)) {
+        $appSig = $checkSig($po['approved_user_sig'] ?? '');
     }
 
-    if (empty($po['approved_signature']) && !empty($po['approved_user_sig'])) {
-        $po['approved_signature'] = $po['approved_user_sig'];
-    }
-
-    if (empty($po['approved_by_name'])) {
-        $mgrStmt = $pdo->query("SELECT name, signature_path FROM users WHERE role IN ('management', 'admin') ORDER BY role DESC LIMIT 1");
+    if (empty($po['approved_by_name']) || empty($appSig)) {
+        $mgrStmt = $pdo->query("SELECT name, signature_path FROM users WHERE role IN ('management', 'admin') AND signature_path IS NOT NULL AND signature_path != '' ORDER BY (role='management') DESC, id ASC LIMIT 1");
         $mgr = $mgrStmt->fetch(PDO::FETCH_ASSOC);
         if ($mgr) {
-            $po['approved_by_name'] = $mgr['name'];
-            if (empty($po['approved_signature'])) {
-                $po['approved_signature'] = $mgr['signature_path'];
+            if (empty($po['approved_by_name'])) {
+                $po['approved_by_name'] = $mgr['name'];
+            }
+            if (empty($appSig)) {
+                $appSig = $checkSig($mgr['signature_path'] ?? '');
             }
         } else {
-            $po['approved_by_name'] = 'Management Authorization';
+            if (empty($po['approved_by_name'])) {
+                $po['approved_by_name'] = 'Management Authorization';
+            }
         }
     }
+    $po['approved_signature'] = $appSig;
 
     $itemsStmt = $pdo->prepare("
         SELECT 
@@ -274,6 +293,31 @@ elseif ($action === 'create_po') {
             $cCat = $isNew ? $item['new_category'] : null;
             $cUnit = $isNew ? $item['new_unit'] : null;
             $poItemStmt->execute([$po_id, $item['item_code'], $item['quantity'], $price, $isNew, $cName, $cCat, $cUnit]);
+        }
+
+        // Cryptographically Seal Purchase Order with RSA-2048 PKI Signature
+        try {
+            require_once __DIR__ . '/../../helpers/crypto_helper.php';
+            $signerUserId = $approved_by ?: $prepared_by;
+            $signerKeys = getOrCreateUserKeyPair($pdo, $signerUserId);
+            if ($signerKeys) {
+                $poHeaderData = [
+                    'po_no'       => $po_no,
+                    'rs_no'       => $rsApp['rs_no'] ?? '',
+                    'supplier_id' => $supplier_id,
+                    'prepared_by' => $prepared_by,
+                    'approved_by' => $approved_by,
+                    'created_at'  => date('Y-m-d H:i:s')
+                ];
+                $payload = buildCanonicalPoPayload($poHeaderData, $rsItems);
+                $signed = cryptographicallySignPayload($payload, $signerKeys['private']);
+                if ($signed) {
+                    $pdo->prepare("UPDATE purchase_orders SET crypto_signature = ?, document_hash = ?, signed_at = NOW() WHERE id = ?")
+                        ->execute([$signed['signature'], $signed['hash'], $po_id]);
+                }
+            }
+        } catch (Exception $cryptoEx) {
+            error_log("PO Crypto Signing Notice: " . $cryptoEx->getMessage());
         }
 
         $pdo->prepare("UPDATE requisitions SET status = 'PO Created' WHERE id = ?")->execute([$rs_id]);
