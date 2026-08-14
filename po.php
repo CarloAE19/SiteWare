@@ -998,7 +998,7 @@ include 'layout/header.php';
                 if (prepSigWrap && prepSigImg) {
                     if (prepSig && prepSig.trim() !== '') {
                         const filename = prepSig.split('/').pop();
-                        prepSigImg.src = `secure_image.php?type=signatures&file=${encodeURIComponent(filename)}`;
+                        prepSigImg.src = `secure_image.php?type=signatures&file=${encodeURIComponent(filename)}&t=${Date.now()}`;
                         prepSigWrap.classList.remove('d-none');
                     } else {
                         prepSigWrap.classList.add('d-none');
@@ -1015,7 +1015,7 @@ include 'layout/header.php';
                 if (appSigWrap && appSigImg) {
                     if (appSig && appSig.trim() !== '') {
                         const filename = appSig.split('/').pop();
-                        appSigImg.src = `secure_image.php?type=signatures&file=${encodeURIComponent(filename)}`;
+                        appSigImg.src = `secure_image.php?type=signatures&file=${encodeURIComponent(filename)}&t=${Date.now()}`;
                         appSigWrap.classList.remove('d-none');
                     } else {
                         appSigWrap.classList.add('d-none');
@@ -1073,6 +1073,24 @@ include 'layout/header.php';
                     remarksSec.classList.add('d-none');
                 }
 
+                // Cryptographic Verification QR Code & Document Digest
+                const poDocHashElem = document.getElementById('printPoDocHash');
+                if (poDocHashElem) {
+                    if (po.document_hash) {
+                        poDocHashElem.innerText = po.document_hash.substring(0, 14) + '...' + po.document_hash.substring(po.document_hash.length - 8);
+                        poDocHashElem.title = po.document_hash;
+                    } else {
+                        poDocHashElem.innerText = 'SHA256:AUTHENTICATED';
+                    }
+                }
+
+                const poQrImg = document.getElementById('printPoQrCode');
+                if (poQrImg) {
+                    const basePath = window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/'));
+                    const verifyUrl = `${window.location.origin}${basePath}/verify?type=po&ref=${encodeURIComponent(po.po_no)}`;
+                    poQrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(verifyUrl)}`;
+                }
+
                 if (spinner) spinner.classList.add('d-none');
                 if (paper) paper.classList.remove('d-none');
             } else {
@@ -1086,42 +1104,193 @@ include 'layout/header.php';
     };
 
     window.printPoDocument = function () {
-        const printContent = document.getElementById('poPrintPaper').innerHTML;
-        const originalBody = document.body.innerHTML;
+        const paperEl = document.getElementById('poPrintPaper');
+        const itemCount = paperEl.querySelectorAll('#printPoItemsBody tr').length;
+        const isDense = itemCount >= 6 && itemCount <= 12;
+        const isMultiPage = itemCount > 12;
 
-        const printStyles = `
-            <style>
-                @media print {
+        const printContent = paperEl.innerHTML;
+        const printWindow = window.open('', '_blank', 'width=850,height=900');
+        if (!printWindow) {
+            alert("Pop-up blocked. Please allow pop-ups for this site to print.");
+            return;
+        }
+
+        printWindow.document.write(`
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Purchase Order Print Document</title>
+                <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+                <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+                <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+                <style>
+                    @page {
+                        size: portrait;
+                        margin: 6mm 8mm;
+                    }
                     * {
                         -webkit-print-color-adjust: exact !important;
                         print-color-adjust: exact !important;
-                        color-adjust: exact !important;
+                        box-sizing: border-box;
+                    }
+                    html, body {
+                        width: 100% !important;
+                        margin: 0 !important;
+                        padding: 0 !important;
+                        background: #ffffff !important;
+                        color: #212529 !important;
+                        font-family: 'Plus Jakarta Sans', Arial, sans-serif;
+                    }
+                    body {
+                        font-size: ${isDense ? '0.73rem' : '0.80rem'};
+                    }
+                    .print-wrapper {
+                        width: 100% !important;
+                        max-width: 100% !important;
+                        margin: 0 !important;
+                        padding: 0 !important;
+                        ${isMultiPage ? '' : 'page-break-inside: avoid;'}
+                    }
+                    .row {
+                        display: flex !important;
+                        flex-wrap: wrap !important;
+                        width: 100% !important;
+                        margin-left: 0 !important;
+                        margin-right: 0 !important;
+                    }
+                    .col-8 { width: 66.666667% !important; flex: 0 0 66.666667% !important; }
+                    .col-4 { width: 33.333333% !important; flex: 0 0 33.333333% !important; }
+                    .col-6 { width: 50% !important; flex: 0 0 50% !important; }
+                    .col-9 { width: 75% !important; flex: 0 0 75% !important; }
+                    .col-3 { width: 25% !important; flex: 0 0 25% !important; }
+                    .col-12 { width: 100% !important; flex: 0 0 100% !important; }
+                    .d-flex { display: flex !important; }
+                    .align-items-center { align-items: center !important; }
+                    .justify-content-between { justify-content: space-between !important; }
+                    .justify-content-end { justify-content: flex-end !important; }
+                    .text-end { text-align: right !important; }
+                    .text-center { text-align: center !important; }
+                    .text-start { text-align: left !important; }
+                    .table {
+                        width: 100% !important;
+                        margin-bottom: 0.5rem !important;
+                        border-collapse: collapse !important;
                     }
                     .table-dark, thead.table-dark, thead.table-dark tr, thead.table-dark th {
                         background-color: #212529 !important;
                         color: #ffffff !important;
+                        -webkit-print-color-adjust: exact !important;
+                        print-color-adjust: exact !important;
                     }
-                }
-                * {
-                    -webkit-print-color-adjust: exact !important;
-                    print-color-adjust: exact !important;
-                }
-                .table-dark, thead.table-dark, thead.table-dark tr, thead.table-dark th {
-                    background-color: #212529 !important;
-                    color: #ffffff !important;
-                }
-            </style>
-        `;
-
-        document.body.innerHTML = `
-            ${printStyles}
-            <div style="padding: 40px; background: #fff;">
-                ${printContent}
-            </div>
-        `;
-        window.print();
-        document.body.innerHTML = originalBody;
-        window.location.reload();
+                    thead { display: table-header-group !important; }
+                    tr { page-break-inside: avoid !important; }
+                    .table-sm th, .table-sm td {
+                        padding: ${isDense ? '2px 5px' : '3.5px 6px'} !important;
+                        line-height: ${isDense ? '1.15' : '1.25'} !important;
+                    }
+                    .bg-light {
+                        background-color: #f8f9fa !important;
+                        -webkit-print-color-adjust: exact !important;
+                        print-color-adjust: exact !important;
+                    }
+                    .border {
+                        border: 1px solid #dee2e6 !important;
+                    }
+                    .border-end {
+                        border-right: 1px solid #dee2e6 !important;
+                    }
+                    .border-bottom {
+                        border-bottom: 1px solid #dee2e6 !important;
+                    }
+                    .border-2 {
+                        border-width: 2px !important;
+                    }
+                    .border-dark {
+                        border-color: #212529 !important;
+                    }
+                    .rounded-2, .rounded-3, .rounded {
+                        border-radius: 6px !important;
+                    }
+                    .badge {
+                        display: inline-block !important;
+                        padding: 3px 8px !important;
+                        border-radius: 4px !important;
+                        font-weight: 700 !important;
+                        font-size: 0.7rem !important;
+                    }
+                    .badge.bg-dark {
+                        background-color: #212529 !important;
+                        color: #ffffff !important;
+                        -webkit-print-color-adjust: exact !important;
+                        print-color-adjust: exact !important;
+                    }
+                    .text-primary { color: #0d6efd !important; }
+                    .text-danger { color: #dc3545 !important; }
+                    .text-success { color: #198754 !important; }
+                    .text-dark { color: #212529 !important; }
+                    .text-muted, .text-secondary { color: #6c757d !important; }
+                    .fw-bold { font-weight: 700 !important; }
+                    .text-uppercase { text-transform: uppercase !important; }
+                    .font-monospace { font-family: monospace !important; }
+                    .ps-2 { padding-left: 0.5rem !important; }
+                    .pe-2 { padding-right: 0.5rem !important; }
+                    .p-2 { padding: 0.5rem !important; }
+                    .mb-0 { margin-bottom: 0 !important; }
+                    .mb-1 { margin-bottom: 0.25rem !important; }
+                    .mb-2 { margin-bottom: 0.5rem !important; }
+                    .mt-1 { margin-top: 0.25rem !important; }
+                    .mt-2 { margin-top: 0.5rem !important; }
+                    .pt-2 { padding-top: 0.5rem !important; }
+                    .bg-success-subtle {
+                        background-color: #d1e7dd !important;
+                        -webkit-print-color-adjust: exact !important;
+                        print-color-adjust: exact !important;
+                    }
+                    .border-success-subtle {
+                        border-color: #a3cfbb !important;
+                    }
+                    .border-start {
+                        border-left: 1px solid #cbd5e1 !important;
+                    }
+                    .seal-block {
+                        background-color: #f8fafc !important;
+                        border: 1px solid #cbd5e1 !important;
+                        border-radius: 6px !important;
+                        page-break-inside: avoid !important;
+                        -webkit-print-color-adjust: exact !important;
+                        print-color-adjust: exact !important;
+                    }
+                    .fold-guide {
+                        margin-top: 14px;
+                        border-top: 1px dashed #aaa;
+                        text-align: center;
+                        font-size: 8px;
+                        color: #888;
+                        text-transform: uppercase;
+                        letter-spacing: 1px;
+                        padding-top: 2px;
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="print-wrapper ${isDense ? 'dense-layout' : ''}">
+                    ${printContent}
+                    <div class="fold-guide">&bull; &bull; &bull; FOLD LINE (A4 HALF / A5 FORMAT) &bull; &bull; &bull;</div>
+                </div>
+                <script>
+                    window.onload = function() {
+                        setTimeout(function() {
+                            window.focus();
+                            window.print();
+                            window.close();
+                        }, 350);
+                    };
+                <\/script>
+            </body>
+            </html>
+        `);
+        printWindow.document.close();
     };
 
     // Multi-Criteria Table Filtering (Search, Officer, Supplier, Project, Status, Urgency, Date)
