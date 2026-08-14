@@ -408,6 +408,12 @@ try {
         $pdo->exec("ALTER TABLE users ADD COLUMN signature_path VARCHAR(255) NULL");
     } catch (PDOException $e) {}
     try {
+        $pdo->exec("ALTER TABLE users ADD COLUMN public_key TEXT NULL");
+    } catch (PDOException $e) {}
+    try {
+        $pdo->exec("ALTER TABLE users ADD COLUMN private_key TEXT NULL");
+    } catch (PDOException $e) {}
+    try {
         $pdo->exec("ALTER TABLE purchase_orders ADD COLUMN approved_by INT NULL");
     } catch (PDOException $e) {}
     try {
@@ -415,6 +421,24 @@ try {
     } catch (PDOException $e) {}
     try {
         $pdo->exec("ALTER TABLE purchase_orders ADD COLUMN approved_signature VARCHAR(255) NULL");
+    } catch (PDOException $e) {}
+    try {
+        $pdo->exec("ALTER TABLE purchase_orders ADD COLUMN crypto_signature TEXT NULL");
+    } catch (PDOException $e) {}
+    try {
+        $pdo->exec("ALTER TABLE purchase_orders ADD COLUMN document_hash VARCHAR(64) NULL");
+    } catch (PDOException $e) {}
+    try {
+        $pdo->exec("ALTER TABLE purchase_orders ADD COLUMN signed_at DATETIME NULL");
+    } catch (PDOException $e) {}
+    try {
+        $pdo->exec("ALTER TABLE withdrawals ADD COLUMN crypto_signature TEXT NULL");
+    } catch (PDOException $e) {}
+    try {
+        $pdo->exec("ALTER TABLE withdrawals ADD COLUMN document_hash VARCHAR(64) NULL");
+    } catch (PDOException $e) {}
+    try {
+        $pdo->exec("ALTER TABLE withdrawals ADD COLUMN signed_at DATETIME NULL");
     } catch (PDOException $e) {}
 
     // Auto-sync: Backfill signatures for existing Purchase Orders from profile signatures
