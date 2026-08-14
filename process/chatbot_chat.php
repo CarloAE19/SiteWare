@@ -11,6 +11,15 @@ if (!isset($_SESSION['user_id'])) {
 
 require_once __DIR__ . '/../Connection/db.php';
 
+// Rate Limiting: Max 10 messages per 60 seconds per user
+$aiRateLimit = check_rate_limit('ai_chat_user_' . $_SESSION['user_id'], 10, 60);
+if (!$aiRateLimit['allowed']) {
+    http_response_code(429);
+    echo json_encode(['error' => "You are sending messages too quickly. Please wait {$aiRateLimit['retry_after']}s before sending another message."]);
+    exit;
+}
+record_rate_limit_attempt('ai_chat_user_' . $_SESSION['user_id']);
+
 // Check if AI API key is defined
 if (!defined('AI_API_KEY') || empty(AI_API_KEY)) {
     echo json_encode(['error' => 'AI API Key is not configured in the .env file.']);
