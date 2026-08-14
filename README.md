@@ -116,7 +116,7 @@ CIMS/
 | `inventory_audits` | Weekly physical count records with auditor and discrepancy count |
 | `audit_items` | Item-level discrepancy data for each audit |
 | `notifications` | In-app notifications (role-based and user-specific) |
-| `supplier_sms_replies` | Inbound and outbound SMS log tied to suppliers and POs |
+| `supplier_viber_logs` | Outbound and log history for Viber notifications tied to suppliers and POs |
 | `projects` | Active and inactive construction project registry |
 | `system_settings` | Key-value store for configurable system options (e.g., login background) |
 
