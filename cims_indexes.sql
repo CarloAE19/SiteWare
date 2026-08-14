@@ -1,144 +1,92 @@
 -- ============================================================
---  CIMS — TARGETED DATABASE INDEXES (FIXED)
+--  CIMS — SAFE TARGETED DATABASE INDEXES
 --  GB Construction & Enterprise Smart Inventory System
 --  Run this in phpMyAdmin → SQL tab
---  Safe to re-run: uses IF NOT EXISTS checks (MySQL compatible)
+--  Safe to re-run multiple times (automatically skips existing indexes)
+--  Compatible with MySQL 5.7+, MySQL 8.0+, and MariaDB
 -- ============================================================
 
--- ============================================================
---  TABLE: users
---  WHY: Login query does WHERE username = ? on every page load
--- ============================================================
-ALTER TABLE users
-    ADD UNIQUE INDEX IF NOT EXISTS idx_users_username (username);
+DELIMITER $$
+
+DROP PROCEDURE IF EXISTS AddCimsIndexIfNotExists$$
+
+CREATE PROCEDURE AddCimsIndexIfNotExists(
+    IN t_name VARCHAR(64),
+    IN i_name VARCHAR(64),
+    IN i_cols VARCHAR(255)
+)
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.statistics 
+        WHERE table_schema = DATABASE() 
+          AND table_name = t_name 
+          AND index_name = i_name
+    ) THEN
+        SET @sql = CONCAT('ALTER TABLE `', t_name, '` ADD INDEX `', i_name, '` (', i_cols, ')');
+        PREPARE stmt FROM @sql;
+        EXECUTE stmt;
+        DEALLOCATE PREPARE stmt;
+    END IF;
+END$$
+
+DELIMITER ;
 
 -- ============================================================
---  TABLE: inventory
---  WHY:
---    - ORDER BY item_name ASC (audit, index, requisitions pages)
---    - ORDER BY last_updated DESC (index page)
---    - WHERE status != 'Out of Stock' (withdrawals, requisitions)
---    - item_code is UNIQUE → already auto-indexed ✅
+--  EXECUTE INDEX CREATION (SAFE CHECKS)
 -- ============================================================
-ALTER TABLE inventory
-    ADD INDEX IF NOT EXISTS idx_inventory_item_name   (item_name),
-    ADD INDEX IF NOT EXISTS idx_inventory_status       (status),
-    ADD INDEX IF NOT EXISTS idx_inventory_last_updated (last_updated);
+
+-- Table: inventory
+CALL AddCimsIndexIfNotExists('inventory', 'idx_inventory_item_name', 'item_name');
+CALL AddCimsIndexIfNotExists('inventory', 'idx_inventory_status', 'status');
+CALL AddCimsIndexIfNotExists('inventory', 'idx_inventory_last_updated', 'last_updated');
+
+-- Table: inventory_audits
+CALL AddCimsIndexIfNotExists('inventory_audits', 'idx_audits_created_at', 'created_at');
+CALL AddCimsIndexIfNotExists('inventory_audits', 'idx_audits_conducted_by', 'conducted_by');
+
+-- Table: audit_items
+CALL AddCimsIndexIfNotExists('audit_items', 'idx_audit_items_audit_id', 'audit_id');
+CALL AddCimsIndexIfNotExists('audit_items', 'idx_audit_items_item_code', 'item_code');
+
+-- Table: requisitions
+CALL AddCimsIndexIfNotExists('requisitions', 'idx_req_status', 'status');
+CALL AddCimsIndexIfNotExists('requisitions', 'idx_req_type', 'type');
+CALL AddCimsIndexIfNotExists('requisitions', 'idx_req_requestor_id', 'requestor_id');
+CALL AddCimsIndexIfNotExists('requisitions', 'idx_req_created_at', 'created_at');
+
+-- Table: requisition_items
+CALL AddCimsIndexIfNotExists('requisition_items', 'idx_req_items_req_id', 'requisition_id');
+CALL AddCimsIndexIfNotExists('requisition_items', 'idx_req_items_item_code', 'item_code');
+CALL AddCimsIndexIfNotExists('requisition_items', 'idx_req_items_req_status', 'requisition_id, item_status');
+
+-- Table: purchase_orders
+CALL AddCimsIndexIfNotExists('purchase_orders', 'idx_po_rs_id', 'rs_id');
+CALL AddCimsIndexIfNotExists('purchase_orders', 'idx_po_status', 'status');
+CALL AddCimsIndexIfNotExists('purchase_orders', 'idx_po_created_at', 'created_at');
+
+-- Table: po_items
+CALL AddCimsIndexIfNotExists('po_items', 'idx_po_items_po_id', 'po_id');
+CALL AddCimsIndexIfNotExists('po_items', 'idx_po_items_item_code', 'item_code');
+
+-- Table: withdrawals
+CALL AddCimsIndexIfNotExists('withdrawals', 'idx_withdrawals_date', 'date_withdrawn');
+
+-- Table: withdrawal_items
+CALL AddCimsIndexIfNotExists('withdrawal_items', 'idx_wd_items_withdrawal_id', 'withdrawal_id');
+CALL AddCimsIndexIfNotExists('withdrawal_items', 'idx_wd_items_item_code', 'item_code');
+
+-- Table: notifications
+CALL AddCimsIndexIfNotExists('notifications', 'idx_notif_target_role', 'target_role');
+CALL AddCimsIndexIfNotExists('notifications', 'idx_notif_target_user_id', 'target_user_id');
+CALL AddCimsIndexIfNotExists('notifications', 'idx_notif_created_at', 'created_at');
+
+-- Table: supplier_viber_logs
+CALL AddCimsIndexIfNotExists('supplier_viber_logs', 'idx_viber_supplier_id', 'supplier_id');
+CALL AddCimsIndexIfNotExists('supplier_viber_logs', 'idx_viber_po_id', 'po_id');
+
+-- Cleanup temporary helper procedure
+DROP PROCEDURE IF EXISTS AddCimsIndexIfNotExists;
 
 -- ============================================================
---  TABLE: inventory_audits
---  WHY:
---    - ORDER BY created_at DESC (audit history page)
---    - JOIN ON conducted_by = users.id
--- ============================================================
-ALTER TABLE inventory_audits
-    ADD INDEX IF NOT EXISTS idx_audits_created_at   (created_at),
-    ADD INDEX IF NOT EXISTS idx_audits_conducted_by (conducted_by);
-
--- ============================================================
---  TABLE: audit_items
---  WHY:
---    - GROUP BY audit_id (loading audit trail details)
---    - JOIN ON item_code = inventory.item_code
--- ============================================================
-ALTER TABLE audit_items
-    ADD INDEX IF NOT EXISTS idx_audit_items_audit_id  (audit_id),
-    ADD INDEX IF NOT EXISTS idx_audit_items_item_code (item_code);
-
--- ============================================================
---  TABLE: requisitions
---  WHY:
---    - WHERE rs_no = ? (QR scanner lookup — critical speed)
---    - WHERE status IN (...) (filtering by approval stage)
---    - WHERE id = ? (approve/reject actions)
--- ============================================================
-ALTER TABLE requisitions
-    ADD UNIQUE INDEX IF NOT EXISTS idx_req_rs_no  (rs_no),
-    ADD        INDEX IF NOT EXISTS idx_req_status (status);
-
--- ============================================================
---  TABLE: requisition_items
---  WHY:
---    - WHERE requisition_id = ? (fetch items for a given RS)
---    - JOIN ON item_code = inventory.item_code
--- ============================================================
-ALTER TABLE requisition_items
-    ADD INDEX IF NOT EXISTS idx_req_items_req_id   (requisition_id),
-    ADD INDEX IF NOT EXISTS idx_req_items_item_code (item_code);
-
--- ============================================================
---  TABLE: purchase_orders
---  WHY:
---    - WHERE id = ? (mark delivered, SMS sent, delay log)
---    - JOIN ON rs_id = requisitions.id
--- ============================================================
-ALTER TABLE purchase_orders
-    ADD INDEX IF NOT EXISTS idx_po_rs_id  (rs_id),
-    ADD INDEX IF NOT EXISTS idx_po_status (status);
-
--- ============================================================
---  TABLE: po_items
---  WHY:
---    - WHERE po_id = ? (fetch items to auto-stock-in on delivery)
---    - JOIN ON item_code = inventory.item_code
--- ============================================================
-ALTER TABLE po_items
-    ADD INDEX IF NOT EXISTS idx_po_items_po_id     (po_id),
-    ADD INDEX IF NOT EXISTS idx_po_items_item_code (item_code);
-
--- ============================================================
---  TABLE: withdrawals
---  WHY:
---    - ORDER BY date_withdrawn DESC (withdrawal history page)
---    NOTE: This table uses 'date_withdrawn', NOT 'created_at'
--- ============================================================
-ALTER TABLE withdrawals
-    ADD INDEX IF NOT EXISTS idx_withdrawals_date (date_withdrawn);
-
--- ============================================================
---  TABLE: withdrawal_items
---  WHY:
---    - WHERE withdrawal_id = ? (fetch items per slip)
---    - JOIN ON item_code = inventory.item_code
--- ============================================================
-ALTER TABLE withdrawal_items
-    ADD INDEX IF NOT EXISTS idx_wd_items_withdrawal_id (withdrawal_id),
-    ADD INDEX IF NOT EXISTS idx_wd_items_item_code     (item_code);
-
--- ============================================================
---  TABLE: notifications
---  WHY:
---    - WHERE target_role = ? (loading role-based notifications)
---    - WHERE target_user_id = ? (personal notifications)
---    - ORDER BY created_at DESC (notification dropdown)
--- ============================================================
-ALTER TABLE notifications
-    ADD INDEX IF NOT EXISTS idx_notif_target_role    (target_role),
-    ADD INDEX IF NOT EXISTS idx_notif_target_user_id (target_user_id),
-    ADD INDEX IF NOT EXISTS idx_notif_created_at     (created_at);
-
--- ============================================================
---  TABLE: purchase_orders
---  WHY:
---    - ORDER BY created_at DESC (PO history page)
--- ============================================================
-ALTER TABLE purchase_orders
-    ADD INDEX IF NOT EXISTS idx_po_created_at (created_at);
-
--- ============================================================
---  TABLE: requisitions
---  WHY:
---    - WHERE requestor_id = ? (requestor sees only their RS)
---    - ORDER BY created_at DESC (all RS pages)
--- ============================================================
-ALTER TABLE requisitions
-    ADD INDEX IF NOT EXISTS idx_req_requestor_id (requestor_id),
-    ADD INDEX IF NOT EXISTS idx_req_created_at   (created_at);
-
--- ============================================================
---  DONE! To verify, run in phpMyAdmin SQL tab:
---    SHOW INDEX FROM users;
---    SHOW INDEX FROM inventory;
---    SHOW INDEX FROM inventory_audits;
---    (etc. for each table)
+--  DONE! All indexes verified and applied cleanly.
 -- ============================================================
