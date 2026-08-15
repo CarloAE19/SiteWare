@@ -6,6 +6,8 @@
 
 require_once __DIR__ . '/Connection/db.php';
 require_once __DIR__ . '/helpers/crypto_helper.php';
+global $pdo;
+$pdo = $pdo ?? ($GLOBALS['pdo'] ?? null);
 
 $ref = trim($_GET['ref'] ?? $_GET['id'] ?? $_GET['doc'] ?? '');
 $type = strtolower(trim($_GET['type'] ?? ''));
@@ -34,12 +36,14 @@ if (!empty($ref)) {
         $stmt = $pdo->prepare("
             SELECT po.*, s.company_name, s.supplier_code, r.rs_no, 
                    u1.name AS prepared_name, u1.role AS prepared_role, u1.public_key AS prepared_public_key,
-                   u2.name AS approved_name, u2.role AS approved_role, u2.public_key AS approved_public_key
+                   u2.name AS approved_name, u2.role AS approved_role, u2.public_key AS approved_public_key,
+                   u_rec.name AS received_by_name
             FROM purchase_orders po
             LEFT JOIN suppliers s ON po.supplier_id = s.id
             LEFT JOIN requisitions r ON po.rs_id = r.id
             LEFT JOIN users u1 ON po.prepared_by = u1.id
             LEFT JOIN users u2 ON po.approved_by = u2.id
+            LEFT JOIN users u_rec ON po.received_by = u_rec.id
             WHERE po.po_no = ? OR po.id = ?
         ");
         $stmt->execute([$ref, $ref]);
@@ -319,34 +323,124 @@ if (!empty($ref)) {
                         </div>
                     </div>
 
-                    <!-- Document Metadata Grid -->
+                    <!-- Document Metadata Grid (Dual Signatories & Fulfillment) -->
                     <div class="row g-3 mb-4">
                         <div class="col-sm-6">
                             <label class="text-muted small fw-bold text-uppercase d-block mb-1">Associated Reference</label>
                             <div class="fw-bold text-dark">
                                 <?= htmlspecialchars($document['rs_no'] ?? $document['project_name'] ?? 'N/A') ?>
+                                <?php if (!empty($document['company_name'])): ?>
+                                    <span class="text-muted fw-normal d-block" style="font-size: 0.75rem;">Supplier: <?= htmlspecialchars($document['company_name']) ?></span>
+                                <?php endif; ?>
                             </div>
                         </div>
+
                         <div class="col-sm-6">
-                            <label class="text-muted small fw-bold text-uppercase d-block mb-1">Date & Time Signed</label>
-                            <div class="fw-bold text-dark"><?= date('F d, Y - h:i:s A', strtotime($signedAt)) ?></div>
-                        </div>
-                        <div class="col-sm-6">
-                            <label class="text-muted small fw-bold text-uppercase d-block mb-1">Cryptographic Signer</label>
+                            <label class="text-muted small fw-bold text-uppercase d-block mb-1">
+                                <?= ($type === 'po') ? 'Date Generated & Target ETA' : 'Date Withdrawn' ?>
+                            </label>
                             <div class="fw-bold text-dark">
-                                <i class="bi bi-person-badge text-primary me-1"></i><?= htmlspecialchars($signer['name']) ?>
-                                <span class="badge bg-secondary ms-1 fw-normal"
-                                    style="font-size: 0.65rem;"><?= htmlspecialchars($signer['role']) ?></span>
+                                <?= date('F d, Y', strtotime($signedAt)) ?>
+                                <?php if ($type === 'po' && !empty($document['expected_delivery_date'])): ?>
+                                    <span class="text-primary fw-normal d-block" style="font-size: 0.75rem;">Target ETA: <?= date('F d, Y', strtotime($document['expected_delivery_date'])) ?></span>
+                                <?php endif; ?>
                             </div>
                         </div>
+
+                        <?php if ($type === 'po'): ?>
+                            <!-- Dual Signatories: Prepared By (Purchasing) & Approved By (Management) -->
+                            <div class="col-sm-6">
+                                <label class="text-muted small fw-bold text-uppercase d-block mb-1">Prepared by (Purchasing)</label>
+                                <div class="fw-bold text-dark">
+                                    <i class="bi bi-person-check text-primary me-1"></i><?= htmlspecialchars($document['prepared_name'] ?: 'Purchasing Department') ?>
+                                    <span class="badge bg-secondary ms-1 fw-normal" style="font-size: 0.65rem;"><?= htmlspecialchars(strtoupper($document['prepared_role'] ?: 'Purchasing')) ?></span>
+                                </div>
+                            </div>
+
+                            <div class="col-sm-6">
+                                <label class="text-muted small fw-bold text-uppercase d-block mb-1">Approved by (Management)</label>
+                                <div class="fw-bold text-dark">
+                                    <?php if (!empty($document['approved_name'])): ?>
+                                        <i class="bi bi-patch-check-fill text-success me-1"></i><?= htmlspecialchars($document['approved_name']) ?>
+                                        <span class="badge bg-success-subtle text-success border border-success-subtle ms-1 fw-semibold" style="font-size: 0.65rem;"><?= htmlspecialchars(strtoupper($document['approved_role'] ?: 'Management')) ?></span>
+                                    <?php else: ?>
+                                        <span class="text-muted fw-normal fst-italic">Management Authorization</span>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+                        <?php else: ?>
+                            <!-- Withdrawal Signatories: Releasing Warehouse Officer & Site Recipient -->
+                            <div class="col-sm-6">
+                                <label class="text-muted small fw-bold text-uppercase d-block mb-1">Released by (Warehouse)</label>
+                                <div class="fw-bold text-dark">
+                                    <i class="bi bi-person-badge text-primary me-1"></i><?= htmlspecialchars($document['releaser_name'] ?: 'Warehouse Officer') ?>
+                                    <span class="badge bg-secondary ms-1 fw-normal" style="font-size: 0.65rem;"><?= htmlspecialchars(strtoupper($document['releaser_role'] ?: 'Warehouse')) ?></span>
+                                </div>
+                            </div>
+
+                            <div class="col-sm-6">
+                                <label class="text-muted small fw-bold text-uppercase d-block mb-1">Authorized Site Recipient</label>
+                                <div class="fw-bold text-dark">
+                                    <i class="bi bi-person-check text-success me-1"></i><?= htmlspecialchars($document['received_by'] ?: 'Authorized Recipient') ?>
+                                </div>
+                            </div>
+                        <?php endif; ?>
+
                         <div class="col-sm-6">
                             <label class="text-muted small fw-bold text-uppercase d-block mb-1">Algorithm Standard</label>
-                            <div class="fw-bold text-dark"><i class="bi bi-cpu text-primary me-1"></i>RSA 2048-bit / SHA-256
-                                PKCS#1</div>
+                            <div class="fw-bold text-dark"><i class="bi bi-cpu text-primary me-1"></i>RSA 2048-bit / SHA-256 PKCS#1</div>
+                        </div>
+
+                        <!-- Physical Fulfillment & Custody Status -->
+                        <div class="col-sm-6">
+                            <label class="text-muted small fw-bold text-uppercase d-block mb-1">
+                                <?= ($type === 'po') ? 'Physical Fulfillment Status' : 'Physical Custody Status' ?>
+                            </label>
+                            <?php if ($type === 'po'): ?>
+                                <?php if ($document['status'] === 'Delivered (Discrepancy)'): ?>
+                                    <div>
+                                        <span class="badge bg-warning text-dark border px-2 py-1" style="font-size: 0.75rem;">
+                                            <i class="bi bi-exclamation-triangle-fill text-dark me-1"></i> Delivered (Discrepancy Logged)
+                                        </span>
+                                    </div>
+                                    <?php if (!empty($document['received_by_name'])): ?>
+                                        <small class="text-muted d-block mt-0.5" style="font-size: 0.72rem;">Intake by: <?= htmlspecialchars($document['received_by_name']) ?> &bull; Partial delivery / issue noted</small>
+                                    <?php endif; ?>
+                                <?php elseif ($document['status'] === 'Delivered'): ?>
+                                    <div class="fw-bold text-success d-flex align-items-center gap-1">
+                                        <i class="bi bi-check-circle-fill"></i> Delivered & Received at Warehouse
+                                    </div>
+                                    <?php if (!empty($document['received_by_name'])): ?>
+                                        <small class="text-muted d-block" style="font-size: 0.72rem;">Intake by: <?= htmlspecialchars($document['received_by_name']) ?></small>
+                                    <?php endif; ?>
+                                <?php else: ?>
+                                    <div>
+                                        <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-2 py-1" style="font-size: 0.75rem;">
+                                            <i class="bi bi-truck me-1"></i> Awaiting Warehouse Receiving
+                                        </span>
+                                    </div>
+                                    <small class="text-muted d-block mt-1" style="font-size: 0.72rem;">Purchase order sealed &bull; Pending physical delivery intake</small>
+                                <?php endif; ?>
+                            <?php else: ?>
+                                <div class="fw-bold text-success d-flex align-items-center gap-1">
+                                    <i class="bi bi-box-seam-fill"></i> Materials Released & Received on Site
+                                </div>
+                                <?php if (!empty($document['photo_proof_path'])): ?>
+                                    <small class="text-primary d-block mt-0.5" style="font-size: 0.72rem;"><i class="bi bi-camera-fill me-1"></i> Photo proof of custody recorded</small>
+                                <?php endif; ?>
+                            <?php endif; ?>
                         </div>
                     </div>
 
-                    <!-- Items Verified Section -->
+                    <!-- Items Verified Section (With Sealed Pricing for PO) -->
+                    <?php 
+                        $totalOrderValue = 0;
+                        if ($type === 'po') {
+                            foreach ($items as $it) {
+                                $totalOrderValue += (float)($it['quantity'] * ($it['unit_price'] ?? 0));
+                            }
+                        }
+                    ?>
                     <div class="card border-0 bg-light rounded-3 p-3 mb-4">
                         <h6 class="fw-bold text-dark small text-uppercase mb-2">
                             <i class="bi bi-card-checklist text-primary me-1"></i> Sealed Item Manifest
@@ -359,25 +453,78 @@ if (!empty($ref)) {
                                     <tr class="text-muted border-bottom">
                                         <th>Item Code</th>
                                         <th>Description</th>
-                                        <th class="text-end">Quantity</th>
+                                        <th class="text-center">Quantity</th>
+                                        <?php if ($type === 'po'): ?>
+                                            <th class="text-end">Unit Price (₱)</th>
+                                            <th class="text-end">Total Amount (₱)</th>
+                                        <?php endif; ?>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <?php foreach ($items as $it): ?>
+                                        <?php 
+                                            $qty = (float)($it['quantity'] ?? 0);
+                                            $price = (float)($it['unit_price'] ?? 0);
+                                            $subtotal = $qty * $price;
+                                        ?>
                                         <tr>
                                             <td class="fw-semibold text-muted"><?= htmlspecialchars($it['item_code']) ?></td>
                                             <td class="fw-bold text-dark">
                                                 <?= htmlspecialchars($it['item_name'] ?? $it['custom_item_name'] ?? $it['item_code']) ?>
                                             </td>
-                                            <td class="text-end fw-bold text-primary"><?= htmlspecialchars($it['quantity']) ?>
-                                                <?= htmlspecialchars($it['unit'] ?? '') ?>
+                                            <td class="text-center fw-bold text-primary">
+                                                <?= htmlspecialchars($it['quantity']) ?> <?= htmlspecialchars($it['unit'] ?? '') ?>
                                             </td>
+                                            <?php if ($type === 'po'): ?>
+                                                <td class="text-end text-muted">
+                                                    ₱<?= number_format($price, 2) ?>
+                                                </td>
+                                                <td class="text-end fw-bold text-dark">
+                                                    ₱<?= number_format($subtotal, 2) ?>
+                                                </td>
+                                            <?php endif; ?>
                                         </tr>
                                     <?php endforeach; ?>
                                 </tbody>
+                                <?php if ($type === 'po'): ?>
+                                    <tfoot class="border-top">
+                                        <tr class="fw-bold">
+                                            <td colspan="4" class="text-end text-uppercase text-muted py-2" style="font-size: 0.8rem;">Total Sealed Value:</td>
+                                            <td class="text-end text-primary py-2" style="font-size: 0.95rem;">
+                                                ₱<?= number_format($totalOrderValue, 2) ?>
+                                            </td>
+                                        </tr>
+                                    </tfoot>
+                                <?php endif; ?>
                             </table>
                         </div>
                     </div>
+
+                    <!-- Logistics & Receiving Notes / Discrepancies if present -->
+                    <?php if (!empty($document['delay_remarks'])): ?>
+                        <?php
+                            $rawRemarks = trim($document['delay_remarks']);
+                            $parts = explode('[DELIVERY DISCREPANCY]:', $rawRemarks);
+                            $uniqueBlocks = [];
+                            foreach ($parts as $part) {
+                                $t = trim($part);
+                                if ($t && !in_array($t, $uniqueBlocks)) {
+                                    $uniqueBlocks[] = $t;
+                                }
+                            }
+                            $formattedRemarks = !empty($uniqueBlocks) 
+                                ? implode("\n\n", array_map(fn($b) => "[DELIVERY DISCREPANCY]:\n" . $b, $uniqueBlocks)) 
+                                : $rawRemarks;
+                        ?>
+                        <div class="alert alert-warning border border-warning-subtle rounded-3 p-3 mb-4 shadow-sm">
+                            <h6 class="fw-bold text-dark small text-uppercase mb-1 d-flex align-items-center gap-2">
+                                <i class="bi bi-exclamation-octagon-fill text-warning"></i> Logistics / Receiving Discrepancy Notes
+                            </h6>
+                            <div class="font-monospace text-dark small bg-white p-2 rounded border mt-2" style="white-space: pre-wrap; font-size: 0.78rem; line-height: 1.4;">
+                                <?= htmlspecialchars($formattedRemarks) ?>
+                            </div>
+                        </div>
+                    <?php endif; ?>
 
                     <!-- Cryptographic Fingerprint -->
                     <div class="mb-2">
