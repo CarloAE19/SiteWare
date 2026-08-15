@@ -83,6 +83,8 @@ try {
 
     $pdo->exec("CREATE DATABASE IF NOT EXISTS `" . $_ENV['DB_NAME'] . "`");
     $pdo->exec("USE `" . $_ENV['DB_NAME'] . "`");
+    $GLOBALS['pdo'] = $pdo;
+    $GLOBALS['conn'] = $pdo;
 
     // 1. Create Users Table
     $pdo->exec("
