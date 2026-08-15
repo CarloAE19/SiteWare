@@ -14,11 +14,11 @@ Options -Indexes
 </FilesMatch>
 
 # CUSTOM ERROR PAGES
-ErrorDocument 400 /CIMS/error.php?code=400
-ErrorDocument 403 /CIMS/error.php?code=403
-ErrorDocument 404 /CIMS/error.php?code=404
-ErrorDocument 500 /CIMS/error.php?code=500
-ErrorDocument 503 /CIMS/error.php?code=503
+ErrorDocument 400 /CIMS/error/400.php
+ErrorDocument 403 /CIMS/error/403.php
+ErrorDocument 404 /CIMS/error/404.php
+ErrorDocument 500 /CIMS/error/500.php
+ErrorDocument 503 /CIMS/error/503.php
 
 # 3. CLEAN URLS (Hide .php extensions)
 # Allows users to visit /dashboard instead of /dashboard.php and /secure-image or /media/ proof URLs
