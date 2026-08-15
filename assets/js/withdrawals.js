@@ -158,7 +158,7 @@ window.triggerWdPrint = function () {
     }
 
     const printContent = `
-        <div id="printWdVoucher" style="font-family: Arial, sans-serif; color: #000; width: 100%; max-width: 780px; margin: 0 auto; padding: 4px 8px;">
+        <div id="printWdVoucher" style="font-family: Arial, sans-serif; color: #000; width: 100%; max-width: 100%; margin: 0 auto; padding: 2px 4px;">
             <!-- HEADER -->
             <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #000; padding-bottom: 4px; margin-bottom: 6px;">
                 <div style="display: flex; align-items: center;">
@@ -273,7 +273,7 @@ window.triggerWdPrint = function () {
         <head>
             <title>Material Withdrawal Slip - ${wdNo}</title>
             <style>
-                @page { size: portrait; margin: 4mm 6mm; }
+                @page { size: 210mm 148.5mm; margin: 4mm 6mm; }
                 * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; box-sizing: border-box; }
                 thead { display: table-header-group; }
                 tr { page-break-inside: avoid; }
@@ -295,25 +295,23 @@ window.triggerWdPrint = function () {
                 td, th {
                     padding: ${isDense ? '2px 4px' : '3.5px 6px'} !important;
                 }
-                .fold-guide {
-                    margin-top: 14px;
-                    border-top: 1px dashed #aaa;
-                    text-align: center;
-                    font-size: 8px;
-                    color: #888;
-                    text-transform: uppercase;
-                    letter-spacing: 1px;
-                    padding-top: 2px;
-                }
             </style>
         </head>
         <body>
-            ${printContent}
-            <div class="fold-guide">&bull; &bull; &bull; FOLD LINE (A4 HALF / A5 FORMAT) &bull; &bull; &bull;</div>
+            <div id="printWdWrapper">
+                ${printContent}
+            </div>
             <script>
                 window.onload = function() {
-                    window.print();
-                    window.close();
+                    setTimeout(function() {
+                        window.focus();
+                        window.print();
+                    }, 350);
+                };
+                window.onafterprint = function() {
+                    setTimeout(function() {
+                        window.close();
+                    }, 200);
                 };
             <\/script>
         </body>
