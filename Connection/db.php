@@ -1,4 +1,7 @@
 <?php
+// Set default timezone for Philippine Standard Time (PST / UTC+8)
+date_default_timezone_set('Asia/Manila');
+
 // Helper: Secure Session Initialization with HttpOnly, SameSite, and Secure flags
 if (!function_exists('init_secure_session')) {
     function init_secure_session()
