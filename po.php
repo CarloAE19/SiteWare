@@ -1126,8 +1126,8 @@ include 'layout/header.php';
                 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
                 <style>
                     @page {
-                        size: portrait;
-                        margin: 6mm 8mm;
+                        size: 210mm 148.5mm;
+                        margin: 4mm 6mm;
                     }
                     * {
                         -webkit-print-color-adjust: exact !important;
@@ -1261,30 +1261,23 @@ include 'layout/header.php';
                         -webkit-print-color-adjust: exact !important;
                         print-color-adjust: exact !important;
                     }
-                    .fold-guide {
-                        margin-top: 14px;
-                        border-top: 1px dashed #aaa;
-                        text-align: center;
-                        font-size: 8px;
-                        color: #888;
-                        text-transform: uppercase;
-                        letter-spacing: 1px;
-                        padding-top: 2px;
-                    }
                 </style>
             </head>
             <body>
                 <div class="print-wrapper ${isDense ? 'dense-layout' : ''}">
                     ${printContent}
-                    <div class="fold-guide">&bull; &bull; &bull; FOLD LINE (A4 HALF / A5 FORMAT) &bull; &bull; &bull;</div>
                 </div>
                 <script>
                     window.onload = function() {
                         setTimeout(function() {
                             window.focus();
                             window.print();
-                            window.close();
                         }, 350);
+                    };
+                    window.onafterprint = function() {
+                        setTimeout(function() {
+                            window.close();
+                        }, 200);
                     };
                 <\/script>
             </body>
