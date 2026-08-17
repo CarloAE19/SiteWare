@@ -52,7 +52,11 @@ try {
     )");
 } catch (PDOException $e) {
 }
-$unitsList = $pdo->query("SELECT * FROM units ORDER BY unit_name ASC")->fetchAll(PDO::FETCH_ASSOC);
+$unitsList = $pdo->query("
+    SELECT u.*, (SELECT COUNT(*) FROM inventory i WHERE i.unit = u.unit_name) AS item_count 
+    FROM units u 
+    ORDER BY u.unit_name ASC
+")->fetchAll(PDO::FETCH_ASSOC);
 
 // 4. Fetch Projects
 try {
@@ -427,37 +431,60 @@ include 'layout/header.php';
                                 <th>Unit Name</th>
                                 <th>Abbreviation</th>
                                 <th class="text-center">Low Stock Alert (≤)</th>
+                                <th class="text-center">Assigned Items</th>
                                 <th class="text-end">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <?php foreach ($unitsList as $u): ?>
+                            <?php if (count($unitsList) > 0): ?>
+                                <?php foreach ($unitsList as $u): ?>
+                                    <?php $itemCount = (int)($u['item_count'] ?? 0); ?>
+                                    <tr>
+                                        <td class="text-muted fw-bold">#<?= str_pad($u['id'], 3, '0', STR_PAD_LEFT) ?></td>
+                                        <td class="fw-bold"><?= htmlspecialchars($u['unit_name']) ?></td>
+                                        <td><span class="badge bg-secondary px-3 py-2"><?= htmlspecialchars($u['abbreviation']) ?></span></td>
+                                        <td class="text-center">
+                                            <span class="badge bg-warning text-dark px-3 py-2 shadow-sm">
+                                                <i class="bi bi-exclamation-triangle me-1"></i>≤ <?= (int) $u['reorder_level'] ?> <?= htmlspecialchars($u['abbreviation']) ?>
+                                            </span>
+                                        </td>
+                                        <td class="text-center">
+                                            <?php if ($itemCount > 0): ?>
+                                                <a href="index?search=<?= urlencode($u['unit_name']) ?>" class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-2 text-decoration-none shadow-sm" title="View <?= $itemCount ?> item(s) in Inventory">
+                                                    <i class="bi bi-boxes me-1"></i><?= $itemCount ?> item<?= $itemCount > 1 ? 's' : '' ?>
+                                                </a>
+                                            <?php else: ?>
+                                                <span class="badge bg-light text-muted border px-3 py-2">0 items</span>
+                                            <?php endif; ?>
+                                        </td>
+                                        <td class="text-end">
+                                            <button class="btn btn-sm btn-outline-primary me-1"
+                                                onclick="openEditUnitModal(<?= $u['id'] ?>, '<?= addslashes(htmlspecialchars($u['unit_name'])) ?>', '<?= addslashes(htmlspecialchars($u['abbreviation'])) ?>', <?= (int) $u['reorder_level'] ?>)">
+                                                <i class="bi bi-pencil-square"></i> Edit
+                                            </button>
+                                            <?php if ($itemCount > 0): ?>
+                                                <button type="button" class="btn btn-sm btn-outline-secondary shadow-sm disabled" title="Cannot delete: In use by <?= $itemCount ?> inventory item(s)">
+                                                    <i class="bi bi-trash3"></i>
+                                                </button>
+                                            <?php else: ?>
+                                                <form method="POST" action="process/process.php" class="d-inline"
+                                                    onsubmit="return confirm('Are you sure you want to delete unit \'<?= addslashes(htmlspecialchars($u['unit_name'])) ?>\'?');">
+                                                    <input type="hidden" name="action" value="delete_unit">
+                                                    <input type="hidden" name="unit_id" value="<?= $u['id'] ?>">
+                                                    <input type="hidden" name="return_tab" value="units">
+                                                    <button type="submit" class="btn btn-sm btn-outline-danger shadow-sm" title="Delete Unit">
+                                                        <i class="bi bi-trash3"></i>
+                                                    </button>
+                                                </form>
+                                            <?php endif; ?>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            <?php else: ?>
                                 <tr>
-                                    <td class="text-muted fw-bold">#<?= str_pad($u['id'], 3, '0', STR_PAD_LEFT) ?></td>
-                                    <td class="fw-bold"><?= htmlspecialchars($u['unit_name']) ?></td>
-                                    <td><span
-                                            class="badge bg-secondary px-3 py-2"><?= htmlspecialchars($u['abbreviation']) ?></span>
-                                    </td>
-                                    <td class="text-center"><span class="badge bg-warning text-dark px-3 py-2 shadow-sm"><i
-                                                class="bi bi-exclamation-triangle me-1"></i>≤
-                                            <?= (int) $u['reorder_level'] ?>
-                                            <?= htmlspecialchars($u['abbreviation']) ?></span></td>
-                                    <td class="text-end">
-                                        <button class="btn btn-sm btn-outline-primary me-1"
-                                            onclick="openEditUnitModal(<?= $u['id'] ?>, '<?= addslashes(htmlspecialchars($u['unit_name'])) ?>', '<?= addslashes(htmlspecialchars($u['abbreviation'])) ?>', <?= (int) $u['reorder_level'] ?>)">
-                                            <i class="bi bi-pencil-square"></i> Edit
-                                        </button>
-                                        <form method="POST" action="process/process.php" class="d-inline"
-                                            onsubmit="return confirm('Are you sure you want to delete this unit?');">
-                                            <input type="hidden" name="action" value="delete_unit">
-                                            <input type="hidden" name="unit_id" value="<?= $u['id'] ?>">
-                                            <input type="hidden" name="return_tab" value="units">
-                                            <button type="submit" class="btn btn-sm btn-outline-danger shadow-sm"><i
-                                                    class="bi bi-trash3"></i></button>
-                                        </form>
-                                    </td>
+                                    <td colspan="6" class="text-center py-4 text-muted">No measurement units found.</td>
                                 </tr>
-                            <?php endforeach; ?>
+                            <?php endif; ?>
                         </tbody>
                     </table>
                 </div>
