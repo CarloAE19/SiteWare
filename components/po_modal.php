@@ -541,60 +541,60 @@ $approvedRS = $pdo->query("
                 <div class="bg-white border p-3 p-md-4 rounded-3 shadow-sm d-none" id="poPrintPaper"
                     style="max-width: 800px; margin: 0 auto;">
                     <!-- Letterhead Header -->
-                    <div class="row align-items-center pb-2 mb-2 border-bottom border-2 border-dark">
+                    <div class="row align-items-center pb-1 mb-1 border-bottom border-2 border-dark">
                         <div class="col-8">
                             <div class="d-flex align-items-center">
                                 <img src="assets/LogoGB.png" alt="GB Construction Logo" class="me-2"
-                                    style="height: 42px; width: auto; object-fit: contain;">
+                                    style="height: 46px; width: auto; object-fit: contain;">
                                 <div>
                                     <h4 class="fw-bold text-dark mb-0"
-                                        style="letter-spacing: -0.5px; font-size: 1.15rem;">GENETIAN BUILDERS</h4>
+                                        style="letter-spacing: -0.5px; font-size: 1.20rem; line-height: 1.15;">GENETIAN BUILDERS</h4>
                                     <div class="text-uppercase fw-bold text-primary"
-                                        style="letter-spacing: 0.8px; font-size: 0.72rem;">
+                                        style="letter-spacing: 0.8px; font-size: 0.75rem; line-height: 1.15;">
                                         CONSTRUCTION & ENTERPRISE INC.</div>
                                     <small class="text-muted d-block"
-                                        style="font-size: 0.68rem; margin-top: 1px;">Official Purchase Order & Supplier
+                                        style="font-size: 0.68rem; line-height: 1.1;">Official Purchase Order & Supplier
                                         Manifest</small>
                                 </div>
                             </div>
                         </div>
                         <div class="col-4 text-end">
                             <span class="badge bg-dark px-2 py-1 text-uppercase" id="printPoStatus"
-                                style="font-size: 0.7rem;">Pending</span>
-                            <div class="fw-bold text-primary mt-1" id="printPoNo" style="font-size: 1rem;">PO-000000
+                                style="font-size: 0.72rem;">Pending</span>
+                            <div class="fw-bold text-primary mt-1" id="printPoNo" style="font-size: 1.10rem; letter-spacing: -0.2px; line-height: 1.1;">PO-000000
                             </div>
                         </div>
                     </div>
 
                     <!-- Metadata Grid: Supplier & Order Specs (Always 2 Columns Side-by-Side) -->
-                    <div class="row g-2 mb-2 p-2 bg-light rounded-2 border" style="font-size: 0.78rem;">
+                    <div class="row g-1 mb-1 p-1 bg-light rounded-2 border" style="font-size: 0.80rem;">
                         <div class="col-6 border-end pe-2">
-                            <h6 class="fw-bold text-uppercase text-muted mb-1" style="font-size: 0.7rem;"><i
+                            <h6 class="fw-bold text-uppercase text-muted mb-0" style="font-size: 0.72rem;"><i
                                     class="bi bi-building me-1"></i> Supplier Information</h6>
-                            <div class="fw-bold text-dark" id="printSupplierName">-</div>
-                            <div class="text-secondary" id="printSupplierContact" style="font-size: 0.74rem;">-</div>
-                            <div class="text-secondary" id="printSupplierPhone" style="font-size: 0.74rem;">-</div>
-                            <div class="text-secondary" id="printSupplierAddress" style="font-size: 0.74rem;">-</div>
+                            <div class="fw-bold text-dark" id="printSupplierName" style="font-size: 0.84rem; line-height: 1.2;">-</div>
+                            <div class="text-secondary" id="printSupplierContact" style="font-size: 0.76rem; line-height: 1.2;">-</div>
+                            <div class="text-secondary" id="printSupplierPhone" style="font-size: 0.76rem; line-height: 1.2;">-</div>
+                            <div class="text-secondary" id="printSupplierAddress" style="font-size: 0.76rem; line-height: 1.2;">-</div>
                         </div>
                         <div class="col-6 ps-2">
-                            <h6 class="fw-bold text-uppercase text-muted mb-1" style="font-size: 0.7rem;"><i
+                            <h6 class="fw-bold text-uppercase text-muted mb-0" style="font-size: 0.72rem;"><i
                                     class="bi bi-info-circle me-1"></i> Order & Delivery Specs</h6>
-                            <div><strong>Date Generated:</strong> <span id="printPoDate">-</span></div>
-                            <div><strong>Linked Requisition:</strong> <span id="printRsNo">-</span></div>
-                            <div><strong>Project Destination:</strong> <span id="printProjectName">-</span></div>
-                            <div class="text-danger fw-bold"><strong>Warehouse Target ETA:</strong> <span
+                            <div style="font-size: 0.78rem; line-height: 1.25;"><strong>Date Generated:</strong> <span id="printPoDate">-</span></div>
+                            <div style="font-size: 0.78rem; line-height: 1.25;"><strong>Linked Requisition:</strong> <span id="printRsNo">-</span></div>
+                            <div style="font-size: 0.78rem; line-height: 1.25;"><strong>Project Destination:</strong> <span id="printProjectName">-</span></div>
+                            <div class="text-danger fw-bold" style="font-size: 0.78rem; line-height: 1.25;"><strong>Warehouse Target ETA:</strong> <span
                                     id="printPoEta">-</span></div>
                         </div>
                     </div>
 
                     <!-- Itemized Order Table -->
-                    <h6 class="fw-bold text-dark text-uppercase mb-1" style="font-size: 0.72rem;"><i
+                    <h6 class="fw-bold text-dark text-uppercase mb-1" style="font-size: 0.74rem;"><i
                             class="bi bi-box-seam me-1"></i> Itemized Purchase Manifest</h6>
-                    <div class="table-responsive border rounded mb-2">
+                    <div class="table-responsive border rounded mb-1">
                         <table class="table table-bordered table-sm align-middle mb-0 text-nowrap"
-                            style="font-size: 0.78rem;">
+                            style="font-size: 0.80rem;">
                             <thead class="table-dark text-uppercase"
-                                style="background-color: #212529 !important; color: #ffffff !important; font-size: 0.7rem; -webkit-print-color-adjust: exact; print-color-adjust: exact;">
+                                style="background-color: #212529 !important; color: #ffffff !important; font-size: 0.72rem; -webkit-print-color-adjust: exact; print-color-adjust: exact;">
                                 <tr style="background-color: #212529 !important; color: #ffffff !important;">
                                     <th class="text-center py-1"
                                         style="width: 35px; background-color: #212529 !important; color: #ffffff !important;">
@@ -621,76 +621,76 @@ $approvedRS = $pdo->query("
                             </tbody>
                             <tfoot class="table-light fw-bold">
                                 <tr>
-                                    <td colspan="5" class="text-end text-uppercase py-1" style="font-size: 0.75rem;">
+                                    <td colspan="5" class="text-end text-uppercase py-1" style="font-size: 0.78rem;">
                                         Total Order Value:</td>
-                                    <td class="text-end text-primary py-1" id="printPoTotalValue"
-                                        style="font-size: 0.85rem;">₱0.00</td>
+                                    <td class="text-end text-primary py-1 fw-bold" id="printPoTotalValue"
+                                        style="font-size: 0.88rem;">₱0.00</td>
                                 </tr>
                             </tfoot>
                         </table>
                     </div>
 
                     <!-- Remarks / Discrepancy Alert Note if present -->
-                    <div id="printRemarksSection" class="mb-2 d-none">
-                        <h6 class="fw-bold text-dark text-uppercase mb-1" style="font-size: 0.7rem;"><i
+                    <div id="printRemarksSection" class="mb-1 d-none">
+                        <h6 class="fw-bold text-dark text-uppercase mb-0" style="font-size: 0.70rem;"><i
                                 class="bi bi-chat-square-text me-1"></i> Logistics / Receiving Notes:</h6>
-                        <div class="p-2 bg-light border rounded text-dark" id="printPoRemarks"
-                            style="font-size: 0.72rem; line-height: 1.3;"></div>
+                        <div class="p-1 bg-light border rounded text-dark" id="printPoRemarks"
+                            style="font-size: 0.74rem; line-height: 1.2;"></div>
                     </div>
 
                     <!-- Official Signatures Footer (Signature Over Printed Name) -->
-                    <div class="row text-center mt-2 pt-2">
+                    <div class="row text-center mt-1 pt-1">
                         <div class="col-6">
                             <div class="d-flex flex-column align-items-center justify-content-end"
-                                style="min-height: 36px;">
+                                style="min-height: 30px;">
                                 <div id="preparedSigImgWrap" class="d-none"
-                                    style="position: relative; margin-bottom: -18px; z-index: 2; pointer-events: none;">
+                                    style="position: relative; margin-bottom: -15px; z-index: 2; pointer-events: none;">
                                     <img id="printPreparedSigImg" src="" alt="Purchasing Signature"
-                                        style="max-height: 48px; max-width: 180px; object-fit: contain;">
+                                        style="max-height: 42px; max-width: 170px; object-fit: contain;">
                                 </div>
                             </div>
-                            <div class="border-bottom border-dark pb-1 fw-bold text-dark text-uppercase position-relative"
-                                style="z-index: 1; font-size: 0.78rem;" id="printPreparedBy">-</div>
-                            <small class="text-muted text-uppercase fw-bold d-block mt-1"
-                                style="font-size: 0.65rem;">Prepared By (Purchasing Officer)</small>
+                            <div class="border-bottom border-dark pb-0 fw-bold text-dark text-uppercase position-relative"
+                                style="z-index: 1; font-size: 0.80rem; line-height: 1.2;" id="printPreparedBy">-</div>
+                            <small class="text-muted text-uppercase fw-bold d-block mt-0"
+                                style="font-size: 0.66rem;">Prepared By (Purchasing Officer)</small>
                         </div>
                         <div class="col-6">
                             <div class="d-flex flex-column align-items-center justify-content-end"
-                                style="min-height: 36px;">
+                                style="min-height: 30px;">
                                 <div id="approvedSigImgWrap" class="d-none"
-                                    style="position: relative; margin-bottom: -18px; z-index: 2; pointer-events: none;">
+                                    style="position: relative; margin-bottom: -15px; z-index: 2; pointer-events: none;">
                                     <img id="printApprovedSigImg" src="" alt="Management Signature"
-                                        style="max-height: 48px; max-width: 180px; object-fit: contain;">
+                                        style="max-height: 42px; max-width: 170px; object-fit: contain;">
                                 </div>
                             </div>
-                            <div class="border-bottom border-dark pb-1 fw-bold text-dark text-uppercase position-relative"
-                                style="z-index: 1; font-size: 0.78rem;" id="printApprovedBy">
+                            <div class="border-bottom border-dark pb-0 fw-bold text-dark text-uppercase position-relative"
+                                style="z-index: 1; font-size: 0.80rem; line-height: 1.2;" id="printApprovedBy">
                                 Management Authorization</div>
-                            <small class="text-muted text-uppercase fw-bold d-block mt-1"
-                                style="font-size: 0.65rem;">Approved By (Management)</small>
+                            <small class="text-muted text-uppercase fw-bold d-block mt-0"
+                                style="font-size: 0.66rem;">Approved By (Management)</small>
                         </div>
                     </div>
 
                     <!-- Cryptographic Seal & Verification QR (Clean Minimalist PKI Style) -->
-                    <div class="d-flex align-items-center justify-content-between pt-2 mt-2 border-top seal-block"
+                    <div class="d-flex align-items-center justify-content-between pt-1 mt-1 border-top seal-block"
                         style="border-top: 1px solid #e2e8f0 !important;">
                         <div class="d-flex align-items-center gap-2">
                             <div class="d-flex align-items-center justify-content-center bg-success-subtle text-success rounded-circle"
-                                style="width: 32px; height: 32px; min-width: 32px;">
+                                style="width: 30px; height: 30px; min-width: 30px;">
                                 <i class="bi bi-shield-lock-fill" style="font-size: 0.95rem;"></i>
                             </div>
                             <div>
-                                <div class="fw-bold text-dark" style="font-size: 0.74rem; letter-spacing: -0.2px;">
+                                <div class="fw-bold text-dark" style="font-size: 0.76rem; letter-spacing: -0.2px; line-height: 1.15;">
                                     Certified Document
                                 </div>
-                                <div class="text-muted" style="font-size: 0.62rem; margin-top: 2px;">
+                                <div class="text-muted" style="font-size: 0.64rem; margin-top: 1px; line-height: 1.1;">
                                     <em>Scan QR code for tamper-evident audit trail</em>
                                 </div>
                             </div>
                         </div>
-                        <div class="text-end ps-3">
+                        <div class="text-end ps-2">
                             <img id="printPoQrCode" src="" alt="Verification QR" class="border rounded bg-white p-1"
-                                style="height: 52px; width: 52px; object-fit: contain;">
+                                style="height: 44px; width: 44px; object-fit: contain;">
                         </div>
                     </div>
                 </div>
