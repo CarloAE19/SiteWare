@@ -68,6 +68,10 @@ if ($action === 'create_withdrawal') {
             }
         }
 
+        if (empty($photo_proof_path)) {
+            throw new Exception("Photo proof of handed-over materials is required before releasing.");
+        }
+
         $stmt = $pdo->prepare("INSERT INTO withdrawals (withdrawal_no, project_name, released_by, remarks, received_by, signature_path, photo_proof_path) VALUES (?, ?, ?, ?, ?, ?, ?)");
         $stmt->execute([$withdrawal_no, $project_name, $released_by, $remarks, $received_by, $signature_path, $photo_proof_path]);
         $withdrawal_id = $pdo->lastInsertId();
