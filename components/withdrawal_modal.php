@@ -1,12 +1,12 @@
 <!-- ======================================================== -->
-<!-- MODAL: CREATE WITHDRAWAL (MANUAL OR QR AUTO-FILLED)      -->
+<!-- MODAL: RELEASE MATERIALS WITHDRAWAL FORM               -->
 <!-- ======================================================== -->
-<div class="modal fade" id="withdrawModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
-    <div class="modal-dialog modal-dialog-centered modal-lg">
-        <div class="modal-content border-0 shadow-lg">
+<div class="modal fade" id="withdrawModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
             <div class="modal-header bg-brand text-white">
-                <h5 class="modal-title fw-bold"><i class="bi bi-box-arrow-up-right me-2"></i>Release Materials</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                <h5 class="modal-title fw-bold"><i class="bi bi-box-arrow-right me-2"></i>Release Materials (RS Issue)</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             
             <form method="POST" action="process/process.php" id="withdrawalForm" enctype="multipart/form-data">
