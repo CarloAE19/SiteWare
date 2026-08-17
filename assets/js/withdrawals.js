@@ -460,6 +460,11 @@ if (document.readyState === "loading") {
 
 // 4. INITIALIZE PAGE
 function initWithdrawalsPage() {
+    setupWithdrawalModalListeners();
+    if (typeof initWithdrawalSignaturePad === 'function') {
+        initWithdrawalSignaturePad();
+    }
+
     // Real-time Search
     document.getElementById('searchWithdrawals')?.addEventListener('keyup', function (e) {
         const term = e.target.value.toLowerCase();
@@ -619,8 +624,20 @@ window.lookupManualRsInput = function () {
     window.loadRsDataToWithdrawalForm(inputVal);
 };
 
+// Delegated Fullscreen Signature Pad Opener (SPA-Safe)
+document.addEventListener('click', function (e) {
+    const btn = e.target.closest('#openFullSigBtn');
+    if (btn) {
+        e.preventDefault();
+        const fullModalEl = document.getElementById('fullSigModal');
+        if (fullModalEl) {
+            bootstrap.Modal.getOrCreateInstance(fullModalEl).show();
+        }
+    }
+});
+
 // Signature Pad & Photo Proof Initialization
-document.addEventListener('DOMContentLoaded', function () {
+function initWithdrawalSignaturePad() {
     const canvas = document.getElementById('signatureCanvas');
     if (canvas) {
         const ctx = canvas.getContext('2d');
@@ -711,19 +728,6 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // Fullscreen Signature Pad logic
-    document.addEventListener('click', function (e) {
-        const btn = e.target.closest('#openFullSigBtn');
-        if (btn) {
-            e.preventDefault();
-            e.stopPropagation();
-            const fullModalEl = document.getElementById('fullSigModal');
-            if (fullModalEl) {
-                const modalInstance = bootstrap.Modal.getOrCreateInstance(fullModalEl);
-                modalInstance.show();
-            }
-        }
-    });
-
     const fullModalEl = document.getElementById('fullSigModal');
     const fullCanvas = document.getElementById('fullSigCanvas');
 
@@ -743,11 +747,11 @@ document.addEventListener('DOMContentLoaded', function () {
             const isRotated = window.matchMedia("(max-width: 991px) and (orientation: portrait)").matches;
 
             if (isRotated) {
-                fullCanvas.width = rect.height;
-                fullCanvas.height = rect.width;
+                fullCanvas.width = Math.round(rect.height || window.innerHeight);
+                fullCanvas.height = Math.round(rect.width || window.innerWidth);
             } else {
-                fullCanvas.width = rect.width;
-                fullCanvas.height = rect.height;
+                fullCanvas.width = Math.round(rect.width || window.innerWidth);
+                fullCanvas.height = Math.round(rect.height || window.innerHeight);
             }
 
             fullCtx.clearRect(0, 0, fullCanvas.width, fullCanvas.height);
@@ -758,6 +762,12 @@ document.addEventListener('DOMContentLoaded', function () {
 
             fullHasSignature = false;
             if (fullPlaceholder) fullPlaceholder.style.display = '';
+
+            // Ensure stacked modal backdrop is layered on top of parent modal
+            const backdrops = document.querySelectorAll('.modal-backdrop');
+            if (backdrops.length > 1) {
+                backdrops[backdrops.length - 1].style.zIndex = '1075';
+            }
 
             // Attempt screen orientation lock to landscape on mobile devices
             if (screen.orientation && screen.orientation.lock) {
@@ -777,15 +787,10 @@ document.addEventListener('DOMContentLoaded', function () {
                 try { screen.unlockOrientation(); } catch (e) { }
             }
 
-            // Restore modal-open state so withdrawModal stays active and scrollable
+            // If withdrawModal is still open, keep body class modal-open
             const withdrawModalEl = document.getElementById('withdrawModal');
-            if (withdrawModalEl && (withdrawModalEl.classList.contains('show') || withdrawModalEl.style.display === 'block')) {
+            if (withdrawModalEl && withdrawModalEl.classList.contains('show')) {
                 document.body.classList.add('modal-open');
-                if (!document.querySelector('.modal-backdrop')) {
-                    const backdrop = document.createElement('div');
-                    backdrop.className = 'modal-backdrop fade show';
-                    document.body.appendChild(backdrop);
-                }
             }
         });
 
@@ -972,7 +977,7 @@ document.addEventListener('DOMContentLoaded', function () {
             const rsInput = document.getElementById('manualRsInputText');
             if (rsInput) rsInput.value = '';
 
-            // Clear signature canvas
+            // Clear signature canvas & drawn preview
             if (canvas) {
                 const ctx = canvas.getContext('2d');
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -981,13 +986,15 @@ document.addEventListener('DOMContentLoaded', function () {
                 const sigDataInput = document.getElementById('signatureData');
                 if (sigDataInput) sigDataInput.value = '';
             }
+            const drawnPreviewWrap = document.getElementById('wdSigDrawnPreview');
+            if (drawnPreviewWrap) drawnPreviewWrap.classList.add('d-none');
 
             // Clear photo proof preview
             if (photoInput) photoInput.value = '';
             if (photoContainer) photoContainer.classList.add('d-none');
         });
     }
-});
+}
 
 if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", initWithdrawalsPage);
