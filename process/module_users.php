@@ -19,7 +19,7 @@ function validate_password_strength($password) {
     return true;
 }
 
-if (in_array($action, ['add_user', 'edit_user', 'delete_user'])) {
+if (in_array($action, ['add_user', 'edit_user', 'delete_user', 'toggle_user_status'])) {
     if ($_SESSION['user_role'] !== 'admin') throw new Exception("Admin privileges required.");
 
     if ($action === 'add_user') {
@@ -29,8 +29,16 @@ if (in_array($action, ['add_user', 'edit_user', 'delete_user'])) {
 
         validate_password_strength($_POST['password']);
         $hashed_password = password_hash($_POST['password'], PASSWORD_DEFAULT);
-        $stmt = $pdo->prepare("INSERT INTO users (name, username, role, password) VALUES (:name, :username, :role, :password)");
-        $stmt->execute([':name' => $_POST['name'], ':username' => $_POST['username'], ':role' => $_POST['role'], ':password' => $hashed_password]);
+        $status = (!empty($_POST['status']) && in_array($_POST['status'], ['active', 'inactive'])) ? $_POST['status'] : 'active';
+
+        $stmt = $pdo->prepare("INSERT INTO users (name, username, role, password, status) VALUES (:name, :username, :role, :password, :status)");
+        $stmt->execute([
+            ':name' => $_POST['name'],
+            ':username' => $_POST['username'],
+            ':role' => $_POST['role'],
+            ':password' => $hashed_password,
+            ':status' => $status
+        ]);
         $_SESSION['message'] = "User created successfully!";
         $_SESSION['msg_type'] = "success";
 
@@ -41,14 +49,32 @@ if (in_array($action, ['add_user', 'edit_user', 'delete_user'])) {
         $check->execute([$_POST['username'], $userId]);
         if ($check->rowCount() > 0) throw new Exception("This username is already taken by someone else.");
 
+        $status = (!empty($_POST['status']) && in_array($_POST['status'], ['active', 'inactive'])) ? $_POST['status'] : 'active';
+        if ($userId == $_SESSION['user_id']) {
+            $status = 'active'; // Admin cannot deactivate themselves via edit
+        }
+
         if (!empty($_POST['password'])) {
             validate_password_strength($_POST['password']);
             $hashed_password = password_hash($_POST['password'], PASSWORD_DEFAULT);
-            $stmt = $pdo->prepare("UPDATE users SET name = :name, username = :username, role = :role, password = :password WHERE id = :id");
-            $stmt->execute([':name' => $_POST['name'], ':username' => $_POST['username'], ':role' => $_POST['role'], ':password' => $hashed_password, ':id' => $userId]);
+            $stmt = $pdo->prepare("UPDATE users SET name = :name, username = :username, role = :role, status = :status, password = :password WHERE id = :id");
+            $stmt->execute([
+                ':name' => $_POST['name'],
+                ':username' => $_POST['username'],
+                ':role' => $_POST['role'],
+                ':status' => $status,
+                ':password' => $hashed_password,
+                ':id' => $userId
+            ]);
         } else {
-            $stmt = $pdo->prepare("UPDATE users SET name = :name, username = :username, role = :role WHERE id = :id");
-            $stmt->execute([':name' => $_POST['name'], ':username' => $_POST['username'], ':role' => $_POST['role'], ':id' => $userId]);
+            $stmt = $pdo->prepare("UPDATE users SET name = :name, username = :username, role = :role, status = :status WHERE id = :id");
+            $stmt->execute([
+                ':name' => $_POST['name'],
+                ':username' => $_POST['username'],
+                ':role' => $_POST['role'],
+                ':status' => $status,
+                ':id' => $userId
+            ]);
         }
         
         if ($userId == $_SESSION['user_id']) { 
@@ -57,6 +83,27 @@ if (in_array($action, ['add_user', 'edit_user', 'delete_user'])) {
         }
         $_SESSION['message'] = "User updated successfully!";
         $_SESSION['msg_type'] = "success";
+
+    } elseif ($action === 'toggle_user_status') {
+        $userId = (int)($_POST['user_id'] ?? 0);
+        if ($userId <= 0) throw new Exception("Invalid user specified.");
+        if ($userId == $_SESSION['user_id']) throw new Exception("You cannot deactivate your own active account.");
+
+        $fetchStmt = $pdo->prepare("SELECT name, status FROM users WHERE id = ?");
+        $fetchStmt->execute([$userId]);
+        $targetUser = $fetchStmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$targetUser) throw new Exception("User not found.");
+
+        $currentStatus = strtolower($targetUser['status'] ?? 'active');
+        $newStatus = ($currentStatus === 'active') ? 'inactive' : 'active';
+
+        $updateStmt = $pdo->prepare("UPDATE users SET status = ? WHERE id = ?");
+        $updateStmt->execute([$newStatus, $userId]);
+
+        $statusLabel = ($newStatus === 'active') ? 'activated' : 'deactivated';
+        $_SESSION['message'] = "User <b>" . htmlspecialchars($targetUser['name']) . "</b> has been {$statusLabel} successfully.";
+        $_SESSION['msg_type'] = ($newStatus === 'active') ? "success" : "warning";
 
     } elseif ($action === 'delete_user') {
         $userId = $_POST['user_id'];
@@ -69,12 +116,12 @@ if (in_array($action, ['add_user', 'edit_user', 'delete_user'])) {
             $_SESSION['msg_type'] = "success";
         } catch (PDOException $e) {
             if ($e->getCode() == 23000) {
-                throw new Exception("<b>Data Protection Lock:</b> Cannot delete this user because their account is tied to past warehouse transactions or audits. To revoke access, please <b>Edit</b> the user and change their password instead.");
+                throw new Exception("<b>Data Protection Lock:</b> Cannot delete this user because their account is tied to past warehouse transactions or audits. To revoke access, please <b>Deactivate</b> the user instead.");
             }
             throw $e;
         }
     }
-    header("Location: ../users");
+    header("Location: ../settings?tab=" . ($_POST['return_tab'] ?? 'users'));
     exit;
 }
 
