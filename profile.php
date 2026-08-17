@@ -17,7 +17,7 @@ $user = $stmt->fetch(PDO::FETCH_ASSOC);
 $roleDisplay = [
     'admin' => ['label' => 'System Admin', 'class' => 'bg-danger'],
     'warehouse' => ['label' => 'Warehouse In-Charge', 'class' => 'bg-success'],
-    'management' => ['label' => 'Management / Approver', 'class' => 'bg-warning text-dark'],
+    'management' => ['label' => 'Management', 'class' => 'bg-warning text-dark'],
     'purchasing' => ['label' => 'Purchasing Officer', 'class' => 'bg-info text-dark'],
     'requestor' => ['label' => 'Requestor', 'class' => 'bg-secondary']
 ];
@@ -139,7 +139,8 @@ include 'layout/header.php';
                             <label class="form-label fw-bold d-block text-secondary small text-uppercase mb-2">Current
                                 Registered Signature</label>
                             <?php if (!empty($user['signature_path']) && file_exists(__DIR__ . '/' . $user['signature_path'])): ?>
-                                <div class="p-2 border rounded sig-preview-box d-inline-block shadow-sm w-100 mb-2" style="background-color: #ffffff !important;">
+                                <div class="p-2 border rounded sig-preview-box d-inline-block shadow-sm w-100 mb-2"
+                                    style="background-color: #ffffff !important;">
                                     <img src="secure_image.php?type=signatures&file=<?= urlencode(basename($user['signature_path'])) ?>&v=<?= time() ?>"
                                         alt="User Signature" class="img-fluid"
                                         style="max-height: 90px; object-fit: contain;">
@@ -184,9 +185,11 @@ include 'layout/header.php';
                                         <div class="mb-3 text-center">
                                             <!-- Drawn Signature Preview Box (shown after drawing in modal) -->
                                             <div id="profileSigDrawnPreview"
-                                                class="d-none border rounded p-3 mb-3 sig-preview-box shadow-sm position-relative" style="background-color: #ffffff !important;">
+                                                class="d-none border rounded p-3 mb-3 sig-preview-box shadow-sm position-relative"
+                                                style="background-color: #ffffff !important;">
                                                 <small class="d-block fw-bold text-uppercase mb-2"
-                                                    style="font-size: 0.7rem; color: #475569 !important;">Newly Drawn Signature Preview</small>
+                                                    style="font-size: 0.7rem; color: #475569 !important;">Newly Drawn
+                                                    Signature Preview</small>
                                                 <img id="profileSigPreviewImg" src="" alt="Drawn Signature"
                                                     style="max-height: 90px; object-fit: contain;">
                                                 <button type="button"
