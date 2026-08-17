@@ -10,7 +10,7 @@ if ($action === 'add_unit') {
     $stmt->execute([$_POST['unit_name'], $_POST['abbreviation'], (int)($_POST['reorder_level'] ?? 10)]);
     $_SESSION['message'] = "Measurement unit added successfully!";
     $_SESSION['msg_type'] = "success";
-    header("Location: ../units"); 
+    header("Location: ../settings?tab=" . ($_POST['return_tab'] ?? 'units')); 
     exit;
 
 } elseif ($action === 'edit_unit') {
@@ -19,7 +19,7 @@ if ($action === 'add_unit') {
     $stmt->execute([$_POST['unit_name'], $_POST['abbreviation'], (int)($_POST['reorder_level'] ?? 10), $_POST['unit_id']]);
     $_SESSION['message'] = "Unit updated successfully!";
     $_SESSION['msg_type'] = "success";
-    header("Location: ../units"); 
+    header("Location: ../settings?tab=" . ($_POST['return_tab'] ?? 'units')); 
     exit;
 
 } elseif ($action === 'delete_unit') {
@@ -28,7 +28,7 @@ if ($action === 'add_unit') {
     $stmt->execute([$_POST['unit_id']]);
     $_SESSION['message'] = "Unit deleted successfully.";
     $_SESSION['msg_type'] = "danger";
-    header("Location: ../units"); 
+    header("Location: ../settings?tab=" . ($_POST['return_tab'] ?? 'units')); 
     exit;
 }
 
@@ -39,7 +39,7 @@ elseif ($action === 'add_category') {
     $stmt->execute([trim($_POST['category_name'])]);
     $_SESSION['message'] = "Category added successfully!";
     $_SESSION['msg_type'] = "success";
-    header("Location: ../categories"); 
+    header("Location: ../settings?tab=" . ($_POST['return_tab'] ?? 'categories')); 
     exit;
 
 } elseif ($action === 'edit_category') {
@@ -48,7 +48,7 @@ elseif ($action === 'add_category') {
     $stmt->execute([trim($_POST['category_name']), $_POST['category_id']]);
     $_SESSION['message'] = "Category updated successfully!";
     $_SESSION['msg_type'] = "success";
-    header("Location: ../categories"); 
+    header("Location: ../settings?tab=" . ($_POST['return_tab'] ?? 'categories')); 
     exit;
 
 } elseif ($action === 'delete_category') {
@@ -57,7 +57,7 @@ elseif ($action === 'add_category') {
     $stmt->execute([$_POST['category_id']]);
     $_SESSION['message'] = "Category deleted successfully.";
     $_SESSION['msg_type'] = "danger";
-    header("Location: ../categories"); 
+    header("Location: ../settings?tab=" . ($_POST['return_tab'] ?? 'categories')); 
     exit;
 }
 
@@ -94,7 +94,7 @@ elseif ($action === 'add_project') {
     $stmt->execute([$projectCode, $projectName, $address, $description, $status]);
     $_SESSION['message'] = "Project '{$projectName}' (ID: {$projectCode}) added successfully!";
     $_SESSION['msg_type'] = "success";
-    header("Location: ../projects"); 
+    header("Location: ../settings?tab=" . ($_POST['return_tab'] ?? 'projects')); 
     exit;
 
 } elseif ($action === 'edit_project') {
@@ -116,7 +116,7 @@ elseif ($action === 'add_project') {
     $stmt->execute([$projectCode, $projectName, $address, $description, $status, $projectId]);
     $_SESSION['message'] = "Project updated successfully!";
     $_SESSION['msg_type'] = "success";
-    header("Location: ../projects"); 
+    header("Location: ../settings?tab=" . ($_POST['return_tab'] ?? 'projects')); 
     exit;
 
 } elseif ($action === 'delete_project') {
@@ -125,7 +125,7 @@ elseif ($action === 'add_project') {
     $stmt->execute([$_POST['project_id']]);
     $_SESSION['message'] = "Project deleted successfully.";
     $_SESSION['msg_type'] = "danger";
-    header("Location: ../projects"); 
+    header("Location: ../settings?tab=" . ($_POST['return_tab'] ?? 'projects')); 
     exit;
 
 // --- LOGIN BACKGROUND LOGIC ---
@@ -187,7 +187,8 @@ elseif ($action === 'add_project') {
         throw new Exception("Failed to save uploaded file.");
     }
 
-    header("Location: ../profile");
+    $targetRedirect = !empty($_POST['return_tab']) ? "../settings?tab=" . urlencode($_POST['return_tab']) : "../profile";
+    header("Location: " . $targetRedirect);
     exit;
 
 } elseif ($action === 'reset_login_bg') {
@@ -212,7 +213,8 @@ elseif ($action === 'add_project') {
 
     $_SESSION['message'] = "Login background reset to default successfully.";
     $_SESSION['msg_type'] = "success";
-    header("Location: ../profile");
+    $targetRedirect = !empty($_POST['return_tab']) ? "../settings?tab=" . urlencode($_POST['return_tab']) : "../profile";
+    header("Location: " . $targetRedirect);
     exit;
 
 // --- LOGIN BLUR INTENSITY ---
@@ -229,7 +231,8 @@ elseif ($action === 'add_project') {
 
     $_SESSION['message'] = "Blur intensity updated to {$blur}px successfully!";
     $_SESSION['msg_type'] = "success";
-    header("Location: ../profile");
+    $targetRedirect = !empty($_POST['return_tab']) ? "../settings?tab=" . urlencode($_POST['return_tab']) : "../profile";
+    header("Location: " . $targetRedirect);
     exit;
 }
 ?>
