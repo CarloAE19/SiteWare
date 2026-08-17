@@ -6,28 +6,109 @@
 // --- UNITS LOGIC ---
 if ($action === 'add_unit') {
     if ($_SESSION['user_role'] !== 'admin') throw new Exception("Unauthorized.");
+    
+    $unitName = trim($_POST['unit_name'] ?? '');
+    $abbreviation = trim($_POST['abbreviation'] ?? '');
+    $reorderLevel = max(1, (int)($_POST['reorder_level'] ?? 10));
+
+    if (empty($unitName) || empty($abbreviation)) {
+        $_SESSION['message'] = "Unit name and abbreviation are required.";
+        $_SESSION['msg_type'] = "warning";
+        header("Location: ../settings?tab=" . ($_POST['return_tab'] ?? 'units'));
+        exit;
+    }
+
+    // Check for duplicate name or abbreviation (case-insensitive)
+    $checkStmt = $pdo->prepare("SELECT COUNT(*) FROM units WHERE LOWER(unit_name) = LOWER(?) OR LOWER(abbreviation) = LOWER(?)");
+    $checkStmt->execute([$unitName, $abbreviation]);
+    if ($checkStmt->fetchColumn() > 0) {
+        $_SESSION['message'] = "A measurement unit with that name or abbreviation already exists.";
+        $_SESSION['msg_type'] = "warning";
+        header("Location: ../settings?tab=" . ($_POST['return_tab'] ?? 'units'));
+        exit;
+    }
+
     $stmt = $pdo->prepare("INSERT INTO units (unit_name, abbreviation, reorder_level) VALUES (?, ?, ?)");
-    $stmt->execute([$_POST['unit_name'], $_POST['abbreviation'], (int)($_POST['reorder_level'] ?? 10)]);
-    $_SESSION['message'] = "Measurement unit added successfully!";
+    $stmt->execute([$unitName, $abbreviation, $reorderLevel]);
+    $_SESSION['message'] = "Measurement unit '{$unitName}' added successfully!";
     $_SESSION['msg_type'] = "success";
     header("Location: ../settings?tab=" . ($_POST['return_tab'] ?? 'units')); 
     exit;
 
 } elseif ($action === 'edit_unit') {
     if ($_SESSION['user_role'] !== 'admin') throw new Exception("Unauthorized.");
+
+    $unitId = (int)($_POST['unit_id'] ?? 0);
+    $unitName = trim($_POST['unit_name'] ?? '');
+    $abbreviation = trim($_POST['abbreviation'] ?? '');
+    $reorderLevel = max(1, (int)($_POST['reorder_level'] ?? 10));
+
+    if ($unitId <= 0 || empty($unitName) || empty($abbreviation)) {
+        $_SESSION['message'] = "Invalid unit details provided.";
+        $_SESSION['msg_type'] = "warning";
+        header("Location: ../settings?tab=" . ($_POST['return_tab'] ?? 'units'));
+        exit;
+    }
+
+    // Check for duplicate name or abbreviation excluding current record
+    $checkStmt = $pdo->prepare("SELECT COUNT(*) FROM units WHERE (LOWER(unit_name) = LOWER(?) OR LOWER(abbreviation) = LOWER(?)) AND id != ?");
+    $checkStmt->execute([$unitName, $abbreviation, $unitId]);
+    if ($checkStmt->fetchColumn() > 0) {
+        $_SESSION['message'] = "Another unit with that name or abbreviation already exists.";
+        $_SESSION['msg_type'] = "warning";
+        header("Location: ../settings?tab=" . ($_POST['return_tab'] ?? 'units'));
+        exit;
+    }
+
+    // Fetch existing unit name to cascade to inventory table if renamed
+    $fetchStmt = $pdo->prepare("SELECT unit_name FROM units WHERE id = ?");
+    $fetchStmt->execute([$unitId]);
+    $oldUnitName = $fetchStmt->fetchColumn();
+
     $stmt = $pdo->prepare("UPDATE units SET unit_name = ?, abbreviation = ?, reorder_level = ? WHERE id = ?");
-    $stmt->execute([$_POST['unit_name'], $_POST['abbreviation'], (int)($_POST['reorder_level'] ?? 10), $_POST['unit_id']]);
-    $_SESSION['message'] = "Unit updated successfully!";
+    $stmt->execute([$unitName, $abbreviation, $reorderLevel, $unitId]);
+
+    // Cascade rename to inventory table so low-stock joins and listings remain intact
+    if ($oldUnitName && $oldUnitName !== $unitName) {
+        $cascadeStmt = $pdo->prepare("UPDATE inventory SET unit = ? WHERE unit = ?");
+        $cascadeStmt->execute([$unitName, $oldUnitName]);
+    }
+
+    $_SESSION['message'] = "Unit '{$unitName}' updated successfully!";
     $_SESSION['msg_type'] = "success";
     header("Location: ../settings?tab=" . ($_POST['return_tab'] ?? 'units')); 
     exit;
 
 } elseif ($action === 'delete_unit') {
     if ($_SESSION['user_role'] !== 'admin') throw new Exception("Unauthorized.");
-    $stmt = $pdo->prepare("DELETE FROM units WHERE id = ?");
-    $stmt->execute([$_POST['unit_id']]);
-    $_SESSION['message'] = "Unit deleted successfully.";
-    $_SESSION['msg_type'] = "danger";
+
+    $unitId = (int)($_POST['unit_id'] ?? 0);
+    $fetchStmt = $pdo->prepare("SELECT unit_name FROM units WHERE id = ?");
+    $fetchStmt->execute([$unitId]);
+    $unitName = $fetchStmt->fetchColumn();
+
+    if ($unitName) {
+        // Safe check: verify if any inventory items are actively using this unit
+        $usageStmt = $pdo->prepare("SELECT COUNT(*) FROM inventory WHERE unit = ?");
+        $usageStmt->execute([$unitName]);
+        $usageCount = (int)$usageStmt->fetchColumn();
+
+        if ($usageCount > 0) {
+            $_SESSION['message'] = "Cannot delete unit '<b>" . htmlspecialchars($unitName) . "</b>': It is currently assigned to <b>{$usageCount}</b> inventory item(s). Please reassign those items before deleting.";
+            $_SESSION['msg_type'] = "danger";
+            header("Location: ../settings?tab=" . ($_POST['return_tab'] ?? 'units'));
+            exit;
+        }
+
+        $stmt = $pdo->prepare("DELETE FROM units WHERE id = ?");
+        $stmt->execute([$unitId]);
+        $_SESSION['message'] = "Unit '<b>" . htmlspecialchars($unitName) . "</b>' deleted successfully.";
+        $_SESSION['msg_type'] = "success";
+    } else {
+        $_SESSION['message'] = "Unit not found.";
+        $_SESSION['msg_type'] = "warning";
+    }
+
     header("Location: ../settings?tab=" . ($_POST['return_tab'] ?? 'units')); 
     exit;
 }
