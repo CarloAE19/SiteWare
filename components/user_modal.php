@@ -31,17 +31,25 @@
                                 <option value="admin">System Admin</option>
                             </select>
                         </div>
-                        
+
                         <div class="col-md-6 mb-3">
-                            <label class="form-label fw-bold">Password</label>
-                            <div class="input-group">
-                                <input type="password" class="form-control border-end-0" name="password" id="userPassword">
-                                <button class="btn border border-start-0 bg-white shadow-none" type="button" onclick="toggleUserPass()">
-                                    <i class="bi bi-eye-slash text-muted" id="toggleUserIcon"></i>
-                                </button>
-                            </div>
-                            <small id="passwordHelp" class="text-muted d-block mt-1" style="font-size: 0.75rem;"></small>
+                            <label class="form-label fw-bold">Account Status <span class="text-danger">*</span></label>
+                            <select class="form-select" name="status" id="userStatus" required>
+                                <option value="active">Active (Permitted)</option>
+                                <option value="inactive">Inactive (Blocked)</option>
+                            </select>
                         </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Password</label>
+                        <div class="input-group">
+                            <input type="password" class="form-control border-end-0" name="password" id="userPassword">
+                            <button class="btn border border-start-0 bg-white shadow-none" type="button" onclick="toggleUserPass()">
+                                <i class="bi bi-eye-slash text-muted" id="toggleUserIcon"></i>
+                            </button>
+                        </div>
+                        <small id="passwordHelp" class="text-muted d-block mt-1" style="font-size: 0.75rem;"></small>
                     </div>
                 </div>
                 <div class="modal-footer justify-content-between bg-white border-top-0">
@@ -65,17 +73,19 @@ window.openAddUserModal = function() {
     document.getElementById('userName').value = '';
     document.getElementById('userUsername').value = '';
     document.getElementById('userRole').value = 'requestor';
+    document.getElementById('userStatus').value = 'active';
     document.getElementById('userPassword').required = true;
     document.getElementById('passwordHelp').innerHTML = "<span class='text-muted'>Min. 8 chars (Must include A-Z, a-z, 0-9).</span>";
 }
 
-window.openEditUserModal = function(id, name, username, role) {
+window.openEditUserModal = function(id, name, username, role, status) {
     document.getElementById('userModalTitle').innerHTML = '<i class="bi bi-person-gear me-2" style="color: var(--gb-yellow);"></i>Edit User';
     document.getElementById('userFormAction').value = 'edit_user';
     document.getElementById('userId').value = id;
     document.getElementById('userName').value = name;
     document.getElementById('userUsername').value = username;
     document.getElementById('userRole').value = role;
+    document.getElementById('userStatus').value = status || 'active';
     document.getElementById('userPassword').required = false; // Not required on edit!
     document.getElementById('passwordHelp').innerHTML = "<span class='text-primary'>Leave blank to keep current password. (Min. 8 chars with A-Z, a-z, 0-9 if changing)</span>";
 }
