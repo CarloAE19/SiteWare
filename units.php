@@ -1,4 +1,12 @@
 <?php
 session_start();
-header("Location: settings?tab=units");
+if (!isset($_SESSION['user_id'])) {
+    header("Location: login");
+    exit;
+}
+if ($_SESSION['user_role'] !== 'admin') {
+    header("Location: index");
+    exit;
+}
+header("Location: settings?tab=units", true, 302);
 exit;
