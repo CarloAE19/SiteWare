@@ -10,18 +10,34 @@ if ($action === 'fetch_rs_data') {
         exit;
     }
 
-    $input_raw = trim($_POST['rs_no']);
-    $rs_no_clean = str_replace(['REQ-DATA:', ' ', '-'], '', strtoupper($input_raw));
-    if (!str_starts_with($rs_no_clean, 'RS') && !empty($rs_no_clean)) {
-        $rs_no_clean = 'RS' . $rs_no_clean;
-    }
+    $input_raw = trim($_POST['rs_no'] ?? '');
+    $clean = trim(urldecode($input_raw));
+    $clean = str_ireplace('REQ-DATA:', '', $clean);
+    $clean = trim($clean);
+    
+    // Normalize alphanumeric version (e.g. RS20267324 or 20267324)
+    $alphanumeric = preg_replace('/[^A-Za-z0-9]/', '', strtoupper($clean));
+    $digitsOnly = preg_replace('/[^0-9]/', '', $clean);
 
     $stmt = $pdo->prepare("
         SELECT id, rs_no, requestor_name, project_name, status, type 
         FROM requisitions 
-        WHERE rs_no = ? OR rs_no = ? OR rs_no = ?
+        WHERE rs_no = ? 
+           OR UPPER(rs_no) = ?
+           OR REPLACE(UPPER(rs_no), '-', '') = ?
+           OR REPLACE(REPLACE(UPPER(rs_no), '-', ''), 'RS', '') = ?
+           OR rs_no LIKE ?
+        ORDER BY (rs_no = ?) DESC, id DESC
+        LIMIT 1
     ");
-    $stmt->execute([$input_raw, $rs_no_clean, strtoupper($input_raw)]);
+    $stmt->execute([
+        $clean,
+        strtoupper($clean),
+        $alphanumeric,
+        $digitsOnly ?: $alphanumeric,
+        '%' . $clean . '%',
+        $clean
+    ]);
     $rs = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if (!$rs) {
