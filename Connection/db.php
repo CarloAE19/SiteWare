@@ -94,13 +94,18 @@ try {
             username VARCHAR(50) NOT NULL UNIQUE,
             password VARCHAR(255) NOT NULL,
             role VARCHAR(50) NOT NULL DEFAULT 'requestor',
+            status VARCHAR(20) NOT NULL DEFAULT 'active',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     ");
 
+    try {
+        $pdo->exec("ALTER TABLE users ADD COLUMN status VARCHAR(20) NOT NULL DEFAULT 'active' AFTER role");
+    } catch (PDOException $e) {}
+
     if ($pdo->query("SELECT COUNT(*) FROM users")->fetchColumn() == 0) {
         $hashed_password = password_hash('password123', PASSWORD_DEFAULT);
-        $stmt = $pdo->prepare("INSERT INTO users (name, username, password, role) VALUES (?, ?, ?, ?)");
+        $stmt = $pdo->prepare("INSERT INTO users (name, username, password, role, status) VALUES (?, ?, ?, ?, 'active')");
         $stmt->execute(['System Admin', 'admin', $hashed_password, 'admin']);
     }
 
