@@ -16,7 +16,7 @@ $search = $_GET['search'] ?? '';
 $query = "SELECT i.*, COALESCE(u.reorder_level, 10) as reorder_level FROM inventory i LEFT JOIN units u ON i.unit = u.unit_name";
 $params = [];
 if ($search) {
-    $query .= " WHERE (i.item_name LIKE :search OR i.item_code LIKE :search OR i.category LIKE :search)";
+    $query .= " WHERE (i.item_name LIKE :search OR i.item_code LIKE :search OR i.category LIKE :search OR i.unit LIKE :search)";
     $params[':search'] = "%$search%";
 }
 $query .= " ORDER BY i.last_updated DESC";
