@@ -403,24 +403,13 @@ foreach ($notifications as $n) {
                 <?php endif; ?>
 
                 <?php if (in_array($_SESSION['user_role'], ['admin', 'management', 'warehouse'])): ?>
-                    <li class="px-3 text-uppercase small fw-bold mb-2 mt-4" style="color: #adb5bd;">System</li>
+                    <li class="px-3 text-uppercase small fw-bold mb-2 mt-4" style="color: #adb5bd;">Inventory Audits</li>
                     <li class="<?= $currentPage == 'audit.php' ? 'active' : '' ?>"><a href="audit"><i
                                 class="bi bi-clipboard-check"></i> Weekly Audit History</a></li>
                     <?php if (in_array($_SESSION['user_role'], ['admin', 'warehouse'])): ?>
                         <li class="<?= $currentPage == 'physical_count.php' ? 'active' : '' ?>"><a href="physical_count"><i
                                     class="bi bi-calculator"></i> Perform Physical Count</a></li>
                     <?php endif; ?>
-                <?php endif; ?>
-
-                <?php if ($_SESSION['user_role'] === 'admin'): ?>
-                    <li class="<?= $currentPage == 'projects.php' ? 'active' : '' ?>"><a href="projects"><i
-                                class="bi bi-briefcase"></i> Manage Projects</a></li>
-                    <li class="<?= $currentPage == 'categories.php' ? 'active' : '' ?>"><a href="categories"><i
-                                class="bi bi-tags"></i> Manage Categories</a></li>
-                    <li class="<?= $currentPage == 'units.php' ? 'active' : '' ?>"><a href="units"><i
-                                class="bi bi-rulers"></i> Manage Units</a></li>
-                    <li class="<?= $currentPage == 'users.php' ? 'active' : '' ?>"><a href="users"><i
-                                class="bi bi-people"></i> Manage Users</a></li>
                 <?php endif; ?>
             </ul>
         </nav>
@@ -573,9 +562,13 @@ foreach ($notifications as $n) {
                                 </div>
                             </a>
                             <ul class="dropdown-menu dropdown-menu-end shadow" aria-labelledby="dropdownUser1"
-                                style="min-width: 200px;">
-                                <li><a class="dropdown-item py-2 d-flex align-items-center" href="profile"><i
+                                style="min-width: 220px;">
+                                <li><a class="dropdown-item py-2 d-flex align-items-center <?= $currentPage == 'profile.php' ? 'active' : '' ?>" href="profile"><i
                                             class="bi bi-person-circle me-2 text-muted fs-6"></i>Profile</a></li>
+                                <?php if ($_SESSION['user_role'] === 'admin'): ?>
+                                    <li><a class="dropdown-item py-2 d-flex align-items-center <?= $currentPage == 'settings.php' ? 'active' : '' ?>" href="settings"><i
+                                                class="bi bi-gear-fill me-2 text-primary fs-6"></i>System Settings</a></li>
+                                <?php endif; ?>
                                 <li>
                                     <hr class="dropdown-divider">
                                 </li>
