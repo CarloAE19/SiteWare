@@ -1126,13 +1126,13 @@ include 'layout/header.php';
                 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
                 <style>
                     @page {
-                        size: 210mm 148.5mm;
-                        margin: 4mm 6mm;
+                        size: auto;
+                        margin: 0 !important;
                     }
                     * {
                         -webkit-print-color-adjust: exact !important;
                         print-color-adjust: exact !important;
-                        box-sizing: border-box;
+                        box-sizing: border-box !important;
                     }
                     html, body {
                         width: 100% !important;
@@ -1143,13 +1143,15 @@ include 'layout/header.php';
                         font-family: 'Plus Jakarta Sans', Arial, sans-serif;
                     }
                     body {
-                        font-size: ${isDense ? '0.73rem' : '0.80rem'};
+                        font-size: ${isDense ? '0.78rem' : '0.86rem'};
+                        line-height: 1.3 !important;
                     }
                     .print-wrapper {
                         width: 100% !important;
                         max-width: 100% !important;
                         margin: 0 !important;
-                        padding: 0 !important;
+                        padding: 4mm 6mm !important;
+                        box-sizing: border-box !important;
                         ${isMultiPage ? '' : 'page-break-inside: avoid;'}
                     }
                     .row {
@@ -1174,7 +1176,7 @@ include 'layout/header.php';
                     .text-start { text-align: left !important; }
                     .table {
                         width: 100% !important;
-                        margin-bottom: 0.5rem !important;
+                        margin-bottom: 0.25rem !important;
                         border-collapse: collapse !important;
                     }
                     .table-dark, thead.table-dark, thead.table-dark tr, thead.table-dark th {
@@ -1186,7 +1188,7 @@ include 'layout/header.php';
                     thead { display: table-header-group !important; }
                     tr { page-break-inside: avoid !important; }
                     .table-sm th, .table-sm td {
-                        padding: ${isDense ? '2px 5px' : '3.5px 6px'} !important;
+                        padding: ${isDense ? '2px 5px' : '3px 6px'} !important;
                         line-height: ${isDense ? '1.15' : '1.25'} !important;
                     }
                     .bg-light {
