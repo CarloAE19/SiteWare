@@ -65,12 +65,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$is_locked_out) {
 
             // 🛡️ Bcrypt Password Verification + Session Hijacking Prevention
             if ($user && password_verify($password, $user['password'])) {
-                clear_rate_limit($rlKey, true);
-                session_regenerate_id(true);
-                $_SESSION['user_id'] = $user['id'];
-                $_SESSION['user_name'] = $user['name'];
-                $_SESSION['user_role'] = $user['role'];
-                redirectUserByRole($user['role']);
+                if (isset($user['status']) && strtolower($user['status']) === 'inactive') {
+                    $error = 'Your account has been deactivated. Please contact an administrator.';
+                } else {
+                    clear_rate_limit($rlKey, true);
+                    session_regenerate_id(true);
+                    $_SESSION['user_id'] = $user['id'];
+                    $_SESSION['user_name'] = $user['name'];
+                    $_SESSION['user_role'] = $user['role'];
+                    redirectUserByRole($user['role']);
+                }
             } else {
                 record_rate_limit_attempt($rlKey, true);
                 $newRl = check_rate_limit($rlKey, 5, 900, true);
