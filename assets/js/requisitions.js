@@ -492,9 +492,28 @@ function initializeRequisitionsPage() {
 
     updatePagination();
 
-    // Check URL parameters for shortcut auto-open modals
+    // Check URL parameters for shortcut search and auto-open modals
     const urlParams = new URLSearchParams(window.location.search);
+    const searchTerm = urlParams.get('search') || urlParams.get('q');
+    const autoOpenRs = urlParams.get('rs_no') || urlParams.get('auto_open');
     const action = urlParams.get('action');
+
+    if (searchTerm && searchInput) {
+        searchInput.value = searchTerm;
+        filterData();
+    }
+
+    if (autoOpenRs) {
+        const targetRow = allRows.find(r => {
+            const no = r.querySelector('.rs-no')?.textContent.trim().toLowerCase();
+            return no === autoOpenRs.trim().toLowerCase();
+        });
+        if (targetRow) {
+            const viewBtn = targetRow.querySelector('button[title="View Details"]');
+            if (viewBtn) viewBtn.click();
+        }
+    }
+
     if (action === 'new') {
         const rsModalEl = document.getElementById('rsModal');
         if (rsModalEl) {
