@@ -187,21 +187,14 @@ include 'layout/header.php';
                         <i class="bi <?= $currentRole['icon'] ?>"></i>
                     </div>
                     <div>
-                        <h2 class="fw-bold mb-1 welcome-title" id="dashGreeting">
-                            <i class="bi <?= $timeIcon ?> me-1" id="dashTimeIcon"></i><span
-                                id="dashGreetingText"><?= $timeGreeting ?></span>, <?= htmlspecialchars($userName) ?>!
+                        <h2 class="fw-bold mb-1.5 welcome-title" id="dashGreeting">
+                            <i class="bi <?= $timeIcon ?> me-1" id="dashTimeIcon"></i><span id="dashGreetingText"><?= $timeGreeting ?></span>, <?= htmlspecialchars($userName) ?>!
                         </h2>
                         <div class="d-flex align-items-center gap-2 flex-wrap">
-                            <span
-                                class="badge <?= $currentRole['class'] ?> px-3 py-2 shadow-sm"><?= $currentRole['label'] ?></span>
-                            <span class="text-muted small fw-bold"><i
-                                    class="bi bi-calendar3 me-1"></i><?= date('l, F j, Y') ?></span>
-                            <span class="badge bg-light text-dark border px-2.5 py-1.5 shadow-sm small fw-bold"
-                                id="dashLiveClock"><i
-                                    class="bi bi-clock me-1 text-primary"></i><?= date('g:i A') ?></span>
+                            <span class="badge <?= $currentRole['class'] ?> px-3 py-1.5 shadow-sm"><?= $currentRole['label'] ?></span>
+                            <span class="text-muted small fw-bold"><i class="bi bi-calendar3 me-1"></i><?= date('l, F j, Y') ?></span>
+                            <span class="badge bg-light text-dark border px-2.5 py-1.5 shadow-sm small fw-bold" id="dashLiveClock"><i class="bi bi-clock me-1 text-primary"></i><?= date('g:i A') ?></span>
                         </div>
-                        <p class="text-muted mt-2 mb-0 small fw-bold"><i
-                                class="bi bi-compass me-1"></i><?= $currentRole['greeting'] ?></p>
                     </div>
                 </div>
             </div>
@@ -223,11 +216,9 @@ include 'layout/header.php';
     <!-- ==========================================
          QUICK ACTION SHORTCUTS
     =========================================== -->
-    <div class="card border-0 shadow-sm mb-4 quick-actions-card">
-        <div class="card-body p-3 p-md-4">
-            <h5 class="fw-bold mb-3 text-dark"><i class="bi bi-lightning-charge-fill me-2 text-warning"></i>Quick
-                Actions</h5>
-            <div class="row g-3">
+    <div class="mb-4">
+        <h6 class="fw-bold mb-3 text-dark d-flex align-items-center"><i class="bi bi-lightning-charge-fill me-2 text-warning"></i>Quick Actions</h6>
+        <div class="row g-2.5">
 
                 <?php // === REQUESTOR SHORTCUTS ===
                 if ($role === 'requestor' || $role === 'admin'): ?>
@@ -352,88 +343,67 @@ include 'layout/header.php';
                     </div>
                 <?php endif; ?>
             </div>
-        </div>
     </div>
 
     <!-- ==========================================
          STAT CARDS — Role-Specific
     =========================================== -->
     <div class="row mb-4 g-3">
-
         <?php // ============ REQUESTOR STATS ============
         if ($role === 'requestor'): ?>
             <div class="col-6 col-md-3">
                 <div class="card stat-card-dash h-100 border-0 shadow-sm">
                     <div class="card-body p-3">
-                        <div class="d-flex justify-content-between align-items-center">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
                             <div>
                                 <div class="stat-label">My Requests</div>
                                 <div class="stat-value"><?= $myTotalRS ?></div>
                             </div>
-                            <div class="stat-icon-circle bg-primary-subtle"><i
-                                    class="bi bi-card-checklist text-primary"></i></div>
+                            <div class="stat-icon-circle bg-primary-subtle"><i class="bi bi-card-checklist text-primary"></i></div>
                         </div>
-                        <div class="progress mt-2" style="height: 4px;">
-                            <div class="progress-bar bg-primary" style="width: 100%"></div>
-                        </div>
-                        <small class="text-muted fw-bold mt-1 d-block">Total requisitions filed</small>
+                        <small class="text-muted small d-block">Total requisitions filed</small>
                     </div>
                 </div>
             </div>
             <div class="col-6 col-md-3">
                 <div class="card stat-card-dash h-100 border-0 shadow-sm">
                     <div class="card-body p-3">
-                        <div class="d-flex justify-content-between align-items-center">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
                             <div>
                                 <div class="stat-label">Pending</div>
                                 <div class="stat-value text-warning"><?= $myPendingRS ?></div>
                             </div>
-                            <div class="stat-icon-circle bg-warning-subtle"><i
-                                    class="bi bi-hourglass-split text-warning"></i></div>
+                            <div class="stat-icon-circle bg-warning-subtle"><i class="bi bi-hourglass-split text-warning"></i></div>
                         </div>
-                        <div class="progress mt-2" style="height: 4px;">
-                            <div class="progress-bar bg-warning"
-                                style="width: <?= $myTotalRS > 0 ? round(($myPendingRS / $myTotalRS) * 100) : 0 ?>%"></div>
-                        </div>
-                        <small class="text-muted fw-bold mt-1 d-block">Awaiting approval</small>
+                        <small class="text-muted small d-block">Awaiting approval</small>
                     </div>
                 </div>
             </div>
             <div class="col-6 col-md-3">
                 <div class="card stat-card-dash h-100 border-0 shadow-sm">
                     <div class="card-body p-3">
-                        <div class="d-flex justify-content-between align-items-center">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
                             <div>
                                 <div class="stat-label">Approved</div>
                                 <div class="stat-value text-success"><?= $myApprovedRS ?></div>
                             </div>
-                            <div class="stat-icon-circle bg-success-subtle"><i
-                                    class="bi bi-check-circle-fill text-success"></i></div>
+                            <div class="stat-icon-circle bg-success-subtle"><i class="bi bi-check-circle-fill text-success"></i></div>
                         </div>
-                        <div class="progress mt-2" style="height: 4px;">
-                            <div class="progress-bar bg-success"
-                                style="width: <?= $myTotalRS > 0 ? round(($myApprovedRS / $myTotalRS) * 100) : 0 ?>%"></div>
-                        </div>
-                        <small class="text-muted fw-bold mt-1 d-block">Ready or in process</small>
+                        <small class="text-muted small d-block">Ready or in process</small>
                     </div>
                 </div>
             </div>
             <div class="col-6 col-md-3">
                 <div class="card stat-card-dash h-100 border-0 shadow-sm">
                     <div class="card-body p-3">
-                        <div class="d-flex justify-content-between align-items-center">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
                             <div>
                                 <div class="stat-label">Ready for Pickup</div>
                                 <div class="stat-value text-info"><?= $myStagedRS ?></div>
                             </div>
-                            <div class="stat-icon-circle bg-info-subtle"><i class="bi bi-box-arrow-right text-info"></i>
-                            </div>
+                            <div class="stat-icon-circle bg-info-subtle"><i class="bi bi-box-arrow-right text-info"></i></div>
                         </div>
-                        <div class="progress mt-2" style="height: 4px;">
-                            <div class="progress-bar bg-info"
-                                style="width: <?= $myTotalRS > 0 ? round(($myStagedRS / $myTotalRS) * 100) : 0 ?>%"></div>
-                        </div>
-                        <small class="text-muted fw-bold mt-1 d-block">Staged for collection</small>
+                        <small class="text-muted small d-block">Staged for collection</small>
                     </div>
                 </div>
             </div>
@@ -443,79 +413,58 @@ include 'layout/header.php';
             <div class="col-6 col-md-3">
                 <div class="card stat-card-dash h-100 border-0 shadow-sm">
                     <div class="card-body p-3">
-                        <div class="d-flex justify-content-between align-items-center">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
                             <div>
                                 <div class="stat-label">Low Stock</div>
                                 <div class="stat-value text-danger"><?= $lowStockCount ?></div>
                             </div>
-                            <div class="stat-icon-circle bg-danger-subtle"><i
-                                    class="bi bi-exclamation-triangle-fill text-danger"></i></div>
+                            <div class="stat-icon-circle bg-danger-subtle"><i class="bi bi-exclamation-triangle-fill text-danger"></i></div>
                         </div>
-                        <div class="progress mt-2" style="height: 4px;">
-                            <div class="progress-bar bg-danger"
-                                style="width: <?= $totalItems > 0 ? round(($lowStockCount / $totalItems) * 100) : 0 ?>%">
-                            </div>
-                        </div>
-                        <small class="text-muted fw-bold mt-1 d-block">Below reorder level</small>
+                        <small class="text-muted small d-block">Below reorder level</small>
                     </div>
                 </div>
             </div>
             <div class="col-6 col-md-3">
                 <div class="card stat-card-dash h-100 border-0 shadow-sm">
                     <div class="card-body p-3">
-                        <div class="d-flex justify-content-between align-items-center">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
                             <div>
                                 <div class="stat-label">Healthy Stock</div>
                                 <div class="stat-value text-success">
                                     <?= $totalItems > 0 ? (100 - round(($lowStockCount / $totalItems) * 100)) : 100 ?>%
                                 </div>
                             </div>
-                            <div class="stat-icon-circle bg-success-subtle"><i class="bi bi-shield-check text-success"></i>
-                            </div>
+                            <div class="stat-icon-circle bg-success-subtle"><i class="bi bi-shield-check text-success"></i></div>
                         </div>
-                        <div class="progress mt-2" style="height: 4px;">
-                            <div class="progress-bar bg-success"
-                                style="width: <?= $totalItems > 0 ? (100 - round(($lowStockCount / $totalItems) * 100)) : 100 ?>%">
-                            </div>
-                        </div>
-                        <small class="text-muted fw-bold mt-1 d-block">Above safe level</small>
+                        <small class="text-muted small d-block">Above safe level</small>
                     </div>
                 </div>
             </div>
             <div class="col-6 col-md-3">
                 <div class="card stat-card-dash h-100 border-0 shadow-sm">
                     <div class="card-body p-3">
-                        <div class="d-flex justify-content-between align-items-center">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
                             <div>
                                 <div class="stat-label">Withdrawals Today</div>
                                 <div class="stat-value text-info"><?= $withdrawalsToday ?></div>
                             </div>
                             <div class="stat-icon-circle bg-info-subtle"><i class="bi bi-tools text-info"></i></div>
                         </div>
-                        <div class="progress mt-2" style="height: 4px;">
-                            <div class="progress-bar bg-info" style="width: <?= $withdrawalsToday > 0 ? '100' : '0' ?>%">
-                            </div>
-                        </div>
-                        <small class="text-muted fw-bold mt-1 d-block">Released materials</small>
+                        <small class="text-muted small d-block">Released materials</small>
                     </div>
                 </div>
             </div>
             <div class="col-6 col-md-3">
                 <div class="card stat-card-dash h-100 border-0 shadow-sm">
                     <div class="card-body p-3">
-                        <div class="d-flex justify-content-between align-items-center">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
                             <div>
                                 <div class="stat-label">Out of Stock</div>
                                 <div class="stat-value text-dark"><?= $outOfStockCount ?></div>
                             </div>
                             <div class="stat-icon-circle bg-dark-subtle"><i class="bi bi-x-circle text-dark"></i></div>
                         </div>
-                        <div class="progress mt-2" style="height: 4px;">
-                            <div class="progress-bar bg-dark"
-                                style="width: <?= $totalItems > 0 ? round(($outOfStockCount / $totalItems) * 100) : 0 ?>%">
-                            </div>
-                        </div>
-                        <small class="text-muted fw-bold mt-1 d-block">Zero quantity items</small>
+                        <small class="text-muted small d-block">Zero quantity items</small>
                     </div>
                 </div>
             </div>
@@ -525,75 +474,56 @@ include 'layout/header.php';
             <div class="col-6 col-md-3">
                 <div class="card stat-card-dash h-100 border-0 shadow-sm">
                     <div class="card-body p-3">
-                        <div class="d-flex justify-content-between align-items-center">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
                             <div>
                                 <div class="stat-label">RS Pending PO</div>
                                 <div class="stat-value text-warning"><?= $rsPendingPO ?></div>
                             </div>
-                            <div class="stat-icon-circle bg-warning-subtle"><i
-                                    class="bi bi-file-earmark-check text-warning"></i></div>
+                            <div class="stat-icon-circle bg-warning-subtle"><i class="bi bi-file-earmark-check text-warning"></i></div>
                         </div>
-                        <div class="progress mt-2" style="height: 4px;">
-                            <div class="progress-bar bg-warning" style="width: <?= $rsPendingPO > 0 ? '100' : '0' ?>%">
-                            </div>
-                        </div>
-                        <small class="text-muted fw-bold mt-1 d-block">Approved & awaiting PO</small>
+                        <small class="text-muted small d-block">Approved & awaiting PO</small>
                     </div>
                 </div>
             </div>
             <div class="col-6 col-md-3">
                 <div class="card stat-card-dash h-100 border-0 shadow-sm">
                     <div class="card-body p-3">
-                        <div class="d-flex justify-content-between align-items-center">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
                             <div>
                                 <div class="stat-label">Pending Delivery</div>
                                 <div class="stat-value text-info"><?= $posPendingDelivery ?></div>
                             </div>
                             <div class="stat-icon-circle bg-info-subtle"><i class="bi bi-truck text-info"></i></div>
                         </div>
-                        <div class="progress mt-2" style="height: 4px;">
-                            <div class="progress-bar bg-info" style="width: <?= $posPendingDelivery > 0 ? '100' : '0' ?>%">
-                            </div>
-                        </div>
-                        <small class="text-muted fw-bold mt-1 d-block">POs awaiting delivery</small>
+                        <small class="text-muted small d-block">POs awaiting delivery</small>
                     </div>
                 </div>
             </div>
             <div class="col-6 col-md-3">
                 <div class="card stat-card-dash h-100 border-0 shadow-sm">
                     <div class="card-body p-3">
-                        <div class="d-flex justify-content-between align-items-center">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
                             <div>
                                 <div class="stat-label">Delayed POs</div>
                                 <div class="stat-value text-danger"><?= $posDelayed ?></div>
                             </div>
-                            <div class="stat-icon-circle bg-danger-subtle"><i
-                                    class="bi bi-exclamation-diamond text-danger"></i></div>
+                            <div class="stat-icon-circle bg-danger-subtle"><i class="bi bi-exclamation-diamond text-danger"></i></div>
                         </div>
-                        <div class="progress mt-2" style="height: 4px;">
-                            <div class="progress-bar bg-danger" style="width: <?= $posDelayed > 0 ? '100' : '0' ?>%"></div>
-                        </div>
-                        <small class="text-muted fw-bold mt-1 d-block">Requires follow-up</small>
+                        <small class="text-muted small d-block">Requires follow-up</small>
                     </div>
                 </div>
             </div>
             <div class="col-6 col-md-3">
                 <div class="card stat-card-dash h-100 border-0 shadow-sm">
                     <div class="card-body p-3">
-                        <div class="d-flex justify-content-between align-items-center">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
                             <div>
                                 <div class="stat-label">Low Stock Items</div>
                                 <div class="stat-value text-dark"><?= $lowStockCount ?></div>
                             </div>
-                            <div class="stat-icon-circle bg-dark-subtle"><i class="bi bi-graph-down-arrow text-dark"></i>
-                            </div>
+                            <div class="stat-icon-circle bg-dark-subtle"><i class="bi bi-graph-down-arrow text-dark"></i></div>
                         </div>
-                        <div class="progress mt-2" style="height: 4px;">
-                            <div class="progress-bar bg-dark"
-                                style="width: <?= $totalItems > 0 ? round(($lowStockCount / $totalItems) * 100) : 0 ?>%">
-                            </div>
-                        </div>
-                        <small class="text-muted fw-bold mt-1 d-block">May need reorder</small>
+                        <small class="text-muted small d-block">May need reorder</small>
                     </div>
                 </div>
             </div>
@@ -601,79 +531,58 @@ include 'layout/header.php';
         <?php // ============ MANAGEMENT STATS ============
         elseif ($role === 'management'): ?>
             <div class="col-6 col-md-3">
-                <div
-                    class="card stat-card-dash h-100 border-0 shadow-sm <?= $pendingApprovalRS > 0 ? 'stat-attention' : '' ?>">
+                <div class="card stat-card-dash h-100 border-0 shadow-sm <?= $pendingApprovalRS > 0 ? 'stat-attention' : '' ?>">
                     <div class="card-body p-3">
-                        <div class="d-flex justify-content-between align-items-center">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
                             <div>
                                 <div class="stat-label">Pending Approval</div>
                                 <div class="stat-value text-warning"><?= $pendingApprovalRS ?></div>
                             </div>
-                            <div class="stat-icon-circle bg-warning-subtle"><i
-                                    class="bi bi-hourglass-split text-warning"></i></div>
+                            <div class="stat-icon-circle bg-warning-subtle"><i class="bi bi-hourglass-split text-warning"></i></div>
                         </div>
-                        <div class="progress mt-2" style="height: 4px;">
-                            <div class="progress-bar bg-warning"
-                                style="width: <?= $pendingApprovalRS > 0 ? '100' : '0' ?>%"></div>
-                        </div>
-                        <small class="text-muted fw-bold mt-1 d-block">RS awaiting your review</small>
+                        <small class="text-muted small d-block">RS awaiting your review</small>
                     </div>
                 </div>
             </div>
             <div class="col-6 col-md-3">
                 <div class="card stat-card-dash h-100 border-0 shadow-sm">
                     <div class="card-body p-3">
-                        <div class="d-flex justify-content-between align-items-center">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
                             <div>
                                 <div class="stat-label">Inventory Value</div>
-                                <div class="stat-value" style="font-size: 1.1rem;">₱<?= number_format($totalValue, 0) ?>
-                                </div>
+                                <div class="stat-value" style="font-size: 1.35rem;">₱<?= number_format($totalValue, 0) ?></div>
                             </div>
-                            <div class="stat-icon-circle bg-primary-subtle"><i class="bi bi-cash-stack text-primary"></i>
-                            </div>
+                            <div class="stat-icon-circle bg-primary-subtle"><i class="bi bi-cash-stack text-primary"></i></div>
                         </div>
-                        <div class="progress mt-2" style="height: 4px;">
-                            <div class="progress-bar bg-primary" style="width: 100%"></div>
-                        </div>
-                        <small class="text-muted fw-bold mt-1 d-block">Total asset value</small>
+                        <small class="text-muted small d-block">Total asset value</small>
                     </div>
                 </div>
             </div>
             <div class="col-6 col-md-3">
                 <div class="card stat-card-dash h-100 border-0 shadow-sm">
                     <div class="card-body p-3">
-                        <div class="d-flex justify-content-between align-items-center">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
                             <div>
                                 <div class="stat-label">Low Stock Alerts</div>
                                 <div class="stat-value text-danger"><?= $lowStockCount ?></div>
                             </div>
-                            <div class="stat-icon-circle bg-danger-subtle"><i
-                                    class="bi bi-exclamation-triangle text-danger"></i></div>
+                            <div class="stat-icon-circle bg-danger-subtle"><i class="bi bi-exclamation-triangle text-danger"></i></div>
                         </div>
-                        <div class="progress mt-2" style="height: 4px;">
-                            <div class="progress-bar bg-danger"
-                                style="width: <?= $totalItems > 0 ? round(($lowStockCount / $totalItems) * 100) : 0 ?>%">
-                            </div>
-                        </div>
-                        <small class="text-muted fw-bold mt-1 d-block"><?= $lowStockCount ?> of <?= $totalItems ?>
-                            items</small>
+                        <small class="text-muted small d-block"><?= $lowStockCount ?> of <?= $totalItems ?> items</small>
                     </div>
                 </div>
             </div>
             <div class="col-6 col-md-3">
                 <div class="card stat-card-dash h-100 border-0 shadow-sm">
                     <div class="card-body p-3">
-                        <div class="d-flex justify-content-between align-items-center">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
                             <div>
                                 <div class="stat-label">Total Materials</div>
                                 <div class="stat-value text-success"><?= $totalItems ?></div>
                             </div>
                             <div class="stat-icon-circle bg-success-subtle"><i class="bi bi-boxes text-success"></i></div>
                         </div>
-                        <div class="progress mt-2" style="height: 4px;">
-                            <div class="progress-bar bg-success" style="width: 100%"></div>
-                        </div>
-                        <small class="text-muted fw-bold mt-1 d-block">In system inventory</small>
+                        <small class="text-muted small d-block">In system inventory</small>
                     </div>
                 </div>
             </div>
@@ -683,76 +592,56 @@ include 'layout/header.php';
             <div class="col-6 col-md-3">
                 <div class="card stat-card-dash h-100 border-0 shadow-sm">
                     <div class="card-body p-3">
-                        <div class="d-flex justify-content-between align-items-center">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
                             <div>
                                 <div class="stat-label">Inventory Value</div>
-                                <div class="stat-value" style="font-size: 1.1rem;">₱<?= number_format($totalValue, 0) ?>
-                                </div>
+                                <div class="stat-value" style="font-size: 1.35rem;">₱<?= number_format($totalValue, 0) ?></div>
                             </div>
-                            <div class="stat-icon-circle bg-primary-subtle"><i class="bi bi-cash-stack text-primary"></i>
-                            </div>
+                            <div class="stat-icon-circle bg-primary-subtle"><i class="bi bi-cash-stack text-primary"></i></div>
                         </div>
-                        <div class="progress mt-2" style="height: 4px;">
-                            <div class="progress-bar bg-primary" style="width: 100%"></div>
-                        </div>
-                        <small class="text-muted fw-bold mt-1 d-block">Across <?= $totalItems ?> items</small>
+                        <small class="text-muted small d-block">Across <?= $totalItems ?> items</small>
                     </div>
                 </div>
             </div>
             <div class="col-6 col-md-3">
                 <div class="card stat-card-dash h-100 border-0 shadow-sm <?= $lowStockCount > 0 ? 'stat-attention' : '' ?>">
                     <div class="card-body p-3">
-                        <div class="d-flex justify-content-between align-items-center">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
                             <div>
                                 <div class="stat-label">Low Stock</div>
                                 <div class="stat-value text-danger"><?= $lowStockCount ?></div>
                             </div>
-                            <div class="stat-icon-circle bg-danger-subtle"><i
-                                    class="bi bi-exclamation-triangle-fill text-danger"></i></div>
+                            <div class="stat-icon-circle bg-danger-subtle"><i class="bi bi-exclamation-triangle-fill text-danger"></i></div>
                         </div>
-                        <div class="progress mt-2" style="height: 4px;">
-                            <div class="progress-bar bg-danger"
-                                style="width: <?= $totalItems > 0 ? round(($lowStockCount / $totalItems) * 100) : 0 ?>%">
-                            </div>
-                        </div>
-                        <small class="text-muted fw-bold mt-1 d-block">Needs restock attention</small>
+                        <small class="text-muted small d-block">Needs restock attention</small>
                     </div>
                 </div>
             </div>
             <div class="col-6 col-md-3">
                 <div class="card stat-card-dash h-100 border-0 shadow-sm">
                     <div class="card-body p-3">
-                        <div class="d-flex justify-content-between align-items-center">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
                             <div>
                                 <div class="stat-label">Active Users</div>
                                 <div class="stat-value text-info"><?= $activeUsers ?></div>
                             </div>
                             <div class="stat-icon-circle bg-info-subtle"><i class="bi bi-people-fill text-info"></i></div>
                         </div>
-                        <div class="progress mt-2" style="height: 4px;">
-                            <div class="progress-bar bg-info" style="width: 100%"></div>
-                        </div>
-                        <small class="text-muted fw-bold mt-1 d-block">Registered accounts</small>
+                        <small class="text-muted small d-block">Registered accounts</small>
                     </div>
                 </div>
             </div>
             <div class="col-6 col-md-3">
-                <div
-                    class="card stat-card-dash h-100 border-0 shadow-sm <?= $pendingApprovalRS > 0 ? 'stat-attention' : '' ?>">
+                <div class="card stat-card-dash h-100 border-0 shadow-sm <?= $pendingApprovalRS > 0 ? 'stat-attention' : '' ?>">
                     <div class="card-body p-3">
-                        <div class="d-flex justify-content-between align-items-center">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
                             <div>
                                 <div class="stat-label">Pending RS</div>
                                 <div class="stat-value text-warning"><?= $pendingApprovalRS ?></div>
                             </div>
-                            <div class="stat-icon-circle bg-warning-subtle"><i
-                                    class="bi bi-file-earmark-check text-warning"></i></div>
+                            <div class="stat-icon-circle bg-warning-subtle"><i class="bi bi-file-earmark-check text-warning"></i></div>
                         </div>
-                        <div class="progress mt-2" style="height: 4px;">
-                            <div class="progress-bar bg-warning"
-                                style="width: <?= $pendingApprovalRS > 0 ? '100' : '0' ?>%"></div>
-                        </div>
-                        <small class="text-muted fw-bold mt-1 d-block">Awaiting management review</small>
+                        <small class="text-muted small d-block">Awaiting management review</small>
                     </div>
                 </div>
             </div>
