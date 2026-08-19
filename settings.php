@@ -69,7 +69,13 @@ try {
     )");
 } catch (PDOException $e) {
 }
-$projects = $pdo->query("SELECT * FROM projects ORDER BY created_at DESC")->fetchAll(PDO::FETCH_ASSOC);
+$projects = $pdo->query("
+    SELECT p.*,
+           (SELECT COUNT(*) FROM requisitions r WHERE r.project_name = p.project_name) AS rs_count,
+           (SELECT COUNT(*) FROM withdrawals w WHERE w.project_name = p.project_name) AS ws_count
+    FROM projects p 
+    ORDER BY p.created_at DESC
+")->fetchAll(PDO::FETCH_ASSOC);
 
 // 5. Fetch General System Settings
 $bg_path = 'assets/img/default_login_bg.png';
@@ -513,6 +519,19 @@ include 'layout/header.php';
                     </div>
                 </div>
 
+                <!-- Quick Status Filter Pills -->
+                <div class="d-flex flex-wrap gap-2 mb-3">
+                    <button type="button" class="btn btn-sm btn-dark rounded-pill px-3 proj-filter-btn active" data-filter="all" onclick="filterProjectsTable('all', this)">
+                        All Projects <span class="badge bg-secondary ms-1"><?= count($projects) ?></span>
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-success rounded-pill px-3 proj-filter-btn" data-filter="active" onclick="filterProjectsTable('active', this)">
+                        <i class="bi bi-check-circle me-1"></i>Active Sites <span class="badge bg-success ms-1"><?= count(array_filter($projects, fn($p) => ($p['status'] ?? '') === 'active')) ?></span>
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-3 proj-filter-btn" data-filter="inactive" onclick="filterProjectsTable('inactive', this)">
+                        <i class="bi bi-pause-circle me-1"></i>Inactive / Completed <span class="badge bg-secondary ms-1"><?= count(array_filter($projects, fn($p) => ($p['status'] ?? '') !== 'active')) ?></span>
+                    </button>
+                </div>
+
                 <div class="table-responsive border rounded shadow-sm">
                     <table class="table table-hover align-middle mb-0 text-nowrap" id="projectsTable">
                         <thead class="table-dark">
@@ -521,14 +540,20 @@ include 'layout/header.php';
                                 <th>Project Name</th>
                                 <th>Location / Address</th>
                                 <th>Description</th>
-                                <th>Status</th>
+                                <th class="text-center">Linked Activity</th>
+                                <th class="text-center">Status</th>
                                 <th class="text-end">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
                             <?php if (count($projects) > 0): ?>
                                 <?php foreach ($projects as $proj): ?>
-                                    <tr>
+                                    <?php 
+                                        $rsCount = (int)($proj['rs_count'] ?? 0);
+                                        $wsCount = (int)($proj['ws_count'] ?? 0);
+                                        $totalUsage = $rsCount + $wsCount;
+                                    ?>
+                                    <tr data-status="<?= htmlspecialchars($proj['status'] ?? 'active') ?>">
                                         <td class="text-muted fw-bold" data-label="ID">
                                             <?= htmlspecialchars($proj['project_code'] ?? '#' . $proj['id']) ?>
                                         </td>
@@ -546,32 +571,66 @@ include 'layout/header.php';
                                         <td class="text-muted text-wrap" style="max-width: 250px;" data-label="Description">
                                             <?= htmlspecialchars($proj['description'] ?? 'No description provided.') ?>
                                         </td>
-                                        <td data-label="Status">
-                                            <?php if ($proj['status'] === 'active'): ?>
-                                                <span class="badge bg-success rounded-pill px-3 py-2">Active</span>
-                                            <?php else: ?>
-                                                <span class="badge bg-secondary rounded-pill px-3 py-2">Inactive</span>
-                                            <?php endif; ?>
+                                        <td class="text-center" data-label="Linked Activity">
+                                            <div class="d-flex flex-wrap gap-1 justify-content-center">
+                                                <?php if ($rsCount > 0): ?>
+                                                    <a href="requisitions?search=<?= urlencode($proj['project_name']) ?>" class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1 text-decoration-none shadow-sm" title="View <?= $rsCount ?> Material Requisition(s)">
+                                                        <i class="bi bi-file-earmark-text me-1"></i><?= $rsCount ?> RS
+                                                    </a>
+                                                <?php endif; ?>
+                                                <?php if ($wsCount > 0): ?>
+                                                    <a href="withdrawals?search=<?= urlencode($proj['project_name']) ?>" class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1 text-decoration-none shadow-sm" title="View <?= $wsCount ?> Withdrawal Slip(s)">
+                                                        <i class="bi bi-box-arrow-right me-1"></i><?= $wsCount ?> WS
+                                                    </a>
+                                                <?php endif; ?>
+                                                <?php if ($totalUsage === 0): ?>
+                                                    <span class="badge bg-light text-muted border px-2 py-1">0 records</span>
+                                                <?php endif; ?>
+                                            </div>
+                                        </td>
+                                        <td class="text-center" data-label="Status">
+                                            <form method="POST" action="process/process.php" class="d-inline"
+                                                onsubmit="return confirm('Toggle status of project \'<?= addslashes(htmlspecialchars($proj['project_name'])) ?>\' to <?= $proj['status'] === 'active' ? 'Inactive' : 'Active' ?>?');">
+                                                <input type="hidden" name="action" value="toggle_project_status">
+                                                <input type="hidden" name="project_id" value="<?= $proj['id'] ?>">
+                                                <input type="hidden" name="return_tab" value="projects">
+                                                <?php if ($proj['status'] === 'active'): ?>
+                                                    <button type="submit" class="btn btn-sm btn-success rounded-pill px-3 py-1 shadow-sm" title="Active Project — Click to mark Inactive">
+                                                        <i class="bi bi-check-circle-fill me-1"></i>Active
+                                                    </button>
+                                                <?php else: ?>
+                                                    <button type="submit" class="btn btn-sm btn-outline-secondary rounded-pill px-3 py-1 shadow-sm" title="Inactive Project — Click to mark Active">
+                                                        <i class="bi bi-pause-circle me-1"></i>Inactive
+                                                    </button>
+                                                <?php endif; ?>
+                                            </form>
                                         </td>
                                         <td class="text-end" data-label="Actions">
                                             <button class="btn btn-sm btn-outline-primary me-1"
                                                 onclick="openEditProjectModal(<?= $proj['id'] ?>, '<?= addslashes(htmlspecialchars($proj['project_code'] ?? '')) ?>', '<?= addslashes(htmlspecialchars($proj['project_name'])) ?>', '<?= addslashes(htmlspecialchars($proj['address'] ?? '')) ?>', '<?= addslashes(htmlspecialchars($proj['description'] ?? '')) ?>', '<?= $proj['status'] ?>')">
                                                 <i class="bi bi-pencil-square"></i> Edit
                                             </button>
-                                            <form method="POST" action="process/process.php" class="d-inline"
-                                                onsubmit="return confirm('Delete this project?');">
-                                                <input type="hidden" name="action" value="delete_project">
-                                                <input type="hidden" name="project_id" value="<?= $proj['id'] ?>">
-                                                <input type="hidden" name="return_tab" value="projects">
-                                                <button type="submit" class="btn btn-sm btn-outline-danger shadow-sm"><i
-                                                        class="bi bi-trash3"></i></button>
-                                            </form>
+                                            <?php if ($totalUsage > 0): ?>
+                                                <button type="button" class="btn btn-sm btn-outline-secondary shadow-sm disabled" title="Cannot delete: Linked to <?= $rsCount ?> RS and <?= $wsCount ?> WS">
+                                                    <i class="bi bi-trash3"></i>
+                                                </button>
+                                            <?php else: ?>
+                                                <form method="POST" action="process/process.php" class="d-inline"
+                                                    onsubmit="return confirm('Are you sure you want to delete project \'<?= addslashes(htmlspecialchars($proj['project_name'])) ?>\'?');">
+                                                    <input type="hidden" name="action" value="delete_project">
+                                                    <input type="hidden" name="project_id" value="<?= $proj['id'] ?>">
+                                                    <input type="hidden" name="return_tab" value="projects">
+                                                    <button type="submit" class="btn btn-sm btn-outline-danger shadow-sm" title="Delete Project">
+                                                        <i class="bi bi-trash3"></i>
+                                                    </button>
+                                                </form>
+                                            <?php endif; ?>
                                         </td>
                                     </tr>
                                 <?php endforeach; ?>
                             <?php else: ?>
                                 <tr>
-                                    <td colspan="6" class="text-center py-4 text-muted">No projects found.</td>
+                                    <td colspan="7" class="text-center py-4 text-muted">No projects found.</td>
                                 </tr>
                             <?php endif; ?>
                         </tbody>
