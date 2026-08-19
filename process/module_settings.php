@@ -328,6 +328,139 @@ elseif ($action === 'add_project') {
     header("Location: ../settings?tab=" . ($_POST['return_tab'] ?? 'projects')); 
     exit;
 
+} elseif ($action === 'fetch_project_details') {
+    if (!isset($_SESSION['user_id'])) {
+        header('Content-Type: application/json');
+        echo json_encode(['status' => 'error', 'message' => 'Unauthorized session.']);
+        exit;
+    }
+
+    $projectId = (int)($_GET['project_id'] ?? $_POST['project_id'] ?? 0);
+    if ($projectId <= 0) {
+        header('Content-Type: application/json');
+        echo json_encode(['status' => 'error', 'message' => 'Invalid project ID.']);
+        exit;
+    }
+
+    $projStmt = $pdo->prepare("SELECT * FROM projects WHERE id = ?");
+    $projStmt->execute([$projectId]);
+    $project = $projStmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$project) {
+        header('Content-Type: application/json');
+        echo json_encode(['status' => 'error', 'message' => 'Project not found.']);
+        exit;
+    }
+
+    $projectName = $project['project_name'];
+
+    // 1. Fetch linked Requisitions + Items
+    $rsStmt = $pdo->prepare("
+        SELECT r.id, r.rs_no, r.requestor_name, r.remarks, r.urgency, r.status, r.created_at,
+               u.name as user_name
+        FROM requisitions r
+        LEFT JOIN users u ON r.requestor_id = u.id
+        WHERE r.project_name = ?
+        ORDER BY r.created_at DESC
+    ");
+    $rsStmt->execute([$projectName]);
+    $requisitions = $rsStmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $rsIds = array_column($requisitions, 'id');
+    $rsItemsMap = [];
+    if (!empty($rsIds)) {
+        $inClause = implode(',', array_fill(0, count($rsIds), '?'));
+        $itemStmt = $pdo->prepare("
+            SELECT ri.requisition_id, ri.item_code, ri.quantity, ri.item_status, ri.item_notes,
+                   COALESCE(i.item_name, ri.new_item_name, ri.item_code) as item_name,
+                   COALESCE(i.unit, ri.new_unit, 'pcs') as unit
+            FROM requisition_items ri
+            LEFT JOIN inventory i ON ri.item_code = i.item_code
+            WHERE ri.requisition_id IN ($inClause)
+        ");
+        $itemStmt->execute($rsIds);
+        while ($row = $itemStmt->fetch(PDO::FETCH_ASSOC)) {
+            $rsItemsMap[$row['requisition_id']][] = $row;
+        }
+    }
+
+    foreach ($requisitions as &$rs) {
+        $rs['items'] = $rsItemsMap[$rs['id']] ?? [];
+        $rs['formatted_date'] = date('M d, Y h:i A', strtotime($rs['created_at']));
+    }
+    unset($rs);
+
+    // 2. Fetch linked Withdrawals + Items
+    $wsStmt = $pdo->prepare("
+        SELECT w.id, w.withdrawal_no, w.received_by, w.remarks, w.date_withdrawn, w.signature_path, w.photo_proof_path,
+               u.name as released_by_name
+        FROM withdrawals w
+        LEFT JOIN users u ON w.released_by = u.id
+        WHERE w.project_name = ?
+        ORDER BY w.date_withdrawn DESC
+    ");
+    $wsStmt->execute([$projectName]);
+    $withdrawals = $wsStmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $wsIds = array_column($withdrawals, 'id');
+    $wsItemsMap = [];
+    $consumptionSummary = [];
+
+    if (!empty($wsIds)) {
+        $inClause = implode(',', array_fill(0, count($wsIds), '?'));
+        $itemStmt = $pdo->prepare("
+            SELECT wi.withdrawal_id, wi.item_code, wi.quantity,
+                   COALESCE(i.item_name, wi.item_code) as item_name,
+                   COALESCE(i.unit, 'pcs') as unit
+            FROM withdrawal_items wi
+            LEFT JOIN inventory i ON wi.item_code = i.item_code
+            WHERE wi.withdrawal_id IN ($inClause)
+        ");
+        $itemStmt->execute($wsIds);
+        while ($row = $itemStmt->fetch(PDO::FETCH_ASSOC)) {
+            $wsItemsMap[$row['withdrawal_id']][] = $row;
+
+            // Aggregate consumption
+            $key = $row['item_name'] . '|' . $row['unit'];
+            if (!isset($consumptionSummary[$key])) {
+                $consumptionSummary[$key] = [
+                    'item_code' => $row['item_code'],
+                    'item_name' => $row['item_name'],
+                    'unit' => $row['unit'],
+                    'total_quantity' => 0,
+                    'withdrawal_count' => 0
+                ];
+            }
+            $consumptionSummary[$key]['total_quantity'] += (int)$row['quantity'];
+            $consumptionSummary[$key]['withdrawal_count'] += 1;
+        }
+    }
+
+    foreach ($withdrawals as &$ws) {
+        $ws['items'] = $wsItemsMap[$ws['id']] ?? [];
+        $ws['formatted_date'] = date('M d, Y h:i A', strtotime($ws['date_withdrawn']));
+    }
+    unset($ws);
+
+    // Sort consumption summary by total quantity descending
+    $consumptionSummaryList = array_values($consumptionSummary);
+    usort($consumptionSummaryList, fn($a, $b) => $b['total_quantity'] <=> $a['total_quantity']);
+
+    header('Content-Type: application/json');
+    echo json_encode([
+        'status' => 'success',
+        'project' => $project,
+        'requisitions' => $requisitions,
+        'withdrawals' => $withdrawals,
+        'consumption_summary' => $consumptionSummaryList,
+        'stats' => [
+            'rs_count' => count($requisitions),
+            'ws_count' => count($withdrawals),
+            'unique_materials' => count($consumptionSummaryList)
+        ]
+    ]);
+    exit;
+
 // --- LOGIN BACKGROUND LOGIC ---
 } elseif ($action === 'update_login_bg') {
     if (!in_array($_SESSION['user_role'], ['admin', 'management'])) {
