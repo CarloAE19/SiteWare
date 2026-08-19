@@ -606,6 +606,11 @@ include 'layout/header.php';
                                             </form>
                                         </td>
                                         <td class="text-end" data-label="Actions">
+                                            <button type="button" class="btn btn-sm btn-outline-info me-1 shadow-sm"
+                                                onclick="openProjectDetailsModal(<?= $proj['id'] ?>)"
+                                                title="View Project Requisitions, Withdrawals & Material History">
+                                                <i class="bi bi-eye"></i> Details
+                                            </button>
                                             <button class="btn btn-sm btn-outline-primary me-1"
                                                 onclick="openEditProjectModal(<?= $proj['id'] ?>, '<?= addslashes(htmlspecialchars($proj['project_code'] ?? '')) ?>', '<?= addslashes(htmlspecialchars($proj['project_name'])) ?>', '<?= addslashes(htmlspecialchars($proj['address'] ?? '')) ?>', '<?= addslashes(htmlspecialchars($proj['description'] ?? '')) ?>', '<?= $proj['status'] ?>')">
                                                 <i class="bi bi-pencil-square"></i> Edit
@@ -954,6 +959,316 @@ include 'layout/header.php';
                     <button type="submit" class="btn btn-brand fw-bold px-4">Save Project</button>
                 </div>
             </form>
+        </div>
+    </div>
+</div>
+
+<!-- Project Details & Material History Modal -->
+<div class="modal fade" id="projectDetailsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header text-white" style="background-color: var(--gb-dark, #1e293b);">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="rounded-circle bg-primary text-white p-2 d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                        <i class="bi bi-building fs-5"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title fw-bold mb-0" id="projDetailsTitle">Project Details</h5>
+                        <small class="text-white-50" id="projDetailsSubtitle">Jobsite Material & Activity Hub</small>
+                    </div>
+                </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4 bg-light">
+                <!-- Loading State -->
+                <div id="projDetailsLoading" class="text-center py-5">
+                    <div class="spinner-border text-primary mb-3" style="width: 3rem; height: 3rem;" role="status"></div>
+                    <div class="fw-bold text-muted">Loading project materials and transaction records...</div>
+                </div>
+
+                <!-- Content Container (Hidden while loading) -->
+                <div id="projDetailsContent" style="display: none;">
+                    <!-- Project Overview Card -->
+                    <div class="card border-0 shadow-sm mb-4 bg-white rounded-3">
+                        <div class="card-body p-3 p-md-4">
+                            <div class="row align-items-center g-3">
+                                <div class="col-12 col-md-8">
+                                    <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
+                                        <span class="badge bg-dark font-monospace px-3 py-2 fs-6" id="projDetailsCode">PRJ-000</span>
+                                        <span class="badge rounded-pill px-3 py-2 fs-6" id="projDetailsStatus">Active</span>
+                                    </div>
+                                    <h4 class="fw-bold text-dark mb-1" id="projDetailsName">Project Name</h4>
+                                    <p class="text-muted small mb-1" id="projDetailsAddress">
+                                        <i class="bi bi-geo-alt text-danger me-1"></i>Location
+                                    </p>
+                                    <p class="text-muted small mb-0 fst-italic" id="projDetailsDesc">Description</p>
+                                </div>
+                                <div class="col-12 col-md-4">
+                                    <div class="row g-2 text-center">
+                                        <div class="col-4">
+                                            <div class="p-2 border rounded bg-light">
+                                                <small class="text-muted d-block fw-bold text-uppercase" style="font-size: 0.7rem;">Requisitions</small>
+                                                <span class="fw-bold fs-5 text-primary" id="projStatRs">0</span>
+                                            </div>
+                                        </div>
+                                        <div class="col-4">
+                                            <div class="p-2 border rounded bg-light">
+                                                <small class="text-muted d-block fw-bold text-uppercase" style="font-size: 0.7rem;">Withdrawals</small>
+                                                <span class="fw-bold fs-5 text-success" id="projStatWs">0</span>
+                                            </div>
+                                        </div>
+                                        <div class="col-4">
+                                            <div class="p-2 border rounded bg-light">
+                                                <small class="text-muted d-block fw-bold text-uppercase" style="font-size: 0.7rem;">Materials</small>
+                                                <span class="fw-bold fs-5 text-warning" id="projStatMaterials">0</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Navigation Tabs -->
+                    <ul class="nav nav-pills mb-3 gap-2" id="projDetailsTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active fw-bold px-3 py-2 shadow-sm" id="proj-tab-rs" data-bs-toggle="pill" data-bs-target="#proj-pane-rs" type="button" role="tab">
+                                <i class="bi bi-file-earmark-text me-1"></i>Material Requisitions (<span id="projTabRsCount">0</span>)
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link fw-bold px-3 py-2 shadow-sm" id="proj-tab-ws" data-bs-toggle="pill" data-bs-target="#proj-pane-ws" type="button" role="tab">
+                                <i class="bi bi-box-arrow-right me-1"></i>Material Withdrawals (<span id="projTabWsCount">0</span>)
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link fw-bold px-3 py-2 shadow-sm" id="proj-tab-summary" data-bs-toggle="pill" data-bs-target="#proj-pane-summary" type="button" role="tab">
+                                <i class="bi bi-bar-chart-fill me-1"></i>Consumption Summary
+                            </button>
+                        </li>
+                    </ul>
+
+                    <!-- Tab Contents -->
+                    <div class="tab-content" id="projDetailsTabContent">
+                        <!-- TAB 1: REQUISITIONS -->
+                        <div class="tab-pane fade show active" id="proj-pane-rs" role="tabpanel">
+                            <div class="card border-0 shadow-sm">
+                                <div class="table-responsive">
+                                    <table class="table table-hover align-middle mb-0">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th>RS No.</th>
+                                                <th>Requestor</th>
+                                                <th>Date Requested</th>
+                                                <th>Urgency</th>
+                                                <th>Status</th>
+                                                <th>Requested Items</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="projRsTableBody">
+                                            <!-- Dynamically injected -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- TAB 2: WITHDRAWALS -->
+                        <div class="tab-pane fade" id="proj-pane-ws" role="tabpanel">
+                            <div class="card border-0 shadow-sm">
+                                <div class="table-responsive">
+                                    <table class="table table-hover align-middle mb-0">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th>Withdrawal No.</th>
+                                                <th>Received By</th>
+                                                <th>Date Dispatched</th>
+                                                <th>Released By</th>
+                                                <th>Materials Dispatched</th>
+                                                <th>Remarks / Proof</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="projWsTableBody">
+                                            <!-- Dynamically injected -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- TAB 3: CONSUMPTION SUMMARY -->
+                        <div class="tab-pane fade" id="proj-pane-summary" role="tabpanel">
+                            <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                                <div>
+                                    <h6 class="fw-bold text-dark mb-0"><i class="bi bi-bar-chart-fill me-1 text-primary"></i>Total Materials Delivered to Site</h6>
+                                    <small class="text-muted">Aggregated summary of all verified jobsite dispatches</small>
+                                </div>
+                                <div class="d-flex gap-2">
+                                    <button type="button" class="btn btn-sm btn-outline-success fw-bold shadow-sm" onclick="exportProjectConsumptionCSV()">
+                                        <i class="bi bi-file-earmark-spreadsheet me-1"></i>Export CSV
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-outline-primary fw-bold shadow-sm" onclick="printProjectConsumptionReport()">
+                                        <i class="bi bi-printer me-1"></i>Print Report
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="card border-0 shadow-sm">
+                                <div class="table-responsive">
+                                    <table class="table table-hover align-middle mb-0">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th>Item Code</th>
+                                                <th>Material Name</th>
+                                                <th class="text-center">Total Delivered to Site</th>
+                                                <th class="text-center">Dispatches</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="projSummaryTableBody">
+                                            <!-- Dynamically injected -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-secondary fw-bold" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Sub-Modal: Project Requisition Document Preview -->
+<div class="modal fade" id="viewProjectRsModal" tabindex="-1" aria-hidden="true" style="z-index: 1065;">
+    <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header text-white" style="background-color: var(--gb-dark, #1e293b);">
+                <h5 class="modal-title fw-bold"><i class="bi bi-file-earmark-text me-2 text-warning"></i>Requisition Document Details</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body bg-light p-4">
+                <div class="d-flex justify-content-between align-items-start mb-4 border-bottom pb-3 bg-white p-3 rounded shadow-sm">
+                    <div>
+                        <h4 class="fw-bold text-primary mb-1 d-flex align-items-center gap-2 flex-wrap">
+                            <span id="projRsDocNo">RS-0000</span>
+                            <span id="projRsDocStatus" class="badge shadow-sm" style="font-size: 0.75rem;">Pending Approval</span>
+                        </h4>
+                        <div class="text-muted fw-bold text-uppercase small" id="projRsDocProject">Project Name</div>
+                        <div class="mt-2 text-muted small">
+                            Requested By: <strong id="projRsDocRequestor" class="text-dark">User</strong><br>
+                            Date Requested: <strong id="projRsDocDate" class="text-dark">Date</strong><br>
+                            Urgency Level: <span id="projRsDocUrgency" class="badge bg-secondary">Normal</span>
+                        </div>
+                    </div>
+
+                    <!-- QR Code Container -->
+                    <div id="projRsDocQrContainer" class="text-center d-none">
+                        <img id="projRsDocQrCode" src="" alt="RS QR Code" class="border p-1 bg-white shadow-sm" style="width: 90px; height: 90px; border-radius: 6px;">
+                        <small class="d-block text-muted mt-1 fw-bold" style="font-size: 0.65rem;">SCAN AT WAREHOUSE</small>
+                    </div>
+                </div>
+
+                <h6 class="fw-bold text-uppercase small text-muted mb-2">Requested Items:</h6>
+                <div class="table-responsive mb-4 rounded border shadow-sm">
+                    <table class="table table-sm table-hover mb-0 bg-white">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width: 100px;">Item Code</th>
+                                <th>Item Name</th>
+                                <th class="text-center" style="width: 90px;">Quantity</th>
+                                <th class="text-center" style="width: 130px;">Item Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="projRsDocItemsBody"></tbody>
+                    </table>
+                </div>
+
+                <div>
+                    <h6 class="fw-bold mb-2 text-dark small text-uppercase">Remarks / Purpose:</h6>
+                    <p class="text-muted small border p-3 bg-white rounded shadow-sm mb-0" id="projRsDocRemarks" style="min-height: 50px;">No remarks provided.</p>
+                </div>
+            </div>
+            <div class="modal-footer d-flex justify-content-between bg-white border-top-0">
+                <a href="#" id="projRsDocFullPageLink" target="_blank" class="btn btn-outline-primary fw-bold">
+                    <i class="bi bi-box-arrow-up-right me-1"></i> Open in Requisitions Tab
+                </a>
+                <button type="button" class="btn btn-secondary fw-bold px-4" data-bs-dismiss="modal">Back to Project</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Sub-Modal: Project Withdrawal Document Preview -->
+<div class="modal fade" id="viewProjectWdModal" tabindex="-1" aria-hidden="true" style="z-index: 1065;">
+    <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header text-white" style="background-color: var(--gb-dark, #1e293b);">
+                <h5 class="modal-title fw-bold"><i class="bi bi-box-arrow-right me-2 text-success"></i>Material Withdrawal Slip</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body bg-light p-4">
+                <div class="d-flex justify-content-between align-items-start mb-4 border-bottom pb-3 bg-white p-3 rounded shadow-sm">
+                    <div>
+                        <h4 class="fw-bold text-success mb-1" id="projWdDocNo">WD-0000</h4>
+                        <div class="text-muted fw-bold text-uppercase small" id="projWdDocProject">Project Name</div>
+                        <div class="mt-2 text-muted small">
+                            Received By: <strong id="projWdDocReceiver" class="text-dark">User</strong><br>
+                            Released By: <strong id="projWdDocReleaser" class="text-dark">Warehouse Officer</strong><br>
+                            Date Dispatched: <strong id="projWdDocDate" class="text-dark">Date</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <h6 class="fw-bold text-uppercase small text-muted mb-2">Dispatched Materials:</h6>
+                <div class="table-responsive mb-4 rounded border shadow-sm">
+                    <table class="table table-sm table-hover mb-0 bg-white">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width: 100px;">Item Code</th>
+                                <th>Item Name</th>
+                                <th class="text-center" style="width: 110px;">Qty Dispatched</th>
+                            </tr>
+                        </thead>
+                        <tbody id="projWdDocItemsBody"></tbody>
+                    </table>
+                </div>
+
+                <!-- Proof & Signature Section -->
+                <div class="card border-0 shadow-sm mb-3 bg-white" id="projWdDocProofCard">
+                    <div class="card-header bg-light fw-bold text-muted small text-uppercase">Verification & Release Proof</div>
+                    <div class="card-body p-3">
+                        <div class="row g-3">
+                            <div class="col-md-6" id="projWdDocSigWrapper">
+                                <small class="text-muted fw-bold d-block mb-1">Receiver Signature:</small>
+                                <div id="projWdDocSigContent" class="p-2 border rounded bg-light text-center">
+                                    <img id="projWdDocSigImg" src="" class="img-fluid rounded" style="max-height: 90px; background-color: #fff;">
+                                </div>
+                            </div>
+                            <div class="col-md-6" id="projWdDocPhotoWrapper">
+                                <small class="text-muted fw-bold d-block mb-1">Delivery / Handover Photo:</small>
+                                <div id="projWdDocPhotoContent" class="p-2 border rounded bg-light text-center">
+                                    <a id="projWdDocPhotoLink" href="#" target="_blank">
+                                        <img id="projWdDocPhotoImg" src="" class="img-fluid border rounded shadow-sm" style="max-height: 90px; object-fit: cover;">
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <h6 class="fw-bold mb-2 text-dark small text-uppercase">Release Remarks:</h6>
+                    <p class="text-muted small border p-3 bg-white rounded shadow-sm mb-0" id="projWdDocRemarks">No remarks.</p>
+                </div>
+            </div>
+            <div class="modal-footer d-flex justify-content-between bg-white border-top-0">
+                <a href="#" id="projWdDocFullPageLink" target="_blank" class="btn btn-outline-success fw-bold">
+                    <i class="bi bi-box-arrow-up-right me-1"></i> Open in Withdrawals Tab
+                </a>
+                <button type="button" class="btn btn-secondary fw-bold px-4" data-bs-dismiss="modal">Back to Project</button>
+            </div>
         </div>
     </div>
 </div>
