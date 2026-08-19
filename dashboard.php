@@ -109,19 +109,33 @@ if ($role === 'admin') {
 // Recent activity for all roles
 if ($role === 'requestor') {
     $recStmt = $pdo->prepare("
-        SELECT title, message, created_at 
+        SELECT id, title, message, created_at, COALESCE(is_read, 0) as is_read 
         FROM notifications 
         WHERE (target_user_id = ? OR target_role = 'requestor')
           AND title NOT LIKE '%PO%' 
           AND title NOT LIKE '%Purchase Order%'
           AND message NOT LIKE '%PO-%' 
           AND message NOT LIKE '%Purchase Order%'
-        ORDER BY created_at DESC LIMIT 8
+        ORDER BY created_at DESC LIMIT 12
     ");
     $recStmt->execute([$_SESSION['user_id']]);
     $recentActivity = $recStmt->fetchAll(PDO::FETCH_ASSOC);
 } else {
-    $recentActivity = $pdo->query("SELECT title, message, created_at FROM notifications ORDER BY created_at DESC LIMIT 8")->fetchAll(PDO::FETCH_ASSOC);
+    $recStmt = $pdo->prepare("
+        SELECT id, title, message, created_at, COALESCE(is_read, 0) as is_read 
+        FROM notifications 
+        WHERE target_user_id = ? OR target_role = ? OR target_role = 'all'
+        ORDER BY created_at DESC LIMIT 12
+    ");
+    $recStmt->execute([$_SESSION['user_id'], $role]);
+    $recentActivity = $recStmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+$unreadActivityCount = 0;
+foreach ($recentActivity as $act) {
+    if ((int)$act['is_read'] === 0) {
+        $unreadActivityCount++;
+    }
 }
 
 // Helper to categorize recent activity for rich UI feed
@@ -790,47 +804,79 @@ include 'layout/header.php';
         <?php endif; ?>
 
         <div class="col-12 <?= ($role === 'requestor' && !empty($myRecentRS)) ? 'col-lg-6' : '' ?>">
-            <div class="card border-0 shadow-sm h-100">
+            <div class="card border-0 shadow-sm h-100" id="activityCard">
                 <div class="card-body p-3 p-md-4">
                     <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-                        <h6 class="fw-bold text-dark mb-0"><i class="bi bi-activity me-2 text-primary"></i>Recent Activity Feed</h6>
-                        <div class="d-flex align-items-center gap-1 activity-filter-group">
-                            <button type="button" class="btn btn-xs btn-primary activity-filter-btn active" data-filter="all">All</button>
-                            <button type="button" class="btn btn-xs btn-outline-secondary activity-filter-btn" data-filter="requisition">RS</button>
-                            <?php if ($role !== 'requestor'): ?>
-                                <button type="button" class="btn btn-xs btn-outline-secondary activity-filter-btn" data-filter="po">PO</button>
+                        <div class="d-flex align-items-center gap-2">
+                            <h6 class="fw-bold text-dark mb-0"><i class="bi bi-activity me-2 text-primary"></i>Recent Activity Feed</h6>
+                            <span class="badge bg-danger rounded-pill px-2 py-1 small ms-1" id="dashUnreadBadge" style="<?= $unreadActivityCount > 0 ? '' : 'display:none;' ?>"><?= $unreadActivityCount ?> New</span>
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                            <?php if ($unreadActivityCount > 0): ?>
+                                <button type="button" class="btn btn-link btn-xs text-decoration-none text-primary p-0 fw-bold me-2" id="markAllReadBtn" onclick="markAllDashboardActivityRead()">
+                                    <i class="bi bi-check2-all me-1"></i>Mark all read
+                                </button>
                             <?php endif; ?>
-                            <button type="button" class="btn btn-xs btn-outline-secondary activity-filter-btn" data-filter="withdrawal">Withdrawal</button>
+                            <div class="d-flex align-items-center gap-1 activity-filter-group">
+                                <button type="button" class="btn btn-xs <?= $unreadActivityCount > 0 ? 'btn-primary active' : 'btn-outline-secondary' ?> activity-filter-btn" data-filter="unread">Unread</button>
+                                <button type="button" class="btn btn-xs <?= $unreadActivityCount === 0 ? 'btn-primary active' : 'btn-outline-secondary' ?> activity-filter-btn" data-filter="all">All</button>
+                                <button type="button" class="btn btn-xs btn-outline-secondary activity-filter-btn" data-filter="requisition">RS</button>
+                                <?php if ($role !== 'requestor'): ?>
+                                    <button type="button" class="btn btn-xs btn-outline-secondary activity-filter-btn" data-filter="po">PO</button>
+                                <?php endif; ?>
+                                <button type="button" class="btn btn-xs btn-outline-secondary activity-filter-btn" data-filter="withdrawal">Withdrawal</button>
+                            </div>
                         </div>
                     </div>
-                    <?php if (!empty($recentActivity)): ?>
-                        <div class="activity-feed-container">
-                        <?php foreach ($recentActivity as $activity): 
-                            $meta = getActivityMeta($activity['title'], $activity['message']);
-                        ?>
-                            <a href="<?= $meta['target'] ?>" class="activity-card-item d-flex align-items-start gap-3 p-2.5 rounded-3 mb-2 text-decoration-none text-reset" data-category="<?= $meta['type'] ?>">
-                                <div class="activity-icon-badge <?= $meta['bg'] ?> text-<?= $meta['color'] ?>">
-                                    <i class="bi <?= $meta['icon'] ?>"></i>
-                                </div>
-                                <div class="flex-grow-1 min-w-0">
-                                    <div class="d-flex justify-content-between align-items-center gap-2">
-                                        <span class="fw-bold text-dark text-truncate" style="font-size: 0.85rem;"><?= htmlspecialchars($activity['title']) ?></span>
-                                        <span class="badge bg-light text-muted border px-2 py-1 flex-shrink-0" style="font-size: 0.7rem; font-weight: 600;">
-                                            <i class="bi bi-clock me-1"></i><?= time_elapsed_string($activity['created_at']) ?>
-                                        </span>
+
+                    <!-- CAUGHT UP VIEW (Shown when no unread or after marking read) -->
+                    <div class="caught-up-container text-center py-4 px-3 <?= ($unreadActivityCount === 0 && !empty($recentActivity)) ? '' : 'd-none' ?>" id="caughtUpView">
+                        <div class="caught-up-icon-wrapper mb-3 mx-auto">
+                            <i class="bi bi-shield-check text-success fs-1"></i>
+                        </div>
+                        <h5 class="fw-bold text-dark mb-1">You're all caught up!</h5>
+                        <p class="text-muted small mb-3">No unread activity notifications. You have reviewed all recent updates.</p>
+                        <button type="button" class="btn btn-sm btn-outline-primary rounded-pill px-3.5 py-1.5 fw-bold shadow-sm" onclick="showAllActivityHistory()">
+                            <i class="bi bi-clock-history me-1"></i>View Activity History
+                        </button>
+                    </div>
+
+                    <!-- ACTIVITY FEED ITEMS -->
+                    <div class="activity-feed-container <?= ($unreadActivityCount === 0 && !empty($recentActivity)) ? 'd-none' : '' ?>" id="activityFeedList">
+                        <?php if (!empty($recentActivity)): ?>
+                            <?php foreach ($recentActivity as $activity): 
+                                $meta = getActivityMeta($activity['title'], $activity['message']);
+                                $isUnread = (int)$activity['is_read'] === 0;
+                            ?>
+                                <a href="javascript:void(0)" onclick="readNotifAndNavigate(<?= (int)$activity['id'] ?>, '<?= $meta['target'] ?>')" class="activity-card-item d-flex align-items-start gap-3 p-2.5 rounded-3 mb-2 text-decoration-none text-reset <?= $isUnread ? 'activity-unread' : 'activity-read' ?>" data-category="<?= $meta['type'] ?>" data-read="<?= $isUnread ? '0' : '1' ?>">
+                                    <div class="activity-icon-badge <?= $meta['bg'] ?> text-<?= $meta['color'] ?> position-relative">
+                                        <i class="bi <?= $meta['icon'] ?>"></i>
                                     </div>
-                                    <p class="mb-0 text-muted small text-truncate-2 mt-1" style="font-size: 0.78rem; line-height: 1.35;"><?= htmlspecialchars($activity['message']) ?></p>
-                                </div>
-                                <i class="bi bi-chevron-right text-muted opacity-50 ms-1 align-self-center"></i>
-                            </a>
-                        <?php endforeach; ?>
-                        </div>
-                    <?php else: ?>
-                        <div class="text-center py-4 text-muted">
-                            <i class="bi bi-inbox fs-1 d-block mb-2 opacity-50"></i>
-                            <span class="small fw-bold">No recent activity recorded</span>
-                        </div>
-                    <?php endif; ?>
+                                    <div class="flex-grow-1 min-w-0">
+                                        <div class="d-flex justify-content-between align-items-center gap-2">
+                                            <span class="fw-bold text-dark text-truncate d-flex align-items-center gap-1" style="font-size: 0.85rem;">
+                                                <?= htmlspecialchars($activity['title']) ?>
+                                                <?php if ($isUnread): ?>
+                                                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-2 py-0.5 new-tag-badge" style="font-size: 0.65rem;">NEW</span>
+                                                <?php endif; ?>
+                                            </span>
+                                            <span class="badge bg-light text-muted border px-2 py-1 flex-shrink-0" style="font-size: 0.7rem; font-weight: 600;">
+                                                <i class="bi bi-clock me-1"></i><?= time_elapsed_string($activity['created_at']) ?>
+                                            </span>
+                                        </div>
+                                        <p class="mb-0 text-muted small text-truncate-2 mt-1" style="font-size: 0.78rem; line-height: 1.35;"><?= htmlspecialchars($activity['message']) ?></p>
+                                    </div>
+                                    <i class="bi bi-chevron-right text-muted opacity-50 ms-1 align-self-center"></i>
+                                </a>
+                            <?php endforeach; ?>
+                        <?php else: ?>
+                            <div class="text-center py-4 text-muted">
+                                <i class="bi bi-inbox fs-1 d-block mb-2 opacity-50"></i>
+                                <span class="small fw-bold">No recent activity recorded</span>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+
                 </div>
             </div>
         </div>
@@ -871,8 +917,47 @@ include 'layout/header.php';
             }
         }
 
+        window.markAllDashboardActivityRead = async function() {
+            let formData = new FormData();
+            formData.append('action', 'read_all_notifs');
+            try {
+                await fetch('process/process_notif.php', { method: 'POST', body: formData });
+                document.querySelectorAll('.activity-card-item').forEach(item => {
+                    item.setAttribute('data-read', '1');
+                    item.classList.remove('activity-unread');
+                    item.classList.add('activity-read');
+                    const newTag = item.querySelector('.new-tag-badge');
+                    if (newTag) newTag.remove();
+                });
+                const unreadBadge = document.getElementById('dashUnreadBadge');
+                if (unreadBadge) unreadBadge.style.display = 'none';
+                const markBtn = document.getElementById('markAllReadBtn');
+                if (markBtn) markBtn.style.display = 'none';
+
+                const activeFilter = document.querySelector('.activity-filter-btn.active');
+                if (!activeFilter || activeFilter.getAttribute('data-filter') === 'unread') {
+                    const caughtUp = document.getElementById('caughtUpView');
+                    const feedList = document.getElementById('activityFeedList');
+                    if (caughtUp) caughtUp.classList.remove('d-none');
+                    if (feedList) feedList.classList.add('d-none');
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        };
+
+        window.showAllActivityHistory = function() {
+            const allBtn = document.querySelector('.activity-filter-btn[data-filter="all"]');
+            if (allBtn) {
+                allBtn.click();
+            }
+        };
+
         function initActivityFilters() {
             const filterBtns = document.querySelectorAll('.activity-filter-btn');
+            const caughtUpView = document.getElementById('caughtUpView');
+            const feedList = document.getElementById('activityFeedList');
+
             filterBtns.forEach(btn => {
                 btn.addEventListener('click', function() {
                     filterBtns.forEach(b => {
@@ -883,14 +968,37 @@ include 'layout/header.php';
                     this.classList.add('btn-primary', 'active');
 
                     const filter = this.getAttribute('data-filter');
-                    document.querySelectorAll('.activity-card-item').forEach(item => {
+                    const items = document.querySelectorAll('.activity-card-item');
+                    let visibleCount = 0;
+
+                    items.forEach(item => {
                         const cat = item.getAttribute('data-category');
-                        if (filter === 'all' || cat === filter) {
+                        const isRead = item.getAttribute('data-read');
+
+                        let show = false;
+                        if (filter === 'all') {
+                            show = true;
+                        } else if (filter === 'unread') {
+                            show = (isRead === '0');
+                        } else {
+                            show = (cat === filter);
+                        }
+
+                        if (show) {
                             item.style.display = 'flex';
+                            visibleCount++;
                         } else {
                             item.style.display = 'none';
                         }
                     });
+
+                    if (filter === 'unread' && visibleCount === 0) {
+                        if (caughtUpView) caughtUpView.classList.remove('d-none');
+                        if (feedList) feedList.classList.add('d-none');
+                    } else {
+                        if (caughtUpView) caughtUpView.classList.add('d-none');
+                        if (feedList) feedList.classList.remove('d-none');
+                    }
                 });
             });
         }
