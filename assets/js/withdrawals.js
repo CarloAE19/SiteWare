@@ -465,59 +465,114 @@ function initWithdrawalsPage() {
         initWithdrawalSignaturePad();
     }
 
-    // Real-time Search
-    document.getElementById('searchWithdrawals')?.addEventListener('keyup', function (e) {
-        const term = e.target.value.toLowerCase();
-        const rows = document.querySelectorAll('.withdrawal-row');
-        rows.forEach(row => {
-            const slip = row.querySelector('.wd-slip').textContent.toLowerCase();
-            const proj = row.querySelector('.wd-project').textContent.toLowerCase();
-            row.style.display = (slip.includes(term) || proj.includes(term)) ? '' : 'none';
-        });
-    });
-
-    // Pagination
+    // --- SEARCH & PAGINATION LOGIC ---
     const table = document.getElementById('withdrawalsTable');
     if (!table) return;
-    if (table.parentElement.querySelector('.pagination-wrapper')) return;
 
+    // Remove existing pagination wrapper if reinitializing
+    const existingWrapper = table.parentElement.querySelector('.pagination-wrapper');
+    if (existingWrapper) existingWrapper.remove();
+
+    const searchInput = document.getElementById('searchWithdrawals');
+    const allRows = Array.from(table.querySelectorAll('tbody .withdrawal-row'));
+    let filteredRows = [...allRows];
     const rowsPerPage = 10;
-    const rows = Array.from(table.querySelectorAll('tbody .withdrawal-row'));
-    if (rows.length <= rowsPerPage) return;
-
     let currentPage = 1;
-    const totalPages = Math.ceil(rows.length / rowsPerPage);
 
     const wrapper = document.createElement('div');
     wrapper.className = 'd-flex justify-content-between align-items-center p-3 bg-white border-top pagination-wrapper';
 
-    const info = document.createElement('span'); info.className = 'text-muted small fw-bold';
-    const btnGroup = document.createElement('div'); btnGroup.className = 'btn-group shadow-sm';
+    const info = document.createElement('span'); 
+    info.className = 'text-muted small fw-bold';
+    
+    const btnGroup = document.createElement('div'); 
+    btnGroup.className = 'btn-group shadow-sm';
 
-    const prev = document.createElement('button'); prev.className = 'btn btn-sm btn-outline-primary fw-bold px-3'; prev.innerHTML = 'Prev';
-    const indicator = document.createElement('button'); indicator.className = 'btn btn-sm btn-brand fw-bold px-3 pe-none';
-    const next = document.createElement('button'); next.className = 'btn btn-sm btn-outline-primary fw-bold px-3'; next.innerHTML = 'Next';
+    const prev = document.createElement('button'); 
+    prev.className = 'btn btn-sm btn-outline-primary fw-bold px-3'; 
+    prev.innerHTML = '<i class="bi bi-chevron-left me-1"></i> Prev';
+    
+    const indicator = document.createElement('button'); 
+    indicator.className = 'btn btn-sm btn-brand fw-bold px-3 pe-none';
+    
+    const next = document.createElement('button'); 
+    next.className = 'btn btn-sm btn-outline-primary fw-bold px-3'; 
+    next.innerHTML = 'Next <i class="bi bi-chevron-right ms-1"></i>';
 
     btnGroup.append(prev, indicator, next);
     wrapper.append(info, btnGroup);
     table.parentElement.appendChild(wrapper);
 
-    function showPage(page) {
-        currentPage = page;
-        const start = (page - 1) * rowsPerPage; const end = start + rowsPerPage;
-        rows.forEach((row, index) => { row.style.display = (index >= start && index < end) ? '' : 'none'; });
-        info.innerHTML = `Showing <b>${start + 1}</b> to <b>${Math.min(end, rows.length)}</b>`;
-        indicator.innerText = `Page ${page} / ${totalPages}`;
-        prev.disabled = page === 1; next.disabled = page === totalPages;
+    function updatePagination() {
+        const totalPages = Math.ceil(filteredRows.length / rowsPerPage) || 1;
+        if (currentPage > totalPages) currentPage = totalPages;
+
+        const start = (currentPage - 1) * rowsPerPage; 
+        const end = start + rowsPerPage;
+
+        allRows.forEach(row => row.style.display = 'none');
+        const rowsToShow = filteredRows.slice(start, end);
+        rowsToShow.forEach(row => row.style.display = '');
+
+        const showingEnd = Math.min(end, filteredRows.length);
+        const showingStart = filteredRows.length > 0 ? start + 1 : 0;
+
+        info.innerHTML = `Showing <b>${showingStart}</b> to <b>${showingEnd}</b> of <b>${filteredRows.length}</b>`;
+        indicator.innerText = `Page ${currentPage} / ${totalPages}`;
+        
+        prev.disabled = currentPage === 1; 
+        next.disabled = currentPage === totalPages || totalPages === 0;
     }
 
-    prev.addEventListener('click', () => { if (currentPage > 1) showPage(currentPage - 1); });
-    next.addEventListener('click', () => { if (currentPage < totalPages) showPage(currentPage + 1); });
-    showPage(1);
+    function filterData() {
+        const term = searchInput ? searchInput.value.toLowerCase().trim() : '';
 
-    // Check URL parameters for shortcut auto-open modals
+        filteredRows = allRows.filter(row => {
+            const slip = row.querySelector('.wd-slip')?.textContent.toLowerCase() || '';
+            const proj = row.querySelector('.wd-project')?.textContent.toLowerCase() || '';
+            return slip.includes(term) || proj.includes(term);
+        });
+
+        currentPage = 1;
+        updatePagination();
+    }
+
+    if (searchInput) {
+        searchInput.addEventListener('input', filterData);
+        searchInput.addEventListener('keyup', filterData);
+    }
+
+    prev.addEventListener('click', () => { if (currentPage > 1) { currentPage--; updatePagination(); } });
+    next.addEventListener('click', () => { 
+        const totalPages = Math.ceil(filteredRows.length / rowsPerPage); 
+        if (currentPage < totalPages) { currentPage++; updatePagination(); } 
+    });
+
+    updatePagination();
+
+    // Check URL parameters for shortcut search and auto-open modals
     const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('action') === 'new') {
+    const searchTerm = urlParams.get('search') || urlParams.get('q');
+    const autoOpenWd = urlParams.get('wd_no') || urlParams.get('auto_open');
+    const action = urlParams.get('action');
+
+    if (searchTerm && searchInput) {
+        searchInput.value = searchTerm;
+        filterData();
+    }
+
+    if (autoOpenWd) {
+        const targetRow = allRows.find(r => {
+            const slip = r.querySelector('.wd-slip')?.textContent.trim().toLowerCase();
+            return slip === autoOpenWd.trim().toLowerCase();
+        });
+        if (targetRow) {
+            const viewBtn = targetRow.querySelector('button[title="View Details"]');
+            if (viewBtn) viewBtn.click();
+        }
+    }
+
+    if (action === 'new') {
         const withdrawModalEl = document.getElementById('withdrawModal');
         if (withdrawModalEl) {
             new bootstrap.Modal(withdrawModalEl).show();
