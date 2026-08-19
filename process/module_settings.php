@@ -144,18 +144,19 @@ elseif ($action === 'add_category') {
 
 // --- PROJECTS LOGIC ---
 elseif ($action === 'add_project') {
-    if ($_SESSION['user_role'] !== 'admin') throw new Exception("Unauthorized.");
+    if (!in_array($_SESSION['user_role'], ['admin', 'management'])) throw new Exception("Unauthorized.");
     
     $projectCode = trim($_POST['project_code'] ?? '');
     $projectName = trim($_POST['project_name'] ?? '');
     $address = trim($_POST['address'] ?? '');
     $description = trim($_POST['description'] ?? '');
     $status = in_array($_POST['status'] ?? '', ['active', 'inactive']) ? $_POST['status'] : 'active';
+    $redirectUrl = !empty($_POST['return_to']) ? ('../' . $_POST['return_to']) : ('../settings?tab=' . ($_POST['return_tab'] ?? 'projects'));
 
     if (empty($projectName)) {
         $_SESSION['message'] = "Project Name is required.";
         $_SESSION['msg_type'] = "warning";
-        header("Location: ../settings?tab=" . ($_POST['return_tab'] ?? 'projects'));
+        header("Location: " . $redirectUrl);
         exit;
     }
 
@@ -165,7 +166,7 @@ elseif ($action === 'add_project') {
     if ($dupNameStmt->fetchColumn() > 0) {
         $_SESSION['message'] = "A project with the name '<b>" . htmlspecialchars($projectName) . "</b>' already exists.";
         $_SESSION['msg_type'] = "warning";
-        header("Location: ../settings?tab=" . ($_POST['return_tab'] ?? 'projects'));
+        header("Location: " . $redirectUrl);
         exit;
     }
 
@@ -189,7 +190,7 @@ elseif ($action === 'add_project') {
         if ($dupCodeStmt->fetchColumn() > 0) {
             $_SESSION['message'] = "A project with the ID '<b>" . htmlspecialchars($projectCode) . "</b>' already exists.";
             $_SESSION['msg_type'] = "warning";
-            header("Location: ../settings?tab=" . ($_POST['return_tab'] ?? 'projects'));
+            header("Location: " . $redirectUrl);
             exit;
         }
     }
@@ -198,11 +199,11 @@ elseif ($action === 'add_project') {
     $stmt->execute([$projectCode, $projectName, $address, $description, $status]);
     $_SESSION['message'] = "Project '<b>" . htmlspecialchars($projectName) . "</b>' (ID: {$projectCode}) added successfully!";
     $_SESSION['msg_type'] = "success";
-    header("Location: ../settings?tab=" . ($_POST['return_tab'] ?? 'projects')); 
+    header("Location: " . $redirectUrl); 
     exit;
 
 } elseif ($action === 'edit_project') {
-    if ($_SESSION['user_role'] !== 'admin') throw new Exception("Unauthorized.");
+    if (!in_array($_SESSION['user_role'], ['admin', 'management'])) throw new Exception("Unauthorized.");
     
     $projectId = (int)($_POST['project_id'] ?? 0);
     $projectCode = trim($_POST['project_code'] ?? '');
@@ -210,11 +211,12 @@ elseif ($action === 'add_project') {
     $address = trim($_POST['address'] ?? '');
     $description = trim($_POST['description'] ?? '');
     $status = in_array($_POST['status'] ?? '', ['active', 'inactive']) ? $_POST['status'] : 'active';
+    $redirectUrl = !empty($_POST['return_to']) ? ('../' . $_POST['return_to']) : ('../settings?tab=' . ($_POST['return_tab'] ?? 'projects'));
 
     if ($projectId <= 0 || empty($projectName)) {
         $_SESSION['message'] = "Invalid project information provided.";
         $_SESSION['msg_type'] = "warning";
-        header("Location: ../settings?tab=" . ($_POST['return_tab'] ?? 'projects'));
+        header("Location: " . $redirectUrl);
         exit;
     }
 
@@ -224,7 +226,7 @@ elseif ($action === 'add_project') {
     if ($dupNameStmt->fetchColumn() > 0) {
         $_SESSION['message'] = "Another project with the name '<b>" . htmlspecialchars($projectName) . "</b>' already exists.";
         $_SESSION['msg_type'] = "warning";
-        header("Location: ../settings?tab=" . ($_POST['return_tab'] ?? 'projects'));
+        header("Location: " . $redirectUrl);
         exit;
     }
 
@@ -238,7 +240,7 @@ elseif ($action === 'add_project') {
         if ($dupCodeStmt->fetchColumn() > 0) {
             $_SESSION['message'] = "Another project with ID '<b>" . htmlspecialchars($projectCode) . "</b>' already exists.";
             $_SESSION['msg_type'] = "warning";
-            header("Location: ../settings?tab=" . ($_POST['return_tab'] ?? 'projects'));
+            header("Location: " . $redirectUrl);
             exit;
         }
     }
@@ -262,16 +264,17 @@ elseif ($action === 'add_project') {
 
     $_SESSION['message'] = "Project '<b>" . htmlspecialchars($projectName) . "</b>' updated successfully!";
     $_SESSION['msg_type'] = "success";
-    header("Location: ../settings?tab=" . ($_POST['return_tab'] ?? 'projects')); 
+    header("Location: " . $redirectUrl); 
     exit;
 
 } elseif ($action === 'toggle_project_status') {
-    if ($_SESSION['user_role'] !== 'admin') throw new Exception("Unauthorized.");
+    if (!in_array($_SESSION['user_role'], ['admin', 'management'])) throw new Exception("Unauthorized.");
 
     $projectId = (int)($_POST['project_id'] ?? 0);
     $fetchStmt = $pdo->prepare("SELECT project_name, status FROM projects WHERE id = ?");
     $fetchStmt->execute([$projectId]);
     $project = $fetchStmt->fetch(PDO::FETCH_ASSOC);
+    $redirectUrl = !empty($_POST['return_to']) ? ('../' . $_POST['return_to']) : ('../settings?tab=' . ($_POST['return_tab'] ?? 'projects'));
 
     if ($project) {
         $newStatus = ($project['status'] === 'active') ? 'inactive' : 'active';
@@ -286,16 +289,17 @@ elseif ($action === 'add_project') {
         $_SESSION['msg_type'] = "warning";
     }
 
-    header("Location: ../settings?tab=" . ($_POST['return_tab'] ?? 'projects'));
+    header("Location: " . $redirectUrl);
     exit;
 
 } elseif ($action === 'delete_project') {
-    if ($_SESSION['user_role'] !== 'admin') throw new Exception("Unauthorized.");
+    if (!in_array($_SESSION['user_role'], ['admin', 'management'])) throw new Exception("Unauthorized.");
 
     $projectId = (int)($_POST['project_id'] ?? 0);
     $fetchStmt = $pdo->prepare("SELECT project_name FROM projects WHERE id = ?");
     $fetchStmt->execute([$projectId]);
     $projectName = $fetchStmt->fetchColumn();
+    $redirectUrl = !empty($_POST['return_to']) ? ('../' . $_POST['return_to']) : ('../settings?tab=' . ($_POST['return_tab'] ?? 'projects'));
 
     if ($projectName) {
         // Safe check: verify if any requisitions or withdrawals reference this project
@@ -312,7 +316,7 @@ elseif ($action === 'add_project') {
         if ($totalUsage > 0) {
             $_SESSION['message'] = "Cannot delete project '<b>" . htmlspecialchars($projectName) . "</b>': It has <b>{$rsCount}</b> linked Requisition(s) and <b>{$wsCount}</b> linked Withdrawal(s). Please set its status to <b>Inactive</b> instead of deleting to preserve audit history.";
             $_SESSION['msg_type'] = "danger";
-            header("Location: ../settings?tab=" . ($_POST['return_tab'] ?? 'projects'));
+            header("Location: " . $redirectUrl);
             exit;
         }
 
@@ -325,7 +329,7 @@ elseif ($action === 'add_project') {
         $_SESSION['msg_type'] = "warning";
     }
 
-    header("Location: ../settings?tab=" . ($_POST['return_tab'] ?? 'projects')); 
+    header("Location: " . $redirectUrl); 
     exit;
 
 } elseif ($action === 'fetch_project_details') {
