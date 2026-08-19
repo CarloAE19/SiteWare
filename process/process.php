@@ -22,18 +22,20 @@ if (!isset($_SESSION['user_id'])) {
 require_once __DIR__ . '/../Connection/fcm_helper.php';
 
 // === 3. MODULE ROUTER ===
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $action = $_POST['action'] ?? '';
+$requestMethod = $_SERVER['REQUEST_METHOD'];
+$action = $_POST['action'] ?? $_GET['action'] ?? '';
 
-    // Check if the action is expected to return JSON (AJAX / Fetch request)
-    $is_ajax = (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest') ||
-               (!empty($_SERVER['HTTP_ACCEPT']) && strpos($_SERVER['HTTP_ACCEPT'], 'application/json') !== false) ||
-               (strpos($action, 'fetch_') === 0) ||
-               (in_array($action, ['live_sync', 'stock_in_scanned', 'verify_current_password', 'change_password_modal']));
+// Check if the action is expected to return JSON (AJAX / Fetch request)
+$is_ajax = (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest') ||
+           (!empty($_SERVER['HTTP_ACCEPT']) && strpos($_SERVER['HTTP_ACCEPT'], 'application/json') !== false) ||
+           (strpos($action, 'fetch_') === 0) ||
+           (in_array($action, ['live_sync', 'stock_in_scanned', 'verify_current_password', 'change_password_modal']));
 
-    if ($is_ajax) {
-        header('Content-Type: application/json');
-    }
+if ($is_ajax) {
+    header('Content-Type: application/json');
+}
+
+if ($requestMethod === 'POST' || (strpos($action, 'fetch_') === 0 && !empty($action))) {
 
     // Anti-Double Submit / Rapid Spam Throttling on Mutating Actions
     $mutatingActions = ['create_rs', 'create_withdrawal', 'create_po', 'mark_po_delivered', 'submit_audit', 'add', 'edit', 'delete', 'add_user', 'add_supplier'];
@@ -59,7 +61,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             require __DIR__ . '/module_transactions.php';
         } elseif ($action === 'submit_audit') {
             require __DIR__ . '/module_audit.php';
-        } elseif (in_array($action, ['add_unit', 'edit_unit', 'delete_unit', 'add_category', 'edit_category', 'delete_category', 'add_project', 'edit_project', 'delete_project', 'toggle_project_status', 'update_login_bg', 'reset_login_bg', 'update_login_blur'])) {
+        } elseif (in_array($action, ['add_unit', 'edit_unit', 'delete_unit', 'add_category', 'edit_category', 'delete_category', 'add_project', 'edit_project', 'delete_project', 'toggle_project_status', 'fetch_project_details', 'update_login_bg', 'reset_login_bg', 'update_login_blur'])) {
             require __DIR__ . '/module_settings.php';
         } else {
             throw new Exception("Invalid system action requested: " . htmlspecialchars($action));
