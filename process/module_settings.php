@@ -150,10 +150,23 @@ elseif ($action === 'add_project') {
     $projectName = trim($_POST['project_name'] ?? '');
     $address = trim($_POST['address'] ?? '');
     $description = trim($_POST['description'] ?? '');
-    $status = $_POST['status'] ?? 'active';
+    $status = in_array($_POST['status'] ?? '', ['active', 'inactive']) ? $_POST['status'] : 'active';
 
     if (empty($projectName)) {
-        throw new Exception("Project Name is required.");
+        $_SESSION['message'] = "Project Name is required.";
+        $_SESSION['msg_type'] = "warning";
+        header("Location: ../settings?tab=" . ($_POST['return_tab'] ?? 'projects'));
+        exit;
+    }
+
+    // Check duplicate Project Name (case-insensitive)
+    $dupNameStmt = $pdo->prepare("SELECT COUNT(*) FROM projects WHERE LOWER(project_name) = LOWER(?)");
+    $dupNameStmt->execute([$projectName]);
+    if ($dupNameStmt->fetchColumn() > 0) {
+        $_SESSION['message'] = "A project with the name '<b>" . htmlspecialchars($projectName) . "</b>' already exists.";
+        $_SESSION['msg_type'] = "warning";
+        header("Location: ../settings?tab=" . ($_POST['return_tab'] ?? 'projects'));
+        exit;
     }
 
     // Auto-generate Project Code if not provided
@@ -169,11 +182,21 @@ elseif ($action === 'add_project') {
         if ($checkStmt->fetchColumn() > 0) {
             $projectCode = sprintf("PRJ-%s-%04d", $year, rand(1000, 9999));
         }
+    } else {
+        // Validate uniqueness of custom Project Code
+        $dupCodeStmt = $pdo->prepare("SELECT COUNT(*) FROM projects WHERE LOWER(project_code) = LOWER(?)");
+        $dupCodeStmt->execute([$projectCode]);
+        if ($dupCodeStmt->fetchColumn() > 0) {
+            $_SESSION['message'] = "A project with the ID '<b>" . htmlspecialchars($projectCode) . "</b>' already exists.";
+            $_SESSION['msg_type'] = "warning";
+            header("Location: ../settings?tab=" . ($_POST['return_tab'] ?? 'projects'));
+            exit;
+        }
     }
 
     $stmt = $pdo->prepare("INSERT INTO projects (project_code, project_name, address, description, status) VALUES (?, ?, ?, ?, ?)");
     $stmt->execute([$projectCode, $projectName, $address, $description, $status]);
-    $_SESSION['message'] = "Project '{$projectName}' (ID: {$projectCode}) added successfully!";
+    $_SESSION['message'] = "Project '<b>" . htmlspecialchars($projectName) . "</b>' (ID: {$projectCode}) added successfully!";
     $_SESSION['msg_type'] = "success";
     header("Location: ../settings?tab=" . ($_POST['return_tab'] ?? 'projects')); 
     exit;
@@ -181,31 +204,127 @@ elseif ($action === 'add_project') {
 } elseif ($action === 'edit_project') {
     if ($_SESSION['user_role'] !== 'admin') throw new Exception("Unauthorized.");
     
+    $projectId = (int)($_POST['project_id'] ?? 0);
     $projectCode = trim($_POST['project_code'] ?? '');
     $projectName = trim($_POST['project_name'] ?? '');
     $address = trim($_POST['address'] ?? '');
     $description = trim($_POST['description'] ?? '');
-    $status = $_POST['status'] ?? 'active';
-    $projectId = $_POST['project_id'] ?? null;
+    $status = in_array($_POST['status'] ?? '', ['active', 'inactive']) ? $_POST['status'] : 'active';
+
+    if ($projectId <= 0 || empty($projectName)) {
+        $_SESSION['message'] = "Invalid project information provided.";
+        $_SESSION['msg_type'] = "warning";
+        header("Location: ../settings?tab=" . ($_POST['return_tab'] ?? 'projects'));
+        exit;
+    }
+
+    // Check duplicate Project Name excluding current record
+    $dupNameStmt = $pdo->prepare("SELECT COUNT(*) FROM projects WHERE LOWER(project_name) = LOWER(?) AND id != ?");
+    $dupNameStmt->execute([$projectName, $projectId]);
+    if ($dupNameStmt->fetchColumn() > 0) {
+        $_SESSION['message'] = "Another project with the name '<b>" . htmlspecialchars($projectName) . "</b>' already exists.";
+        $_SESSION['msg_type'] = "warning";
+        header("Location: ../settings?tab=" . ($_POST['return_tab'] ?? 'projects'));
+        exit;
+    }
 
     if (empty($projectCode)) {
         $year = date('Y');
-        $projectCode = sprintf("PRJ-%s-%03d", $year, (int)$projectId);
+        $projectCode = sprintf("PRJ-%s-%03d", $year, $projectId);
+    } else {
+        // Check duplicate Project Code excluding current record
+        $dupCodeStmt = $pdo->prepare("SELECT COUNT(*) FROM projects WHERE LOWER(project_code) = LOWER(?) AND id != ?");
+        $dupCodeStmt->execute([$projectCode, $projectId]);
+        if ($dupCodeStmt->fetchColumn() > 0) {
+            $_SESSION['message'] = "Another project with ID '<b>" . htmlspecialchars($projectCode) . "</b>' already exists.";
+            $_SESSION['msg_type'] = "warning";
+            header("Location: ../settings?tab=" . ($_POST['return_tab'] ?? 'projects'));
+            exit;
+        }
     }
+
+    // Fetch previous project name to cascade renames to requisitions and withdrawals
+    $fetchOldStmt = $pdo->prepare("SELECT project_name FROM projects WHERE id = ?");
+    $fetchOldStmt->execute([$projectId]);
+    $oldProjectName = $fetchOldStmt->fetchColumn();
 
     $stmt = $pdo->prepare("UPDATE projects SET project_code = ?, project_name = ?, address = ?, description = ?, status = ? WHERE id = ?");
     $stmt->execute([$projectCode, $projectName, $address, $description, $status, $projectId]);
-    $_SESSION['message'] = "Project updated successfully!";
+
+    // Cascade rename to linked requisitions and withdrawals so history remains connected
+    if ($oldProjectName && $oldProjectName !== $projectName) {
+        $cascadeRsStmt = $pdo->prepare("UPDATE requisitions SET project_name = ? WHERE project_name = ?");
+        $cascadeRsStmt->execute([$projectName, $oldProjectName]);
+
+        $cascadeWsStmt = $pdo->prepare("UPDATE withdrawals SET project_name = ? WHERE project_name = ?");
+        $cascadeWsStmt->execute([$projectName, $oldProjectName]);
+    }
+
+    $_SESSION['message'] = "Project '<b>" . htmlspecialchars($projectName) . "</b>' updated successfully!";
     $_SESSION['msg_type'] = "success";
     header("Location: ../settings?tab=" . ($_POST['return_tab'] ?? 'projects')); 
     exit;
 
+} elseif ($action === 'toggle_project_status') {
+    if ($_SESSION['user_role'] !== 'admin') throw new Exception("Unauthorized.");
+
+    $projectId = (int)($_POST['project_id'] ?? 0);
+    $fetchStmt = $pdo->prepare("SELECT project_name, status FROM projects WHERE id = ?");
+    $fetchStmt->execute([$projectId]);
+    $project = $fetchStmt->fetch(PDO::FETCH_ASSOC);
+
+    if ($project) {
+        $newStatus = ($project['status'] === 'active') ? 'inactive' : 'active';
+        $updateStmt = $pdo->prepare("UPDATE projects SET status = ? WHERE id = ?");
+        $updateStmt->execute([$newStatus, $projectId]);
+
+        $statusBadge = ($newStatus === 'active') ? 'Active' : 'Inactive';
+        $_SESSION['message'] = "Project '<b>" . htmlspecialchars($project['project_name']) . "</b>' marked as <b>{$statusBadge}</b>.";
+        $_SESSION['msg_type'] = "success";
+    } else {
+        $_SESSION['message'] = "Project not found.";
+        $_SESSION['msg_type'] = "warning";
+    }
+
+    header("Location: ../settings?tab=" . ($_POST['return_tab'] ?? 'projects'));
+    exit;
+
 } elseif ($action === 'delete_project') {
     if ($_SESSION['user_role'] !== 'admin') throw new Exception("Unauthorized.");
-    $stmt = $pdo->prepare("DELETE FROM projects WHERE id = ?");
-    $stmt->execute([$_POST['project_id']]);
-    $_SESSION['message'] = "Project deleted successfully.";
-    $_SESSION['msg_type'] = "danger";
+
+    $projectId = (int)($_POST['project_id'] ?? 0);
+    $fetchStmt = $pdo->prepare("SELECT project_name FROM projects WHERE id = ?");
+    $fetchStmt->execute([$projectId]);
+    $projectName = $fetchStmt->fetchColumn();
+
+    if ($projectName) {
+        // Safe check: verify if any requisitions or withdrawals reference this project
+        $rsStmt = $pdo->prepare("SELECT COUNT(*) FROM requisitions WHERE project_name = ?");
+        $rsStmt->execute([$projectName]);
+        $rsCount = (int)$rsStmt->fetchColumn();
+
+        $wsStmt = $pdo->prepare("SELECT COUNT(*) FROM withdrawals WHERE project_name = ?");
+        $wsStmt->execute([$projectName]);
+        $wsCount = (int)$wsStmt->fetchColumn();
+
+        $totalUsage = $rsCount + $wsCount;
+
+        if ($totalUsage > 0) {
+            $_SESSION['message'] = "Cannot delete project '<b>" . htmlspecialchars($projectName) . "</b>': It has <b>{$rsCount}</b> linked Requisition(s) and <b>{$wsCount}</b> linked Withdrawal(s). Please set its status to <b>Inactive</b> instead of deleting to preserve audit history.";
+            $_SESSION['msg_type'] = "danger";
+            header("Location: ../settings?tab=" . ($_POST['return_tab'] ?? 'projects'));
+            exit;
+        }
+
+        $stmt = $pdo->prepare("DELETE FROM projects WHERE id = ?");
+        $stmt->execute([$projectId]);
+        $_SESSION['message'] = "Project '<b>" . htmlspecialchars($projectName) . "</b>' deleted successfully.";
+        $_SESSION['msg_type'] = "success";
+    } else {
+        $_SESSION['message'] = "Project not found.";
+        $_SESSION['msg_type'] = "warning";
+    }
+
     header("Location: ../settings?tab=" . ($_POST['return_tab'] ?? 'projects')); 
     exit;
 
