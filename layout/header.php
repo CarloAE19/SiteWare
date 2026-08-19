@@ -386,6 +386,11 @@ foreach ($notifications as $n) {
                     <li class="<?= $currentPage == 'index.php' ? 'active' : '' ?>"><a href="index"><i
                                 class="bi bi-box-seam"></i> Materials Inventory</a></li>
 
+                    <?php if (in_array($_SESSION['user_role'], ['admin', 'management', 'purchasing'])): ?>
+                        <li class="<?= $currentPage == 'projects.php' ? 'active' : '' ?>"><a href="projects"><i
+                                    class="bi bi-briefcase"></i> Projects Directory</a></li>
+                    <?php endif; ?>
+
                     <?php if (in_array($_SESSION['user_role'], ['admin', 'purchasing'])): ?>
                         <li class="<?= $currentPage == 'suppliers.php' ? 'active' : '' ?>"><a href="suppliers"><i
                                     class="bi bi-buildings"></i> Suppliers Database</a></li>
