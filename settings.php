@@ -174,19 +174,12 @@ include 'layout/header.php';
             <div class="col-12 col-md-8 text-center text-md-start">
                 <div class="d-flex align-items-center justify-content-center justify-content-md-start gap-2 mb-1">
                     <span class="badge bg-warning text-dark px-3 py-1 fw-bold rounded-pill text-uppercase"
-                        style="font-size: 0.75rem;">Administrator Control Panel</span>
+                        style="font-size: 0.75rem;">Control Panel</span>
                 </div>
                 <h3 class="mb-1 fw-bold text-white"><i class="bi bi-gear-fill me-2 text-warning"></i>System Settings
                 </h3>
                 <p class="text-white-50 mb-0 small">Centralized hub to manage user accounts, material categories,
                     measurement units, active projects, and system configurations.</p>
-            </div>
-            <div class="col-12 col-md-4 text-center text-md-end">
-                <div
-                    class="d-inline-flex align-items-center gap-2 bg-white bg-opacity-10 px-3 py-2 rounded-3 text-white small">
-                    <i class="bi bi-shield-lock-fill text-warning"></i>
-                    <span>Role: <strong>System Admin</strong></span>
-                </div>
             </div>
         </div>
     </div>
@@ -438,20 +431,26 @@ include 'layout/header.php';
                         <tbody>
                             <?php if (count($unitsList) > 0): ?>
                                 <?php foreach ($unitsList as $u): ?>
-                                    <?php $itemCount = (int)($u['item_count'] ?? 0); ?>
+                                    <?php $itemCount = (int) ($u['item_count'] ?? 0); ?>
                                     <tr>
                                         <td class="text-muted fw-bold">#<?= str_pad($u['id'], 3, '0', STR_PAD_LEFT) ?></td>
                                         <td class="fw-bold"><?= htmlspecialchars($u['unit_name']) ?></td>
-                                        <td><span class="badge bg-secondary px-3 py-2"><?= htmlspecialchars($u['abbreviation']) ?></span></td>
+                                        <td><span
+                                                class="badge bg-secondary px-3 py-2"><?= htmlspecialchars($u['abbreviation']) ?></span>
+                                        </td>
                                         <td class="text-center">
                                             <span class="badge bg-warning text-dark px-3 py-2 shadow-sm">
-                                                <i class="bi bi-exclamation-triangle me-1"></i>≤ <?= (int) $u['reorder_level'] ?> <?= htmlspecialchars($u['abbreviation']) ?>
+                                                <i class="bi bi-exclamation-triangle me-1"></i>≤
+                                                <?= (int) $u['reorder_level'] ?>         <?= htmlspecialchars($u['abbreviation']) ?>
                                             </span>
                                         </td>
                                         <td class="text-center">
                                             <?php if ($itemCount > 0): ?>
-                                                <a href="index?search=<?= urlencode($u['unit_name']) ?>" class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-2 text-decoration-none shadow-sm" title="View <?= $itemCount ?> item(s) in Inventory">
-                                                    <i class="bi bi-boxes me-1"></i><?= $itemCount ?> item<?= $itemCount > 1 ? 's' : '' ?>
+                                                <a href="index?search=<?= urlencode($u['unit_name']) ?>"
+                                                    class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-2 text-decoration-none shadow-sm"
+                                                    title="View <?= $itemCount ?> item(s) in Inventory">
+                                                    <i class="bi bi-boxes me-1"></i><?= $itemCount ?>
+                                                    item<?= $itemCount > 1 ? 's' : '' ?>
                                                 </a>
                                             <?php else: ?>
                                                 <span class="badge bg-light text-muted border px-3 py-2">0 items</span>
@@ -463,7 +462,8 @@ include 'layout/header.php';
                                                 <i class="bi bi-pencil-square"></i> Edit
                                             </button>
                                             <?php if ($itemCount > 0): ?>
-                                                <button type="button" class="btn btn-sm btn-outline-secondary shadow-sm disabled" title="Cannot delete: In use by <?= $itemCount ?> inventory item(s)">
+                                                <button type="button" class="btn btn-sm btn-outline-secondary shadow-sm disabled"
+                                                    title="Cannot delete: In use by <?= $itemCount ?> inventory item(s)">
                                                     <i class="bi bi-trash3"></i>
                                                 </button>
                                             <?php else: ?>
@@ -472,7 +472,8 @@ include 'layout/header.php';
                                                     <input type="hidden" name="action" value="delete_unit">
                                                     <input type="hidden" name="unit_id" value="<?= $u['id'] ?>">
                                                     <input type="hidden" name="return_tab" value="units">
-                                                    <button type="submit" class="btn btn-sm btn-outline-danger shadow-sm" title="Delete Unit">
+                                                    <button type="submit" class="btn btn-sm btn-outline-danger shadow-sm"
+                                                        title="Delete Unit">
                                                         <i class="bi bi-trash3"></i>
                                                     </button>
                                                 </form>
@@ -529,9 +530,11 @@ include 'layout/header.php';
                                 <?php foreach ($projects as $proj): ?>
                                     <tr>
                                         <td class="text-muted fw-bold" data-label="ID">
-                                            <?= htmlspecialchars($proj['project_code'] ?? '#' . $proj['id']) ?></td>
+                                            <?= htmlspecialchars($proj['project_code'] ?? '#' . $proj['id']) ?>
+                                        </td>
                                         <td class="fw-bold text-primary" data-label="Project Name">
-                                            <?= htmlspecialchars($proj['project_name']) ?></td>
+                                            <?= htmlspecialchars($proj['project_name']) ?>
+                                        </td>
                                         <td class="text-dark fw-semibold small" data-label="Location / Address">
                                             <?php if (!empty($proj['address'])): ?>
                                                 <i
@@ -541,7 +544,8 @@ include 'layout/header.php';
                                             <?php endif; ?>
                                         </td>
                                         <td class="text-muted text-wrap" style="max-width: 250px;" data-label="Description">
-                                            <?= htmlspecialchars($proj['description'] ?? 'No description provided.') ?></td>
+                                            <?= htmlspecialchars($proj['description'] ?? 'No description provided.') ?>
+                                        </td>
                                         <td data-label="Status">
                                             <?php if ($proj['status'] === 'active'): ?>
                                                 <span class="badge bg-success rounded-pill px-3 py-2">Active</span>
