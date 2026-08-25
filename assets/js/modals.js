@@ -571,3 +571,59 @@ window.openItemModalByCode = async function(itemCode) {
         alert('Failed to load item profile.');
     }
 };
+
+/* ==========================================================
+ * GLOBAL FORM DOUBLE-SUBMIT & LOADING SPINNER ENGINE
+ * Prevents duplicate submissions and provides instant visual
+ * feedback on slow network / high latency connections.
+ * ========================================================== */
+document.addEventListener('DOMContentLoaded', () => {
+    document.addEventListener('submit', (e) => {
+        const form = e.target;
+        if (!form || form.tagName !== 'FORM') return;
+
+        // Skip forms explicitly marked to bypass auto-spinners (if any)
+        if (form.classList.contains('no-spin')) return;
+
+        // Find the submit button
+        const submitBtn = form.querySelector('button[type="submit"], input[type="submit"]');
+        if (!submitBtn) return;
+
+        // If button is already disabled or marked as submitting, cancel secondary clicks
+        if (submitBtn.disabled || form.dataset.submitting === 'true') {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            return false;
+        }
+
+        // Only lock if form validation passes (HTML5 check)
+        if (typeof form.checkValidity === 'function' && !form.checkValidity()) {
+            return;
+        }
+
+        // Mark form as submitting
+        form.dataset.submitting = 'true';
+
+        // Save original button width & content to prevent UI layout shifts
+        const originalWidth = submitBtn.offsetWidth;
+        const originalContent = submitBtn.innerHTML;
+        if (originalWidth > 0) {
+            submitBtn.style.minWidth = originalWidth + 'px';
+        }
+
+        // Visually disable button and show animated spinner
+        submitBtn.disabled = true;
+        submitBtn.classList.add('disabled');
+        submitBtn.innerHTML = `<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Processing...`;
+
+        // Safety timeout fallback: if connection stalls or submission halts, re-enable after 15s
+        setTimeout(() => {
+            if (form.dataset.submitting === 'true') {
+                delete form.dataset.submitting;
+                submitBtn.disabled = false;
+                submitBtn.classList.remove('disabled');
+                submitBtn.innerHTML = originalContent;
+            }
+        }, 15000);
+    }, true);
+});
