@@ -1,6 +1,6 @@
 {
-  "name": "GB Inventory",
-  "short_name": "GB Inventory",
+  "name": "GB",
+  "short_name": "GB",
   "description": "Materials and Inventory Management for GB Construction",
   "start_url": "/CIMS/",
   "display": "standalone",
