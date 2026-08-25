@@ -25,10 +25,10 @@
 <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-messaging-compat.js"></script>
 
 <!-- Modular Application Scripts -->
-<script src="assets/js/router.js"></script>
-<script src="assets/js/pwa.js"></script>
-<script src="assets/js/modals.js"></script>
-<script src="assets/js/inventory.js"></script>
+<script src="assets/js/router.js?v=<?= time() ?>"></script>
+<script src="assets/js/pwa.js?v=<?= time() ?>"></script>
+<script src="assets/js/modals.js?v=<?= time() ?>"></script>
+<script src="assets/js/inventory.js?v=<?= time() ?>"></script>
 
 <!-- Notification Scripts -->
 <script src="assets/js/notifications.js"></script>
