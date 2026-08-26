@@ -860,46 +860,63 @@ include 'layout/header.php';
          RECENT ACTIVITY FEED
     =========================================== -->
     <div class="row g-3">
-        <?php // Show recent RS timeline for requestor
-        if ($role === 'requestor' && !empty($myRecentRS)): ?>
+        <?php // Show recent RS timeline for requestor (with actionable onboarding empty state)
+        if ($role === 'requestor'): ?>
             <div class="col-12 col-lg-6">
                 <div class="card border-0 shadow-sm h-100">
                     <div class="card-body p-3 p-md-4">
-                        <h6 class="fw-bold text-dark mb-3"><i class="bi bi-clock-history me-2 text-primary"></i>My Recent
-                            Requisitions</h6>
-                        <div class="recent-rs-timeline">
-                            <?php foreach ($myRecentRS as $rs):
-                                $statusColors = [
-                                    'Pending Approval' => 'warning',
-                                    'Approved' => 'success',
-                                    'Rejected' => 'danger',
-                                    'PO Created' => 'info',
-                                    'Released' => 'success'
-                                ];
-                                $color = $statusColors[$rs['status']] ?? 'secondary';
-                                ?>
-                                <div class="timeline-item d-flex align-items-start gap-3 mb-3 pb-3 border-bottom">
-                                    <div class="timeline-dot bg-<?= $color ?>"></div>
-                                    <div class="flex-grow-1">
-                                        <div class="d-flex justify-content-between align-items-start">
-                                            <div>
-                                                <span class="fw-bold text-dark"><?= htmlspecialchars($rs['rs_no']) ?></span>
-                                                <span class="badge bg-<?= $color ?> ms-2"
-                                                    style="font-size: 0.7rem;"><?= $rs['status'] ?></span>
-                                            </div>
-                                            <small class="text-muted"><?= date('M j', strtotime($rs['created_at'])) ?></small>
-                                        </div>
-                                        <small class="text-muted"><?= htmlspecialchars($rs['project_name']) ?></small>
-                                    </div>
-                                </div>
-                            <?php endforeach; ?>
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h6 class="fw-bold text-dark mb-0"><i class="bi bi-clock-history me-2 text-primary"></i>My Recent Requisitions</h6>
+                            <?php if (!empty($myRecentRS)): ?>
+                                <a href="requisitions" class="btn btn-link btn-xs text-decoration-none fw-bold p-0">View all</a>
+                            <?php endif; ?>
                         </div>
+                        <?php if (!empty($myRecentRS)): ?>
+                            <div class="recent-rs-timeline">
+                                <?php foreach ($myRecentRS as $rs):
+                                    $statusColors = [
+                                        'Pending Approval' => 'warning',
+                                        'Approved' => 'success',
+                                        'Rejected' => 'danger',
+                                        'PO Created' => 'info',
+                                        'Released' => 'success'
+                                    ];
+                                    $color = $statusColors[$rs['status']] ?? 'secondary';
+                                    ?>
+                                    <div class="timeline-item d-flex align-items-start gap-3 mb-3 pb-3 border-bottom">
+                                        <div class="timeline-dot bg-<?= $color ?>"></div>
+                                        <div class="flex-grow-1">
+                                            <div class="d-flex justify-content-between align-items-start">
+                                                <div>
+                                                    <span class="fw-bold text-dark"><?= htmlspecialchars($rs['rs_no'], ENT_QUOTES, 'UTF-8') ?></span>
+                                                    <span class="badge bg-<?= $color ?> ms-2"
+                                                        style="font-size: 0.7rem;"><?= htmlspecialchars($rs['status'], ENT_QUOTES, 'UTF-8') ?></span>
+                                                </div>
+                                                <small class="text-muted"><?= date('M j', strtotime($rs['created_at'])) ?></small>
+                                            </div>
+                                            <small class="text-muted"><?= htmlspecialchars($rs['project_name'], ENT_QUOTES, 'UTF-8') ?></small>
+                                        </div>
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
+                        <?php else: ?>
+                            <div class="empty-onboarding-card my-2">
+                                <div class="mb-2 text-primary">
+                                    <i class="bi bi-file-earmark-plus fs-1 opacity-75"></i>
+                                </div>
+                                <h6 class="fw-bold text-dark mb-1">No Requisitions Yet</h6>
+                                <p class="text-muted small mb-3">Submit your first material request for your assigned project.</p>
+                                <a href="requisitions?action=new" class="btn btn-sm btn-primary rounded-pill px-3.5 py-1.5 shadow-sm fw-bold">
+                                    <i class="bi bi-plus-circle me-1"></i>Create Requisition
+                                </a>
+                            </div>
+                        <?php endif; ?>
                     </div>
                 </div>
             </div>
         <?php endif; ?>
 
-        <div class="col-12 <?= ($role === 'requestor' && !empty($myRecentRS)) ? 'col-lg-6' : '' ?>">
+        <div class="col-12 <?= $role === 'requestor' ? 'col-lg-6' : '' ?>">
             <div class="card border-0 shadow-sm h-100" id="activityCard">
                 <div class="card-body p-3 p-md-4">
                     <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
@@ -944,14 +961,14 @@ include 'layout/header.php';
                                 $meta = getActivityMeta($activity['title'], $activity['message']);
                                 $isUnread = (int)$activity['is_read'] === 0;
                             ?>
-                                <a href="javascript:void(0)" onclick="readNotifAndNavigate(<?= (int)$activity['id'] ?>, '<?= $meta['target'] ?>')" class="activity-card-item d-flex align-items-start gap-3 p-2.5 rounded-3 mb-2 text-decoration-none text-reset <?= $isUnread ? 'activity-unread' : 'activity-read' ?>" data-category="<?= $meta['type'] ?>" data-read="<?= $isUnread ? '0' : '1' ?>">
+                                <a href="javascript:void(0)" onclick="readNotifAndNavigate(<?= (int)$activity['id'] ?>, '<?= htmlspecialchars($meta['target'], ENT_QUOTES, 'UTF-8') ?>')" class="activity-card-item d-flex align-items-start gap-3 p-2.5 rounded-3 mb-2 text-decoration-none text-reset <?= $isUnread ? 'activity-unread' : 'activity-read' ?>" data-category="<?= htmlspecialchars($meta['type'], ENT_QUOTES, 'UTF-8') ?>" data-read="<?= $isUnread ? '0' : '1' ?>">
                                     <div class="activity-icon-badge <?= $meta['bg'] ?> text-<?= $meta['color'] ?> position-relative">
                                         <i class="bi <?= $meta['icon'] ?>"></i>
                                     </div>
                                     <div class="flex-grow-1 min-w-0">
                                         <div class="d-flex justify-content-between align-items-center gap-2">
                                             <span class="fw-bold text-dark text-truncate d-flex align-items-center gap-1" style="font-size: 0.85rem;">
-                                                <?= htmlspecialchars($activity['title']) ?>
+                                                <?= htmlspecialchars($activity['title'], ENT_QUOTES, 'UTF-8') ?>
                                                 <?php if ($isUnread): ?>
                                                     <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-2 py-0.5 new-tag-badge" style="font-size: 0.65rem;">NEW</span>
                                                 <?php endif; ?>
@@ -960,7 +977,7 @@ include 'layout/header.php';
                                                 <i class="bi bi-clock me-1"></i><?= time_elapsed_string($activity['created_at']) ?>
                                             </span>
                                         </div>
-                                        <p class="mb-0 text-muted small text-truncate-2 mt-1" style="font-size: 0.78rem; line-height: 1.35;"><?= htmlspecialchars($activity['message']) ?></p>
+                                        <p class="mb-0 text-muted small text-truncate-2 mt-1" style="font-size: 0.78rem; line-height: 1.35;"><?= htmlspecialchars($activity['message'], ENT_QUOTES, 'UTF-8') ?></p>
                                     </div>
                                     <i class="bi bi-chevron-right text-muted opacity-50 ms-1 align-self-center"></i>
                                 </a>
