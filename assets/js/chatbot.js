@@ -239,4 +239,25 @@ document.addEventListener("DOMContentLoaded", () => {
         
         return lines.join("\n").replace(/\n/g, "<br>");
     }
+
+    // Auto-hide Chatbot when ANY modal opens (e.g. Create RS, View Details, Edit RS)
+    document.addEventListener("show.bs.modal", () => {
+        if (container) {
+            container.classList.add("d-none");
+        }
+        if (panel && !panel.classList.contains("d-none")) {
+            panel.classList.add("d-none");
+        }
+    });
+
+    // Restore Chatbot when all modals are closed
+    document.addEventListener("hidden.bs.modal", () => {
+        setTimeout(() => {
+            if (!document.querySelector(".modal.show") && !document.body.classList.contains("modal-open")) {
+                if (container) {
+                    container.classList.remove("d-none");
+                }
+            }
+        }, 150);
+    });
 });
