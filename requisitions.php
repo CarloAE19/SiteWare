@@ -336,6 +336,23 @@ include 'layout/header.php';
         border-bottom: none !important;
     }
 
+    /* Material Row Item Cards & Polish (HCI Usability) */
+    .material-row {
+        transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+    .material-row .remove-row:disabled {
+        opacity: 0.45 !important;
+        cursor: not-allowed !important;
+        pointer-events: auto !important;
+        border-color: #cbd5e1 !important;
+        color: #94a3b8 !important;
+        background-color: transparent !important;
+    }
+    .material-row .remove-row:not(:disabled):hover {
+        background-color: #dc3545 !important;
+        color: #ffffff !important;
+    }
+
     /* Modal Form Scroll Fix: Flex chain for modal-dialog-scrollable with <form> wrapper */
     .modal-dialog-scrollable .modal-content {
         display: flex !important;
@@ -421,18 +438,25 @@ include 'layout/header.php';
         .material-row {
             padding: 0.85rem !important;
         }
+        .material-row .d-flex.justify-content-end {
+            width: 100% !important;
+        }
         .material-row .remove-row {
             min-height: 40px !important;
+            width: 100% !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
         }
         .modal .card-header .btn {
             width: 100% !important;
             margin-top: 4px;
         }
-        .modal .card-header > div {
+        .modal .card-header > div:last-child {
             width: 100%;
             display: flex;
             flex-direction: column;
-            gap: 4px;
+            gap: 6px;
         }
         /* Touch friendly minimum heights */
         .btn {
@@ -639,7 +663,6 @@ include 'layout/header.php';
                                 <option value="all">All Urgency</option>
                                 <option value="Normal">Normal</option>
                                 <option value="High">High</option>
-                                <option value="Urgent">Urgent</option>
                             </select>
                         </div>
                     </div>
