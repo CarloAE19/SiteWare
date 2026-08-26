@@ -24,86 +24,84 @@ $roleDisplay = [
 $currentRole = $roleDisplay[$role] ?? $roleDisplay['requestor'];
 
 // ==========================================
-// UNIVERSAL STATS (All Roles)
+// METRIC INITIALIZATION & ROLE-GATED QUERIES
 // ==========================================
-$totalItems = $pdo->query("SELECT COUNT(*) FROM inventory")->fetchColumn();
-$totalValue = $pdo->query("SELECT COALESCE(SUM(quantity * unit_price), 0) FROM inventory")->fetchColumn();
-$lowStockCount = $pdo->query("SELECT COUNT(*) FROM inventory i LEFT JOIN units u ON i.unit = u.unit_name WHERE i.quantity > 0 AND i.quantity <= COALESCE(u.reorder_level, 10)")->fetchColumn();
-$outOfStockCount = $pdo->query("SELECT COUNT(*) FROM inventory WHERE quantity <= 0 OR status = 'Out of Stock'")->fetchColumn();
+$totalItems = 0;
+$totalValue = 0;
+$lowStockCount = 0;
+$outOfStockCount = 0;
 
-// ==========================================
-// ROLE-SPECIFIC STATS
-// ==========================================
-
-// --- Requestor ---
 $myTotalRS = 0;
 $myPendingRS = 0;
 $myApprovedRS = 0;
 $myStagedRS = 0;
 $myRecentRS = [];
-if ($role === 'requestor' || $role === 'admin') {
-    if ($role === 'requestor') {
-        $reqUserId = $_SESSION['user_id'];
-        $myTotalStmt = $pdo->prepare("SELECT COUNT(*) FROM requisitions WHERE requestor_id = ? AND type = 'project'");
-        $myTotalStmt->execute([$reqUserId]);
-        $myTotalRS = $myTotalStmt->fetchColumn();
 
-        $myPendingStmt = $pdo->prepare("SELECT COUNT(*) FROM requisitions WHERE requestor_id = ? AND type = 'project' AND status = 'Pending Approval'");
-        $myPendingStmt->execute([$reqUserId]);
-        $myPendingRS = $myPendingStmt->fetchColumn();
-
-        $myApprovedStmt = $pdo->prepare("SELECT COUNT(*) FROM requisitions WHERE requestor_id = ? AND type = 'project' AND status IN ('Approved', 'PO Created')");
-        $myApprovedStmt->execute([$reqUserId]);
-        $myApprovedRS = $myApprovedStmt->fetchColumn();
-
-        $myStagedStmt = $pdo->prepare("SELECT COUNT(*) FROM requisitions WHERE requestor_id = ? AND type = 'project' AND status = 'Staged (Ready for Pickup)'");
-        $myStagedStmt->execute([$reqUserId]);
-        $myStagedRS = $myStagedStmt->fetchColumn();
-
-        $myRecentStmt = $pdo->prepare("SELECT rs_no, project_name, status, created_at FROM requisitions WHERE requestor_id = ? AND type = 'project' ORDER BY created_at DESC LIMIT 5");
-        $myRecentStmt->execute([$reqUserId]);
-        $myRecentRS = $myRecentStmt->fetchAll(PDO::FETCH_ASSOC);
-    }
-}
-
-// --- Warehouse ---
 $withdrawalsToday = 0;
 $pendingRecountItems = 0;
-if ($role === 'warehouse' || $role === 'admin') {
-    $withdrawalsToday = $pdo->query("SELECT COUNT(*) FROM withdrawals WHERE DATE(date_withdrawn) = CURDATE()")->fetchColumn();
-    try {
-        $pendingRecountItems = $pdo->query("SELECT COUNT(*) FROM audit_items WHERE status = 'pending'")->fetchColumn();
-    } catch (PDOException $e) {
-        $pendingRecountItems = 0;
-    }
-}
 
-// --- Purchasing ---
 $rsPendingPO = 0;
 $posPendingDelivery = 0;
 $posDelayed = 0;
-if ($role === 'purchasing' || $role === 'admin') {
-    $rsPendingPO = $pdo->query("SELECT COUNT(*) FROM requisitions WHERE status = 'Approved' AND (type = 'restock' OR project_name = 'Warehouse Restock')")->fetchColumn();
-    $posPendingDelivery = $pdo->query("SELECT COUNT(*) FROM purchase_orders WHERE status IN ('Generated', 'SMS Sent', 'Pending Delivery')")->fetchColumn();
-    $posDelayed = $pdo->query("SELECT COUNT(*) FROM purchase_orders WHERE status LIKE '%Delayed%'")->fetchColumn();
-}
 
-// --- Management ---
 $pendingApprovalRS = 0;
-if ($role === 'management' || $role === 'admin') {
-    $pendingApprovalRS = $pdo->query("SELECT COUNT(*) FROM requisitions WHERE status = 'Pending Approval'")->fetchColumn();
-}
-
-// --- Admin ---
 $activeUsers = 0;
 $totalPO = 0;
-if ($role === 'admin') {
-    $activeUsers = $pdo->query("SELECT COUNT(*) FROM users")->fetchColumn();
-    $totalPO = $pdo->query("SELECT COUNT(*) FROM purchase_orders")->fetchColumn();
-    // If requestor stats weren't fetched for admin yet
-    $myTotalRS = $pdo->query("SELECT COUNT(*) FROM requisitions")->fetchColumn();
-    $myPendingRS = $pdo->query("SELECT COUNT(*) FROM requisitions WHERE status = 'Pending Approval'")->fetchColumn();
-    $myApprovedRS = $pdo->query("SELECT COUNT(*) FROM requisitions WHERE status IN ('Approved', 'PO Created')")->fetchColumn();
+
+// Execute queries ONLY for active role's requirements
+if ($role === 'requestor') {
+    $reqUserId = (int)$_SESSION['user_id'];
+    $myTotalStmt = $pdo->prepare("SELECT COUNT(*) FROM requisitions WHERE requestor_id = ? AND type = 'project'");
+    $myTotalStmt->execute([$reqUserId]);
+    $myTotalRS = (int)$myTotalStmt->fetchColumn();
+
+    $myPendingStmt = $pdo->prepare("SELECT COUNT(*) FROM requisitions WHERE requestor_id = ? AND type = 'project' AND status = 'Pending Approval'");
+    $myPendingStmt->execute([$reqUserId]);
+    $myPendingRS = (int)$myPendingStmt->fetchColumn();
+
+    $myApprovedStmt = $pdo->prepare("SELECT COUNT(*) FROM requisitions WHERE requestor_id = ? AND type = 'project' AND status IN ('Approved', 'PO Created')");
+    $myApprovedStmt->execute([$reqUserId]);
+    $myApprovedRS = (int)$myApprovedStmt->fetchColumn();
+
+    $myStagedStmt = $pdo->prepare("SELECT COUNT(*) FROM requisitions WHERE requestor_id = ? AND type = 'project' AND status = 'Staged (Ready for Pickup)'");
+    $myStagedStmt->execute([$reqUserId]);
+    $myStagedRS = (int)$myStagedStmt->fetchColumn();
+
+    $myRecentStmt = $pdo->prepare("SELECT rs_no, project_name, status, created_at FROM requisitions WHERE requestor_id = ? AND type = 'project' ORDER BY created_at DESC LIMIT 5");
+    $myRecentStmt->execute([$reqUserId]);
+    $myRecentRS = $myRecentStmt->fetchAll(PDO::FETCH_ASSOC);
+
+} elseif ($role === 'warehouse') {
+    $totalItems = (int)$pdo->query("SELECT COUNT(*) FROM inventory")->fetchColumn();
+    $lowStockCount = (int)$pdo->query("SELECT COUNT(*) FROM inventory i LEFT JOIN units u ON i.unit = u.unit_name WHERE i.quantity > 0 AND i.quantity <= COALESCE(u.reorder_level, 10)")->fetchColumn();
+    $outOfStockCount = (int)$pdo->query("SELECT COUNT(*) FROM inventory WHERE quantity <= 0 OR status = 'Out of Stock'")->fetchColumn();
+    $withdrawalsToday = (int)$pdo->query("SELECT COUNT(*) FROM withdrawals WHERE DATE(date_withdrawn) = CURDATE()")->fetchColumn();
+    try {
+        $pendingRecountItems = (int)$pdo->query("SELECT COUNT(*) FROM audit_items WHERE status = 'pending'")->fetchColumn();
+    } catch (PDOException $e) {
+        $pendingRecountItems = 0;
+    }
+
+} elseif ($role === 'purchasing') {
+    $totalItems = (int)$pdo->query("SELECT COUNT(*) FROM inventory")->fetchColumn();
+    $lowStockCount = (int)$pdo->query("SELECT COUNT(*) FROM inventory i LEFT JOIN units u ON i.unit = u.unit_name WHERE i.quantity > 0 AND i.quantity <= COALESCE(u.reorder_level, 10)")->fetchColumn();
+    $rsPendingPO = (int)$pdo->query("SELECT COUNT(*) FROM requisitions WHERE status = 'Approved' AND (type = 'restock' OR project_name = 'Warehouse Restock')")->fetchColumn();
+    $posPendingDelivery = (int)$pdo->query("SELECT COUNT(*) FROM purchase_orders WHERE status IN ('Generated', 'SMS Sent', 'Pending Delivery')")->fetchColumn();
+    $posDelayed = (int)$pdo->query("SELECT COUNT(*) FROM purchase_orders WHERE status LIKE '%Delayed%'")->fetchColumn();
+
+} elseif ($role === 'management') {
+    $totalItems = (int)$pdo->query("SELECT COUNT(*) FROM inventory")->fetchColumn();
+    $totalValue = (float)$pdo->query("SELECT COALESCE(SUM(quantity * unit_price), 0) FROM inventory")->fetchColumn();
+    $lowStockCount = (int)$pdo->query("SELECT COUNT(*) FROM inventory i LEFT JOIN units u ON i.unit = u.unit_name WHERE i.quantity > 0 AND i.quantity <= COALESCE(u.reorder_level, 10)")->fetchColumn();
+    $pendingApprovalRS = (int)$pdo->query("SELECT COUNT(*) FROM requisitions WHERE status = 'Pending Approval'")->fetchColumn();
+
+} elseif ($role === 'admin') {
+    $totalItems = (int)$pdo->query("SELECT COUNT(*) FROM inventory")->fetchColumn();
+    $totalValue = (float)$pdo->query("SELECT COALESCE(SUM(quantity * unit_price), 0) FROM inventory")->fetchColumn();
+    $lowStockCount = (int)$pdo->query("SELECT COUNT(*) FROM inventory i LEFT JOIN units u ON i.unit = u.unit_name WHERE i.quantity > 0 AND i.quantity <= COALESCE(u.reorder_level, 10)")->fetchColumn();
+    $pendingApprovalRS = (int)$pdo->query("SELECT COUNT(*) FROM requisitions WHERE status = 'Pending Approval'")->fetchColumn();
+    $activeUsers = (int)$pdo->query("SELECT COUNT(*) FROM users")->fetchColumn();
+    $totalPO = (int)$pdo->query("SELECT COUNT(*) FROM purchase_orders")->fetchColumn();
 }
 
 // Recent activity for all roles
@@ -231,8 +229,101 @@ include 'layout/header.php';
             <!-- Horizontal Action Buttons Track -->
             <div class="quick-actions-track" id="quickActionsTrack">
 
-                <?php // === REQUESTOR SHORTCUTS ===
-                if ($role === 'requestor' || $role === 'admin'): ?>
+                <?php // === ADMIN ROLE SHORTCUTS (Admin-first priority) ===
+                if ($role === 'admin'): ?>
+                    <a href="users" class="shortcut-btn" id="shortcut-manage-users">
+                        <div class="shortcut-icon bg-danger-subtle text-danger">
+                            <i class="bi bi-people-fill"></i>
+                        </div>
+                        <div class="shortcut-text">
+                            <span class="shortcut-label">Manage Users</span>
+                            <small class="shortcut-desc"><?= $activeUsers ?> active</small>
+                        </div>
+                    </a>
+                    <a href="projects" class="shortcut-btn" id="shortcut-manage-projects">
+                        <div class="shortcut-icon bg-primary-subtle text-primary">
+                            <i class="bi bi-briefcase-fill"></i>
+                        </div>
+                        <div class="shortcut-text">
+                            <span class="shortcut-label">Projects</span>
+                            <small class="shortcut-desc">Manage projects</small>
+                        </div>
+                    </a>
+                    <a href="requisitions" class="shortcut-btn <?= $pendingApprovalRS > 0 ? 'shortcut-pulse' : '' ?>" id="shortcut-review-rs">
+                        <div class="shortcut-icon bg-warning-subtle text-warning">
+                            <i class="bi bi-file-earmark-check-fill"></i>
+                        </div>
+                        <div class="shortcut-text">
+                            <span class="shortcut-label">Review RS</span>
+                            <small class="shortcut-desc"><?= $pendingApprovalRS ?> pending</small>
+                        </div>
+                    </a>
+                    <a href="analytics" class="shortcut-btn" id="shortcut-ai-forecast">
+                        <div class="shortcut-icon bg-dark-subtle text-dark">
+                            <i class="bi bi-robot"></i>
+                        </div>
+                        <div class="shortcut-text">
+                            <span class="shortcut-label">AI Forecast</span>
+                            <small class="shortcut-desc">Analytics & AI</small>
+                        </div>
+                    </a>
+                    <a href="index" class="shortcut-btn" id="shortcut-inventory-overview">
+                        <div class="shortcut-icon bg-primary-subtle text-primary">
+                            <i class="bi bi-boxes"></i>
+                        </div>
+                        <div class="shortcut-text">
+                            <span class="shortcut-label">Inventory</span>
+                            <small class="shortcut-desc"><?= $totalItems ?> items</small>
+                        </div>
+                    </a>
+                    <a href="withdrawals?action=new" class="shortcut-btn" id="shortcut-record-withdrawal">
+                        <div class="shortcut-icon bg-success-subtle text-success">
+                            <i class="bi bi-pencil-square"></i>
+                        </div>
+                        <div class="shortcut-text">
+                            <span class="shortcut-label">Record Withdrawal</span>
+                            <small class="shortcut-desc">Manual entry</small>
+                        </div>
+                    </a>
+                    <a href="po?action=new" class="shortcut-btn" id="shortcut-create-po">
+                        <div class="shortcut-icon bg-info-subtle text-info">
+                            <i class="bi bi-file-earmark-plus-fill"></i>
+                        </div>
+                        <div class="shortcut-text">
+                            <span class="shortcut-label">Create PO</span>
+                            <small class="shortcut-desc">Purchase Order</small>
+                        </div>
+                    </a>
+                    <a href="physical_count" class="shortcut-btn" id="shortcut-start-audit">
+                        <div class="shortcut-icon bg-danger-subtle text-danger">
+                            <i class="bi bi-calculator"></i>
+                        </div>
+                        <div class="shortcut-text">
+                            <span class="shortcut-label">Perform Recount</span>
+                            <small class="shortcut-desc">Weekly physical count</small>
+                        </div>
+                    </a>
+                    <a href="suppliers" class="shortcut-btn" id="shortcut-manage-suppliers">
+                        <div class="shortcut-icon bg-secondary-subtle text-secondary">
+                            <i class="bi bi-buildings"></i>
+                        </div>
+                        <div class="shortcut-text">
+                            <span class="shortcut-label">Suppliers</span>
+                            <small class="shortcut-desc">Manage database</small>
+                        </div>
+                    </a>
+                    <a href="requisitions?action=new" class="shortcut-btn" id="shortcut-create-rs">
+                        <div class="shortcut-icon bg-primary-subtle text-primary">
+                            <i class="bi bi-plus-circle-fill"></i>
+                        </div>
+                        <div class="shortcut-text">
+                            <span class="shortcut-label">Request Item</span>
+                            <small class="shortcut-desc">Create RS</small>
+                        </div>
+                    </a>
+
+                <?php // === REQUESTOR ROLE SHORTCUTS ===
+                elseif ($role === 'requestor'): ?>
                     <a href="requisitions?action=new" class="shortcut-btn" id="shortcut-create-rs">
                         <div class="shortcut-icon bg-primary-subtle text-primary">
                             <i class="bi bi-plus-circle-fill"></i>
@@ -251,10 +342,9 @@ include 'layout/header.php';
                             <small class="shortcut-desc">View all RS</small>
                         </div>
                     </a>
-                <?php endif; ?>
 
-                <?php // === WAREHOUSE SHORTCUTS ===
-                if ($role === 'warehouse' || $role === 'admin'): ?>
+                <?php // === WAREHOUSE ROLE SHORTCUTS ===
+                elseif ($role === 'warehouse'): ?>
                     <a href="withdrawals?action=new" class="shortcut-btn" id="shortcut-record-withdrawal">
                         <div class="shortcut-icon bg-success-subtle text-success">
                             <i class="bi bi-pencil-square"></i>
@@ -291,10 +381,9 @@ include 'layout/header.php';
                             <small class="shortcut-desc">View inventory</small>
                         </div>
                     </a>
-                <?php endif; ?>
 
-                <?php // === PURCHASING SHORTCUTS ===
-                if ($role === 'purchasing' || $role === 'admin'): ?>
+                <?php // === PURCHASING ROLE SHORTCUTS ===
+                elseif ($role === 'purchasing'): ?>
                     <a href="po?action=new" class="shortcut-btn" id="shortcut-create-po">
                         <div class="shortcut-icon bg-info-subtle text-info">
                             <i class="bi bi-file-earmark-plus-fill"></i>
@@ -313,10 +402,18 @@ include 'layout/header.php';
                             <small class="shortcut-desc">Manage database</small>
                         </div>
                     </a>
-                <?php endif; ?>
+                    <a href="index" class="shortcut-btn" id="shortcut-inventory-overview">
+                        <div class="shortcut-icon bg-primary-subtle text-primary">
+                            <i class="bi bi-box-seam"></i>
+                        </div>
+                        <div class="shortcut-text">
+                            <span class="shortcut-label">Inventory</span>
+                            <small class="shortcut-desc"><?= $totalItems ?> items</small>
+                        </div>
+                    </a>
 
-                <?php // === MANAGEMENT SHORTCUTS ===
-                if ($role === 'management' || $role === 'admin'): ?>
+                <?php // === MANAGEMENT ROLE SHORTCUTS ===
+                elseif ($role === 'management'): ?>
                     <a href="requisitions" class="shortcut-btn <?= $pendingApprovalRS > 0 ? 'shortcut-pulse' : '' ?>" id="shortcut-review-rs">
                         <div class="shortcut-icon bg-warning-subtle text-warning">
                             <i class="bi bi-file-earmark-check-fill"></i>
@@ -335,32 +432,6 @@ include 'layout/header.php';
                             <small class="shortcut-desc">Analytics & AI</small>
                         </div>
                     </a>
-                <?php endif; ?>
-
-                <?php // === ADMIN-ONLY SHORTCUTS ===
-                if ($role === 'admin'): ?>
-                    <a href="users" class="shortcut-btn" id="shortcut-manage-users">
-                        <div class="shortcut-icon bg-danger-subtle text-danger">
-                            <i class="bi bi-people-fill"></i>
-                        </div>
-                        <div class="shortcut-text">
-                            <span class="shortcut-label">Manage Users</span>
-                            <small class="shortcut-desc"><?= $activeUsers ?> active</small>
-                        </div>
-                    </a>
-                    <a href="projects" class="shortcut-btn" id="shortcut-manage-projects">
-                        <div class="shortcut-icon bg-primary-subtle text-primary">
-                            <i class="bi bi-briefcase-fill"></i>
-                        </div>
-                        <div class="shortcut-text">
-                            <span class="shortcut-label">Projects</span>
-                            <small class="shortcut-desc">Manage projects</small>
-                        </div>
-                    </a>
-                <?php endif; ?>
-
-                <?php // === UNIVERSAL SHORTCUTS (Non-Warehouse, Non-Requestor) ===
-                if ($role !== 'requestor' && $role !== 'warehouse'): ?>
                     <a href="index" class="shortcut-btn" id="shortcut-inventory-overview">
                         <div class="shortcut-icon bg-primary-subtle text-primary">
                             <i class="bi bi-box-seam"></i>
