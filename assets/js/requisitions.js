@@ -56,6 +56,28 @@ window.viewRsDetails = function(rsNo, project, remarks, status, requestor, date,
     
     const tbody = document.getElementById('viewRsItemsBody');
     tbody.innerHTML = ''; 
+
+    const isRequestor = window.currentUserRole === 'requestor';
+    const theadRow = document.getElementById('viewRsTableHeadRow');
+    if (theadRow) {
+        if (isRequestor) {
+            theadRow.innerHTML = `
+                <th class="text-center" style="width:110px;">Item Code</th>
+                <th class="text-center">Item Name / Notes</th>
+                <th class="text-center" style="width:90px;">Qty</th>
+                <th class="text-center d-print-none" style="width:140px;">Item Status</th>
+            `;
+        } else {
+            theadRow.innerHTML = `
+                <th class="text-center" style="width:100px;">Item Code</th>
+                <th class="text-center">Item Name / Notes</th>
+                <th class="text-center" style="width:80px;">Qty</th>
+                <th class="text-center d-print-none" style="width:130px;">Item Status</th>
+                <th class="text-center d-print-none text-primary" style="width:90px;">Stock</th>
+                <th class="text-center d-print-none text-warning" style="width:130px;">Pending</th>
+            `;
+        }
+    }
     
     try {
         const itemsJson = atob(itemsB64);
@@ -71,10 +93,14 @@ window.viewRsDetails = function(rsNo, project, remarks, status, requestor, date,
                 const curStock = parseInt(item.current_stock) || 0;
                 const totalPending = parseInt(item.total_pending) || 0;
 
-                // --- Per-item notes (requestor) ---
-                const itemNotesHtml = item.item_notes
-                    ? `<div class="text-muted small mt-1 fst-italic"><i class="bi bi-chat-left-text me-1"></i>${item.item_notes}</div>`
-                    : '';
+                // --- Per-item notes (requestor) & remarks (reviewer) ---
+                let notesAndRemarksHtml = '';
+                if (item.item_notes) {
+                    notesAndRemarksHtml += `<div class="text-muted small mt-1"><i class="bi bi-chat-left-text me-1 text-primary"></i>${item.item_notes}</div>`;
+                }
+                if (item.item_remarks) {
+                    notesAndRemarksHtml += `<div class="d-flex justify-content-center mt-1"><div class="item-remark-pill"><i class="bi bi-info-circle-fill me-1"></i><span>${item.item_remarks}</span></div></div>`;
+                }
 
                 // --- Per-item status badge ---
                 const iStatus = item.item_status || 'Pending';
@@ -82,10 +108,7 @@ window.viewRsDetails = function(rsNo, project, remarks, status, requestor, date,
                 const statusIconMap  = { 'Pending': 'bi-hourglass-split', 'Approved': 'bi-check-circle-fill', 'Rejected': 'bi-x-circle-fill' };
                 const sBadgeClass = statusBadgeMap[iStatus] || 'bg-secondary';
                 const sIcon       = statusIconMap[iStatus]  || 'bi-question';
-                let itemStatusHtml = `<span class="badge ${sBadgeClass} shadow-sm"><i class="bi ${sIcon} me-1"></i>${iStatus}</span>`;
-                if (item.item_remarks) {
-                    itemStatusHtml += `<div class="text-danger mt-1 fst-italic item-remark-text"><i class="bi bi-chat-right-text me-1"></i>${item.item_remarks}</div>`;
-                }
+                const itemStatusHtml = `<span class="badge ${sBadgeClass} shadow-sm px-2.5 py-1.5"><i class="bi ${sIcon} me-1"></i>${iStatus}</span>`;
                 
                 let stockDisplay = '';
                 if (isNewItem) {
@@ -154,34 +177,32 @@ window.viewRsDetails = function(rsNo, project, remarks, status, requestor, date,
                     pendingDisplay = `<span class="text-muted small fw-bold">-</span>`;
                 }
                 
-                const isRequestor = window.currentUserRole === 'requestor';
-                // Non-requestors get Item Status + Stock + Pending columns
-                const stockColsHtml = isRequestor ? '' : `
-                    <td class="text-center align-middle d-print-none">${itemStatusHtml}</td>
+                const statusCol = `<td class="text-center align-middle d-print-none">${itemStatusHtml}</td>`;
+                const stockCols = isRequestor ? '' : `
                     <td class="text-center align-middle d-print-none">${stockDisplay}</td>
                     <td class="text-center align-middle d-print-none">${pendingDisplay}</td>
                 `;
-                // Requestors only see Item Status
-                const requestorStatusCol = isRequestor
-                    ? `<td class="text-center align-middle d-print-none">${itemStatusHtml}</td>`
-                    : '';
 
                 tbody.innerHTML += `
                     <tr>
-                        <td class="text-muted small align-middle">${item.item_code}</td>
-                        <td class="fw-bold align-middle">${itemName}${itemNotesHtml}</td>
-                        <td class="text-dark fw-bold text-center align-middle fs-5">${reqQty} <span class="fs-6 fw-normal">${unit}</span></td>
-                        ${requestorStatusCol}
-                        ${stockColsHtml}
+                        <td class="text-center align-middle"><span class="item-code-badge">${item.item_code}</span></td>
+                        <td class="text-center align-middle"><div class="fw-bold text-dark">${itemName}</div>${notesAndRemarksHtml}</td>
+                        <td class="text-center align-middle">
+                            <div class="fw-bold text-dark fs-6">${reqQty}</div>
+                            <small class="text-muted text-uppercase fw-semibold" style="font-size: 0.68rem;">${unit}</small>
+                        </td>
+                        ${statusCol}
+                        ${stockCols}
                     </tr>
                 `;
             });
         } else {
-            const colspan = window.currentUserRole === 'requestor' ? 4 : 6;
+            const colspan = isRequestor ? 4 : 6;
             tbody.innerHTML = `<tr><td colspan="${colspan}" class="text-center text-muted py-3">No items found.</td></tr>`;
         }
     } catch (e) {
-        tbody.innerHTML = `<tr><td colspan="6" class="text-center text-danger py-3">Error loading items.</td></tr>`;
+        const colspan = isRequestor ? 4 : 6;
+        tbody.innerHTML = `<tr><td colspan="${colspan}" class="text-center text-danger py-3">Error loading items.</td></tr>`;
     }
     
     new bootstrap.Modal(document.getElementById('viewRsModal')).show();
@@ -208,21 +229,37 @@ window.openApproveItemsModal = function(rsId, rsNo, itemsB64) {
         } else {
             list.innerHTML = items.map((item) => {
                 const itemId   = item.item_id || '';
-                const itemName = item.item_name || item.item_code || 'Unknown Item';
+                const isNewItem = parseInt(item.is_new_item) === 1;
+                const rawName  = item.item_name || item.item_code || 'Unknown Item';
                 const qty      = parseInt(item.quantity) || 0;
                 const unit     = item.unit || '';
                 const notes    = item.item_notes
                     ? `<div class="text-muted small fst-italic mt-1"><i class="bi bi-chat-left-text me-1"></i>${item.item_notes}</div>`
                     : '';
 
+                const newBadge = isNewItem ? `<span class="badge bg-success ms-2 shadow-sm" style="font-size:0.65rem;"><i class="bi bi-sparkles me-1"></i>NEW / UNLISTED ITEM</span>` : '';
+
+                const typoEditHtml = isNewItem ? `
+                    <div class="mt-2 p-2 bg-success-subtle rounded border border-success-subtle">
+                        <label class="form-label text-success-emphasis small fw-bold mb-1 d-flex align-items-center">
+                            <i class="bi bi-pencil-square me-1"></i>Edit Item Name (Fix typo/spelling if needed):
+                        </label>
+                        <input type="text" class="form-control form-control-sm fw-bold border-success" name="item_names[${itemId}]" value="${rawName.replace(/"/g, '&quot;')}" placeholder="Correct item name...">
+                    </div>
+                ` : '';
+
                 return `
                 <div class="card border shadow-sm mb-3 approve-item-card" data-item-id="${itemId}">
                     <div class="card-body py-3 px-3">
                         <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
-                            <div>
-                                <div class="fw-bold text-dark">${itemName}</div>
-                                <div class="text-muted small">${item.item_code} &bull; Qty: <strong>${qty} ${unit}</strong></div>
+                            <div class="flex-grow-1 me-3">
+                                <div class="fw-bold text-dark fs-6">${rawName} ${newBadge}</div>
+                                <div class="text-muted small mt-1">
+                                    <span class="badge bg-light text-dark border me-1">${item.item_code}</span>
+                                    <span>Quantity: <strong>${qty} ${unit}</strong></span>
+                                </div>
                                 ${notes}
+                                ${typoEditHtml}
                             </div>
                             <div class="btn-group btn-group-sm shadow-sm" role="group">
                                 <input type="radio" class="btn-check" name="item_statuses[${itemId}]" id="approve_${itemId}" value="Approved" required checked>
@@ -290,6 +327,7 @@ if (window.rsGlobalClickListener) {
 window.rsGlobalClickListener = function(e) {
     const container = document.getElementById('materialsContainer');
     const restockContainer = document.getElementById('restockMaterialsContainer');
+    const editContainer = document.getElementById('editMaterialsContainer');
 
     if (e.target.closest('#addMaterialBtn') && container) {
         const stdRow = container.querySelector('.material-row:not(.new-item-row)');
@@ -301,10 +339,20 @@ window.rsGlobalClickListener = function(e) {
             if (qtyInput) qtyInput.value = '';
             const notesInput = newRow.querySelector('input[name="item_notes[]"]');
             if (notesInput) notesInput.value = '';
+            const unitBadge = newRow.querySelector('.item-unit-badge');
+            if (unitBadge) {
+                unitBadge.textContent = 'Unit';
+                unitBadge.classList.remove('text-primary');
+                unitBadge.classList.add('text-muted');
+            }
             newRow.querySelector('.remove-row').disabled = false;
             container.appendChild(newRow);
         }
         window.updateDeleteButtons(container);
+    }
+
+    if (e.target.closest('#addNewMaterialBtn') && container) {
+        window.appendNewItemRow(container);
     }
 
     if (e.target.closest('#addRestockMaterialBtn') && restockContainer) {
@@ -317,6 +365,12 @@ window.rsGlobalClickListener = function(e) {
             if (qtyInput) qtyInput.value = '';
             const notesInput = newRow.querySelector('input[name="item_notes[]"]');
             if (notesInput) notesInput.value = '';
+            const unitBadge = newRow.querySelector('.item-unit-badge');
+            if (unitBadge) {
+                unitBadge.textContent = 'Unit';
+                unitBadge.classList.remove('text-primary');
+                unitBadge.classList.add('text-muted');
+            }
             newRow.querySelector('.remove-row').disabled = false;
             restockContainer.appendChild(newRow);
         }
@@ -327,9 +381,35 @@ window.rsGlobalClickListener = function(e) {
         window.appendNewItemRow(restockContainer);
     }
 
+    if (e.target.closest('#addEditMaterialBtn') && editContainer) {
+        const stdRow = document.querySelector('#materialsContainer .material-row:not(.new-item-row)');
+        if (stdRow) {
+            const newRow = stdRow.cloneNode(true);
+            const select = newRow.querySelector('select[name="items[]"]');
+            if (select) select.value = '';
+            const qtyInput = newRow.querySelector('input[name="quantities[]"]');
+            if (qtyInput) qtyInput.value = '';
+            const notesInput = newRow.querySelector('input[name="item_notes[]"]');
+            if (notesInput) notesInput.value = '';
+            const unitBadge = newRow.querySelector('.item-unit-badge');
+            if (unitBadge) {
+                unitBadge.textContent = 'Unit';
+                unitBadge.classList.remove('text-primary');
+                unitBadge.classList.add('text-muted');
+            }
+            newRow.querySelector('.remove-row').disabled = false;
+            editContainer.appendChild(newRow);
+        }
+        window.updateDeleteButtons(editContainer);
+    }
+
+    if (e.target.closest('#addNewEditMaterialBtn') && editContainer) {
+        window.appendNewItemRow(editContainer);
+    }
+
     if (e.target.closest('.remove-row')) {
         const rowToRemove = e.target.closest('.material-row');
-        const parentContainer = rowToRemove.closest('#materialsContainer, #restockMaterialsContainer');
+        const parentContainer = rowToRemove ? rowToRemove.closest('#materialsContainer, #restockMaterialsContainer, #editMaterialsContainer') : null;
         if (parentContainer && parentContainer.querySelectorAll('.material-row').length > 1) {
             rowToRemove.remove();
             window.updateDeleteButtons(parentContainer);
@@ -338,6 +418,32 @@ window.rsGlobalClickListener = function(e) {
 };
 
 document.body.addEventListener('click', window.rsGlobalClickListener);
+
+// Sync unit badge next to quantity field when an item is selected
+window.syncRowUnitBadge = function(selectEl) {
+    if (!selectEl) return;
+    const row = selectEl.closest('.material-row');
+    if (!row) return;
+    const unitBadge = row.querySelector('.item-unit-badge');
+    if (!unitBadge) return;
+    const selectedOption = selectEl.options[selectEl.selectedIndex];
+    const unit = selectedOption ? (selectedOption.getAttribute('data-unit') || '') : '';
+    if (unit) {
+        unitBadge.textContent = unit;
+        unitBadge.classList.remove('text-muted');
+        unitBadge.classList.add('text-primary');
+    } else {
+        unitBadge.textContent = 'Unit';
+        unitBadge.classList.remove('text-primary');
+        unitBadge.classList.add('text-muted');
+    }
+};
+
+document.addEventListener('change', function(e) {
+    if (e.target && e.target.matches('select[name="items[]"]')) {
+        window.syncRowUnitBadge(e.target);
+    }
+});
 
 window.appendNewItemRow = function(container) {
     if (!container) return;
@@ -391,11 +497,124 @@ window.updateDeleteButtons = function(container) {
     if (!container) return;
     const rows = container.querySelectorAll('.material-row');
     if (rows.length === 1) {
-        rows[0].querySelector('.remove-row').disabled = true;
+        const btn = rows[0].querySelector('.remove-row');
+        if (btn) btn.disabled = true;
     } else {
-        rows.forEach(row => row.querySelector('.remove-row').disabled = false);
+        rows.forEach(row => {
+            const btn = row.querySelector('.remove-row');
+            if (btn) btn.disabled = false;
+        });
     }
-}
+};
+
+// --- EDIT & RESUBMIT REQUISITION MODAL ---
+window.openEditRsModal = function(rsId, rsNo, project, urgency, remarks, itemsB64, type) {
+    const idField = document.getElementById('editRsIdField');
+    const label = document.getElementById('editRsNoLabel');
+    const input = document.getElementById('editRsNoInput');
+    const urg = document.getElementById('editRsUrgency');
+    const proj = document.getElementById('editRsProject');
+    const rem = document.getElementById('editRsRemarks');
+    const container = document.getElementById('editMaterialsContainer');
+
+    if (idField) idField.value = rsId;
+    if (label) label.innerText = rsNo;
+    if (input) input.value = rsNo;
+    if (urg) urg.value = urgency || 'Normal';
+    if (proj) proj.value = project || '';
+    if (rem) rem.value = remarks || '';
+
+    if (container) {
+        container.innerHTML = '';
+        try {
+            const items = JSON.parse(atob(itemsB64));
+            if (items && items.length > 0) {
+                const catTemplate = document.getElementById('jsCategoryOptionsTemplate');
+                const unitTemplate = document.getElementById('jsUnitOptionsTemplate');
+                const catHtml = catTemplate ? catTemplate.innerHTML : '<option value="Materials">Materials</option>';
+                const unitHtml = unitTemplate ? unitTemplate.innerHTML : '<option value="Pieces">Pieces</option>';
+
+                items.forEach(item => {
+                    const isNew = parseInt(item.is_new_item) === 1;
+                    const qty = parseInt(item.quantity) || 1;
+                    const note = item.item_notes || '';
+
+                    if (isNew) {
+                        const row = document.createElement('div');
+                        row.className = 'material-row new-item-row mb-2 bg-white p-3 rounded border border-success shadow-sm mx-0';
+                        const safeName = (item.item_name || '').replace(/"/g, '&quot;');
+                        const safeNote = note.replace(/"/g, '&quot;');
+
+                        row.innerHTML = `
+                            <input type="hidden" name="is_new_items[]" value="1">
+                            <input type="hidden" name="items[]" value="">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="badge bg-success shadow-sm"><i class="bi bi-plus-circle me-1"></i> New Item / Unlisted Material</span>
+                                <button type="button" class="btn btn-sm btn-outline-danger remove-row"><i class="bi bi-trash3 me-1"></i> Remove</button>
+                            </div>
+                            <div class="row g-2">
+                                <div class="col-md-5">
+                                    <label class="form-label small fw-bold text-muted mb-1">Item Name <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control form-control-sm fw-bold" name="new_item_names[]" value="${safeName}" placeholder="e.g. Solar Panel Mounting Bracket" required>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label small fw-bold text-muted mb-1">Category <span class="text-danger">*</span></label>
+                                    <select class="form-select form-select-sm fw-bold new-cat-select" name="new_categories[]" required>
+                                        ${catHtml}
+                                    </select>
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small fw-bold text-muted mb-1">Unit <span class="text-danger">*</span></label>
+                                    <select class="form-select form-select-sm fw-bold new-unit-select" name="new_units[]" required>
+                                        ${unitHtml}
+                                    </select>
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small fw-bold text-muted mb-1">Qty <span class="text-danger">*</span></label>
+                                    <input type="number" class="form-control form-control-sm fw-bold text-center text-primary" name="quantities[]" value="${qty}" required min="1">
+                                </div>
+                            </div>
+                            <div class="mt-2">
+                                <input type="text" class="form-control form-control-sm text-muted" name="item_notes[]" value="${safeNote}" placeholder="Optional: Notes for this item..." maxlength="255">
+                            </div>
+                        `;
+                        container.appendChild(row);
+                        if (item.new_category) {
+                            const catSel = row.querySelector('.new-cat-select');
+                            if (catSel) catSel.value = item.new_category;
+                        }
+                        if (item.new_unit || item.unit) {
+                            const unitSel = row.querySelector('.new-unit-select');
+                            if (unitSel) unitSel.value = item.new_unit || item.unit;
+                        }
+                    } else {
+                        const stdTemplate = document.querySelector('#materialsContainer .material-row:not(.new-item-row)');
+                        if (stdTemplate) {
+                            const row = stdTemplate.cloneNode(true);
+                            const select = row.querySelector('select[name="items[]"]');
+                            if (select) {
+                                select.value = item.item_code;
+                                window.syncRowUnitBadge(select);
+                            }
+                            const qtyInput = row.querySelector('input[name="quantities[]"]');
+                            if (qtyInput) qtyInput.value = qty;
+                            const notesInput = row.querySelector('input[name="item_notes[]"]');
+                            if (notesInput) notesInput.value = note;
+                            row.querySelector('.remove-row').disabled = false;
+                            container.appendChild(row);
+                        }
+                    }
+                });
+            }
+        } catch(e) {
+            console.error('Error populating edit RS items:', e);
+            container.innerHTML = '<div class="alert alert-danger py-2">Error parsing item list.</div>';
+        }
+        window.updateDeleteButtons(container);
+    }
+
+    new bootstrap.Modal(document.getElementById('editRsModal')).show();
+};
 
 // 5. COLUMN TOGGLE ENGINE & PAGINATION
 function initializeRequisitionsPage() {
@@ -458,9 +677,45 @@ function initializeRequisitionsPage() {
         const start = (currentPage - 1) * rowsPerPage; 
         const end = start + rowsPerPage;
 
-        allRows.forEach(row => row.style.display = 'none');
+        allRows.forEach(row => {
+            row.classList.add('d-none', 'rs-row-hidden');
+            row.style.setProperty('display', 'none', 'important');
+        });
         const rowsToShow = filteredRows.slice(start, end);
-        rowsToShow.forEach(row => row.style.display = '');
+        rowsToShow.forEach(row => {
+            row.classList.remove('d-none', 'rs-row-hidden');
+            row.style.removeProperty('display');
+        });
+
+        const tbody = table.querySelector('tbody');
+        let emptyRow = tbody ? tbody.querySelector('.rs-empty-row') : null;
+        if (filteredRows.length === 0) {
+            if (!emptyRow && tbody) {
+                emptyRow = document.createElement('tr');
+                emptyRow.className = 'rs-empty-row text-center';
+                emptyRow.innerHTML = `
+                    <td colspan="7" class="py-5 text-muted">
+                        <div class="py-3">
+                            <i class="bi bi-inbox fs-1 d-block mb-2 text-secondary opacity-50"></i>
+                            <h6 class="fw-bold text-dark">No requisitions found</h6>
+                            <p class="small text-muted mb-2">No records match your active filter or search keyword.</p>
+                            <button type="button" class="btn btn-sm btn-outline-primary fw-bold rs-reset-filter-btn px-3">
+                                <i class="bi bi-arrow-counterclockwise me-1"></i>Reset Filter
+                            </button>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(emptyRow);
+                emptyRow.querySelector('.rs-reset-filter-btn')?.addEventListener('click', () => {
+                    if (window.resetAllRsFilters) {
+                        window.resetAllRsFilters();
+                    }
+                });
+            }
+            if (emptyRow) emptyRow.style.display = '';
+        } else if (emptyRow) {
+            emptyRow.style.display = 'none';
+        }
 
         const showingEnd = Math.min(end, filteredRows.length);
         const showingStart = filteredRows.length > 0 ? start + 1 : 0;
@@ -472,20 +727,139 @@ function initializeRequisitionsPage() {
         nextBtn.disabled = currentPage === totalPages || totalPages === 0;
     }
 
-    function filterData() {
-        const term = searchInput ? searchInput.value.toLowerCase() : '';
+    let currentStatusFilter = 'all';
+    const filterTiles = document.querySelectorAll('.rs-filter-tile');
+    const requestorSelect = document.getElementById('filterRsRequestor');
+    const projectSelect = document.getElementById('filterRsProject');
+    const statusSelect = document.getElementById('filterRsStatus');
+    const urgencySelect = document.getElementById('filterRsUrgency');
+    const dateInput = document.getElementById('filterRsDate');
+    const activeBadge = document.getElementById('activeRsFilterBadge');
+
+    window.filterRsTable = function() {
+        const term = searchInput ? searchInput.value.toLowerCase().trim() : '';
+        const requestorVal = requestorSelect ? requestorSelect.value : 'all';
+        const projectVal = projectSelect ? projectSelect.value : 'all';
+        const statusVal = statusSelect ? statusSelect.value : 'all';
+        const urgencyVal = urgencySelect ? urgencySelect.value : 'all';
+        const dateVal = dateInput ? dateInput.value : '';
 
         filteredRows = allRows.filter(row => {
-            const no = row.querySelector('.rs-no').textContent.toLowerCase();
-            const proj = row.querySelector('.rs-project').textContent.toLowerCase();
-            return no.includes(term) || proj.includes(term);
+            const no = (row.querySelector('.rs-no')?.textContent || '').toLowerCase();
+            const proj = (row.getAttribute('data-project') || row.querySelector('.rs-project')?.textContent || '').toLowerCase();
+            const req = (row.getAttribute('data-requestor-name') || row.querySelector('.rs-requestor')?.textContent || '').toLowerCase();
+            const rawStatus = (row.getAttribute('data-status') || row.querySelector('.col-status')?.textContent || '').trim();
+            const rawUrgency = (row.getAttribute('data-urgency') || row.querySelector('.col-urgency')?.textContent || '').trim();
+            const rawDate = row.getAttribute('data-created-date') || '';
+
+            // Search Keyword
+            const matchesSearch = !term || no.includes(term) || proj.includes(term) || req.includes(term);
+
+            // KPI Stat Tile Filter
+            let matchesTileStatus = true;
+            if (currentStatusFilter === 'pending') {
+                matchesTileStatus = (rawStatus === 'Pending Approval');
+            } else if (currentStatusFilter === 'approved') {
+                matchesTileStatus = ['Approved', 'Partially Approved', 'PO Created', 'Staged (Ready for Pickup)', 'Released'].includes(rawStatus);
+            }
+
+            // Advanced Dropdown Filters
+            let matchesRequestor = true;
+            if (requestorVal === 'me') {
+                const youBadge = row.querySelector('.col-requestor .badge');
+                matchesRequestor = (youBadge !== null);
+            } else if (requestorVal !== 'all') {
+                matchesRequestor = (req === requestorVal.toLowerCase());
+            }
+
+            const matchesProject = (projectVal === 'all') || (proj === projectVal.toLowerCase());
+            const matchesStatus = (statusVal === 'all') || (rawStatus === statusVal);
+            const matchesUrgency = (urgencyVal === 'all') || (rawUrgency === urgencyVal);
+            const matchesDate = !dateVal || (rawDate === dateVal);
+
+            return matchesSearch && matchesTileStatus && matchesRequestor && matchesProject && matchesStatus && matchesUrgency && matchesDate;
         });
+
+        // Update Active Filter Badge Count
+        let activeFilterCount = 0;
+        if (requestorVal !== 'all') activeFilterCount++;
+        if (projectVal !== 'all') activeFilterCount++;
+        if (statusVal !== 'all') activeFilterCount++;
+        if (urgencyVal !== 'all') activeFilterCount++;
+        if (dateVal !== '') activeFilterCount++;
+
+        if (activeBadge) {
+            if (activeFilterCount > 0) {
+                activeBadge.innerText = activeFilterCount;
+                activeBadge.classList.remove('d-none');
+            } else {
+                activeBadge.classList.add('d-none');
+            }
+        }
 
         currentPage = 1;
         updatePagination();
-    }
+    };
 
-    if (searchInput) searchInput.addEventListener('input', filterData);
+    window.resetAllRsFilters = function() {
+        if (searchInput) searchInput.value = '';
+        if (requestorSelect) requestorSelect.value = 'all';
+        if (projectSelect) projectSelect.value = 'all';
+        if (statusSelect) statusSelect.value = 'all';
+        if (urgencySelect) urgencySelect.value = 'all';
+        if (dateInput) dateInput.value = '';
+
+        currentStatusFilter = 'all';
+        filterTiles.forEach(t => {
+            if ((t.getAttribute('data-filter') || 'all') === 'all') {
+                t.classList.add('active-filter');
+            } else {
+                t.classList.remove('active-filter');
+            }
+        });
+
+        window.filterRsTable();
+    };
+
+    filterTiles.forEach(tile => {
+        tile.addEventListener('click', function() {
+            const targetFilter = this.getAttribute('data-filter') || 'all';
+            
+            // If already selected, clicking it again resets to 'all'
+            if (currentStatusFilter === targetFilter && targetFilter !== 'all') {
+                currentStatusFilter = 'all';
+            } else {
+                currentStatusFilter = targetFilter;
+            }
+
+            // Sync active classes
+            filterTiles.forEach(t => {
+                const f = t.getAttribute('data-filter') || 'all';
+                if (f === currentStatusFilter) {
+                    t.classList.add('active-filter');
+                } else {
+                    t.classList.remove('active-filter');
+                }
+            });
+
+            window.filterRsTable();
+        });
+
+        // Accessibility: Keyboard Enter / Space support
+        tile.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                this.click();
+            }
+        });
+    });
+
+    if (searchInput) searchInput.addEventListener('input', window.filterRsTable);
+    if (requestorSelect) requestorSelect.addEventListener('change', window.filterRsTable);
+    if (projectSelect) projectSelect.addEventListener('change', window.filterRsTable);
+    if (statusSelect) statusSelect.addEventListener('change', window.filterRsTable);
+    if (urgencySelect) urgencySelect.addEventListener('change', window.filterRsTable);
+    if (dateInput) dateInput.addEventListener('change', window.filterRsTable);
 
     prevBtn.addEventListener('click', () => { if (currentPage > 1) { currentPage--; updatePagination(); } });
     nextBtn.addEventListener('click', () => { const totalPages = Math.ceil(filteredRows.length / rowsPerPage); if (currentPage < totalPages) { currentPage++; updatePagination(); } });
@@ -524,6 +898,256 @@ function initializeRequisitionsPage() {
         if (restockModalEl) {
             new bootstrap.Modal(restockModalEl).show();
         }
+    }
+
+    // --- CREATE RS FORM AJAX SUBMISSION ---
+    const rsForm = document.getElementById('rsForm');
+    const rsModalEl = document.getElementById('rsModal');
+
+    if (rsForm) {
+        rsForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const submitBtn = document.getElementById('rsSubmitBtn');
+            const originalText = submitBtn ? submitBtn.innerHTML : '<i class="bi bi-send me-2"></i>Submit Request';
+
+            if (!rsForm.checkValidity()) {
+                rsForm.reportValidity();
+                return;
+            }
+
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Submitting...';
+            }
+
+            try {
+                const formData = new FormData(rsForm);
+                const response = await fetch('process/process.php', {
+                    method: 'POST',
+                    body: formData,
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                });
+
+                const result = await response.json();
+
+                if (result.status === 'success' || result.success) {
+                    const modalInstance = bootstrap.Modal.getInstance(rsModalEl);
+                    if (modalInstance) modalInstance.hide();
+
+                    if (typeof Swal !== 'undefined') {
+                        await Swal.fire({
+                            icon: 'success',
+                            title: 'Requisition Created!',
+                            text: result.message || 'Requisition submitted successfully.',
+                            timer: 2000,
+                            showConfirmButton: false
+                        });
+                    }
+                    window.location.reload();
+                } else {
+                    throw new Error(result.message || 'Failed to submit requisition.');
+                }
+            } catch (err) {
+                console.error('Error submitting RS:', err);
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Submission Failed',
+                        text: err.message || 'An error occurred while creating the requisition.'
+                    });
+                } else {
+                    alert(err.message || 'An error occurred while creating the requisition.');
+                }
+            } finally {
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalText;
+                }
+            }
+        });
+    }
+
+    if (rsModalEl) {
+        rsModalEl.addEventListener('hidden.bs.modal', () => {
+            const container = document.getElementById('materialsContainer');
+            if (container) {
+                // Keep only the first template row and reset its values
+                const rows = container.querySelectorAll('.material-row');
+                rows.forEach((row, idx) => {
+                    if (idx > 0) row.remove();
+                    else {
+                        row.querySelectorAll('input, select').forEach(el => {
+                            if (el.type !== 'hidden') el.value = '';
+                        });
+                    }
+                });
+                window.updateDeleteButtons(container);
+            }
+            if (rsForm) rsForm.reset();
+        });
+    }
+
+    // --- RESTOCK RS FORM AJAX SUBMISSION ---
+    const restockForm = document.getElementById('restockForm');
+    const restockModalEl = document.getElementById('restockModal');
+
+    if (restockForm) {
+        restockForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const submitBtn = document.getElementById('restockSubmitBtn');
+            const originalText = submitBtn ? submitBtn.innerHTML : '<i class="bi bi-send me-2"></i>Submit Restock Request';
+
+            if (!restockForm.checkValidity()) {
+                restockForm.reportValidity();
+                return;
+            }
+
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Submitting...';
+            }
+
+            try {
+                const formData = new FormData(restockForm);
+                const response = await fetch('process/process.php', {
+                    method: 'POST',
+                    body: formData,
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                });
+
+                const result = await response.json();
+
+                if (result.status === 'success' || result.success) {
+                    const modalInstance = bootstrap.Modal.getInstance(restockModalEl);
+                    if (modalInstance) modalInstance.hide();
+
+                    if (typeof Swal !== 'undefined') {
+                        await Swal.fire({
+                            icon: 'success',
+                            title: 'Restock Request Created!',
+                            text: result.message || 'Restock request submitted successfully.',
+                            timer: 2000,
+                            showConfirmButton: false
+                        });
+                    }
+                    window.location.reload();
+                } else {
+                    throw new Error(result.message || 'Failed to submit restock request.');
+                }
+            } catch (err) {
+                console.error('Error submitting restock RS:', err);
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Submission Failed',
+                        text: err.message || 'An error occurred while creating restock request.'
+                    });
+                } else {
+                    alert(err.message || 'An error occurred while creating restock request.');
+                }
+            } finally {
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalText;
+                }
+            }
+        });
+    }
+
+    if (restockModalEl) {
+        restockModalEl.addEventListener('hidden.bs.modal', () => {
+            const container = document.getElementById('restockMaterialsContainer');
+            if (container) {
+                const rows = container.querySelectorAll('.material-row');
+                rows.forEach((row, idx) => {
+                    if (idx > 0) row.remove();
+                    else {
+                        row.querySelectorAll('input, select').forEach(el => {
+                            if (el.type !== 'hidden') el.value = '';
+                        });
+                    }
+                });
+                window.updateDeleteButtons(container);
+            }
+            if (restockForm) restockForm.reset();
+        });
+    }
+
+    // --- EDIT RS FORM AJAX SUBMISSION (cims-modal-ajax-handler standard) ---
+    const editForm = document.getElementById('editRsForm');
+    const editModalEl = document.getElementById('editRsModal');
+
+    if (editForm) {
+        editForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const submitBtn = document.getElementById('editRsSubmitBtn');
+            const originalText = submitBtn ? submitBtn.innerHTML : '<i class="bi bi-check2-circle me-2"></i>Save &amp; Resubmit';
+
+            if (!editForm.checkValidity()) {
+                editForm.reportValidity();
+                return;
+            }
+
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Saving...';
+            }
+
+            try {
+                const formData = new FormData(editForm);
+                const response = await fetch('process/process.php', {
+                    method: 'POST',
+                    body: formData,
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                });
+
+                const result = await response.json();
+
+                if (result.status === 'success' || result.success) {
+                    const modalInstance = bootstrap.Modal.getInstance(editModalEl);
+                    if (modalInstance) modalInstance.hide();
+
+                    if (typeof Swal !== 'undefined') {
+                        await Swal.fire({
+                            icon: 'success',
+                            title: 'Requisition Updated!',
+                            text: result.message || 'Requisition details updated successfully.',
+                            timer: 2000,
+                            showConfirmButton: false
+                        });
+                    }
+                    window.location.reload();
+                } else {
+                    throw new Error(result.message || 'Failed to update requisition.');
+                }
+            } catch (err) {
+                console.error('Error submitting edit RS:', err);
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Update Failed',
+                        text: err.message || 'An error occurred while updating the requisition.'
+                    });
+                } else {
+                    alert(err.message || 'An error occurred while updating the requisition.');
+                }
+            } finally {
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalText;
+                }
+            }
+        });
+    }
+
+    if (editModalEl) {
+        editModalEl.addEventListener('hidden.bs.modal', () => {
+            const container = document.getElementById('editMaterialsContainer');
+            if (container) container.innerHTML = '';
+        });
     }
 }
 
