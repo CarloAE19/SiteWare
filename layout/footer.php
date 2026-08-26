@@ -42,6 +42,16 @@
         right: 25px;
         z-index: 10000;
         font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        transition: opacity 0.25s ease, transform 0.25s ease, visibility 0.25s ease;
+    }
+
+    /* Auto-hide floating chatbot whenever a modal is open */
+    body.modal-open #cims-chatbot-container,
+    body:has(.modal.show) #cims-chatbot-container {
+        opacity: 0 !important;
+        visibility: hidden !important;
+        pointer-events: none !important;
+        transform: scale(0.7) translateY(30px) !important;
     }
 
     #cims-chatbot-trigger {
