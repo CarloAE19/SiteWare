@@ -192,6 +192,7 @@ include 'layout/header.php';
                         </h2>
                         <div class="d-flex align-items-center gap-2 flex-wrap">
                             <span class="badge <?= $currentRole['class'] ?> px-3 py-1.5 shadow-sm"><?= $currentRole['label'] ?></span>
+                            <span class="badge bg-light text-secondary border px-2.5 py-1.5 shadow-sm small fw-bold"><i class="bi bi-compass me-1 text-muted"></i><?= htmlspecialchars($currentRole['greeting']) ?></span>
                             <span class="text-muted small fw-bold"><i class="bi bi-calendar3 me-1"></i><?= date('l, F j, Y') ?></span>
                             <span class="badge bg-light text-dark border px-2.5 py-1.5 shadow-sm small fw-bold" id="dashLiveClock"><i class="bi bi-clock me-1 text-primary"></i><?= date('g:i A') ?></span>
                         </div>
@@ -214,135 +215,170 @@ include 'layout/header.php';
     </div>
 
     <!-- ==========================================
-         QUICK ACTION SHORTCUTS
+         QUICK ACTION SHORTCUTS (Horizontal Scrollable Strip)
     =========================================== -->
     <div class="mb-4">
-        <h6 class="fw-bold mb-3 text-dark d-flex align-items-center"><i class="bi bi-lightning-charge-fill me-2 text-warning"></i>Quick Actions</h6>
-        <div class="row g-2.5">
+        <h6 class="fw-bold mb-3 text-dark d-flex align-items-center">
+            <i class="bi bi-lightning-charge-fill me-2 text-warning"></i>Quick Actions
+        </h6>
+        
+        <div class="quick-actions-wrapper" id="quickActionsWrapper">
+            <!-- Floating Left Scroll Button -->
+            <button type="button" class="quick-nav-btn quick-nav-prev d-none" id="quickScrollPrev" aria-label="Scroll left">
+                <i class="bi bi-chevron-left"></i>
+            </button>
+
+            <!-- Horizontal Action Buttons Track -->
+            <div class="quick-actions-track" id="quickActionsTrack">
 
                 <?php // === REQUESTOR SHORTCUTS ===
                 if ($role === 'requestor' || $role === 'admin'): ?>
-                    <div class="col-6 col-md-4 col-lg-3">
-                        <a href="requisitions?action=new" class="shortcut-btn" id="shortcut-create-rs">
-                            <div class="shortcut-icon bg-primary-subtle text-primary"><i class="bi bi-plus-circle-fill"></i>
-                            </div>
+                    <a href="requisitions?action=new" class="shortcut-btn" id="shortcut-create-rs">
+                        <div class="shortcut-icon bg-primary-subtle text-primary">
+                            <i class="bi bi-plus-circle-fill"></i>
+                        </div>
+                        <div class="shortcut-text">
                             <span class="shortcut-label">Request Item</span>
                             <small class="shortcut-desc">Create RS</small>
-                        </a>
-                    </div>
-                    <div class="col-6 col-md-4 col-lg-3">
-                        <a href="requisitions" class="shortcut-btn" id="shortcut-my-requisitions">
-                            <div class="shortcut-icon bg-info-subtle text-info"><i class="bi bi-card-checklist"></i></div>
+                        </div>
+                    </a>
+                    <a href="requisitions" class="shortcut-btn" id="shortcut-my-requisitions">
+                        <div class="shortcut-icon bg-info-subtle text-info">
+                            <i class="bi bi-card-checklist"></i>
+                        </div>
+                        <div class="shortcut-text">
                             <span class="shortcut-label">Requisitions</span>
                             <small class="shortcut-desc">View all RS</small>
-                        </a>
-                    </div>
+                        </div>
+                    </a>
                 <?php endif; ?>
 
                 <?php // === WAREHOUSE SHORTCUTS ===
                 if ($role === 'warehouse' || $role === 'admin'): ?>
-                    <div class="col-6 col-md-4 col-lg-3">
-                        <a href="withdrawals?action=new" class="shortcut-btn" id="shortcut-record-withdrawal">
-                            <div class="shortcut-icon bg-success-subtle text-success"><i class="bi bi-pencil-square"></i>
-                            </div>
+                    <a href="withdrawals?action=new" class="shortcut-btn" id="shortcut-record-withdrawal">
+                        <div class="shortcut-icon bg-success-subtle text-success">
+                            <i class="bi bi-pencil-square"></i>
+                        </div>
+                        <div class="shortcut-text">
                             <span class="shortcut-label">Record Withdrawal</span>
                             <small class="shortcut-desc">Manual entry</small>
-                        </a>
-                    </div>
-                    <div class="col-6 col-md-4 col-lg-3">
-                        <a href="requisitions?action=restock" class="shortcut-btn" id="shortcut-request-restock">
-                            <div class="shortcut-icon bg-warning-subtle text-warning"><i class="bi bi-box-seam"></i></div>
+                        </div>
+                    </a>
+                    <a href="requisitions?action=restock" class="shortcut-btn" id="shortcut-request-restock">
+                        <div class="shortcut-icon bg-warning-subtle text-warning">
+                            <i class="bi bi-box-seam"></i>
+                        </div>
+                        <div class="shortcut-text">
                             <span class="shortcut-label">Request Restock</span>
                             <small class="shortcut-desc">Warehouse restock RS</small>
-                        </a>
-                    </div>
-                    <div class="col-6 col-md-4 col-lg-3">
-                        <a href="physical_count" class="shortcut-btn" id="shortcut-start-audit">
-                            <div class="shortcut-icon bg-danger-subtle text-danger"><i class="bi bi-calculator"></i>
-                            </div>
+                        </div>
+                    </a>
+                    <a href="physical_count" class="shortcut-btn" id="shortcut-start-audit">
+                        <div class="shortcut-icon bg-danger-subtle text-danger">
+                            <i class="bi bi-calculator"></i>
+                        </div>
+                        <div class="shortcut-text">
                             <span class="shortcut-label">Perform Recount</span>
                             <small class="shortcut-desc">Weekly physical count</small>
-                        </a>
-                    </div>
-                    <div class="col-6 col-md-4 col-lg-3">
-                        <a href="index" class="shortcut-btn" id="shortcut-view-materials">
-                            <div class="shortcut-icon bg-primary-subtle text-primary"><i class="bi bi-boxes"></i></div>
+                        </div>
+                    </a>
+                    <a href="index" class="shortcut-btn" id="shortcut-view-materials">
+                        <div class="shortcut-icon bg-primary-subtle text-primary">
+                            <i class="bi bi-boxes"></i>
+                        </div>
+                        <div class="shortcut-text">
                             <span class="shortcut-label">Materials</span>
                             <small class="shortcut-desc">View inventory</small>
-                        </a>
-                    </div>
+                        </div>
+                    </a>
                 <?php endif; ?>
 
                 <?php // === PURCHASING SHORTCUTS ===
                 if ($role === 'purchasing' || $role === 'admin'): ?>
-                    <div class="col-6 col-md-4 col-lg-3">
-                        <a href="po?action=new" class="shortcut-btn" id="shortcut-create-po">
-                            <div class="shortcut-icon bg-info-subtle text-info"><i class="bi bi-file-earmark-plus-fill"></i>
-                            </div>
+                    <a href="po?action=new" class="shortcut-btn" id="shortcut-create-po">
+                        <div class="shortcut-icon bg-info-subtle text-info">
+                            <i class="bi bi-file-earmark-plus-fill"></i>
+                        </div>
+                        <div class="shortcut-text">
                             <span class="shortcut-label">Create PO</span>
                             <small class="shortcut-desc">Purchase Order</small>
-                        </a>
-                    </div>
-                    <div class="col-6 col-md-4 col-lg-3">
-                        <a href="suppliers" class="shortcut-btn" id="shortcut-manage-suppliers">
-                            <div class="shortcut-icon bg-secondary-subtle text-secondary"><i class="bi bi-buildings"></i>
-                            </div>
+                        </div>
+                    </a>
+                    <a href="suppliers" class="shortcut-btn" id="shortcut-manage-suppliers">
+                        <div class="shortcut-icon bg-secondary-subtle text-secondary">
+                            <i class="bi bi-buildings"></i>
+                        </div>
+                        <div class="shortcut-text">
                             <span class="shortcut-label">Suppliers</span>
                             <small class="shortcut-desc">Manage database</small>
-                        </a>
-                    </div>
+                        </div>
+                    </a>
                 <?php endif; ?>
 
                 <?php // === MANAGEMENT SHORTCUTS ===
                 if ($role === 'management' || $role === 'admin'): ?>
-                    <div class="col-6 col-md-4 col-lg-3">
-                        <a href="requisitions" class="shortcut-btn <?= $pendingApprovalRS > 0 ? 'shortcut-pulse' : '' ?>"
-                            id="shortcut-review-rs">
-                            <div class="shortcut-icon bg-warning-subtle text-warning"><i
-                                    class="bi bi-file-earmark-check-fill"></i></div>
+                    <a href="requisitions" class="shortcut-btn <?= $pendingApprovalRS > 0 ? 'shortcut-pulse' : '' ?>" id="shortcut-review-rs">
+                        <div class="shortcut-icon bg-warning-subtle text-warning">
+                            <i class="bi bi-file-earmark-check-fill"></i>
+                        </div>
+                        <div class="shortcut-text">
                             <span class="shortcut-label">Review RS</span>
                             <small class="shortcut-desc"><?= $pendingApprovalRS ?> pending</small>
-                        </a>
-                    </div>
-                    <div class="col-6 col-md-4 col-lg-3">
-                        <a href="analytics" class="shortcut-btn" id="shortcut-ai-forecast">
-                            <div class="shortcut-icon bg-dark-subtle text-dark"><i class="bi bi-robot"></i></div>
+                        </div>
+                    </a>
+                    <a href="analytics" class="shortcut-btn" id="shortcut-ai-forecast">
+                        <div class="shortcut-icon bg-dark-subtle text-dark">
+                            <i class="bi bi-robot"></i>
+                        </div>
+                        <div class="shortcut-text">
                             <span class="shortcut-label">AI Forecast</span>
                             <small class="shortcut-desc">Analytics & AI</small>
-                        </a>
-                    </div>
+                        </div>
+                    </a>
                 <?php endif; ?>
 
                 <?php // === ADMIN-ONLY SHORTCUTS ===
                 if ($role === 'admin'): ?>
-                    <div class="col-6 col-md-4 col-lg-3">
-                        <a href="users" class="shortcut-btn" id="shortcut-manage-users">
-                            <div class="shortcut-icon bg-danger-subtle text-danger"><i class="bi bi-people-fill"></i></div>
+                    <a href="users" class="shortcut-btn" id="shortcut-manage-users">
+                        <div class="shortcut-icon bg-danger-subtle text-danger">
+                            <i class="bi bi-people-fill"></i>
+                        </div>
+                        <div class="shortcut-text">
                             <span class="shortcut-label">Manage Users</span>
                             <small class="shortcut-desc"><?= $activeUsers ?> active</small>
-                        </a>
-                    </div>
-                    <div class="col-6 col-md-4 col-lg-3">
-                        <a href="projects" class="shortcut-btn" id="shortcut-manage-projects">
-                            <div class="shortcut-icon bg-primary-subtle text-primary"><i class="bi bi-briefcase-fill"></i>
-                            </div>
+                        </div>
+                    </a>
+                    <a href="projects" class="shortcut-btn" id="shortcut-manage-projects">
+                        <div class="shortcut-icon bg-primary-subtle text-primary">
+                            <i class="bi bi-briefcase-fill"></i>
+                        </div>
+                        <div class="shortcut-text">
                             <span class="shortcut-label">Projects</span>
                             <small class="shortcut-desc">Manage projects</small>
-                        </a>
-                    </div>
+                        </div>
+                    </a>
                 <?php endif; ?>
 
-                <?php // === UNIVERSAL SHORTCUTS ===
-                if ($role !== 'requestor'): ?>
-                    <div class="col-6 col-md-4 col-lg-3">
-                        <a href="index" class="shortcut-btn" id="shortcut-inventory-overview">
-                            <div class="shortcut-icon bg-primary-subtle text-primary"><i class="bi bi-box-seam"></i></div>
+                <?php // === UNIVERSAL SHORTCUTS (Non-Warehouse, Non-Requestor) ===
+                if ($role !== 'requestor' && $role !== 'warehouse'): ?>
+                    <a href="index" class="shortcut-btn" id="shortcut-inventory-overview">
+                        <div class="shortcut-icon bg-primary-subtle text-primary">
+                            <i class="bi bi-box-seam"></i>
+                        </div>
+                        <div class="shortcut-text">
                             <span class="shortcut-label">Inventory</span>
                             <small class="shortcut-desc"><?= $totalItems ?> items</small>
-                        </a>
-                    </div>
+                        </div>
+                    </a>
                 <?php endif; ?>
+
             </div>
+
+            <!-- Floating Right Scroll Button -->
+            <button type="button" class="quick-nav-btn quick-nav-next d-none" id="quickScrollNext" aria-label="Scroll right">
+                <i class="bi bi-chevron-right"></i>
+            </button>
+        </div>
     </div>
 
     <!-- ==========================================
@@ -352,298 +388,398 @@ include 'layout/header.php';
         <?php // ============ REQUESTOR STATS ============
         if ($role === 'requestor'): ?>
             <div class="col-6 col-md-3">
-                <div class="card stat-card-dash h-100 border-0 shadow-sm">
-                    <div class="card-body p-3">
-                        <div class="d-flex justify-content-between align-items-center mb-1">
-                            <div>
-                                <div class="stat-label">My Requests</div>
-                                <div class="stat-value"><?= $myTotalRS ?></div>
+                <a href="requisitions" class="stat-card-link" aria-label="View My Requisitions">
+                    <div class="card stat-card-dash h-100 border-0 shadow-sm">
+                        <div class="card-body p-3">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <div>
+                                    <div class="stat-label">My Requests</div>
+                                    <div class="stat-value"><?= $myTotalRS ?></div>
+                                </div>
+                                <div class="stat-icon-circle bg-primary-subtle"><i class="bi bi-card-checklist text-primary"></i></div>
                             </div>
-                            <div class="stat-icon-circle bg-primary-subtle"><i class="bi bi-card-checklist text-primary"></i></div>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <small class="text-muted small">Total requisitions filed</small>
+                                <i class="bi bi-arrow-right-short text-primary stat-arrow-hint"></i>
+                            </div>
                         </div>
-                        <small class="text-muted small d-block">Total requisitions filed</small>
                     </div>
-                </div>
+                </a>
             </div>
             <div class="col-6 col-md-3">
-                <div class="card stat-card-dash h-100 border-0 shadow-sm">
-                    <div class="card-body p-3">
-                        <div class="d-flex justify-content-between align-items-center mb-1">
-                            <div>
-                                <div class="stat-label">Pending</div>
-                                <div class="stat-value text-warning"><?= $myPendingRS ?></div>
+                <a href="requisitions" class="stat-card-link" aria-label="View Pending Requisitions">
+                    <div class="card stat-card-dash h-100 border-0 shadow-sm">
+                        <div class="card-body p-3">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <div>
+                                    <div class="stat-label">Pending</div>
+                                    <div class="stat-value text-warning"><?= $myPendingRS ?></div>
+                                </div>
+                                <div class="stat-icon-circle bg-warning-subtle"><i class="bi bi-hourglass-split text-warning"></i></div>
                             </div>
-                            <div class="stat-icon-circle bg-warning-subtle"><i class="bi bi-hourglass-split text-warning"></i></div>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <small class="text-muted small">Awaiting approval</small>
+                                <i class="bi bi-arrow-right-short text-warning stat-arrow-hint"></i>
+                            </div>
                         </div>
-                        <small class="text-muted small d-block">Awaiting approval</small>
                     </div>
-                </div>
+                </a>
             </div>
             <div class="col-6 col-md-3">
-                <div class="card stat-card-dash h-100 border-0 shadow-sm">
-                    <div class="card-body p-3">
-                        <div class="d-flex justify-content-between align-items-center mb-1">
-                            <div>
-                                <div class="stat-label">Approved</div>
-                                <div class="stat-value text-success"><?= $myApprovedRS ?></div>
+                <a href="requisitions" class="stat-card-link" aria-label="View Approved Requisitions">
+                    <div class="card stat-card-dash h-100 border-0 shadow-sm">
+                        <div class="card-body p-3">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <div>
+                                    <div class="stat-label">Approved</div>
+                                    <div class="stat-value text-success"><?= $myApprovedRS ?></div>
+                                </div>
+                                <div class="stat-icon-circle bg-success-subtle"><i class="bi bi-check-circle-fill text-success"></i></div>
                             </div>
-                            <div class="stat-icon-circle bg-success-subtle"><i class="bi bi-check-circle-fill text-success"></i></div>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <small class="text-muted small">Ready or in process</small>
+                                <i class="bi bi-arrow-right-short text-success stat-arrow-hint"></i>
+                            </div>
                         </div>
-                        <small class="text-muted small d-block">Ready or in process</small>
                     </div>
-                </div>
+                </a>
             </div>
             <div class="col-6 col-md-3">
-                <div class="card stat-card-dash h-100 border-0 shadow-sm">
-                    <div class="card-body p-3">
-                        <div class="d-flex justify-content-between align-items-center mb-1">
-                            <div>
-                                <div class="stat-label">Ready for Pickup</div>
-                                <div class="stat-value text-info"><?= $myStagedRS ?></div>
+                <a href="requisitions" class="stat-card-link" aria-label="View Staged Requisitions">
+                    <div class="card stat-card-dash h-100 border-0 shadow-sm">
+                        <div class="card-body p-3">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <div>
+                                    <div class="stat-label">Ready for Pickup</div>
+                                    <div class="stat-value text-info"><?= $myStagedRS ?></div>
+                                </div>
+                                <div class="stat-icon-circle bg-info-subtle"><i class="bi bi-box-arrow-right text-info"></i></div>
                             </div>
-                            <div class="stat-icon-circle bg-info-subtle"><i class="bi bi-box-arrow-right text-info"></i></div>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <small class="text-muted small">Staged for collection</small>
+                                <i class="bi bi-arrow-right-short text-info stat-arrow-hint"></i>
+                            </div>
                         </div>
-                        <small class="text-muted small d-block">Staged for collection</small>
                     </div>
-                </div>
+                </a>
             </div>
 
         <?php // ============ WAREHOUSE STATS ============
         elseif ($role === 'warehouse'): ?>
             <div class="col-6 col-md-3">
-                <div class="card stat-card-dash h-100 border-0 shadow-sm">
-                    <div class="card-body p-3">
-                        <div class="d-flex justify-content-between align-items-center mb-1">
-                            <div>
-                                <div class="stat-label">Low Stock</div>
-                                <div class="stat-value text-danger"><?= $lowStockCount ?></div>
-                            </div>
-                            <div class="stat-icon-circle bg-danger-subtle"><i class="bi bi-exclamation-triangle-fill text-danger"></i></div>
-                        </div>
-                        <small class="text-muted small d-block">Below reorder level</small>
-                    </div>
-                </div>
-            </div>
-            <div class="col-6 col-md-3">
-                <div class="card stat-card-dash h-100 border-0 shadow-sm">
-                    <div class="card-body p-3">
-                        <div class="d-flex justify-content-between align-items-center mb-1">
-                            <div>
-                                <div class="stat-label">Healthy Stock</div>
-                                <div class="stat-value text-success">
-                                    <?= $totalItems > 0 ? (100 - round(($lowStockCount / $totalItems) * 100)) : 100 ?>%
+                <a href="index" class="stat-card-link" aria-label="View Low Stock Items">
+                    <div class="card stat-card-dash h-100 border-0 shadow-sm">
+                        <div class="card-body p-3">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <div>
+                                    <div class="stat-label">Low Stock</div>
+                                    <div class="stat-value text-danger"><?= $lowStockCount ?></div>
                                 </div>
+                                <div class="stat-icon-circle bg-danger-subtle"><i class="bi bi-exclamation-triangle-fill text-danger"></i></div>
                             </div>
-                            <div class="stat-icon-circle bg-success-subtle"><i class="bi bi-shield-check text-success"></i></div>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <small class="text-muted small">Below reorder level</small>
+                                <i class="bi bi-arrow-right-short text-danger stat-arrow-hint"></i>
+                            </div>
                         </div>
-                        <small class="text-muted small d-block">Above safe level</small>
                     </div>
-                </div>
+                </a>
             </div>
             <div class="col-6 col-md-3">
-                <div class="card stat-card-dash h-100 border-0 shadow-sm">
-                    <div class="card-body p-3">
-                        <div class="d-flex justify-content-between align-items-center mb-1">
-                            <div>
-                                <div class="stat-label">Withdrawals Today</div>
-                                <div class="stat-value text-info"><?= $withdrawalsToday ?></div>
+                <a href="index" class="stat-card-link" aria-label="View Healthy Stock">
+                    <div class="card stat-card-dash h-100 border-0 shadow-sm">
+                        <div class="card-body p-3">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <div>
+                                    <div class="stat-label">Healthy Stock</div>
+                                    <div class="stat-value text-success">
+                                        <?= $totalItems > 0 ? (100 - round(($lowStockCount / $totalItems) * 100)) : 100 ?>%
+                                    </div>
+                                </div>
+                                <div class="stat-icon-circle bg-success-subtle"><i class="bi bi-shield-check text-success"></i></div>
                             </div>
-                            <div class="stat-icon-circle bg-info-subtle"><i class="bi bi-tools text-info"></i></div>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <small class="text-muted small">Above safe level</small>
+                                <i class="bi bi-arrow-right-short text-success stat-arrow-hint"></i>
+                            </div>
                         </div>
-                        <small class="text-muted small d-block">Released materials</small>
                     </div>
-                </div>
+                </a>
             </div>
             <div class="col-6 col-md-3">
-                <div class="card stat-card-dash h-100 border-0 shadow-sm">
-                    <div class="card-body p-3">
-                        <div class="d-flex justify-content-between align-items-center mb-1">
-                            <div>
-                                <div class="stat-label">Out of Stock</div>
-                                <div class="stat-value text-dark"><?= $outOfStockCount ?></div>
+                <a href="withdrawals" class="stat-card-link" aria-label="View Today's Withdrawals">
+                    <div class="card stat-card-dash h-100 border-0 shadow-sm">
+                        <div class="card-body p-3">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <div>
+                                    <div class="stat-label">Withdrawals Today</div>
+                                    <div class="stat-value text-info"><?= $withdrawalsToday ?></div>
+                                </div>
+                                <div class="stat-icon-circle bg-info-subtle"><i class="bi bi-tools text-info"></i></div>
                             </div>
-                            <div class="stat-icon-circle bg-dark-subtle"><i class="bi bi-x-circle text-dark"></i></div>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <small class="text-muted small">Released materials</small>
+                                <i class="bi bi-arrow-right-short text-info stat-arrow-hint"></i>
+                            </div>
                         </div>
-                        <small class="text-muted small d-block">Zero quantity items</small>
                     </div>
-                </div>
+                </a>
+            </div>
+            <div class="col-6 col-md-3">
+                <a href="index" class="stat-card-link" aria-label="View Out of Stock Items">
+                    <div class="card stat-card-dash h-100 border-0 shadow-sm">
+                        <div class="card-body p-3">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <div>
+                                    <div class="stat-label">Out of Stock</div>
+                                    <div class="stat-value text-dark"><?= $outOfStockCount ?></div>
+                                </div>
+                                <div class="stat-icon-circle bg-dark-subtle"><i class="bi bi-x-circle text-dark"></i></div>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <small class="text-muted small">Zero quantity items</small>
+                                <i class="bi bi-arrow-right-short text-dark stat-arrow-hint"></i>
+                            </div>
+                        </div>
+                    </div>
+                </a>
             </div>
 
         <?php // ============ PURCHASING STATS ============
         elseif ($role === 'purchasing'): ?>
             <div class="col-6 col-md-3">
-                <div class="card stat-card-dash h-100 border-0 shadow-sm">
-                    <div class="card-body p-3">
-                        <div class="d-flex justify-content-between align-items-center mb-1">
-                            <div>
-                                <div class="stat-label">RS Pending PO</div>
-                                <div class="stat-value text-warning"><?= $rsPendingPO ?></div>
+                <a href="requisitions" class="stat-card-link" aria-label="View Requisitions Pending PO">
+                    <div class="card stat-card-dash h-100 border-0 shadow-sm">
+                        <div class="card-body p-3">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <div>
+                                    <div class="stat-label">RS Pending PO</div>
+                                    <div class="stat-value text-warning"><?= $rsPendingPO ?></div>
+                                </div>
+                                <div class="stat-icon-circle bg-warning-subtle"><i class="bi bi-file-earmark-check text-warning"></i></div>
                             </div>
-                            <div class="stat-icon-circle bg-warning-subtle"><i class="bi bi-file-earmark-check text-warning"></i></div>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <small class="text-muted small">Approved & awaiting PO</small>
+                                <i class="bi bi-arrow-right-short text-warning stat-arrow-hint"></i>
+                            </div>
                         </div>
-                        <small class="text-muted small d-block">Approved & awaiting PO</small>
                     </div>
-                </div>
+                </a>
             </div>
             <div class="col-6 col-md-3">
-                <div class="card stat-card-dash h-100 border-0 shadow-sm">
-                    <div class="card-body p-3">
-                        <div class="d-flex justify-content-between align-items-center mb-1">
-                            <div>
-                                <div class="stat-label">Pending Delivery</div>
-                                <div class="stat-value text-info"><?= $posPendingDelivery ?></div>
+                <a href="po" class="stat-card-link" aria-label="View Purchase Orders Pending Delivery">
+                    <div class="card stat-card-dash h-100 border-0 shadow-sm">
+                        <div class="card-body p-3">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <div>
+                                    <div class="stat-label">Pending Delivery</div>
+                                    <div class="stat-value text-info"><?= $posPendingDelivery ?></div>
+                                </div>
+                                <div class="stat-icon-circle bg-info-subtle"><i class="bi bi-truck text-info"></i></div>
                             </div>
-                            <div class="stat-icon-circle bg-info-subtle"><i class="bi bi-truck text-info"></i></div>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <small class="text-muted small">POs awaiting delivery</small>
+                                <i class="bi bi-arrow-right-short text-info stat-arrow-hint"></i>
+                            </div>
                         </div>
-                        <small class="text-muted small d-block">POs awaiting delivery</small>
                     </div>
-                </div>
+                </a>
             </div>
             <div class="col-6 col-md-3">
-                <div class="card stat-card-dash h-100 border-0 shadow-sm">
-                    <div class="card-body p-3">
-                        <div class="d-flex justify-content-between align-items-center mb-1">
-                            <div>
-                                <div class="stat-label">Delayed POs</div>
-                                <div class="stat-value text-danger"><?= $posDelayed ?></div>
+                <a href="po" class="stat-card-link" aria-label="View Delayed Purchase Orders">
+                    <div class="card stat-card-dash h-100 border-0 shadow-sm">
+                        <div class="card-body p-3">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <div>
+                                    <div class="stat-label">Delayed POs</div>
+                                    <div class="stat-value text-danger"><?= $posDelayed ?></div>
+                                </div>
+                                <div class="stat-icon-circle bg-danger-subtle"><i class="bi bi-exclamation-diamond text-danger"></i></div>
                             </div>
-                            <div class="stat-icon-circle bg-danger-subtle"><i class="bi bi-exclamation-diamond text-danger"></i></div>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <small class="text-muted small">Requires follow-up</small>
+                                <i class="bi bi-arrow-right-short text-danger stat-arrow-hint"></i>
+                            </div>
                         </div>
-                        <small class="text-muted small d-block">Requires follow-up</small>
                     </div>
-                </div>
+                </a>
             </div>
             <div class="col-6 col-md-3">
-                <div class="card stat-card-dash h-100 border-0 shadow-sm">
-                    <div class="card-body p-3">
-                        <div class="d-flex justify-content-between align-items-center mb-1">
-                            <div>
-                                <div class="stat-label">Low Stock Items</div>
-                                <div class="stat-value text-dark"><?= $lowStockCount ?></div>
+                <a href="index" class="stat-card-link" aria-label="View Low Stock Items">
+                    <div class="card stat-card-dash h-100 border-0 shadow-sm">
+                        <div class="card-body p-3">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <div>
+                                    <div class="stat-label">Low Stock Items</div>
+                                    <div class="stat-value text-dark"><?= $lowStockCount ?></div>
+                                </div>
+                                <div class="stat-icon-circle bg-dark-subtle"><i class="bi bi-graph-down-arrow text-dark"></i></div>
                             </div>
-                            <div class="stat-icon-circle bg-dark-subtle"><i class="bi bi-graph-down-arrow text-dark"></i></div>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <small class="text-muted small">May need reorder</small>
+                                <i class="bi bi-arrow-right-short text-dark stat-arrow-hint"></i>
+                            </div>
                         </div>
-                        <small class="text-muted small d-block">May need reorder</small>
                     </div>
-                </div>
+                </a>
             </div>
 
         <?php // ============ MANAGEMENT STATS ============
         elseif ($role === 'management'): ?>
             <div class="col-6 col-md-3">
-                <div class="card stat-card-dash h-100 border-0 shadow-sm <?= $pendingApprovalRS > 0 ? 'stat-attention' : '' ?>">
-                    <div class="card-body p-3">
-                        <div class="d-flex justify-content-between align-items-center mb-1">
-                            <div>
-                                <div class="stat-label">Pending Approval</div>
-                                <div class="stat-value text-warning"><?= $pendingApprovalRS ?></div>
+                <a href="requisitions" class="stat-card-link" aria-label="View Pending Requisitions for Approval">
+                    <div class="card stat-card-dash h-100 border-0 shadow-sm <?= $pendingApprovalRS > 0 ? 'stat-attention' : '' ?>">
+                        <div class="card-body p-3">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <div>
+                                    <div class="stat-label">Pending Approval</div>
+                                    <div class="stat-value text-warning"><?= $pendingApprovalRS ?></div>
+                                </div>
+                                <div class="stat-icon-circle bg-warning-subtle"><i class="bi bi-hourglass-split text-warning"></i></div>
                             </div>
-                            <div class="stat-icon-circle bg-warning-subtle"><i class="bi bi-hourglass-split text-warning"></i></div>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <small class="text-muted small">RS awaiting your review</small>
+                                <i class="bi bi-arrow-right-short text-warning stat-arrow-hint"></i>
+                            </div>
                         </div>
-                        <small class="text-muted small d-block">RS awaiting your review</small>
                     </div>
-                </div>
+                </a>
             </div>
             <div class="col-6 col-md-3">
-                <div class="card stat-card-dash h-100 border-0 shadow-sm">
-                    <div class="card-body p-3">
-                        <div class="d-flex justify-content-between align-items-center mb-1">
-                            <div>
-                                <div class="stat-label">Inventory Value</div>
-                                <div class="stat-value" style="font-size: 1.35rem;">₱<?= number_format($totalValue, 0) ?></div>
+                <a href="index" class="stat-card-link" aria-label="View Inventory Overview">
+                    <div class="card stat-card-dash h-100 border-0 shadow-sm">
+                        <div class="card-body p-3">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <div>
+                                    <div class="stat-label">Inventory Value</div>
+                                    <div class="stat-value" style="font-size: 1.35rem;">₱<?= number_format($totalValue, 0) ?></div>
+                                </div>
+                                <div class="stat-icon-circle bg-primary-subtle"><i class="bi bi-cash-stack text-primary"></i></div>
                             </div>
-                            <div class="stat-icon-circle bg-primary-subtle"><i class="bi bi-cash-stack text-primary"></i></div>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <small class="text-muted small">Total asset value</small>
+                                <i class="bi bi-arrow-right-short text-primary stat-arrow-hint"></i>
+                            </div>
                         </div>
-                        <small class="text-muted small d-block">Total asset value</small>
                     </div>
-                </div>
+                </a>
             </div>
             <div class="col-6 col-md-3">
-                <div class="card stat-card-dash h-100 border-0 shadow-sm">
-                    <div class="card-body p-3">
-                        <div class="d-flex justify-content-between align-items-center mb-1">
-                            <div>
-                                <div class="stat-label">Low Stock Alerts</div>
-                                <div class="stat-value text-danger"><?= $lowStockCount ?></div>
+                <a href="index" class="stat-card-link" aria-label="View Low Stock Alerts">
+                    <div class="card stat-card-dash h-100 border-0 shadow-sm">
+                        <div class="card-body p-3">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <div>
+                                    <div class="stat-label">Low Stock Alerts</div>
+                                    <div class="stat-value text-danger"><?= $lowStockCount ?></div>
+                                </div>
+                                <div class="stat-icon-circle bg-danger-subtle"><i class="bi bi-exclamation-triangle text-danger"></i></div>
                             </div>
-                            <div class="stat-icon-circle bg-danger-subtle"><i class="bi bi-exclamation-triangle text-danger"></i></div>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <small class="text-muted small"><?= $lowStockCount ?> of <?= $totalItems ?> items</small>
+                                <i class="bi bi-arrow-right-short text-danger stat-arrow-hint"></i>
+                            </div>
                         </div>
-                        <small class="text-muted small d-block"><?= $lowStockCount ?> of <?= $totalItems ?> items</small>
                     </div>
-                </div>
+                </a>
             </div>
             <div class="col-6 col-md-3">
-                <div class="card stat-card-dash h-100 border-0 shadow-sm">
-                    <div class="card-body p-3">
-                        <div class="d-flex justify-content-between align-items-center mb-1">
-                            <div>
-                                <div class="stat-label">Total Materials</div>
-                                <div class="stat-value text-success"><?= $totalItems ?></div>
+                <a href="index" class="stat-card-link" aria-label="View Total Materials">
+                    <div class="card stat-card-dash h-100 border-0 shadow-sm">
+                        <div class="card-body p-3">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <div>
+                                    <div class="stat-label">Total Materials</div>
+                                    <div class="stat-value text-success"><?= $totalItems ?></div>
+                                </div>
+                                <div class="stat-icon-circle bg-success-subtle"><i class="bi bi-boxes text-success"></i></div>
                             </div>
-                            <div class="stat-icon-circle bg-success-subtle"><i class="bi bi-boxes text-success"></i></div>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <small class="text-muted small">In system inventory</small>
+                                <i class="bi bi-arrow-right-short text-success stat-arrow-hint"></i>
+                            </div>
                         </div>
-                        <small class="text-muted small d-block">In system inventory</small>
                     </div>
-                </div>
+                </a>
             </div>
 
         <?php // ============ ADMIN STATS ============
         elseif ($role === 'admin'): ?>
             <div class="col-6 col-md-3">
-                <div class="card stat-card-dash h-100 border-0 shadow-sm">
-                    <div class="card-body p-3">
-                        <div class="d-flex justify-content-between align-items-center mb-1">
-                            <div>
-                                <div class="stat-label">Inventory Value</div>
-                                <div class="stat-value" style="font-size: 1.35rem;">₱<?= number_format($totalValue, 0) ?></div>
+                <a href="index" class="stat-card-link" aria-label="View Total Inventory Value">
+                    <div class="card stat-card-dash h-100 border-0 shadow-sm">
+                        <div class="card-body p-3">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <div>
+                                    <div class="stat-label">Inventory Value</div>
+                                    <div class="stat-value" style="font-size: 1.35rem;">₱<?= number_format($totalValue, 0) ?></div>
+                                </div>
+                                <div class="stat-icon-circle bg-primary-subtle"><i class="bi bi-cash-stack text-primary"></i></div>
                             </div>
-                            <div class="stat-icon-circle bg-primary-subtle"><i class="bi bi-cash-stack text-primary"></i></div>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <small class="text-muted small">Across <?= $totalItems ?> items</small>
+                                <i class="bi bi-arrow-right-short text-primary stat-arrow-hint"></i>
+                            </div>
                         </div>
-                        <small class="text-muted small d-block">Across <?= $totalItems ?> items</small>
                     </div>
-                </div>
+                </a>
             </div>
             <div class="col-6 col-md-3">
-                <div class="card stat-card-dash h-100 border-0 shadow-sm <?= $lowStockCount > 0 ? 'stat-attention' : '' ?>">
-                    <div class="card-body p-3">
-                        <div class="d-flex justify-content-between align-items-center mb-1">
-                            <div>
-                                <div class="stat-label">Low Stock</div>
-                                <div class="stat-value text-danger"><?= $lowStockCount ?></div>
+                <a href="index" class="stat-card-link" aria-label="View Low Stock Items">
+                    <div class="card stat-card-dash h-100 border-0 shadow-sm <?= $lowStockCount > 0 ? 'stat-attention' : '' ?>">
+                        <div class="card-body p-3">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <div>
+                                    <div class="stat-label">Low Stock</div>
+                                    <div class="stat-value text-danger"><?= $lowStockCount ?></div>
+                                </div>
+                                <div class="stat-icon-circle bg-danger-subtle"><i class="bi bi-exclamation-triangle-fill text-danger"></i></div>
                             </div>
-                            <div class="stat-icon-circle bg-danger-subtle"><i class="bi bi-exclamation-triangle-fill text-danger"></i></div>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <small class="text-muted small">Needs restock attention</small>
+                                <i class="bi bi-arrow-right-short text-danger stat-arrow-hint"></i>
+                            </div>
                         </div>
-                        <small class="text-muted small d-block">Needs restock attention</small>
                     </div>
-                </div>
+                </a>
             </div>
             <div class="col-6 col-md-3">
-                <div class="card stat-card-dash h-100 border-0 shadow-sm">
-                    <div class="card-body p-3">
-                        <div class="d-flex justify-content-between align-items-center mb-1">
-                            <div>
-                                <div class="stat-label">Active Users</div>
-                                <div class="stat-value text-info"><?= $activeUsers ?></div>
+                <a href="users" class="stat-card-link" aria-label="View Active Registered Users">
+                    <div class="card stat-card-dash h-100 border-0 shadow-sm">
+                        <div class="card-body p-3">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <div>
+                                    <div class="stat-label">Active Users</div>
+                                    <div class="stat-value text-info"><?= $activeUsers ?></div>
+                                </div>
+                                <div class="stat-icon-circle bg-info-subtle"><i class="bi bi-people-fill text-info"></i></div>
                             </div>
-                            <div class="stat-icon-circle bg-info-subtle"><i class="bi bi-people-fill text-info"></i></div>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <small class="text-muted small">Registered accounts</small>
+                                <i class="bi bi-arrow-right-short text-info stat-arrow-hint"></i>
+                            </div>
                         </div>
-                        <small class="text-muted small d-block">Registered accounts</small>
                     </div>
-                </div>
+                </a>
             </div>
             <div class="col-6 col-md-3">
-                <div class="card stat-card-dash h-100 border-0 shadow-sm <?= $pendingApprovalRS > 0 ? 'stat-attention' : '' ?>">
-                    <div class="card-body p-3">
-                        <div class="d-flex justify-content-between align-items-center mb-1">
-                            <div>
-                                <div class="stat-label">Pending RS</div>
-                                <div class="stat-value text-warning"><?= $pendingApprovalRS ?></div>
+                <a href="requisitions" class="stat-card-link" aria-label="View Pending Requisitions">
+                    <div class="card stat-card-dash h-100 border-0 shadow-sm <?= $pendingApprovalRS > 0 ? 'stat-attention' : '' ?>">
+                        <div class="card-body p-3">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <div>
+                                    <div class="stat-label">Pending RS</div>
+                                    <div class="stat-value text-warning"><?= $pendingApprovalRS ?></div>
+                                </div>
+                                <div class="stat-icon-circle bg-warning-subtle"><i class="bi bi-file-earmark-check text-warning"></i></div>
                             </div>
-                            <div class="stat-icon-circle bg-warning-subtle"><i class="bi bi-file-earmark-check text-warning"></i></div>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <small class="text-muted small">Awaiting management review</small>
+                                <i class="bi bi-arrow-right-short text-warning stat-arrow-hint"></i>
+                            </div>
                         </div>
-                        <small class="text-muted small d-block">Awaiting management review</small>
                     </div>
-                </div>
+                </a>
             </div>
         <?php endif; ?>
 
@@ -766,6 +902,13 @@ include 'layout/header.php';
                         <?php endif; ?>
                     </div>
 
+                    <!-- EMPTY FILTER FEEDBACK -->
+                    <div class="text-center py-4 text-muted d-none" id="emptyFilterFeedback">
+                        <i class="bi bi-funnel fs-2 d-block mb-2 text-secondary opacity-50"></i>
+                        <span class="small fw-bold d-block text-secondary">No activity records match this filter</span>
+                        <button type="button" class="btn btn-xs btn-link text-decoration-none mt-1 fw-bold" onclick="showAllActivityHistory()">Show all activity</button>
+                    </div>
+
                 </div>
             </div>
         </div>
@@ -846,6 +989,7 @@ include 'layout/header.php';
             const filterBtns = document.querySelectorAll('.activity-filter-btn');
             const caughtUpView = document.getElementById('caughtUpView');
             const feedList = document.getElementById('activityFeedList');
+            const emptyFilter = document.getElementById('emptyFilterFeedback');
 
             filterBtns.forEach(btn => {
                 btn.addEventListener('click', function() {
@@ -884,12 +1028,111 @@ include 'layout/header.php';
                     if (filter === 'unread' && visibleCount === 0) {
                         if (caughtUpView) caughtUpView.classList.remove('d-none');
                         if (feedList) feedList.classList.add('d-none');
+                        if (emptyFilter) emptyFilter.classList.add('d-none');
+                    } else if (visibleCount === 0) {
+                        if (caughtUpView) caughtUpView.classList.add('d-none');
+                        if (feedList) feedList.classList.add('d-none');
+                        if (emptyFilter) emptyFilter.classList.remove('d-none');
                     } else {
                         if (caughtUpView) caughtUpView.classList.add('d-none');
                         if (feedList) feedList.classList.remove('d-none');
+                        if (emptyFilter) emptyFilter.classList.add('d-none');
                     }
                 });
             });
+        }
+
+        function initQuickActionsScroll() {
+            const track = document.getElementById('quickActionsTrack');
+            const prevBtn = document.getElementById('quickScrollPrev');
+            const nextBtn = document.getElementById('quickScrollNext');
+            if (!track || !prevBtn || !nextBtn) return;
+
+            function updateNavButtons() {
+                const hasOverflow = track.scrollWidth > track.clientWidth + 4;
+                if (!hasOverflow) {
+                    prevBtn.classList.add('d-none');
+                    nextBtn.classList.add('d-none');
+                    return;
+                }
+
+                const atStart = track.scrollLeft <= 6;
+                const atEnd = track.scrollLeft + track.clientWidth >= track.scrollWidth - 6;
+
+                if (atStart) {
+                    prevBtn.classList.add('d-none');
+                } else {
+                    prevBtn.classList.remove('d-none');
+                }
+
+                if (atEnd) {
+                    nextBtn.classList.add('d-none');
+                } else {
+                    nextBtn.classList.remove('d-none');
+                }
+            }
+
+            prevBtn.addEventListener('click', () => {
+                track.scrollBy({ left: -260, behavior: 'smooth' });
+            });
+
+            nextBtn.addEventListener('click', () => {
+                track.scrollBy({ left: 260, behavior: 'smooth' });
+            });
+
+            track.addEventListener('scroll', updateNavButtons, { passive: true });
+            window.addEventListener('resize', updateNavButtons, { passive: true });
+
+            // Drag-to-scroll for desktop mouse interaction
+            let isDown = false;
+            let startX = 0;
+            let scrollLeft = 0;
+            let hasDragged = false;
+
+            track.addEventListener('mousedown', (e) => {
+                isDown = true;
+                hasDragged = false;
+                startX = e.pageX - track.offsetLeft;
+                scrollLeft = track.scrollLeft;
+            });
+
+            track.addEventListener('mouseleave', () => {
+                isDown = false;
+                track.classList.remove('is-dragging');
+            });
+
+            track.addEventListener('mouseup', () => {
+                isDown = false;
+                setTimeout(() => {
+                    track.classList.remove('is-dragging');
+                    hasDragged = false;
+                }, 50);
+            });
+
+            track.addEventListener('mousemove', (e) => {
+                if (!isDown) return;
+                const x = e.pageX - track.offsetLeft;
+                const walk = (x - startX) * 1.3;
+                if (Math.abs(walk) > 6) {
+                    hasDragged = true;
+                    track.classList.add('is-dragging');
+                    e.preventDefault();
+                    track.scrollLeft = scrollLeft - walk;
+                }
+            });
+
+            // Prevent link navigation ONLY if the user actively dragged the track
+            track.querySelectorAll('.shortcut-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    if (hasDragged) {
+                        e.preventDefault();
+                        e.stopImmediatePropagation();
+                    }
+                });
+            });
+
+            // Initial check
+            setTimeout(updateNavButtons, 80);
         }
 
         if (document.readyState === 'loading') {
@@ -897,11 +1140,13 @@ include 'layout/header.php';
                 updateDashboardTime();
                 setInterval(updateDashboardTime, 1000);
                 initActivityFilters();
+                initQuickActionsScroll();
             });
         } else {
             updateDashboardTime();
             setInterval(updateDashboardTime, 1000);
             initActivityFilters();
+            initQuickActionsScroll();
         }
     })();
 </script>
