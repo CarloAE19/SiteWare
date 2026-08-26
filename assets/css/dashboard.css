@@ -341,10 +341,16 @@
     background: rgba(0, 0, 0, 0.02);
 }
 
+.stat-card-link:active .stat-card-dash {
+    transform: scale(0.985);
+    transition: transform 0.08s ease;
+}
+
 .activity-card-item {
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     border: 1px solid transparent;
     background: rgba(248, 249, 250, 0.7);
+    touch-action: manipulation;
 }
 
 .activity-card-item:hover {
@@ -352,6 +358,11 @@
     border-color: rgba(0, 51, 204, 0.15);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
     transform: translateX(3px);
+}
+
+.activity-card-item:active {
+    transform: scale(0.99);
+    transition: transform 0.08s ease;
 }
 
 .activity-card-item.activity-unread {
@@ -365,6 +376,21 @@
 
 .activity-card-item.activity-read:hover {
     opacity: 1;
+}
+
+/* Empty State Onboarding Card */
+.empty-onboarding-card {
+    background: #f8fafc;
+    border: 1.5px dashed #cbd5e1;
+    border-radius: 14px;
+    padding: 28px 20px;
+    text-align: center;
+    transition: all 0.25s ease;
+}
+
+[data-bs-theme="dark"] .empty-onboarding-card {
+    background: #1e1e2e;
+    border-color: #3f3f5a;
 }
 
 /* Caught Up View */
