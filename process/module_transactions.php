@@ -10,7 +10,7 @@ if (!isset($action)) {
 }
 
 // 1. Requisition Actions
-if (in_array($action, ['fetch_rs_data', 'fetch_rs_with_history', 'create_rs', 'approve_rs', 'stage_rs_materials', 'reject_rs'])) {
+if (in_array($action, ['fetch_rs_data', 'fetch_rs_with_history', 'create_rs', 'edit_rs', 'approve_rs', 'stage_rs_materials', 'reject_rs'])) {
     require __DIR__ . '/transactions/rs_actions.php';
 }
 // 2. Purchase Order Actions
