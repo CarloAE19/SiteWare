@@ -125,44 +125,71 @@ $units = $units ?? [];
                 </div>
 
                 <form method="POST" action="process/process.php" id="rsForm">
-                    <div class="modal-body bg-light p-4">
+                    <div class="modal-body bg-light p-3 p-md-4">
                         <input type="hidden" name="action" value="create_rs">
                         <input type="hidden" name="requestor_id" value="<?= $_SESSION['user_id'] ?>">
                         <input type="hidden" name="requestor_name" value="<?= htmlspecialchars($_SESSION['user_name']) ?>">
+                        <input type="hidden" name="rs_no" value="RS-<?= date('Y') ?>-<?= rand(1000, 9999) ?>">
 
-                        <div class="row mb-3">
-                            <div class="col-md-4 mb-3 mb-md-0">
-                                <label class="form-label fw-bold small text-muted text-uppercase">RS Number</label>
-                                <input type="text" class="form-control text-primary fw-bold bg-white" name="rs_no" value="RS-<?= date('Y') ?>-<?= rand(1000, 9999) ?>" readonly>
+                        <!-- 1. METADATA SUMMARY STRIP (HCI Information Chunking) -->
+                        <div class="card border-0 bg-white rounded-3 shadow-sm mb-3 p-3">
+                            <div class="row g-3 align-items-center">
+                                <div class="col-12 col-sm-6 col-md-4">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <div class="rounded-circle p-2 bg-primary bg-opacity-10 text-primary d-flex align-items-center justify-content-center" style="width: 38px; height: 38px;">
+                                            <i class="bi bi-file-earmark-text-fill"></i>
+                                        </div>
+                                        <div>
+                                            <span class="text-muted text-uppercase d-block" style="font-size: 0.7rem; font-weight: 700; letter-spacing: 0.5px;">RS Slip Number</span>
+                                            <span class="fw-bold text-primary" style="font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 0.92rem;">RS-<?= date('Y') ?>-<?= rand(1000, 9999) ?></span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-12 col-sm-6 col-md-4">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <div class="rounded-circle p-2 bg-secondary bg-opacity-10 text-secondary d-flex align-items-center justify-content-center" style="width: 38px; height: 38px;">
+                                            <i class="bi bi-calendar3"></i>
+                                        </div>
+                                        <div>
+                                            <span class="text-muted text-uppercase d-block" style="font-size: 0.7rem; font-weight: 700; letter-spacing: 0.5px;">Date Logged</span>
+                                            <span class="fw-bold text-dark" style="font-size: 0.88rem;"><?= date('M d, Y') ?></span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-12 col-md-4">
+                                    <label class="form-label fw-bold small text-muted text-uppercase mb-1" style="font-size: 0.7rem; letter-spacing: 0.5px;">Urgency Priority <span class="text-danger">*</span></label>
+                                    <select class="form-select form-select-sm fw-bold shadow-sm" name="urgency" required>
+                                        <option value="Normal">🟢 Normal Priority</option>
+                                        <option value="High">🟠 High Priority</option>
+                                    </select>
+                                </div>
                             </div>
-                            <div class="col-md-4 mb-3 mb-md-0">
-                                <label class="form-label fw-bold small text-muted text-uppercase">Date</label>
-                                <input type="text" class="form-control bg-white fw-bold text-muted" value="<?= date('M d, Y') ?>" readonly>
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label fw-bold small text-muted text-uppercase">Urgency</label>
-                                <select class="form-select fw-bold" name="urgency" required>
-                                    <option value="Normal">Normal</option>
-                                    <option value="High" class="text-danger">High</option>
+                        </div>
+
+                        <!-- 2. PROJECT DESTINATION -->
+                        <div class="mb-3">
+                            <label class="form-label fw-bold small text-muted text-uppercase">Project Name / Destination <span class="text-danger">*</span></label>
+                            <div class="input-group shadow-sm">
+                                <span class="input-group-text bg-white text-muted"><i class="bi bi-geo-alt-fill text-danger"></i></span>
+                                <select class="form-select fw-bold" name="project_name" required>
+                                    <option value="">Select Project...</option>
+                                    <?php foreach ($activeProjects as $proj): ?>
+                                        <option value="<?= htmlspecialchars($proj['project_name']) ?>"><?= htmlspecialchars($proj['project_name']) ?></option>
+                                    <?php endforeach; ?>
                                 </select>
                             </div>
                         </div>
 
-                        <div class="mb-4">
-                            <label class="form-label fw-bold small text-muted text-uppercase">Project Name / Purpose <span class="text-danger">*</span></label>
-                            <select class="form-select fw-bold" name="project_name" required>
-                                <option value="">Select Project...</option>
-                                <?php foreach ($activeProjects as $proj): ?>
-                                    <option value="<?= htmlspecialchars($proj['project_name']) ?>"><?= htmlspecialchars($proj['project_name']) ?></option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
-
-                        <div class="card border-0 shadow-sm mb-4">
-                            <div class="card-header bg-white fw-bold text-dark d-flex justify-content-between align-items-center flex-wrap gap-2 py-3">
-                                <span><i class="bi bi-box-seam me-2"></i>Requested Materials</span>
-                                <div>
-                                    <button type="button" class="btn btn-sm btn-outline-primary fw-bold me-1" id="addMaterialBtn">
+                        <!-- 3. REQUESTED MATERIALS SECTION -->
+                        <div class="card border-0 shadow-sm mb-3">
+                            <div class="card-header bg-white fw-bold text-dark d-flex justify-content-between align-items-center flex-wrap gap-2 py-2.5">
+                                <div class="d-flex align-items-center gap-2">
+                                    <i class="bi bi-box-seam text-primary"></i>
+                                    <span>Requested Materials</span>
+                                    <span class="badge bg-primary rounded-pill material-count-badge" style="font-size: 0.72rem;">1 Item</span>
+                                </div>
+                                <div class="d-flex gap-1.5 flex-wrap">
+                                    <button type="button" class="btn btn-sm btn-outline-primary fw-bold" id="addMaterialBtn">
                                         <i class="bi bi-plus-lg me-1"></i> Add Existing Item
                                     </button>
                                     <button type="button" class="btn btn-sm btn-success fw-bold text-white shadow-sm" id="addNewMaterialBtn">
@@ -171,13 +198,20 @@ $units = $units ?? [];
                                 </div>
                             </div>
                             <div class="card-body p-3 bg-light" id="materialsContainer">
-                                <div class="material-row mb-2 bg-white p-3 rounded border shadow-sm mx-0">
+                                <div class="material-row mb-2.5 bg-white p-3 rounded border shadow-sm mx-0">
                                     <input type="hidden" name="is_new_items[]" value="0">
                                     <input type="hidden" name="new_item_names[]" value="">
                                     <input type="hidden" name="new_categories[]" value="">
                                     <input type="hidden" name="new_units[]" value="">
+                                    
+                                    <div class="d-flex justify-content-between align-items-center mb-2 pb-1 border-bottom">
+                                        <span class="badge bg-light text-dark border small fw-bold row-index-badge"><i class="bi bi-box me-1 text-primary"></i>Item #1</span>
+                                        <span class="small text-muted fst-italic item-stock-hint" style="font-size: 0.75rem;"></span>
+                                    </div>
+
                                     <div class="row g-2">
                                         <div class="col-12 col-md-8">
+                                            <label class="form-label small fw-bold text-muted mb-1">Select Material <span class="text-danger">*</span></label>
                                             <select class="form-select fw-bold text-dark item-select-control" name="items[]" required>
                                                 <option value="">Select Material from Inventory...</option>
                                                 <?php foreach ($inventoryItems as $item): ?>
@@ -188,13 +222,14 @@ $units = $units ?? [];
                                             </select>
                                         </div>
                                         <div class="col-12 col-md-4">
+                                            <label class="form-label small fw-bold text-muted mb-1">Quantity <span class="text-danger">*</span></label>
                                             <div class="input-group">
-                                                <input type="number" class="form-control fw-bold text-center text-primary item-qty-input" name="quantities[]" placeholder="Qty" required min="1">
+                                                <input type="number" class="form-control fw-bold text-center text-primary item-qty-input" name="quantities[]" placeholder="Qty" required min="1" step="any">
                                                 <span class="input-group-text bg-light text-muted small fw-bold item-unit-badge" style="min-width: 55px; font-size: 0.72rem;">Unit</span>
                                             </div>
                                         </div>
                                         <div class="col-12 mt-2">
-                                            <input type="text" class="form-control form-control-sm text-muted" name="item_notes[]" placeholder="Optional: Notes for this item (e.g. specific brand, size, color)..." maxlength="255">
+                                            <input type="text" class="form-control form-control-sm text-muted" name="item_notes[]" placeholder="Optional: Notes for this item (e.g. specific brand, size, color, purpose)..." maxlength="255">
                                         </div>
                                     </div>
                                     <div class="d-flex justify-content-end mt-2 pt-2 border-top">
@@ -206,13 +241,14 @@ $units = $units ?? [];
                             </div>
                         </div>
 
+                        <!-- 4. REMARKS / NOTES -->
                         <div>
-                            <label class="form-label fw-bold small text-muted text-uppercase">Remarks / Notes</label>
-                            <textarea class="form-control" name="remarks" rows="2" placeholder="Optional overall notes for reviewer..."></textarea>
+                            <label class="form-label fw-bold small text-muted text-uppercase">General Requisition Remarks / Notes</label>
+                            <textarea class="form-control" name="remarks" rows="2" placeholder="Optional overall notes for reviewer or project instructions..."></textarea>
                         </div>
                     </div>
 
-                    <div class="modal-footer border-top-0 bg-white d-flex justify-content-between">
+                    <div class="modal-footer border-top-0 bg-white d-flex justify-content-between p-3">
                         <button type="button" class="btn btn-light text-muted fw-bold px-4" data-bs-dismiss="modal">Cancel</button>
                         <button type="submit" class="btn btn-brand fw-bold px-4 shadow-sm" id="rsSubmitBtn"><i class="bi bi-send me-2"></i>Submit Request</button>
                     </div>
@@ -244,11 +280,15 @@ $units = $units ?? [];
                             </div>
                         </div>
 
-                        <div class="card border-0 shadow-sm mb-4">
-                            <div class="card-header bg-white fw-bold text-dark d-flex justify-content-between align-items-center flex-wrap gap-2 py-3">
-                                <span><i class="bi bi-boxes me-2"></i>Items to Restock</span>
-                                <div>
-                                    <button type="button" class="btn btn-sm btn-outline-primary fw-bold me-1" id="addRestockMaterialBtn">
+                        <div class="card border-0 shadow-sm mb-3">
+                            <div class="card-header bg-white fw-bold text-dark d-flex justify-content-between align-items-center flex-wrap gap-2 py-2.5">
+                                <div class="d-flex align-items-center gap-2">
+                                    <i class="bi bi-boxes text-primary"></i>
+                                    <span>Items to Restock</span>
+                                    <span class="badge bg-primary rounded-pill material-count-badge" style="font-size: 0.72rem;">1 Item</span>
+                                </div>
+                                <div class="d-flex gap-1.5 flex-wrap">
+                                    <button type="button" class="btn btn-sm btn-outline-primary fw-bold" id="addRestockMaterialBtn">
                                         <i class="bi bi-plus-lg me-1"></i> Add Existing Item
                                     </button>
                                     <button type="button" class="btn btn-sm btn-success fw-bold text-white shadow-sm" id="addNewRestockMaterialBtn">
@@ -257,13 +297,20 @@ $units = $units ?? [];
                                 </div>
                             </div>
                             <div class="card-body p-3 bg-light" id="restockMaterialsContainer">
-                                <div class="material-row mb-2 bg-white p-3 rounded border shadow-sm mx-0">
+                                <div class="material-row mb-2.5 bg-white p-3 rounded border shadow-sm mx-0">
                                     <input type="hidden" name="is_new_items[]" value="0">
                                     <input type="hidden" name="new_item_names[]" value="">
                                     <input type="hidden" name="new_categories[]" value="">
                                     <input type="hidden" name="new_units[]" value="">
+
+                                    <div class="d-flex justify-content-between align-items-center mb-2 pb-1 border-bottom">
+                                        <span class="badge bg-light text-dark border small fw-bold row-index-badge"><i class="bi bi-box me-1 text-primary"></i>Item #1</span>
+                                        <span class="small text-muted fst-italic item-stock-hint" style="font-size: 0.75rem;"></span>
+                                    </div>
+
                                     <div class="row g-2">
                                         <div class="col-12 col-md-8">
+                                            <label class="form-label small fw-bold text-muted mb-1">Select Material <span class="text-danger">*</span></label>
                                             <select class="form-select fw-bold text-dark item-select-control" name="items[]" required>
                                                 <option value="">Select Material from Inventory...</option>
                                                 <?php foreach ($inventoryItems as $item): ?>
@@ -274,8 +321,9 @@ $units = $units ?? [];
                                             </select>
                                         </div>
                                         <div class="col-12 col-md-4">
+                                            <label class="form-label small fw-bold text-muted mb-1">Target Quantity <span class="text-danger">*</span></label>
                                             <div class="input-group">
-                                                <input type="number" class="form-control fw-bold text-center text-primary item-qty-input" name="quantities[]" placeholder="Qty" required min="1">
+                                                <input type="number" class="form-control fw-bold text-center text-primary item-qty-input" name="quantities[]" placeholder="Qty" required min="1" step="any">
                                                 <span class="input-group-text bg-light text-muted small fw-bold item-unit-badge" style="min-width: 55px; font-size: 0.72rem;">Unit</span>
                                             </div>
                                         </div>
@@ -293,12 +341,12 @@ $units = $units ?? [];
                         </div>
 
                         <div>
-                            <label class="form-label fw-bold small text-muted text-uppercase">Remarks / Notes</label>
+                            <label class="form-label fw-bold small text-muted text-uppercase">General Restock Remarks / Notes</label>
                             <textarea class="form-control" name="remarks" rows="2" placeholder="Explain the restock need (e.g. low stock, new material requirement)..."></textarea>
                         </div>
 
                     </div>
-                    <div class="modal-footer border-top-0 bg-white">
+                    <div class="modal-footer border-top-0 bg-white d-flex justify-content-between p-3">
                         <button type="button" class="btn btn-light text-muted fw-bold px-4" data-bs-dismiss="modal">Cancel</button>
                         <button type="submit" class="btn btn-brand fw-bold px-4 shadow-sm" id="restockSubmitBtn"><i class="bi bi-send me-2"></i>Submit Restock Request</button>
                     </div>
@@ -308,6 +356,14 @@ $units = $units ?? [];
     </div>
 
     <!-- Hidden templates for JS to clone available options -->
+    <select id="jsInventoryOptionsTemplate" class="d-none">
+        <option value="">Select Material from Inventory...</option>
+        <?php foreach ($inventoryItems as $item): ?>
+            <option value="<?= $item['item_code'] ?>" data-unit="<?= htmlspecialchars($item['unit'] ?? '') ?>">
+                [<?= $item['item_code'] ?>] <?= htmlspecialchars($item['item_name']) ?><?= !empty($item['unit']) ? ' (' . htmlspecialchars($item['unit']) . ')' : '' ?>
+            </option>
+        <?php endforeach; ?>
+    </select>
     <select id="jsCategoryOptionsTemplate" class="d-none">
         <?php foreach ($categories as $cat): ?>
             <option value="<?= htmlspecialchars($cat['category_name']) ?>"><?= htmlspecialchars($cat['category_name']) ?></option>
@@ -386,10 +442,10 @@ $units = $units ?? [];
                             <input type="text" class="form-control text-primary fw-bold bg-white" id="editRsNoInput" readonly>
                         </div>
                         <div class="col-md-4 mb-3 mb-md-0">
-                            <label class="form-label fw-bold small text-muted text-uppercase">Urgency</label>
+                            <label class="form-label fw-bold small text-muted text-uppercase">Urgency Priority <span class="text-danger">*</span></label>
                             <select class="form-select fw-bold" name="urgency" id="editRsUrgency" required>
-                                <option value="Normal">Normal</option>
-                                <option value="High" class="text-danger">High</option>
+                                <option value="Normal">🟢 Normal Priority</option>
+                                <option value="High">🟠 High Priority</option>
                             </select>
                         </div>
                         <div class="col-md-4">
