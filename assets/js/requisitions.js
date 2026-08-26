@@ -330,25 +330,7 @@ window.rsGlobalClickListener = function(e) {
     const editContainer = document.getElementById('editMaterialsContainer');
 
     if (e.target.closest('#addMaterialBtn') && container) {
-        const stdRow = container.querySelector('.material-row:not(.new-item-row)');
-        if (stdRow) {
-            const newRow = stdRow.cloneNode(true);
-            const select = newRow.querySelector('select[name="items[]"]');
-            if (select) select.value = '';
-            const qtyInput = newRow.querySelector('input[name="quantities[]"]');
-            if (qtyInput) qtyInput.value = '';
-            const notesInput = newRow.querySelector('input[name="item_notes[]"]');
-            if (notesInput) notesInput.value = '';
-            const unitBadge = newRow.querySelector('.item-unit-badge');
-            if (unitBadge) {
-                unitBadge.textContent = 'Unit';
-                unitBadge.classList.remove('text-primary');
-                unitBadge.classList.add('text-muted');
-            }
-            newRow.querySelector('.remove-row').disabled = false;
-            container.appendChild(newRow);
-        }
-        window.updateDeleteButtons(container);
+        window.appendExistingItemRow(container, false);
     }
 
     if (e.target.closest('#addNewMaterialBtn') && container) {
@@ -356,25 +338,7 @@ window.rsGlobalClickListener = function(e) {
     }
 
     if (e.target.closest('#addRestockMaterialBtn') && restockContainer) {
-        const stdRow = restockContainer.querySelector('.material-row:not(.new-item-row)');
-        if (stdRow) {
-            const newRow = stdRow.cloneNode(true);
-            const select = newRow.querySelector('select[name="items[]"]');
-            if (select) select.value = '';
-            const qtyInput = newRow.querySelector('input[name="quantities[]"]');
-            if (qtyInput) qtyInput.value = '';
-            const notesInput = newRow.querySelector('input[name="item_notes[]"]');
-            if (notesInput) notesInput.value = '';
-            const unitBadge = newRow.querySelector('.item-unit-badge');
-            if (unitBadge) {
-                unitBadge.textContent = 'Unit';
-                unitBadge.classList.remove('text-primary');
-                unitBadge.classList.add('text-muted');
-            }
-            newRow.querySelector('.remove-row').disabled = false;
-            restockContainer.appendChild(newRow);
-        }
-        window.updateDeleteButtons(restockContainer);
+        window.appendExistingItemRow(restockContainer, true);
     }
 
     if (e.target.closest('#addNewRestockMaterialBtn') && restockContainer) {
@@ -382,25 +346,7 @@ window.rsGlobalClickListener = function(e) {
     }
 
     if (e.target.closest('#addEditMaterialBtn') && editContainer) {
-        const stdRow = document.querySelector('#materialsContainer .material-row:not(.new-item-row)');
-        if (stdRow) {
-            const newRow = stdRow.cloneNode(true);
-            const select = newRow.querySelector('select[name="items[]"]');
-            if (select) select.value = '';
-            const qtyInput = newRow.querySelector('input[name="quantities[]"]');
-            if (qtyInput) qtyInput.value = '';
-            const notesInput = newRow.querySelector('input[name="item_notes[]"]');
-            if (notesInput) notesInput.value = '';
-            const unitBadge = newRow.querySelector('.item-unit-badge');
-            if (unitBadge) {
-                unitBadge.textContent = 'Unit';
-                unitBadge.classList.remove('text-primary');
-                unitBadge.classList.add('text-muted');
-            }
-            newRow.querySelector('.remove-row').disabled = false;
-            editContainer.appendChild(newRow);
-        }
-        window.updateDeleteButtons(editContainer);
+        window.appendExistingItemRow(editContainer, false);
     }
 
     if (e.target.closest('#addNewEditMaterialBtn') && editContainer) {
@@ -419,23 +365,110 @@ window.rsGlobalClickListener = function(e) {
 
 document.body.addEventListener('click', window.rsGlobalClickListener);
 
-// Sync unit badge next to quantity field when an item is selected
+// Function to append an existing inventory material row (works even if all standard rows were deleted)
+window.appendExistingItemRow = function(container, isRestock = false) {
+    if (!container) return null;
+
+    const invTemplate = document.getElementById('jsInventoryOptionsTemplate');
+    let optionsHtml = invTemplate ? invTemplate.innerHTML : '';
+    if (!optionsHtml) {
+        const existingSelect = document.querySelector('select[name="items[]"]');
+        if (existingSelect) {
+            optionsHtml = existingSelect.innerHTML;
+        } else {
+            optionsHtml = '<option value="">Select Material from Inventory...</option>';
+        }
+    }
+
+    const placeholderText = isRestock 
+        ? 'Optional: Notes for this item (e.g. target quantity, reason for restock)...' 
+        : 'Optional: Notes for this item (e.g. specific brand, size, color, purpose)...';
+
+    const row = document.createElement('div');
+    row.className = 'material-row mb-2.5 bg-white p-3 rounded border shadow-sm mx-0';
+    row.innerHTML = `
+        <input type="hidden" name="is_new_items[]" value="0">
+        <input type="hidden" name="new_item_names[]" value="">
+        <input type="hidden" name="new_categories[]" value="">
+        <input type="hidden" name="new_units[]" value="">
+        
+        <div class="d-flex justify-content-between align-items-center mb-2 pb-1 border-bottom">
+            <span class="badge bg-light text-dark border small fw-bold row-index-badge"><i class="bi bi-box me-1 text-primary"></i>Item</span>
+            <span class="small text-muted fst-italic item-stock-hint" style="font-size: 0.75rem;"></span>
+        </div>
+
+        <div class="row g-2">
+            <div class="col-12 col-md-8">
+                <label class="form-label small fw-bold text-muted mb-1">Select Material <span class="text-danger">*</span></label>
+                <select class="form-select fw-bold text-dark item-select-control" name="items[]" required>
+                    ${optionsHtml}
+                </select>
+            </div>
+            <div class="col-12 col-md-4">
+                <label class="form-label small fw-bold text-muted mb-1">Quantity <span class="text-danger">*</span></label>
+                <div class="input-group">
+                    <input type="number" class="form-control fw-bold text-center text-primary item-qty-input" name="quantities[]" placeholder="Qty" required min="1" step="any">
+                    <span class="input-group-text bg-light text-muted small fw-bold item-unit-badge" style="min-width: 55px; font-size: 0.72rem;">Unit</span>
+                </div>
+            </div>
+            <div class="col-12 mt-2">
+                <input type="text" class="form-control form-control-sm text-muted" name="item_notes[]" placeholder="${placeholderText}" maxlength="255">
+            </div>
+        </div>
+        <div class="d-flex justify-content-end mt-2 pt-2 border-top">
+            <button type="button" class="btn btn-sm btn-outline-danger remove-row" aria-label="Remove item" title="Remove item">
+                <i class="bi bi-trash3 me-1" aria-hidden="true"></i>Remove Item
+            </button>
+        </div>
+    `;
+    container.appendChild(row);
+    window.updateDeleteButtons(container);
+    return row;
+};
+
+// Sync unit badge next to quantity field when an item is selected & check duplicates
 window.syncRowUnitBadge = function(selectEl) {
     if (!selectEl) return;
     const row = selectEl.closest('.material-row');
     if (!row) return;
     const unitBadge = row.querySelector('.item-unit-badge');
-    if (!unitBadge) return;
     const selectedOption = selectEl.options[selectEl.selectedIndex];
     const unit = selectedOption ? (selectedOption.getAttribute('data-unit') || '') : '';
-    if (unit) {
-        unitBadge.textContent = unit;
-        unitBadge.classList.remove('text-muted');
-        unitBadge.classList.add('text-primary');
-    } else {
-        unitBadge.textContent = 'Unit';
-        unitBadge.classList.remove('text-primary');
-        unitBadge.classList.add('text-muted');
+    
+    if (unitBadge) {
+        if (unit) {
+            unitBadge.textContent = unit;
+            unitBadge.classList.remove('text-muted');
+            unitBadge.classList.add('text-primary');
+        } else {
+            unitBadge.textContent = 'Unit';
+            unitBadge.classList.remove('text-primary');
+            unitBadge.classList.add('text-muted');
+        }
+    }
+
+    // Check for duplicate material selections in the same container (HCI Error Prevention)
+    const container = row.closest('#materialsContainer, #restockMaterialsContainer, #editMaterialsContainer');
+    if (container && selectEl.value) {
+        const selects = container.querySelectorAll('select[name="items[]"]');
+        let count = 0;
+        selects.forEach(s => {
+            if (s.value && s.value === selectEl.value) count++;
+        });
+
+        if (count > 1) {
+            row.classList.add('border-warning');
+            let dupWarning = row.querySelector('.dup-warning-pill');
+            if (!dupWarning) {
+                dupWarning = document.createElement('span');
+                dupWarning.className = 'badge bg-warning text-dark small fw-bold dup-warning-pill ms-2';
+                dupWarning.innerHTML = '<i class="bi bi-exclamation-circle me-1"></i>Duplicate Item';
+                row.querySelector('.row-index-badge')?.parentElement.appendChild(dupWarning);
+            }
+        } else {
+            row.classList.remove('border-warning');
+            row.querySelector('.dup-warning-pill')?.remove();
+        }
     }
 };
 
@@ -446,7 +479,7 @@ document.addEventListener('change', function(e) {
 });
 
 window.appendNewItemRow = function(container) {
-    if (!container) return;
+    if (!container) return null;
 
     const catTemplate = document.getElementById('jsCategoryOptionsTemplate');
     const unitTemplate = document.getElementById('jsUnitOptionsTemplate');
@@ -455,57 +488,89 @@ window.appendNewItemRow = function(container) {
     const unitHtml = unitTemplate ? unitTemplate.innerHTML : '<option value="Pieces">Pieces</option>';
 
     const row = document.createElement('div');
-    row.className = 'material-row new-item-row mb-2 bg-white p-3 rounded border border-success shadow-sm mx-0';
+    row.className = 'material-row new-item-row mb-2.5 bg-white p-3 rounded border border-success shadow-sm mx-0';
     row.innerHTML = `
         <input type="hidden" name="is_new_items[]" value="1">
         <input type="hidden" name="items[]" value="">
-        <div class="d-flex justify-content-between align-items-center mb-2">
-            <span class="badge bg-success shadow-sm"><i class="bi bi-plus-circle me-1"></i> New Item / Unlisted Material</span>
+        <div class="d-flex justify-content-between align-items-center mb-2 pb-1 border-bottom">
+            <span class="badge bg-success shadow-sm row-index-badge"><i class="bi bi-plus-circle me-1"></i>New Item / Unlisted Material</span>
             <button type="button" class="btn btn-sm btn-outline-danger remove-row"><i class="bi bi-trash3 me-1"></i> Remove</button>
         </div>
         <div class="row g-2">
-            <div class="col-md-5">
+            <div class="col-12 col-md-5">
                 <label class="form-label small fw-bold text-muted mb-1">Item Name <span class="text-danger">*</span></label>
                 <input type="text" class="form-control form-control-sm fw-bold" name="new_item_names[]" placeholder="e.g. Solar Panel Mounting Bracket" required>
             </div>
-            <div class="col-md-3">
+            <div class="col-12 col-sm-6 col-md-3">
                 <label class="form-label small fw-bold text-muted mb-1">Category <span class="text-danger">*</span></label>
                 <select class="form-select form-select-sm fw-bold" name="new_categories[]" required>
                     ${catHtml}
                 </select>
             </div>
-            <div class="col-md-2">
+            <div class="col-6 col-sm-3 col-md-2">
                 <label class="form-label small fw-bold text-muted mb-1">Unit <span class="text-danger">*</span></label>
                 <select class="form-select form-select-sm fw-bold" name="new_units[]" required>
                     ${unitHtml}
                 </select>
             </div>
-            <div class="col-md-2">
+            <div class="col-6 col-sm-3 col-md-2">
                 <label class="form-label small fw-bold text-muted mb-1">Qty <span class="text-danger">*</span></label>
-                <input type="number" class="form-control form-control-sm fw-bold text-center text-primary" name="quantities[]" placeholder="Qty" required min="1">
+                <input type="number" class="form-control form-control-sm fw-bold text-center text-primary" name="quantities[]" placeholder="Qty" required min="1" step="any">
             </div>
         </div>
         <div class="mt-2">
-            <input type="text" class="form-control form-control-sm text-muted" name="item_notes[]" placeholder="Optional: Notes for this item..." maxlength="255">
+            <input type="text" class="form-control form-control-sm text-muted" name="item_notes[]" placeholder="Optional: Notes for this item (e.g. brand, specs)..." maxlength="255">
         </div>
     `;
     container.appendChild(row);
     window.updateDeleteButtons(container);
+    return row;
 };
 
 window.updateDeleteButtons = function(container) {
     if (!container) return;
     const rows = container.querySelectorAll('.material-row');
-    if (rows.length === 1) {
-        const btn = rows[0].querySelector('.remove-row');
-        if (btn) btn.disabled = true;
-    } else {
-        rows.forEach(row => {
-            const btn = row.querySelector('.remove-row');
-            if (btn) btn.disabled = false;
-        });
+    
+    // Update live item count badge in the modal card header
+    const modal = container.closest('.modal');
+    if (modal) {
+        const countBadge = modal.querySelector('.material-count-badge');
+        if (countBadge) {
+            countBadge.textContent = `${rows.length} ${rows.length === 1 ? 'Item' : 'Items'}`;
+        }
     }
+
+    rows.forEach((row, index) => {
+        // Update item index label for standard rows
+        if (!row.classList.contains('new-item-row')) {
+            const indexBadge = row.querySelector('.row-index-badge');
+            if (indexBadge) {
+                indexBadge.innerHTML = `<i class="bi bi-box me-1 text-primary"></i>Item #${index + 1}`;
+            }
+        }
+
+        const btn = row.querySelector('.remove-row');
+        if (btn) {
+            btn.disabled = (rows.length === 1);
+        }
+    });
 };
+
+// Form submission feedback and double-click prevention (HCI Usability Principle)
+document.addEventListener('DOMContentLoaded', function() {
+    ['rsForm', 'restockForm', 'editRsForm'].forEach(formId => {
+        const form = document.getElementById(formId);
+        if (form) {
+            form.addEventListener('submit', function(e) {
+                const submitBtn = this.querySelector('button[type="submit"]');
+                if (submitBtn && !submitBtn.disabled) {
+                    submitBtn.disabled = true;
+                    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Submitting...';
+                }
+            });
+        }
+    });
+});
 
 // --- EDIT & RESUBMIT REQUISITION MODAL ---
 window.openEditRsModal = function(rsId, rsNo, project, urgency, remarks, itemsB64, type) {
@@ -588,9 +653,8 @@ window.openEditRsModal = function(rsId, rsNo, project, urgency, remarks, itemsB6
                             if (unitSel) unitSel.value = item.new_unit || item.unit;
                         }
                     } else {
-                        const stdTemplate = document.querySelector('#materialsContainer .material-row:not(.new-item-row)');
-                        if (stdTemplate) {
-                            const row = stdTemplate.cloneNode(true);
+                        const row = window.appendExistingItemRow(container, false);
+                        if (row) {
                             const select = row.querySelector('select[name="items[]"]');
                             if (select) {
                                 select.value = item.item_code;
@@ -600,8 +664,6 @@ window.openEditRsModal = function(rsId, rsNo, project, urgency, remarks, itemsB6
                             if (qtyInput) qtyInput.value = qty;
                             const notesInput = row.querySelector('input[name="item_notes[]"]');
                             if (notesInput) notesInput.value = note;
-                            row.querySelector('.remove-row').disabled = false;
-                            container.appendChild(row);
                         }
                     }
                 });
