@@ -41,3 +41,10 @@ Follow these strict standards across all tasks, edits, and recommendations for t
 - **Input Validation & Whitelisting:** Strictly sanitize, type-cast (`(int)`, `(float)`), and validate incoming parameters. Whitelist allowed statuses, action types, and sorting columns.
 - **Atomic Transactions for Data Integrity:** Use database transactions (`beginTransaction()`, `commit()`, `rollBack()`) for multi-step mutations (e.g. stock level deductions, requisition status updates, and audit trail logging) to prevent orphaned or corrupt states.
 - **Safe Error Handling:** Never output raw database errors or stack traces to end users. Log details securely on the server and return clean, friendly error messages.
+
+## 6. Object-Oriented Programming (OOP) & Clean Code Architecture
+- **Encapsulation & Modularity:** Structure backend logic, models, controllers, and services into well-defined classes with proper access modifiers (`private`, `protected`, `public`). Avoid scattered, monolithic procedural code.
+- **Single Responsibility Principle (SRP):** Each class and method should have one clear responsibility (e.g. data access/models, business workflows/services, request routing/controllers).
+- **Reusability & DRY (Don't Repeat Yourself):** Abstract shared logic (database access, permission checks, JSON response formatting, audit logging) into reusable classes, base classes, or traits rather than duplicating code across multiple scripts.
+- **Clear Contracts & Type Hinting:** Use descriptive naming conventions (PascalCase for classes, camelCase for methods/variables), parameter type declarations (`int`, `string`, `array`, `?object`), and explicit return types where applicable.
+- **Separation of Concerns:** Keep business logic and database queries decoupled from presentation/HTML views to ensure maintainability, testability, and clean code organization.
