@@ -257,14 +257,25 @@ elseif ($action === 'create_rs') {
         sendPushNotification($pdo, 'Requisition Conflict Alert', $msgToAdmin, 'admin', null);
     }
 
-    $pdo->commit();
+        $pdo->commit();
 
-    $_SESSION['message'] = ($type === 'restock')
-        ? "Restock request created successfully and sent to Management for approval."
-        : "Requisition created successfully and sent to Management for approval.";
-    $_SESSION['msg_type'] = "success";
-    header("Location: ../requisitions");
-    exit;
+        $successMsg = ($type === 'restock')
+            ? "Restock request created successfully and sent to Management for approval."
+            : "Requisition created successfully and sent to Management for approval.";
+
+        if (!empty($is_ajax)) {
+            echo json_encode([
+                'status' => 'success',
+                'success' => true,
+                'message' => $successMsg
+            ]);
+            exit;
+        }
+
+        $_SESSION['message'] = $successMsg;
+        $_SESSION['msg_type'] = "success";
+        header("Location: ../requisitions");
+        exit;
     } catch (Exception $e) {
         if ($pdo->inTransaction()) {
             $pdo->rollBack();
@@ -293,14 +304,20 @@ elseif ($action === 'approve_rs') {
     try {
         $pdo->beginTransaction();
 
-        // Update each item row
+        // Update each item row (including any typo corrections made by management for unlisted items)
         $itemUpdateStmt = $pdo->prepare(
-            "UPDATE requisition_items SET item_status = ?, item_remarks = ? WHERE id = ? AND requisition_id = ?"
+            "UPDATE requisition_items 
+             SET item_status = ?, 
+                 item_remarks = ?,
+                 new_item_name = CASE WHEN ? IS NOT NULL AND ? != '' THEN ? ELSE new_item_name END
+             WHERE id = ? AND requisition_id = ?"
         );
+        $itemNames = $_POST['item_names'] ?? [];
         foreach ($itemStatuses as $itemId => $status) {
             $remark = trim($itemRemarks[$itemId] ?? '');
             $cleanStatus = in_array($status, ['Approved', 'Rejected']) ? $status : 'Approved';
-            $itemUpdateStmt->execute([$cleanStatus, $remark ?: null, (int)$itemId, $rs_id]);
+            $correctedName = isset($itemNames[$itemId]) ? trim($itemNames[$itemId]) : null;
+            $itemUpdateStmt->execute([$cleanStatus, $remark ?: null, $correctedName, $correctedName, $correctedName, (int)$itemId, $rs_id]);
         }
 
     // Derive RS-level status
@@ -451,4 +468,127 @@ elseif ($action === 'reject_rs') {
     $_SESSION['msg_type'] = "danger";
     header("Location: ../requisitions");
     exit;
+}
+
+// --- EDIT & RESUBMIT REQUISITION ---
+elseif ($action === 'edit_rs') {
+    $rs_id = (int)($_POST['rs_id'] ?? 0);
+    if (!$rs_id) {
+        throw new Exception("Invalid requisition ID.");
+    }
+
+    $rsStmt = $pdo->prepare("SELECT * FROM requisitions WHERE id = ?");
+    $rsStmt->execute([$rs_id]);
+    $rs = $rsStmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$rs) {
+        throw new Exception("Requisition not found.");
+    }
+
+    $currentUserId = (int)($_SESSION['user_id'] ?? 0);
+    $userRole = $_SESSION['user_role'] ?? '';
+
+    // Authorization: Owner or Management/Admin
+    $isOwner = ((int)$rs['requestor_id'] === $currentUserId);
+    $isManagement = in_array($userRole, ['management', 'admin']);
+
+    if (!$isOwner && !$isManagement) {
+        throw new Exception("Unauthorized to edit this requisition.");
+    }
+
+    // Only allow editing pending or rejected requisitions
+    if (!in_array($rs['status'], ['Pending Approval', 'Rejected'])) {
+        throw new Exception("Only Pending or Rejected requisitions can be edited.");
+    }
+
+    $projectName = trim($_POST['project_name'] ?? $rs['project_name']);
+    $urgency = trim($_POST['urgency'] ?? $rs['urgency']);
+    $remarks = trim($_POST['remarks'] ?? '');
+
+    $wasRejected = ($rs['status'] === 'Rejected');
+    $newStatus = 'Pending Approval'; // Resets to Pending Approval upon resubmission
+
+    try {
+        $pdo->beginTransaction();
+
+        $updateStmt = $pdo->prepare("
+            UPDATE requisitions 
+            SET project_name = ?, urgency = ?, remarks = ?, status = ? 
+            WHERE id = ?
+        ");
+        $updateStmt->execute([$projectName, $urgency, $remarks, $newStatus, $rs_id]);
+
+        // Delete existing items and re-insert updated items
+        $pdo->prepare("DELETE FROM requisition_items WHERE requisition_id = ?")->execute([$rs_id]);
+
+        $items = $_POST['items'] ?? [];
+        $quantities = $_POST['quantities'] ?? [];
+        $isNewItems = $_POST['is_new_items'] ?? [];
+        $newItemNames = $_POST['new_item_names'] ?? [];
+        $newCategories = $_POST['new_categories'] ?? [];
+        $newUnits = $_POST['new_units'] ?? [];
+        $itemNotes = $_POST['item_notes'] ?? [];
+
+        $itemStmt = $pdo->prepare("
+            INSERT INTO requisition_items (requisition_id, item_code, quantity, is_new_item, new_item_name, new_category, new_unit, item_notes, item_status) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Pending')
+        ");
+
+        for ($i = 0; $i < count($items); $i++) {
+            $isNew = !empty($isNewItems[$i]) ? 1 : 0;
+            $code = trim($items[$i] ?? '');
+            $qty = (int)($quantities[$i] ?? 0);
+            $name = $isNew ? trim($newItemNames[$i] ?? '') : null;
+            $cat = $isNew ? trim($newCategories[$i] ?? 'Materials') : null;
+            $unit = $isNew ? trim($newUnits[$i] ?? 'pcs') : null;
+            $note = trim($itemNotes[$i] ?? '') ?: null;
+
+            if ($isNew && empty($code)) {
+                $code = 'ITM-' . rand(1000, 9999);
+            }
+
+            if ($qty > 0 && (!empty($code) || !empty($name))) {
+                $itemStmt->execute([
+                    $rs_id,
+                    $code,
+                    $qty,
+                    $isNew,
+                    $name,
+                    $cat,
+                    $unit,
+                    $note
+                ]);
+            }
+        }
+
+        // Notify management if resubmitted from rejected
+        if ($wasRejected) {
+            $notifMsg = "Requisition {$rs['rs_no']} was updated and resubmitted by {$rs['requestor_name']} for approval.";
+            $pdo->prepare("INSERT INTO notifications (target_role, title, message) VALUES ('management', 'Requisition Resubmitted', ?)")
+                ->execute([$notifMsg]);
+            sendPushNotification($pdo, 'Requisition Resubmitted', $notifMsg, 'management');
+        }
+
+        $pdo->commit();
+
+        if (!empty($is_ajax)) {
+            echo json_encode([
+                'status' => 'success', 
+                'success' => true, 
+                'message' => "Requisition {$rs['rs_no']} updated and resubmitted successfully."
+            ]);
+            exit;
+        }
+
+        $_SESSION['message'] = "Requisition {$rs['rs_no']} updated successfully.";
+        $_SESSION['msg_type'] = "success";
+        header("Location: ../requisitions");
+        exit;
+
+    } catch (Exception $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        throw $e;
+    }
 }
