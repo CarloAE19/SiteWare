@@ -340,7 +340,12 @@
                         style="font-size: 0.6rem; background-color: #f1f3f5; color: #4f5d75; font-weight: 700; letter-spacing: 0.5px; padding: 0.3em 0.6em; display: inline-block;">BETA</span>
                 </div>
             </div>
-            <button type="button" id="cims-chatbot-close" class="btn-close btn-close-white" aria-label="Close"></button>
+            <div class="d-flex align-items-center">
+                <button type="button" id="cims-chatbot-clear" class="btn btn-sm btn-link text-white-50 p-0 me-3 text-decoration-none" title="Clear Chat History">
+                    <i class="bi bi-trash3 fs-6"></i>
+                </button>
+                <button type="button" id="cims-chatbot-close" class="btn-close btn-close-white" aria-label="Close"></button>
+            </div>
         </div>
 
         <!-- Action Suggestion Chips -->
@@ -379,8 +384,7 @@
 
 <script src="assets/js/chatbot.js?v=<?= time() ?>"></script>
 
-
-
+<script>
 // ==========================================
 // DEDICATED SUPPLY LOGISTICS UPDATES JS
 // ==========================================
@@ -529,6 +533,7 @@ loadSupplyUpdates();
 setInterval(loadSmsThreads, 30000);
 setInterval(loadSupplyUpdates, 25000);
 });
+</script>
 <!-- ======================================================== -->
 <!-- MODAL: IN-APP PWA & MOBILE MEDIA PROOF VIEWER           -->
 <!-- ======================================================== -->
