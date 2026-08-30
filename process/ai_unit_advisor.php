@@ -32,7 +32,8 @@ if (empty($inputText)) {
 }
 
 // Fallback Heuristics in case AI is offline / unconfigured
-function getLocalFallback($name) {
+function getLocalFallback($name)
+{
     $n = strtolower(trim($name));
     $rules = [
         ['keywords' => ['cubic meter', 'cu.m', 'cubic yard', 'cu.yd', 'cubic feet', 'cu.ft', 'sand', 'gravel', 'aggregate', 'soil'], 'unit' => 'Cubic Meters', 'abbrev' => 'cu.m', 'level' => 5, 'reason' => 'Bulk volume materials are typically ordered in bulk batches.', 'decimals' => true],
@@ -178,7 +179,7 @@ try {
         exit;
     }
 
-    $parsed['reorder_level'] = max(1, (int)($parsed['reorder_level'] ?? 10));
+    $parsed['reorder_level'] = max(1, (int) ($parsed['reorder_level'] ?? 10));
     $parsed['source'] = 'nvidia_nim';
     echo json_encode($parsed);
     exit;
