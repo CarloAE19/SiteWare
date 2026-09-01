@@ -268,6 +268,110 @@ body {
     }
 }
 
+/* ===================== LOGIN OPTIONS (REMEMBER ME & FORGOT PASS) ===================== */
+.login-options-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: -0.5rem;
+    margin-bottom: 1.25rem;
+    flex-wrap: wrap;
+}
+
+.forgot-pass-link {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--gb-indigo);
+    text-decoration: none;
+    transition: all 0.15s ease;
+    padding: 4px 2px;
+}
+
+.forgot-pass-link:hover {
+    color: var(--gb-indigo-dark);
+    text-decoration: underline;
+}
+
+.forgot-pass-link:focus-visible {
+    outline: 2px solid var(--gb-indigo);
+    outline-offset: 2px;
+    border-radius: 4px;
+}
+
+.remember-checkbox {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    user-select: none;
+    padding: 4px 2px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: #475569;
+    transition: color 0.15s ease;
+}
+
+.remember-checkbox:hover {
+    color: var(--gb-dark);
+}
+
+.remember-checkbox input[type="checkbox"] {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+    pointer-events: none;
+}
+
+.custom-check-indicator {
+    width: 18px;
+    height: 18px;
+    border: 1.5px solid #cbd5e1;
+    border-radius: 5px;
+    background: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    flex-shrink: 0;
+}
+
+.custom-check-indicator i {
+    font-size: 0.85rem;
+    color: #ffffff;
+    opacity: 0;
+    transform: scale(0.6);
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.remember-checkbox input[type="checkbox"]:checked ~ .custom-check-indicator {
+    background: var(--gb-indigo);
+    border-color: var(--gb-indigo);
+    box-shadow: 0 2px 6px rgba(79, 70, 229, 0.25);
+}
+
+.remember-checkbox input[type="checkbox"]:checked ~ .custom-check-indicator i {
+    opacity: 1;
+    transform: scale(1);
+}
+
+.remember-checkbox input[type="checkbox"]:focus-visible ~ .custom-check-indicator {
+    outline: 2px solid var(--gb-indigo);
+    outline-offset: 2px;
+}
+
+.remember-checkbox input[type="checkbox"]:disabled ~ .custom-check-indicator {
+    background: #f1f5f9;
+    border-color: #e2e8f0;
+    cursor: not-allowed;
+}
+
+.remember-checkbox input[type="checkbox"]:disabled ~ .remember-label-text {
+    color: #94a3b8;
+    cursor: not-allowed;
+}
+
 /* ===================== BUTTONS ===================== */
 .btn-signin {
     width: 100%;
