@@ -23,6 +23,34 @@ if (!function_exists('init_secure_session')) {
     }
 }
 
+// Helper: Generate or retrieve active cryptographically secure CSRF Token
+if (!function_exists('generate_csrf_token')) {
+    function generate_csrf_token()
+    {
+        if (session_status() === PHP_SESSION_NONE) {
+            init_secure_session();
+        }
+        if (empty($_SESSION['csrf_token'])) {
+            $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+        }
+        return $_SESSION['csrf_token'];
+    }
+}
+
+// Helper: Validate CSRF Token with constant-time string comparison
+if (!function_exists('validate_csrf_token')) {
+    function validate_csrf_token($token)
+    {
+        if (session_status() === PHP_SESSION_NONE) {
+            init_secure_session();
+        }
+        if (empty($_SESSION['csrf_token']) || empty($token) || !is_string($token)) {
+            return false;
+        }
+        return hash_equals($_SESSION['csrf_token'], $token);
+    }
+}
+
 // 1. Load the secure environment variables (.env)
 if (!function_exists('loadEnv')) {
     function loadEnv($filePath)
