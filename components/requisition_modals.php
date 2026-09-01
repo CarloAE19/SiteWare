@@ -10,6 +10,124 @@ $inventoryItems = $inventoryItems ?? [];
 $categories = $categories ?? [];
 $units = $units ?? [];
 ?>
+<style>
+/* ==========================================================
+ * CIMS TYPEAHEAD SEARCHABLE COMBOBOX STYLES (MULTI-DEVICE)
+ * ========================================================== */
+.cims-typeahead-wrap {
+    position: relative;
+    width: 100%;
+}
+.cims-typeahead-wrap .input-group {
+    border-radius: 8px;
+    transition: all 0.2s ease-in-out;
+}
+.cims-typeahead-wrap .cims-typeahead-input {
+    font-size: 0.9rem;
+    background-color: #ffffff;
+    cursor: text;
+    border-color: #dee2e6;
+    min-height: 42px;
+}
+.cims-typeahead-wrap .cims-typeahead-input:focus {
+    box-shadow: none;
+    border-color: var(--gb-blue, #0d6efd);
+}
+.cims-typeahead-wrap .cims-typeahead-clear {
+    background: transparent;
+    cursor: pointer;
+    padding: 0 12px;
+    display: flex;
+    align-items: center;
+    min-height: 42px;
+}
+.cims-typeahead-wrap .cims-typeahead-clear:hover {
+    color: #dc3545 !important;
+}
+.cims-typeahead-wrap .cims-typeahead-toggle {
+    background-color: #f8f9fa;
+    border-color: #dee2e6;
+    padding: 0 14px;
+    min-height: 42px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.cims-typeahead-menu {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    z-index: 1065;
+    background: #ffffff;
+    border: 1px solid rgba(0,0,0,0.15);
+    border-radius: 8px;
+    box-shadow: 0 12px 30px rgba(0,0,0,0.15);
+    max-height: 270px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    margin-top: 4px;
+    padding: 4px 0;
+}
+.cims-typeahead-item {
+    padding: 10px 12px;
+    min-height: 44px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    border-bottom: 1px solid #f1f5f9;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 4px 8px;
+    transition: background 0.15s ease-in-out;
+}
+.cims-typeahead-item:last-child {
+    border-bottom: none;
+}
+.cims-typeahead-item:hover,
+.cims-typeahead-item:active,
+.cims-typeahead-item.active {
+    background-color: #eff6ff !important;
+    color: #1e40af;
+}
+.cims-typeahead-item .item-title {
+    font-weight: 600;
+    color: #1e293b;
+    word-break: break-word;
+}
+.cims-typeahead-item:hover .item-title,
+.cims-typeahead-item.active .item-title {
+    color: #1d4ed8;
+}
+.cims-typeahead-item .match-highlight {
+    background-color: #fef08a;
+    color: #854d0e;
+    font-weight: 800;
+    padding: 0 3px;
+    border-radius: 3px;
+}
+.cims-typeahead-empty {
+    padding: 18px 14px;
+    text-align: center;
+    color: #64748b;
+    font-size: 0.85rem;
+}
+
+/* Mobile viewport adjustments for touch screens & virtual keyboard */
+@media (max-width: 768px) {
+    .cims-typeahead-menu {
+        max-height: 220px;
+    }
+    .cims-typeahead-item {
+        padding: 11px 12px;
+    }
+    .cims-typeahead-item .item-title {
+        font-size: 0.88rem;
+    }
+}
+</style>
 <!-- ======================================================== -->
 <!-- MODAL: VIEW DETAILS & PRINT QR DOCUMENT                  -->
 <!-- ======================================================== -->
@@ -214,9 +332,16 @@ $units = $units ?? [];
                                             <label class="form-label small fw-bold text-muted mb-1">Select Material <span class="text-danger">*</span></label>
                                             <select class="form-select fw-bold text-dark item-select-control" name="items[]" required>
                                                 <option value="">Select Material from Inventory...</option>
-                                                <?php foreach ($inventoryItems as $item): ?>
-                                                    <option value="<?= $item['item_code'] ?>" data-unit="<?= htmlspecialchars($item['unit'] ?? '') ?>">
-                                                        [<?= $item['item_code'] ?>] <?= htmlspecialchars($item['item_name']) ?><?= !empty($item['unit']) ? ' (' . htmlspecialchars($item['unit']) . ')' : '' ?>
+                                                <?php foreach ($inventoryItems as $item): 
+                                                    $stock = (float)($item['quantity'] ?? 0);
+                                                    $stockFormatted = ($stock == (int)$stock) ? (int)$stock : $stock;
+                                                    $category = htmlspecialchars($item['category'] ?? 'Materials');
+                                                    $unit = htmlspecialchars($item['unit'] ?? '');
+                                                    $code = htmlspecialchars($item['item_code']);
+                                                    $name = htmlspecialchars($item['item_name']);
+                                                ?>
+                                                    <option value="<?= $code ?>" data-unit="<?= $unit ?>" data-stock="<?= $stockFormatted ?>" data-category="<?= $category ?>" data-name="<?= $name ?>">
+                                                        [<?= $code ?>] <?= $name ?><?= !empty($unit) ? ' (' . $unit . ')' : '' ?>
                                                     </option>
                                                 <?php endforeach; ?>
                                             </select>
@@ -313,9 +438,16 @@ $units = $units ?? [];
                                             <label class="form-label small fw-bold text-muted mb-1">Select Material <span class="text-danger">*</span></label>
                                             <select class="form-select fw-bold text-dark item-select-control" name="items[]" required>
                                                 <option value="">Select Material from Inventory...</option>
-                                                <?php foreach ($inventoryItems as $item): ?>
-                                                    <option value="<?= $item['item_code'] ?>" data-unit="<?= htmlspecialchars($item['unit'] ?? '') ?>">
-                                                        [<?= $item['item_code'] ?>] <?= htmlspecialchars($item['item_name']) ?><?= !empty($item['unit']) ? ' (' . htmlspecialchars($item['unit']) . ')' : '' ?>
+                                                <?php foreach ($inventoryItems as $item): 
+                                                    $stock = (float)($item['quantity'] ?? 0);
+                                                    $stockFormatted = ($stock == (int)$stock) ? (int)$stock : $stock;
+                                                    $category = htmlspecialchars($item['category'] ?? 'Materials');
+                                                    $unit = htmlspecialchars($item['unit'] ?? '');
+                                                    $code = htmlspecialchars($item['item_code']);
+                                                    $name = htmlspecialchars($item['item_name']);
+                                                ?>
+                                                    <option value="<?= $code ?>" data-unit="<?= $unit ?>" data-stock="<?= $stockFormatted ?>" data-category="<?= $category ?>" data-name="<?= $name ?>">
+                                                        [<?= $code ?>] <?= $name ?><?= !empty($unit) ? ' (' . $unit . ')' : '' ?>
                                                     </option>
                                                 <?php endforeach; ?>
                                             </select>
@@ -358,9 +490,16 @@ $units = $units ?? [];
     <!-- Hidden templates for JS to clone available options -->
     <select id="jsInventoryOptionsTemplate" class="d-none">
         <option value="">Select Material from Inventory...</option>
-        <?php foreach ($inventoryItems as $item): ?>
-            <option value="<?= $item['item_code'] ?>" data-unit="<?= htmlspecialchars($item['unit'] ?? '') ?>">
-                [<?= $item['item_code'] ?>] <?= htmlspecialchars($item['item_name']) ?><?= !empty($item['unit']) ? ' (' . htmlspecialchars($item['unit']) . ')' : '' ?>
+        <?php foreach ($inventoryItems as $item): 
+            $stock = (float)($item['quantity'] ?? 0);
+            $stockFormatted = ($stock == (int)$stock) ? (int)$stock : $stock;
+            $category = htmlspecialchars($item['category'] ?? 'Materials');
+            $unit = htmlspecialchars($item['unit'] ?? '');
+            $code = htmlspecialchars($item['item_code']);
+            $name = htmlspecialchars($item['item_name']);
+        ?>
+            <option value="<?= $code ?>" data-unit="<?= $unit ?>" data-stock="<?= $stockFormatted ?>" data-category="<?= $category ?>" data-name="<?= $name ?>">
+                [<?= $code ?>] <?= $name ?><?= !empty($unit) ? ' (' . $unit . ')' : '' ?>
             </option>
         <?php endforeach; ?>
     </select>
@@ -490,4 +629,12 @@ $units = $units ?? [];
             </form>
         </div>
     </div>
-</div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    if (typeof window.initSearchableCombobox === 'function') {
+        window.initSearchableCombobox(document);
+    }
+});
+</script>
