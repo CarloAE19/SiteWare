@@ -201,7 +201,7 @@ $bg_scale = 1 + ($bg_blur * 0.006);
                 </div>
             <?php endif; ?>
 
-            <form method="POST" action="" autocomplete="on">
+            <form method="POST" action="" autocomplete="on" id="loginForm">
 
                 <div class="input-float <?= ($error === 'Special characters not allowed in username') ? 'has-error' : '' ?>"
                     id="usernameFloat">
