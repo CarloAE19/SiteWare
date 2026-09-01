@@ -1049,6 +1049,29 @@ function initWithdrawalSignaturePad() {
             if (photoContainer) photoContainer.classList.add('d-none');
         });
     }
+
+    // Double-Submission Locking for Material Withdrawal Form
+    const wdForm = document.getElementById('withdrawalForm');
+    if (wdForm) {
+        wdForm.addEventListener('submit', function (e) {
+            if (!this.checkValidity()) {
+                this.reportValidity();
+                e.preventDefault();
+                return;
+            }
+
+            if (!confirm('Confirm release? This will permanently deduct from inventory.')) {
+                e.preventDefault();
+                return;
+            }
+
+            const submitBtn = document.getElementById('confirmWithdrawalBtn') || this.querySelector('button[type="submit"]');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> Releasing Materials...';
+            }
+        });
+    }
 }
 
 if (document.readyState === "loading") {
