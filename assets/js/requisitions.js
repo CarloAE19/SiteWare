@@ -365,6 +365,237 @@ window.rsGlobalClickListener = function(e) {
 
 document.body.addEventListener('click', window.rsGlobalClickListener);
 
+// ==========================================================
+// CIMS SEARCHABLE TYPEAHEAD COMBOBOX ENGINE
+// ==========================================================
+function escapeTypeaheadHtml(str) {
+    return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function highlightTypeaheadMatch(text, query) {
+    if (!query || !query.trim()) return escapeTypeaheadHtml(text);
+    const q = query.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`(${q})`, 'gi');
+    return escapeTypeaheadHtml(text).replace(regex, '<span class="match-highlight">$1</span>');
+}
+
+window.initSearchableCombobox = function(scope = document) {
+    const selects = scope.querySelectorAll('select.item-select-control');
+    selects.forEach(select => {
+        if (select.dataset.typeaheadInit === 'true' || select.closest('.cims-typeahead-wrap')) return;
+        select.dataset.typeaheadInit = 'true';
+
+        const optionsData = Array.from(select.options)
+            .filter(opt => opt.value !== '')
+            .map(opt => ({
+                value: opt.value,
+                name: opt.getAttribute('data-name') || opt.textContent.replace(/\[.*?\]\s*/, '').replace(/\s*\(.*?\)$/, '').trim(),
+                unit: opt.getAttribute('data-unit') || '',
+                stock: opt.getAttribute('data-stock') || '',
+                category: opt.getAttribute('data-category') || 'Materials',
+                fullLabel: opt.textContent.trim()
+            }));
+
+        // Keep native select in DOM for standard form POST submission & HTML5 validity
+        select.style.position = 'absolute';
+        select.style.opacity = '0';
+        select.style.pointerEvents = 'none';
+        select.style.height = '0';
+        select.style.width = '0';
+        select.style.margin = '0';
+        select.style.padding = '0';
+        select.tabIndex = -1;
+
+        const wrap = document.createElement('div');
+        wrap.className = 'cims-typeahead-wrap';
+
+        wrap.innerHTML = `
+            <div class="input-group">
+                <span class="input-group-text bg-white text-muted border-end-0"><i class="bi bi-search"></i></span>
+                <input type="text" class="form-control fw-bold cims-typeahead-input border-start-0 border-end-0" placeholder="Type to search material by code or name..." autocomplete="off">
+                <button type="button" class="btn btn-white border border-start-0 text-muted cims-typeahead-clear d-none" title="Clear selection" tabindex="-1"><i class="bi bi-x-circle-fill"></i></button>
+                <button type="button" class="btn btn-light border text-muted cims-typeahead-toggle" tabindex="-1"><i class="bi bi-chevron-down small"></i></button>
+            </div>
+            <div class="cims-typeahead-menu d-none"></div>
+        `;
+
+        select.parentNode.insertBefore(wrap, select);
+        wrap.appendChild(select);
+
+        const input = wrap.querySelector('.cims-typeahead-input');
+        const clearBtn = wrap.querySelector('.cims-typeahead-clear');
+        const toggleBtn = wrap.querySelector('.cims-typeahead-toggle');
+        const menu = wrap.querySelector('.cims-typeahead-menu');
+
+        let currentFiltered = optionsData;
+        let activeIndex = -1;
+
+        function updateMenu(query = '') {
+            const q = query.trim().toLowerCase();
+            if (!q) {
+                currentFiltered = optionsData;
+            } else {
+                const words = q.split(/\s+/);
+                currentFiltered = optionsData.filter(item => {
+                    const searchTarget = `${item.value} ${item.name} ${item.category} ${item.unit}`.toLowerCase();
+                    return words.every(w => searchTarget.includes(w));
+                });
+            }
+
+            activeIndex = -1;
+            if (currentFiltered.length === 0) {
+                menu.innerHTML = `<div class="cims-typeahead-empty"><i class="bi bi-search me-1"></i>No matching materials found for "<strong>${escapeTypeaheadHtml(query)}</strong>"</div>`;
+            } else {
+                menu.innerHTML = currentFiltered.slice(0, 60).map((it, idx) => {
+                    const highlightedName = highlightTypeaheadMatch(it.name, query);
+                    const highlightedCode = highlightTypeaheadMatch(it.value, query);
+                    const stockBadge = it.stock !== '' ? `<span class="badge bg-success-subtle text-success border border-success-subtle small ms-1">Stock: ${it.stock} ${it.unit}</span>` : '';
+                    const catBadge = it.category ? `<span class="badge bg-light text-muted border small">${escapeTypeaheadHtml(it.category)}</span>` : '';
+
+                    return `
+                        <div class="cims-typeahead-item" data-value="${escapeTypeaheadHtml(it.value)}" data-index="${idx}">
+                            <div class="d-flex align-items-center flex-wrap gap-1">
+                                <span class="badge bg-primary-subtle text-primary border border-primary-subtle small fw-bold">[${highlightedCode}]</span>
+                                <span class="item-title">${highlightedName}</span>
+                            </div>
+                            <div class="d-flex align-items-center gap-1 mt-1 mt-sm-0">
+                                ${catBadge}
+                                ${stockBadge}
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+            menu.classList.remove('d-none');
+        }
+
+        function selectItem(val) {
+            const chosen = optionsData.find(opt => opt.value === val);
+            if (chosen) {
+                select.value = chosen.value;
+                input.value = `[${chosen.value}] ${chosen.name}`;
+                clearBtn.classList.remove('d-none');
+            } else {
+                select.value = '';
+                input.value = '';
+                clearBtn.classList.add('d-none');
+            }
+            menu.classList.add('d-none');
+            select.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+
+        // Initial sync if select had pre-selected value
+        if (select.value) {
+            selectItem(select.value);
+        }
+
+        input.addEventListener('focus', function() {
+            updateMenu(this.value.replace(/\[.*?\]\s*/, ''));
+        });
+
+        input.addEventListener('input', function() {
+            if (this.value.trim() === '') {
+                select.value = '';
+                clearBtn.classList.add('d-none');
+                select.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+            updateMenu(this.value);
+        });
+
+        input.addEventListener('keydown', function(e) {
+            const items = menu.querySelectorAll('.cims-typeahead-item');
+            if (menu.classList.contains('d-none')) {
+                if (e.key === 'ArrowDown' || e.key === 'Enter') {
+                    e.preventDefault();
+                    updateMenu(this.value);
+                    return;
+                }
+            }
+
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                if (items.length > 0) {
+                    activeIndex = (activeIndex + 1) % items.length;
+                    items.forEach((it, idx) => it.classList.toggle('active', idx === activeIndex));
+                    items[activeIndex]?.scrollIntoView({ block: 'nearest' });
+                }
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                if (items.length > 0) {
+                    activeIndex = (activeIndex - 1 + items.length) % items.length;
+                    items.forEach((it, idx) => it.classList.toggle('active', idx === activeIndex));
+                    items[activeIndex]?.scrollIntoView({ block: 'nearest' });
+                }
+            } else if (e.key === 'Enter') {
+                if (!menu.classList.contains('d-none') && activeIndex >= 0 && items[activeIndex]) {
+                    e.preventDefault();
+                    const val = items[activeIndex].getAttribute('data-value');
+                    selectItem(val);
+                } else if (currentFiltered.length === 1 && !menu.classList.contains('d-none')) {
+                    e.preventDefault();
+                    selectItem(currentFiltered[0].value);
+                }
+            } else if (e.key === 'Escape') {
+                menu.classList.add('d-none');
+            }
+        });
+
+        menu.addEventListener('mousedown', function(e) {
+            const itemEl = e.target.closest('.cims-typeahead-item');
+            if (itemEl) {
+                const val = itemEl.getAttribute('data-value');
+                selectItem(val);
+            }
+        });
+
+        clearBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            select.value = '';
+            input.value = '';
+            clearBtn.classList.add('d-none');
+            select.dispatchEvent(new Event('change', { bubbles: true }));
+            input.focus();
+            updateMenu('');
+        });
+
+        toggleBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            if (menu.classList.contains('d-none')) {
+                input.focus();
+                updateMenu(input.value.replace(/\[.*?\]\s*/, ''));
+            } else {
+                menu.classList.add('d-none');
+            }
+        });
+    });
+};
+
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('.cims-typeahead-wrap')) {
+        document.querySelectorAll('.cims-typeahead-menu').forEach(m => m.classList.add('d-none'));
+    }
+});
+
+// Auto-initialize searchable combobox immediately upon script execution & DOM ready
+if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", () => window.initSearchableCombobox(document));
+} else {
+    window.initSearchableCombobox(document);
+}
+
+// Auto-initialize when modals are shown
+document.addEventListener('show.bs.modal', function(e) {
+    if (e.target && (e.target.id === 'rsModal' || e.target.id === 'restockModal' || e.target.id === 'editRsModal')) {
+        setTimeout(() => window.initSearchableCombobox(e.target), 20);
+    }
+});
+
+document.addEventListener('shown.bs.modal', function(e) {
+    if (e.target && (e.target.id === 'rsModal' || e.target.id === 'restockModal' || e.target.id === 'editRsModal')) {
+        window.initSearchableCombobox(e.target);
+    }
+});
+
 // Function to append an existing inventory material row (works even if all standard rows were deleted)
 window.appendExistingItemRow = function(container, isRestock = false) {
     if (!container) return null;
@@ -422,6 +653,7 @@ window.appendExistingItemRow = function(container, isRestock = false) {
         </div>
     `;
     container.appendChild(row);
+    window.initSearchableCombobox(row);
     window.updateDeleteButtons(container);
     return row;
 };
@@ -658,7 +890,14 @@ window.openEditRsModal = function(rsId, rsNo, project, urgency, remarks, itemsB6
                             const select = row.querySelector('select[name="items[]"]');
                             if (select) {
                                 select.value = item.item_code;
-                                window.syncRowUnitBadge(select);
+                                select.dispatchEvent(new Event('change', { bubbles: true }));
+                                const typeaheadInput = row.querySelector('.cims-typeahead-input');
+                                const clearBtn = row.querySelector('.cims-typeahead-clear');
+                                const opt = select.querySelector(`option[value="${item.item_code}"]`);
+                                if (typeaheadInput && opt) {
+                                    typeaheadInput.value = opt.textContent.trim();
+                                    if (clearBtn) clearBtn.classList.remove('d-none');
+                                }
                             }
                             const qtyInput = row.querySelector('input[name="quantities[]"]');
                             if (qtyInput) qtyInput.value = qty;
@@ -700,16 +939,16 @@ function initializeRequisitionsPage() {
         });
     });
 
-    // --- SEARCH & PAGINATION LOGIC ---
-    if (!table || table.parentElement.querySelector('.pagination-wrapper')) return;
-
-    const allRows = Array.from(table.querySelectorAll('tbody .rs-row'));
+    const allRows = Array.from(table ? table.querySelectorAll('tbody .rs-row') : []);
     let filteredRows = [...allRows];
-    const rowsPerPage = 10;
-    let currentPage = 1;
 
-    const paginationWrapper = document.createElement('div');
-    paginationWrapper.className = 'd-flex justify-content-between align-items-center p-3 bg-white border-top pagination-wrapper';
+    // --- SEARCH & PAGINATION LOGIC ---
+    if (table && !table.parentElement.querySelector('.pagination-wrapper')) {
+        const rowsPerPage = 10;
+        let currentPage = 1;
+
+        const paginationWrapper = document.createElement('div');
+        paginationWrapper.className = 'd-flex justify-content-between align-items-center p-3 bg-white border-top pagination-wrapper';
     
     const infoText = document.createElement('span'); 
     infoText.className = 'text-muted small fw-bold';
@@ -926,7 +1165,8 @@ function initializeRequisitionsPage() {
     prevBtn.addEventListener('click', () => { if (currentPage > 1) { currentPage--; updatePagination(); } });
     nextBtn.addEventListener('click', () => { const totalPages = Math.ceil(filteredRows.length / rowsPerPage); if (currentPage < totalPages) { currentPage++; updatePagination(); } });
 
-    updatePagination();
+        updatePagination();
+    }
 
     // Check URL parameters for shortcut search and auto-open modals
     const urlParams = new URLSearchParams(window.location.search);
@@ -936,7 +1176,7 @@ function initializeRequisitionsPage() {
 
     if (searchTerm && searchInput) {
         searchInput.value = searchTerm;
-        filterData();
+        if (typeof window.filterRsTable === 'function') window.filterRsTable();
     }
 
     if (autoOpenRs) {
