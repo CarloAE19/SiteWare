@@ -101,7 +101,7 @@
                 </div>
                 <div class="modal-footer border-top-0 bg-white">
                     <button type="button" class="btn btn-light text-muted fw-bold px-4" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-brand fw-bold px-4 shadow-sm" onclick="return confirm('Confirm release? This will permanently deduct from inventory.');">
+                    <button type="submit" id="confirmWithdrawalBtn" class="btn btn-brand fw-bold px-4 shadow-sm">
                         <i class="bi bi-check2-circle me-2"></i>Confirm Release
                     </button>
                 </div>
