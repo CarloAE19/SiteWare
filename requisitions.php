@@ -11,7 +11,7 @@ $role = $_SESSION['user_role'];
 $userId = $_SESSION['user_id'];
 
 // Fetch Inventory items for the "Add Item" dropdown
-$itemStmt = $pdo->query("SELECT item_code, item_name, unit FROM inventory WHERE status != 'Out of Stock' ORDER BY item_name ASC");
+$itemStmt = $pdo->query("SELECT item_code, item_name, unit, quantity, category FROM inventory WHERE status != 'Out of Stock' ORDER BY item_name ASC");
 $inventoryItems = $itemStmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Fetch Active Projects
