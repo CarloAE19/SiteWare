@@ -40,7 +40,10 @@ if (defined('DB_OFFLINE')) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$is_locked_out) {
-    if (defined('DB_OFFLINE')) {
+    $submitted_token = $_POST['csrf_token'] ?? '';
+    if (!validate_csrf_token($submitted_token)) {
+        $error = 'Security session expired or invalid token. Please refresh the page and try again.';
+    } elseif (defined('DB_OFFLINE')) {
         $error = "Can't connect to database. You're offline.";
     } else {
         $username = trim($_POST['username'] ?? '');
@@ -51,6 +54,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$is_locked_out) {
         } elseif (preg_match('/[^a-zA-Z0-9]/', $username)) {
             $error = 'Special characters not allowed in username';
         } elseif (strlen($password) < 8) {
+            // 🛡️ Constant-time dummy verification for length check edge case
+            password_verify($password, '$2y$12$KENzSxOKE94984d5ZXfNSeN00crr/yfGyCn6xEP1Za5IFR6kdlx/i');
             record_rate_limit_attempt($rlKey, true);
             $newRl = check_rate_limit($rlKey, 5, 900, true);
             if (!$newRl['allowed']) {
@@ -67,8 +72,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$is_locked_out) {
             $stmt->execute([$username]);
             $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
+            // 🛡️ Constant-Time Password Verification + Timing-Attack Mitigation (Username Enumeration Prevention)
+            // If user is not found, verify against a realistic cost-12 dummy bcrypt hash so response time is identical.
+            $dummyHash = '$2y$12$KENzSxOKE94984d5ZXfNSeN00crr/yfGyCn6xEP1Za5IFR6kdlx/i';
+            $hashToVerify = $user ? $user['password'] : $dummyHash;
+            $passwordMatches = password_verify($password, $hashToVerify);
+
             // 🛡️ Bcrypt Password Verification + Session Hijacking Prevention
-            if ($user && password_verify($password, $user['password'])) {
+            if ($user && $passwordMatches) {
                 if (isset($user['status']) && strtolower($user['status']) === 'inactive') {
                     $error = 'Your account has been deactivated. Please contact an administrator.';
                 } else {
@@ -96,6 +107,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$is_locked_out) {
 
                     clear_rate_limit($rlKey, true);
                     session_regenerate_id(true);
+                    // Rotate CSRF token on privilege level change
+                    unset($_SESSION['csrf_token']);
                     $_SESSION['user_id'] = $user['id'];
                     $_SESSION['user_name'] = $user['name'];
                     $_SESSION['user_role'] = $user['role'];
@@ -232,6 +245,8 @@ $bg_scale = 1 + ($bg_blur * 0.006);
             <?php endif; ?>
 
             <form method="POST" action="" autocomplete="on" id="loginForm">
+                <!-- CSRF Protection Token -->
+                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(generate_csrf_token()) ?>">
 
                 <div class="input-float <?= ($error === 'Special characters not allowed in username') ? 'has-error' : '' ?>"
                     id="usernameFloat">
