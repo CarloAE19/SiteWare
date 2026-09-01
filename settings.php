@@ -732,7 +732,7 @@ include 'layout/header.php';
                                         style="position:absolute;left:14px;top:50%;transform:translateY(-50%);color:#64748b;font-size:1.05rem;z-index:1;"></i>
                                     <div
                                         style="width:100%;padding:11px 14px 11px 42px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:0.92rem;color:#94a3b8;background:#f1f5f9;font-family:'Inter',sans-serif;">
-                                        Enter you username
+                                        Enter your username
                                     </div>
                                 </div>
                             </div>

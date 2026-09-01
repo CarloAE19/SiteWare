@@ -91,3 +91,27 @@ if (loginForm) {
         }
     });
 }
+
+// 5. CAPS LOCK DETECTION
+const passwordField = document.getElementById('passwordField');
+const capsWarningBlock = document.getElementById('capsWarningBlock');
+
+if (passwordField && capsWarningBlock) {
+    const checkCapsLock = (e) => {
+        if (e.getModifierState && typeof e.getModifierState === 'function') {
+            if (e.getModifierState('CapsLock')) {
+                capsWarningBlock.style.display = 'flex';
+            } else {
+                capsWarningBlock.style.display = 'none';
+            }
+        }
+    };
+
+    passwordField.addEventListener('keyup', checkCapsLock);
+    passwordField.addEventListener('keydown', checkCapsLock);
+    passwordField.addEventListener('focus', checkCapsLock);
+    passwordField.addEventListener('blur', () => {
+        capsWarningBlock.style.display = 'none';
+    });
+}
+

@@ -206,7 +206,7 @@ $bg_scale = 1 + ($bg_blur * 0.006);
                 <div class="input-float <?= ($error === 'Special characters not allowed in username') ? 'has-error' : '' ?>"
                     id="usernameFloat">
                     <label for="usernameField">Username</label>
-                    <input type="text" id="usernameField" name="username" placeholder="Enter you username"
+                    <input type="text" id="usernameField" name="username" placeholder="Enter your username"
                         value="<?= htmlspecialchars($_POST['username'] ?? '') ?>" autocomplete="username" <?= $is_locked_out ? 'disabled' : '' ?> required>
                     <i class="bi bi-person field-icon"></i>
                 </div>
@@ -231,6 +231,11 @@ $bg_scale = 1 + ($bg_blur * 0.006);
                     <button type="button" class="toggle-pass" onclick="togglePass()" aria-label="Toggle password" <?= $is_locked_out ? 'disabled' : '' ?>>
                         <i class="bi bi-eye-slash" id="toggleIcon"></i>
                     </button>
+                </div>
+
+                <div class="caps-warning" id="capsWarningBlock" style="display: none;" role="status" aria-live="polite">
+                    <i class="bi bi-capslock-fill"></i>
+                    <span>Caps Lock is ON</span>
                 </div>
 
                 <!-- PWA Install Button (hidden until browser triggers beforeinstallprompt) -->
