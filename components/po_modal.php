@@ -39,7 +39,7 @@ $approvedRS = $pdo->query("
                         style="color: var(--gb-yellow);"></i>Generate Purchase Order</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-            <form method="POST" action="process/process.php">
+            <form method="POST" action="process/process.php" id="createPoForm">
                 <!-- Added p-4 for premium spacing -->
                 <div class="modal-body bg-light p-4">
                     <input type="hidden" name="action" value="create_po">
@@ -159,7 +159,7 @@ $approvedRS = $pdo->query("
                     Supply Delay</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <form method="POST" action="process/process.php">
+            <form method="POST" action="process/process.php" id="delayForm">
                 <div class="modal-body p-4 bg-light">
                     <input type="hidden" name="action" value="log_po_delay">
                     <input type="hidden" name="po_id" id="delayPoId">
@@ -727,6 +727,17 @@ $approvedRS = $pdo->query("
 
     window.handleUpdatePoEta = function (event) {
         event.preventDefault();
+        const form = document.getElementById('editEtaForm');
+        if (!form) return;
+
+        const submitBtn = form.querySelector('button[type="submit"]');
+        const originalText = submitBtn ? submitBtn.innerHTML : 'Save Updated ETA';
+
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Saving ETA...';
+        }
+
         const poId = document.getElementById('editEtaPoId').value;
         const etaDate = document.getElementById('editEtaInputDate').value;
 
@@ -753,11 +764,19 @@ $approvedRS = $pdo->query("
                     location.reload();
                 } else {
                     alert(data.message || 'Failed to update ETA');
+                    if (submitBtn) {
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = originalText;
+                    }
                 }
             })
             .catch(err => {
                 console.error('Error updating ETA:', err);
                 alert('An error occurred while updating ETA.');
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalText;
+                }
             });
     };
 
@@ -784,5 +803,61 @@ $approvedRS = $pdo->query("
             delayModal = new bootstrap.Modal(myModalEl);
         }
         delayModal.show();
-    }
+    };
+
+    // ==========================================================
+    // DOUBLE-SUBMISSION LOCKING & CLEANUP FOR PO FORMS
+    // ==========================================================
+    document.addEventListener('DOMContentLoaded', function () {
+        // 1. Create PO Form
+        const createPoForm = document.getElementById('createPoForm');
+        if (createPoForm) {
+            createPoForm.addEventListener('submit', function (e) {
+                if (!this.checkValidity()) {
+                    this.reportValidity();
+                    e.preventDefault();
+                    return;
+                }
+                const submitBtn = this.querySelector('button[type="submit"]');
+                if (submitBtn) {
+                    submitBtn.disabled = true;
+                    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Generating & Saving PO...';
+                }
+            });
+        }
+
+        // 2. Log Delay Form
+        const delayForm = document.getElementById('delayForm');
+        if (delayForm) {
+            delayForm.addEventListener('submit', function (e) {
+                if (!this.checkValidity()) {
+                    this.reportValidity();
+                    e.preventDefault();
+                    return;
+                }
+                const submitBtn = this.querySelector('button[type="submit"]');
+                if (submitBtn) {
+                    submitBtn.disabled = true;
+                    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Submitting Delay Alert...';
+                }
+            });
+        }
+
+        // 3. Receive / Stock In Form
+        const receiveForm = document.getElementById('receiveForm');
+        if (receiveForm) {
+            receiveForm.addEventListener('submit', function (e) {
+                if (!this.checkValidity()) {
+                    this.reportValidity();
+                    e.preventDefault();
+                    return;
+                }
+                const submitBtn = document.getElementById('confirmReceiveBtn');
+                if (submitBtn) {
+                    submitBtn.disabled = true;
+                    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Processing Stock In...';
+                }
+            });
+        }
+    });
 </script>
