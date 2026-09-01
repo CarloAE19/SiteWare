@@ -73,3 +73,21 @@ if (usernameField && jsErrorBlock && jsErrorMessage && usernameFloat) {
     usernameField.addEventListener('input', validateUsername);
     usernameField.addEventListener('blur', validateUsername);
 }
+
+// 4. FORM SUBMIT LOADING STATE & DOUBLE-SUBMIT PREVENTION
+const loginForm = document.getElementById('loginForm') || document.querySelector('.login-card form');
+if (loginForm) {
+    loginForm.addEventListener('submit', function (e) {
+        if (!this.checkValidity()) {
+            this.reportValidity();
+            e.preventDefault();
+            return;
+        }
+
+        const submitBtn = document.getElementById('signInBtn') || this.querySelector('button[type="submit"]');
+        if (submitBtn && !submitBtn.disabled) {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> Loading...';
+        }
+    });
+}
