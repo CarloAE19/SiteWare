@@ -24,21 +24,33 @@ try {
     } catch (PDOException $e) {}
 
     // Clean existing duplicated discrepancy records in delay_remarks if present
-    $dupPos = $pdo->query("SELECT id, delay_remarks FROM purchase_orders WHERE delay_remarks LIKE '%[DELIVERY DISCREPANCY]:%[DELIVERY DISCREPANCY]:%'")->fetchAll(PDO::FETCH_ASSOC);
+    $dupPos = $pdo->query("SELECT id, delay_remarks FROM purchase_orders WHERE delay_remarks LIKE '%[DELIVERY DISCREPANCY]%'")->fetchAll(PDO::FETCH_ASSOC);
     foreach ($dupPos as $dupPo) {
-        $parts = explode('[DELIVERY DISCREPANCY]:', $dupPo['delay_remarks']);
+        $normalized = str_replace(["\r\n", "\r"], "\n", $dupPo['delay_remarks'] ?? '');
+        $parts = explode('[DELIVERY DISCREPANCY]:', $normalized);
         $unique = [];
-        foreach ($parts as $p) {
-            $t = trim($p);
-            if (!empty($t) && !in_array($t, $unique)) {
+        $preface = trim($parts[0]);
+        for ($i = 1; $i < count($parts); $i++) {
+            $t = trim($parts[$i]);
+            $normT = preg_replace('/\s+/', ' ', $t);
+            $alreadyExists = false;
+            foreach ($unique as $u) {
+                if (preg_replace('/\s+/', ' ', $u) === $normT) {
+                    $alreadyExists = true;
+                    break;
+                }
+            }
+            if (!empty($t) && !$alreadyExists) {
                 $unique[] = $t;
             }
         }
         if (!empty($unique)) {
-            $cleanedText = implode("\n\n[DELIVERY DISCREPANCY]:\n", array_map(fn($u) => "[DELIVERY DISCREPANCY]:\n" . $u, $unique));
+            $cleanedText = (!empty($preface) ? $preface . "\n\n" : "") . implode("\n\n[DELIVERY DISCREPANCY]:\n", array_map(fn($u) => "[DELIVERY DISCREPANCY]:\n" . $u, $unique));
             $cleanedText = str_replace("[DELIVERY DISCREPANCY]:\n[DELIVERY DISCREPANCY]:", "[DELIVERY DISCREPANCY]:", $cleanedText);
-            $cleanStmt = $pdo->prepare("UPDATE purchase_orders SET delay_remarks = ? WHERE id = ?");
-            $cleanStmt->execute([$cleanedText, $dupPo['id']]);
+            if ($cleanedText !== $dupPo['delay_remarks']) {
+                $cleanStmt = $pdo->prepare("UPDATE purchase_orders SET delay_remarks = ? WHERE id = ?");
+                $cleanStmt->execute([$cleanedText, $dupPo['id']]);
+            }
         }
     }
 } catch (PDOException $e) { /* Columns already exist */
@@ -772,14 +784,15 @@ include 'layout/header.php';
     window.viewDiscrepancy = function (btnElem) {
         document.getElementById('discPoNo').innerText = btnElem.getAttribute('data-pono');
 
-        let rawText = btnElem.getAttribute('data-remarks') || '';
+        let rawText = (btnElem.getAttribute('data-remarks') || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
 
         // Split by '[DELIVERY DISCREPANCY]:' and deduplicate entries
-        const parts = rawText.split('[DELIVERY DISCREPANCY]:');
+        const parts = rawText.split(/\[DELIVERY DISCREPANCY\]:/i);
         const uniqueBlocks = [];
         parts.forEach(part => {
             const trimmed = part.trim();
-            if (trimmed && !uniqueBlocks.includes(trimmed)) {
+            const normalized = trimmed.replace(/\s+/g, ' ');
+            if (trimmed && !uniqueBlocks.some(b => b.replace(/\s+/g, ' ') === normalized)) {
                 uniqueBlocks.push(trimmed);
             }
         });
@@ -788,13 +801,15 @@ include 'layout/header.php';
         if (uniqueBlocks.length > 0) {
             uniqueBlocks.forEach(block => {
                 cleanHtml += `<div class="text-danger fw-bold mb-2 mt-2 pb-1 border-bottom border-danger border-opacity-25"><i class="bi bi-exclamation-triangle-fill me-1"></i> DELIVERY DISCREPANCY RECORD</div>`;
-                let blockText = block.replace(/⚠️ \[UNSUPPLIED \/ SOLD OUT\]/g, '<span class="badge bg-warning text-dark ms-1 shadow-sm"><i class="bi bi-x-circle-fill me-1"></i> UNSUPPLIED / SOLD OUT</span>');
+                let blockText = block.replace(/⚠️\s*\[UNSUPPLIED \/ SOLD OUT\]/g, '<span class="badge bg-warning text-dark ms-1 shadow-sm"><i class="bi bi-x-circle-fill me-1"></i> UNSUPPLIED / SOLD OUT</span>');
                 blockText = blockText.replace(/\n/g, '<br>');
                 cleanHtml += `<div class="mb-3">${blockText}</div>`;
             });
-        } else {
-            let blockText = rawText.replace(/⚠️ \[UNSUPPLIED \/ SOLD OUT\]/g, '<span class="badge bg-warning text-dark ms-1 shadow-sm"><i class="bi bi-x-circle-fill me-1"></i> UNSUPPLIED / SOLD OUT</span>');
+        } else if (rawText.trim()) {
+            let blockText = rawText.replace(/⚠️\s*\[UNSUPPLIED \/ SOLD OUT\]/g, '<span class="badge bg-warning text-dark ms-1 shadow-sm"><i class="bi bi-x-circle-fill me-1"></i> UNSUPPLIED / SOLD OUT</span>');
             cleanHtml = blockText.replace(/\n/g, '<br>');
+        } else {
+            cleanHtml = '<div class="text-muted fst-italic">No discrepancy notes provided.</div>';
         }
 
         document.getElementById('discRemarks').innerHTML = cleanHtml;
@@ -1474,6 +1489,9 @@ include 'layout/header.php';
 
     // Handle Send via Viber
     window.triggerViberPoSend = async function () {
+        const sendBtn = document.getElementById('sendViberSubmitBtn');
+        const originalBtnHtml = sendBtn ? sendBtn.innerHTML : '<i class="fa-brands fa-viber me-1"></i> Send via Viber';
+
         const poId = document.getElementById('viberPoId').value;
         const poNo = document.getElementById('viberPoNo').value;
         const phone = document.getElementById('viberPhone').value || '';
@@ -1483,6 +1501,11 @@ include 'layout/header.php';
         if (!phone || !message) {
             alert("Please enter a valid phone number and message content.");
             return;
+        }
+
+        if (sendBtn) {
+            sendBtn.disabled = true;
+            sendBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Sending...';
         }
 
         let cleanPhone = phone.replace(/[^0-9]/g, '');
@@ -1516,6 +1539,11 @@ include 'layout/header.php';
             await fetch('process/process.php', { method: 'POST', body: formData });
         } catch (e) {
             console.error('Error logging Viber order send:', e);
+        } finally {
+            if (sendBtn) {
+                sendBtn.disabled = false;
+                sendBtn.innerHTML = originalBtnHtml;
+            }
         }
 
         const statusBadge = document.getElementById('status_' + poId);
