@@ -754,6 +754,17 @@ include 'layout/header.php';
                                 </div>
                             </div>
 
+                            <!-- Remember Me & Forgot Password replica -->
+                            <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:14px;text-align:left;">
+                                <div style="display:flex;align-items:center;gap:6px;">
+                                    <div style="width:14px;height:14px;border:1.5px solid #cbd5e1;border-radius:4px;background:#fff;display:flex;align-items:center;justify-content:center;">
+                                        <i class="bi bi-check" style="font-size:0.75rem;color:#4f46e5;"></i>
+                                    </div>
+                                    <span style="font-size:0.72rem;color:#475569;font-weight:500;">Remember username</span>
+                                </div>
+                                <span style="font-size:0.72rem;color:#4f46e5;font-weight:600;">Forgot password?</span>
+                            </div>
+
                             <!-- Login button -->
                             <div
                                 style="background:linear-gradient(135deg,#4f46e5 0%,#3730a3 100%);color:#fff;font-size:0.95rem;font-weight:700;border-radius:10px;padding:13px;text-align:center;letter-spacing:0.02em;font-family:'Inter',sans-serif;box-shadow:0 4px 12px rgba(79,70,229,0.25);">
