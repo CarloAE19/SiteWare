@@ -261,3 +261,37 @@
         font-size: 1.3rem !important;
     }
 }
+
+/* Review Modal Scoped Styles */
+#confirmRecountModal .table-responsive {
+    overflow-x: auto !important;
+    overflow-y: auto !important;
+    background: #fff !important;
+    border: 1px solid #dee2e6 !important;
+}
+
+#confirmRecountModal .table {
+    display: table !important;
+    width: 100% !important;
+}
+
+#confirmRecountModal .table thead {
+    display: table-header-group !important;
+}
+
+#confirmRecountModal .table tbody {
+    display: table-row-group !important;
+}
+
+#confirmRecountModal .table tr {
+    display: table-row !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+}
+
+#confirmRecountModal .table td,
+#confirmRecountModal .table th {
+    display: table-cell !important;
+    white-space: normal !important;
+}
