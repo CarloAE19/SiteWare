@@ -45,7 +45,12 @@ document.addEventListener("DOMContentLoaded", () => {
         contentDiv.style.opacity = '0.5';
 
         try {
-            const response = await fetch(url);
+            const response = await fetch(url, {
+                headers: {
+                    'Accept': 'text/html',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
             const htmlText = await response.text();
             const parser = new DOMParser();
             const doc = parser.parseFromString(htmlText, 'text/html');
@@ -77,12 +82,32 @@ document.addEventListener("DOMContentLoaded", () => {
                     oldScript.parentNode.replaceChild(newScript, oldScript);
                 });
 
+                // Immediately sync offline UI badges and locks on newly swapped content
+                if (typeof updateOfflineUI === 'function') {
+                    updateOfflineUI();
+                }
+
             } else {
                 window.location.href = url;
             }
         } catch (err) {
             console.error("Routing error:", err);
-            window.location.href = url;
+            contentDiv.style.opacity = '1';
+
+            if (!navigator.onLine) {
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'info',
+                        title: 'Page Not Available Offline',
+                        text: 'This section was not cached yet. Connect to the internet to view it for the first time.',
+                        confirmButtonColor: '#0d6efd'
+                    });
+                } else {
+                    alert("This page was not cached for offline use yet. Please reconnect to view it.");
+                }
+            } else {
+                window.location.href = url;
+            }
         }
     });
 
