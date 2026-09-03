@@ -23,30 +23,46 @@ if (!function_exists('init_secure_session')) {
     }
 }
 
-// Helper: Generate or retrieve active cryptographically secure CSRF Token
+// Helper: Generate or retrieve active cryptographically secure CSRF Token with TTL expiration (2 hours)
 if (!function_exists('generate_csrf_token')) {
-    function generate_csrf_token()
+    function generate_csrf_token($maxLifetime = 7200)
     {
         if (session_status() === PHP_SESSION_NONE) {
             init_secure_session();
         }
-        if (empty($_SESSION['csrf_token'])) {
+
+        $now = time();
+        $isExpired = empty($_SESSION['csrf_token_time']) || ($now - $_SESSION['csrf_token_time'] > $maxLifetime);
+
+        if (empty($_SESSION['csrf_token']) || $isExpired) {
             $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+            $_SESSION['csrf_token_time'] = $now;
         }
+
         return $_SESSION['csrf_token'];
     }
 }
 
-// Helper: Validate CSRF Token with constant-time string comparison
+// Helper: Validate CSRF Token with constant-time comparison & TTL expiration check
 if (!function_exists('validate_csrf_token')) {
-    function validate_csrf_token($token)
+    function validate_csrf_token($token, $maxLifetime = 7200)
     {
         if (session_status() === PHP_SESSION_NONE) {
             init_secure_session();
         }
+
         if (empty($_SESSION['csrf_token']) || empty($token) || !is_string($token)) {
             return false;
         }
+
+        // Check if token has expired past the TTL limit
+        $now = time();
+        if (empty($_SESSION['csrf_token_time']) || ($now - $_SESSION['csrf_token_time'] > $maxLifetime)) {
+            // Token expired - wipe old token so a fresh one is generated
+            unset($_SESSION['csrf_token'], $_SESSION['csrf_token_time']);
+            return false;
+        }
+
         return hash_equals($_SESSION['csrf_token'], $token);
     }
 }
