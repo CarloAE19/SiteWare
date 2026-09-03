@@ -45,8 +45,8 @@ if (typeof firebase === 'undefined') {
             if (permission === 'granted') {
                 console.log("2. Permission granted! Registering Service Worker...");
                 
-                // Force an update with a random version number to kill the ghost worker
-                const swPath = `/CIMS/firebase-messaging-sw.js?v=${new Date().getTime()}`;
+                // Standardized Service Worker registration path
+                const swPath = '/CIMS/firebase-messaging-sw.js';
                 const swRegistration = await navigator.serviceWorker.register(swPath, { scope: '/CIMS/' });
                 
                 // THE FIX: Aggressively wait for the worker to become 'active'
