@@ -29,7 +29,7 @@ $action = $_POST['action'] ?? $_GET['action'] ?? '';
 $is_ajax = (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest') ||
            (!empty($_SERVER['HTTP_ACCEPT']) && strpos($_SERVER['HTTP_ACCEPT'], 'application/json') !== false) ||
            (strpos($action, 'fetch_') === 0) ||
-           (in_array($action, ['live_sync', 'stock_in_scanned', 'verify_current_password', 'change_password_modal']));
+           (in_array($action, ['live_sync', 'stock_in_scanned', 'verify_current_password', 'change_password_modal', 'submit_audit']));
 
 if ($is_ajax) {
     header('Content-Type: application/json');
