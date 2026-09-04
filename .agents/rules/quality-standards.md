@@ -48,3 +48,9 @@ Follow these strict standards across all tasks, edits, and recommendations for t
 - **Reusability & DRY (Don't Repeat Yourself):** Abstract shared logic (database access, permission checks, JSON response formatting, audit logging) into reusable classes, base classes, or traits rather than duplicating code across multiple scripts.
 - **Clear Contracts & Type Hinting:** Use descriptive naming conventions (PascalCase for classes, camelCase for methods/variables), parameter type declarations (`int`, `string`, `array`, `?object`), and explicit return types where applicable.
 - **Separation of Concerns:** Keep business logic and database queries decoupled from presentation/HTML views to ensure maintainability, testability, and clean code organization.
+
+## 7. ISO 9001 (Quality Management) & ISO/IEC 25010 (Software Quality) Alignment
+- **Traceability & Complete Audit Trails (ISO 9001 Clause 8.5.2 & 7.5):** Every material movement, requisition status change, issuance, restock, and inventory count must generate a permanent, verifiable audit record containing timestamps, user IDs, previous values, and new values.
+- **Control of Nonconformities (ISO 9001 Clause 8.7):** Explicitly support and document discrepancy workflows (physical audit variances like missing/surplus quantities, damaged goods logging, and mandatory rejection remarks on unapproved requisitions).
+- **Process Control & Risk Mitigation (ISO 9001 Clause 6.1 & 8.5):** Implement strict backend validation guards to prevent accidental negative inventory balances, unauthorized state transitions, and duplicate submissions.
+- **Software Product Quality Standards (ISO/IEC 25010):** Adhere to core software quality characteristics across all modules: Functional Suitability, Reliability (atomic transaction rollbacks on failure), Usability (HCI compliance), Security (RBAC and prepared statements), Maintainability (OOP structure), and Portability (multi-device web responsiveness).
