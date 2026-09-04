@@ -35,10 +35,12 @@ Follow these strict standards across all tasks, edits, and recommendations for t
 
 ## 5. Role-Based Access Control (RBAC) & Enterprise Security Standards
 - **Strict Server-Side Authorization:** Never rely solely on client-side JS or hidden HTML elements to enforce permissions. Every backend controller, endpoint (`process/*.php`), and data query MUST verify active `$_SESSION['user_id']` and authorize `$_SESSION['user_role']` before executing actions.
+- **CSRF Token Validation:** Verify anti-CSRF tokens (`$_SESSION['csrf_token']` or `X-CSRF-Token` headers) on all state-altering `POST`, `PUT`, or `DELETE` requests to prevent cross-site request forgery attacks.
 - **Row-Level & Ownership Validation:** Ensure users can only view, edit, or manipulate records permitted by their role (e.g. `requestor` restricted to their own `requestor_id`, `purchasing` restricted to restock requests, and elevated roles like `admin`/`approver` verified before approvals or modifications).
 - **100% Prepared Statements (SQLi Prevention):** All SQL queries with variables MUST use PDO prepared statements with parameterized placeholders (`?` or `:name`). Direct variable concatenation into SQL queries is strictly prohibited.
 - **XSS Sanitization:** Escape all dynamic user output rendered in HTML using `htmlspecialchars($value, ENT_QUOTES, 'UTF-8')`.
 - **Input Validation & Whitelisting:** Strictly sanitize, type-cast (`(int)`, `(float)`), and validate incoming parameters. Whitelist allowed statuses, action types, and sorting columns.
+- **Secure File Uploads:** Strictly validate uploaded files (proof of receipt, digital signatures, attachments) by checking real MIME types (`image/jpeg`, `image/png`, `application/pdf`), enforcing size limits, and storing files with randomized/hashed names in isolated directories to prevent path traversal and arbitrary script execution.
 - **Atomic Transactions for Data Integrity:** Use database transactions (`beginTransaction()`, `commit()`, `rollBack()`) for multi-step mutations (e.g. stock level deductions, requisition status updates, and audit trail logging) to prevent orphaned or corrupt states.
 - **Safe Error Handling:** Never output raw database errors or stack traces to end users. Log details securely on the server and return clean, friendly error messages.
 
@@ -50,7 +52,7 @@ Follow these strict standards across all tasks, edits, and recommendations for t
 - **Separation of Concerns:** Keep business logic and database queries decoupled from presentation/HTML views to ensure maintainability, testability, and clean code organization.
 
 ## 7. ISO 9001 (Quality Management) & ISO/IEC 25010 (Software Quality) Alignment
-- **Traceability & Complete Audit Trails (ISO 9001 Clause 8.5.2 & 7.5):** Every material movement, requisition status change, issuance, restock, and inventory count must generate a permanent, verifiable audit record containing timestamps, user IDs, previous values, and new values.
+- **Traceability & Complete Audit Trails (ISO 9001 Clause 8.5.2 & 7.5):** Every material movement, requisition status change, issuance, restock, and inventory count must generate a permanent, verifiable audit record containing standardized columns (`user_id`, `action_type`, `entity_type`, `entity_id`, `previous_value`, `new_value`, `ip_address`, `timestamp`).
 - **Control of Nonconformities (ISO 9001 Clause 8.7):** Explicitly support and document discrepancy workflows (physical audit variances like missing/surplus quantities, damaged goods logging, and mandatory rejection remarks on unapproved requisitions).
 - **Process Control & Risk Mitigation (ISO 9001 Clause 6.1 & 8.5):** Implement strict backend validation guards to prevent accidental negative inventory balances, unauthorized state transitions, and duplicate submissions.
 - **Software Product Quality Standards (ISO/IEC 25010):** Adhere to core software quality characteristics across all modules: Functional Suitability, Reliability (atomic transaction rollbacks on failure), Usability (HCI compliance), Security (RBAC and prepared statements), Maintainability (OOP structure), and Portability (multi-device web responsiveness).
