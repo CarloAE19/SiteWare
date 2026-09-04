@@ -48,17 +48,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
         try {
             const formData = new FormData(form);
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+            
             const response = await fetch('controllers/example_action.php', {
                 method: 'POST',
                 body: formData,
                 headers: {
-                    'X-Requested-With': 'XMLHttpRequest'
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-Token': csrfToken
                 }
             });
 
             const result = await response.json();
 
-            if (result.success) {
+            // Compatible with both 'success: true' and 'status: "success"'
+            const isSuccess = result.success === true || result.status === 'success';
+
+            if (isSuccess) {
                 // Hide modal
                 const modalEl = document.getElementById('exampleModal');
                 const modalInstance = bootstrap.Modal.getInstance(modalEl);
@@ -78,6 +84,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Dynamically refresh table or target element
                 if (typeof refreshDataTable === 'function') {
                     refreshDataTable();
+                } else if (result.data && result.data.id) {
+                    // Optional In-Place Row Update without full reload
+                    const rowStatusBadge = document.getElementById(`status_${result.data.id}`);
+                    if (rowStatusBadge && result.data.new_status) {
+                        rowStatusBadge.textContent = result.data.new_status;
+                    }
                 }
             } else {
                 throw new Error(result.message || 'Something went wrong.');
@@ -106,13 +118,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
 ---
 
-## 3. Modal Cleanup Pattern
+## 3. Modal Lifecycle & Accessibility Patterns
 
-Always ensure forms reset cleanly when dismissed:
+Always ensure modals auto-focus the primary input on open and reset cleanly when dismissed:
 
 ```javascript
 const modalEl = document.getElementById('exampleModal');
 if (modalEl) {
+    // 1. Accessibility: Auto-focus the first editable input when opened
+    modalEl.addEventListener('shown.bs.modal', () => {
+        const firstInput = modalEl.querySelector('input:not([type="hidden"]), select, textarea');
+        if (firstInput) firstInput.focus();
+    });
+
+    // 2. Clean up: Reset form and preview states when closed
     modalEl.addEventListener('hidden.bs.modal', () => {
         const form = modalEl.querySelector('form');
         if (form) {
@@ -146,7 +165,8 @@ header('Content-Type: application/json; charset=utf-8');
 
 // Ensure only authenticated users can access
 if (!isset($_SESSION['user_id'])) {
-    echo json_encode(['success' => false, 'message' => 'Unauthorized access.']);
+    http_response_code(401);
+    echo json_encode(['success' => false, 'status' => 'error', 'message' => 'Unauthorized access.']);
     exit;
 }
 
@@ -155,14 +175,17 @@ try {
     
     echo json_encode([
         'success' => true,
+        'status' => 'success',
         'message' => 'Operation completed successfully.',
         'data' => [
             // Optional returned payload
         ]
     ]);
 } catch (Exception $e) {
+    http_response_code(400);
     echo json_encode([
         'success' => false,
+        'status' => 'error',
         'message' => $e->getMessage()
     ]);
 }
