@@ -359,44 +359,24 @@ elseif ($action === 'mark_po_delivered') {
     try {
         $pdo->beginTransaction();
 
-        // Handle Proof of Receipt File Upload or Live Camera Snapshot
+        // Handle Proof of Receipt File Upload or Live Camera Snapshot (5-Layer Defense)
+        require_once __DIR__ . '/../../classes/SecureUploadHandler.php';
         $proofPath = null;
         if (isset($_FILES['proof_of_receipt']) && $_FILES['proof_of_receipt']['error'] === UPLOAD_ERR_OK) {
-            $tmpName = $_FILES['proof_of_receipt']['tmp_name'];
-            $origName = $_FILES['proof_of_receipt']['name'];
-            $ext = strtolower(pathinfo($origName, PATHINFO_EXTENSION));
-            $allowed = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'pdf'];
-            if (in_array($ext, $allowed)) {
-                $uploadDir = __DIR__ . '/../../uploads/receipts/';
-                if (!file_exists($uploadDir)) {
-                    mkdir($uploadDir, 0777, true);
-                }
-                $filename = 'receipt_' . $po_id . '_' . time() . '.' . $ext;
-                if (move_uploaded_file($tmpName, $uploadDir . $filename)) {
-                    $proofPath = 'uploads/receipts/' . $filename;
-                }
-            }
+            $proofPath = SecureUploadHandler::validateAndSaveReceiptUpload(
+                $_FILES['proof_of_receipt'],
+                'receipts',
+                'receipt_' . (int)$po_id
+            );
         }
 
         // Fallback: If no file uploaded, check if live camera photo was captured
         if (empty($proofPath) && !empty($_POST['captured_proof_base64'])) {
-            $base64Str = $_POST['captured_proof_base64'];
-            if (preg_match('/^data:image\/(\w+);base64,/', $base64Str, $type)) {
-                $data = substr($base64Str, strpos($base64Str, ',') + 1);
-                $typeStr = strtolower($type[1]);
-                $data = base64_decode($data);
-                if ($data !== false) {
-                    $uploadDir = __DIR__ . '/../../uploads/receipts/';
-                    if (!file_exists($uploadDir)) {
-                        mkdir($uploadDir, 0777, true);
-                    }
-                    $ext = ($typeStr === 'jpeg') ? 'jpg' : $typeStr;
-                    $filename = 'camera_receipt_' . $po_id . '_' . time() . '.' . $ext;
-                    if (file_put_contents($uploadDir . $filename, $data)) {
-                        $proofPath = 'uploads/receipts/' . $filename;
-                    }
-                }
-            }
+            $proofPath = SecureUploadHandler::validateAndSaveBase64Image(
+                $_POST['captured_proof_base64'],
+                'receipts',
+                'camera_receipt_' . (int)$po_id
+            );
         }
 
         $updateInv = $pdo->prepare("
