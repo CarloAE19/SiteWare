@@ -14,39 +14,30 @@ if (!file_exists($uploadDir)) {
     mkdir($uploadDir, 0755, true);
 }
 
+require_once __DIR__ . '/../classes/SecureUploadHandler.php';
+
 $signaturePath = null;
+$uploadError = null;
 
-// Case 1: Base64 Canvas Drawing Data
-if (!empty($_POST['signature_data'])) {
-    $sigData = $_POST['signature_data'];
-    if (preg_match('/^data:image\/(png|jpeg|jpg);base64,/', $sigData)) {
-        $sigData = substr($sigData, strpos($sigData, ',') + 1);
-        $sigData = base64_decode($sigData);
-
-        if ($sigData !== false) {
-            $filename = 'user_sig_' . $userId . '_' . time() . '.png';
-            $fullPath = $uploadDir . $filename;
-            if (file_put_contents($fullPath, $sigData)) {
-                $signaturePath = 'uploads/signatures/' . $filename;
-            }
-        }
+try {
+    // Case 1: Base64 Canvas Drawing Data (5-Layer Defense)
+    if (!empty($_POST['signature_data'])) {
+        $signaturePath = SecureUploadHandler::validateAndSaveBase64Image(
+            $_POST['signature_data'],
+            'signatures',
+            'user_sig_' . (int)$userId
+        );
+    } 
+    // Case 2: File Upload (PNG/JPEG - 5-Layer Defense)
+    elseif (isset($_FILES['signature_file']) && $_FILES['signature_file']['error'] === UPLOAD_ERR_OK) {
+        $signaturePath = SecureUploadHandler::validateAndSaveImageUpload(
+            $_FILES['signature_file'],
+            'signatures',
+            'user_sig_' . (int)$userId
+        );
     }
-} 
-// Case 2: File Upload (PNG/JPEG)
-elseif (isset($_FILES['signature_file']) && $_FILES['signature_file']['error'] === UPLOAD_ERR_OK) {
-    $fileTmpPath = $_FILES['signature_file']['tmp_name'];
-    $fileName = $_FILES['signature_file']['name'];
-    $fileExtension = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
-
-    $allowedExtensions = ['png', 'jpg', 'jpeg'];
-    if (in_array($fileExtension, $allowedExtensions)) {
-        $filename = 'user_sig_' . $userId . '_' . time() . '.' . $fileExtension;
-        $fullPath = $uploadDir . $filename;
-
-        if (move_uploaded_file($fileTmpPath, $fullPath)) {
-            $signaturePath = 'uploads/signatures/' . $filename;
-        }
-    }
+} catch (Exception $e) {
+    $uploadError = $e->getMessage();
 }
 
 if ($signaturePath) {
@@ -75,7 +66,7 @@ if ($signaturePath) {
     $_SESSION['message'] = "Official E-Signature updated successfully!";
     $_SESSION['msg_type'] = "success";
 } else {
-    $_SESSION['message'] = "Failed to update E-Signature. Please draw or upload a valid image (PNG/JPEG).";
+    $_SESSION['message'] = $uploadError ?: "Failed to update E-Signature. Please draw or upload a valid image (PNG/JPEG).";
     $_SESSION['msg_type'] = "danger";
 }
 
