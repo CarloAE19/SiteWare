@@ -1037,11 +1037,42 @@ include 'layout/header.php';
             }
         }
 
+        function getDashboardCsrfToken() {
+            return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+        }
+
         window.markAllDashboardActivityRead = async function() {
+            const markBtn = document.getElementById('markAllReadBtn');
+            const originalBtnHtml = markBtn ? markBtn.innerHTML : '<i class="bi bi-check2-all me-1"></i>Mark all read';
+
+            if (markBtn) {
+                markBtn.disabled = true;
+                markBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Marking...';
+            }
+
+            const csrfToken = getDashboardCsrfToken();
             let formData = new FormData();
             formData.append('action', 'read_all_notifs');
+            if (csrfToken) {
+                formData.append('csrf_token', csrfToken);
+            }
+
             try {
-                await fetch('process/process_notif.php', { method: 'POST', body: formData });
+                const response = await fetch('process/process_notif.php', { 
+                    method: 'POST', 
+                    body: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRF-Token': csrfToken
+                    }
+                });
+
+                const result = await response.json();
+                if (result.status !== 'success') {
+                    throw new Error(result.message || 'Failed to mark notifications as read.');
+                }
+
+                // Update UI state for all activity items
                 document.querySelectorAll('.activity-card-item').forEach(item => {
                     item.setAttribute('data-read', '1');
                     item.classList.remove('activity-unread');
@@ -1049,11 +1080,18 @@ include 'layout/header.php';
                     const newTag = item.querySelector('.new-tag-badge');
                     if (newTag) newTag.remove();
                 });
+
+                // Update dashboard unread badge
                 const unreadBadge = document.getElementById('dashUnreadBadge');
                 if (unreadBadge) unreadBadge.style.display = 'none';
-                const markBtn = document.getElementById('markAllReadBtn');
+
+                // Synchronize global system notification badge if present
+                const topNotifBadge = document.getElementById('systemNotifBadge');
+                if (topNotifBadge) topNotifBadge.style.display = 'none';
+
                 if (markBtn) markBtn.style.display = 'none';
 
+                // If user is viewing the 'unread' filter tab, show caught up view
                 const activeFilter = document.querySelector('.activity-filter-btn.active');
                 if (!activeFilter || activeFilter.getAttribute('data-filter') === 'unread') {
                     const caughtUp = document.getElementById('caughtUpView');
@@ -1061,8 +1099,32 @@ include 'layout/header.php';
                     if (caughtUp) caughtUp.classList.remove('d-none');
                     if (feedList) feedList.classList.add('d-none');
                 }
+
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        toast: true,
+                        position: 'top-end',
+                        icon: 'success',
+                        title: 'All notifications marked as read',
+                        showConfirmButton: false,
+                        timer: 2000
+                    });
+                }
             } catch (e) {
-                console.error(e);
+                console.error('AJAX Error:', e);
+                if (markBtn) {
+                    markBtn.disabled = false;
+                    markBtn.innerHTML = originalBtnHtml;
+                }
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: e.message || 'Could not update notification status.'
+                    });
+                } else {
+                    alert(e.message || 'Could not update notification status.');
+                }
             }
         };
 
@@ -1223,18 +1285,69 @@ include 'layout/header.php';
             setTimeout(updateNavButtons, 80);
         }
 
+        function initLiveActivityPolling() {
+            async function checkUnreadActivity() {
+                if (document.hidden) return; // Skip polling when browser tab is in background
+
+                try {
+                    const response = await fetch('process/process_notif.php?action=get_unread_count', {
+                        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                    });
+                    const res = await response.json();
+                    if (res && res.status === 'success') {
+                        const count = parseInt(res.unread_count, 10) || 0;
+                        const unreadBadge = document.getElementById('dashUnreadBadge');
+                        const topNotifBadge = document.getElementById('systemNotifBadge');
+                        const markBtn = document.getElementById('markAllReadBtn');
+
+                        if (count > 0) {
+                            if (unreadBadge) {
+                                unreadBadge.textContent = `${count} New`;
+                                unreadBadge.style.display = '';
+                            }
+                            if (topNotifBadge) {
+                                topNotifBadge.textContent = count;
+                                topNotifBadge.style.display = '';
+                            }
+                            if (markBtn) {
+                                markBtn.style.display = '';
+                            }
+                        } else {
+                            if (unreadBadge) unreadBadge.style.display = 'none';
+                            if (topNotifBadge) topNotifBadge.style.display = 'none';
+                            if (markBtn) markBtn.style.display = 'none';
+                        }
+                    }
+                } catch (err) {
+                    // Silently ignore background network errors to avoid user annoyance
+                }
+            }
+
+            // Periodic 60s background check
+            setInterval(checkUnreadActivity, 60000);
+
+            // Instant check when user switches focus back to this browser tab
+            document.addEventListener('visibilitychange', () => {
+                if (!document.hidden) {
+                    checkUnreadActivity();
+                }
+            });
+        }
+
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', function () {
                 updateDashboardTime();
                 setInterval(updateDashboardTime, 1000);
                 initActivityFilters();
                 initQuickActionsScroll();
+                initLiveActivityPolling();
             });
         } else {
             updateDashboardTime();
             setInterval(updateDashboardTime, 1000);
             initActivityFilters();
             initQuickActionsScroll();
+            initLiveActivityPolling();
         }
     })();
 </script>
