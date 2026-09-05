@@ -159,7 +159,7 @@ include 'layout/header.php';
 <!-- Dashboard Stylesheet -->
 <link rel="stylesheet" href="assets/css/dashboard.css?v=<?= time() ?>">
 
-<div class="container-fluid px-3 px-md-4 py-4">
+<div class="container-fluid dashboard-container px-2 px-sm-3 px-md-4 py-3 py-md-4">
 
     <!-- ==========================================
          WELCOME HEADER
@@ -177,37 +177,39 @@ include 'layout/header.php';
         $timeIcon = "bi-moon-stars-fill text-info";
     }
     ?>
-    <div class="dashboard-welcome mb-4">
-        <div class="row align-items-center">
+    <div class="dashboard-welcome mb-3 mb-md-4">
+        <div class="row align-items-center g-0 g-md-3">
             <div class="col-12 col-md-8">
-                <div class="d-flex align-items-center gap-3 flex-wrap">
-                    <div class="welcome-avatar">
+                <div class="d-flex align-items-center gap-2.5 gap-md-3">
+                    <div class="welcome-avatar flex-shrink-0">
                         <i class="bi <?= $currentRole['icon'] ?>"></i>
                     </div>
-                    <div>
-                        <h2 class="fw-bold mb-1.5 welcome-title" id="dashGreeting">
+                    <div class="min-w-0 flex-grow-1">
+                        <h2 class="fw-bold mb-1 welcome-title text-truncate" id="dashGreeting">
                             <i class="bi <?= $timeIcon ?> me-1" id="dashTimeIcon"></i><span id="dashGreetingText"><?= $timeGreeting ?></span>, <?= htmlspecialchars($userName) ?>!
                         </h2>
-                        <div class="d-flex align-items-center gap-2 flex-wrap">
-                            <span class="badge <?= $currentRole['class'] ?> px-3 py-1.5 shadow-sm"><?= $currentRole['label'] ?></span>
-                            <span class="badge bg-light text-secondary border px-2.5 py-1.5 shadow-sm small fw-bold"><i class="bi bi-compass me-1 text-muted"></i><?= htmlspecialchars($currentRole['greeting']) ?></span>
-                            <span class="text-muted small fw-bold"><i class="bi bi-calendar3 me-1"></i><?= date('l, F j, Y') ?></span>
-                            <span class="badge bg-light text-dark border px-2.5 py-1.5 shadow-sm small fw-bold" id="dashLiveClock"><i class="bi bi-clock me-1 text-primary"></i><?= date('g:i A') ?></span>
+                        <div class="d-flex align-items-center gap-1.5 flex-wrap welcome-meta-badges">
+                            <span class="badge <?= $currentRole['class'] ?> px-2.5 py-1 shadow-sm"><?= $currentRole['label'] ?></span>
+                            <span class="badge bg-light text-secondary border px-2 py-1 shadow-sm small fw-bold d-none d-sm-inline-flex"><i class="bi bi-compass me-1 text-muted"></i><?= htmlspecialchars($currentRole['greeting']) ?></span>
+                            <span class="text-muted small fw-bold d-none d-md-inline-flex"><i class="bi bi-calendar3 me-1"></i><?= date('l, F j, Y') ?></span>
+                            <span class="badge bg-light text-dark border px-2 py-1 shadow-sm small fw-bold" id="dashLiveClock"><i class="bi bi-clock me-1 text-primary"></i><?= date('g:i A') ?></span>
                         </div>
                     </div>
                 </div>
             </div>
-            <div class="col-12 col-md-4 text-md-end mt-3 mt-md-0">
-                <?php if ($role !== 'requestor'): ?>
-                    <a href="index" class="btn btn-outline-primary btn-sm fw-bold shadow-sm me-1">
-                        <i class="bi bi-box-seam me-1"></i>Inventory
-                    </a>
-                <?php endif; ?>
-                <?php if (in_array($role, ['admin', 'management', 'purchasing'])): ?>
-                    <a href="analytics" class="btn btn-outline-dark btn-sm fw-bold shadow-sm">
-                        <i class="bi bi-bar-chart-line me-1"></i>Analytics
-                    </a>
-                <?php endif; ?>
+            <div class="col-12 col-md-4 text-md-end welcome-actions-col">
+                <div class="welcome-actions-wrap d-flex gap-2 justify-content-start justify-content-md-end">
+                    <?php if ($role !== 'requestor'): ?>
+                        <a href="index" class="welcome-action-pill welcome-pill-primary flex-grow-1 flex-md-grow-0" id="welcomeBtnInventory">
+                            <i class="bi bi-box-seam me-1.5"></i>Inventory
+                        </a>
+                    <?php endif; ?>
+                    <?php if (in_array($role, ['admin', 'management', 'purchasing'])): ?>
+                        <a href="analytics" class="welcome-action-pill welcome-pill-neutral flex-grow-1 flex-md-grow-0" id="welcomeBtnAnalytics">
+                            <i class="bi bi-bar-chart-line me-1.5"></i>Analytics
+                        </a>
+                    <?php endif; ?>
+                </div>
             </div>
         </div>
     </div>
@@ -215,14 +217,19 @@ include 'layout/header.php';
     <!-- ==========================================
          QUICK ACTION SHORTCUTS (Horizontal Scrollable Strip)
     =========================================== -->
-    <div class="mb-4">
-        <h6 class="fw-bold mb-3 text-dark d-flex align-items-center">
-            <i class="bi bi-lightning-charge-fill me-2 text-warning"></i>Quick Actions
-        </h6>
+    <div class="mb-3 mb-md-4">
+        <div class="d-flex justify-content-between align-items-center mb-2.5">
+            <h6 class="fw-bold mb-0 text-dark d-flex align-items-center">
+                <i class="bi bi-lightning-charge-fill me-2 text-warning"></i>Quick Actions
+            </h6>
+            <span class="quick-swipe-hint text-muted small fw-semibold d-flex align-items-center gap-1 d-md-none">
+                <span>Swipe</span><i class="bi bi-arrow-right-short text-warning fs-6"></i>
+            </span>
+        </div>
         
         <div class="quick-actions-wrapper" id="quickActionsWrapper">
-            <!-- Floating Left Scroll Button -->
-            <button type="button" class="quick-nav-btn quick-nav-prev d-none" id="quickScrollPrev" aria-label="Scroll left">
+            <!-- Floating Left Scroll Button (desktop only) -->
+            <button type="button" class="quick-nav-btn quick-nav-prev d-none d-md-flex" id="quickScrollPrev" aria-label="Scroll left">
                 <i class="bi bi-chevron-left"></i>
             </button>
 
@@ -255,7 +262,11 @@ include 'layout/header.php';
                         </div>
                         <div class="shortcut-text">
                             <span class="shortcut-label">Review RS</span>
-                            <small class="shortcut-desc"><?= $pendingApprovalRS ?> pending</small>
+                            <?php if ($pendingApprovalRS > 0): ?>
+                                <span class="badge bg-warning-subtle text-dark border border-warning-subtle px-1.5 py-0.5 rounded-pill shortcut-badge-pending"><?= $pendingApprovalRS ?> pending</span>
+                            <?php else: ?>
+                                <small class="shortcut-desc">0 pending</small>
+                            <?php endif; ?>
                         </div>
                     </a>
                     <a href="analytics" class="shortcut-btn" id="shortcut-ai-forecast">
@@ -420,7 +431,11 @@ include 'layout/header.php';
                         </div>
                         <div class="shortcut-text">
                             <span class="shortcut-label">Review RS</span>
-                            <small class="shortcut-desc"><?= $pendingApprovalRS ?> pending</small>
+                            <?php if ($pendingApprovalRS > 0): ?>
+                                <span class="badge bg-warning-subtle text-dark border border-warning-subtle px-1.5 py-0.5 rounded-pill shortcut-badge-pending"><?= $pendingApprovalRS ?> pending</span>
+                            <?php else: ?>
+                                <small class="shortcut-desc">0 pending</small>
+                            <?php endif; ?>
                         </div>
                     </a>
                     <a href="analytics" class="shortcut-btn" id="shortcut-ai-forecast">
@@ -453,8 +468,17 @@ include 'layout/header.php';
     </div>
 
     <!-- ==========================================
-         STAT CARDS — Role-Specific
+         KEY METRICS & KPIS — Role-Specific
     =========================================== -->
+    <div class="metrics-section-header mb-2.5 d-flex justify-content-between align-items-center">
+        <h6 class="fw-bold mb-0 text-dark d-flex align-items-center">
+            <i class="bi bi-bar-chart-fill me-2 text-primary"></i>Key Metrics
+        </h6>
+        <span class="metrics-drilldown-hint text-muted small fw-semibold d-flex align-items-center gap-1">
+            <span>Tap to inspect</span><i class="bi bi-arrow-up-right-square text-primary"></i>
+        </span>
+    </div>
+
     <div class="row mb-4 g-3">
         <?php // ============ REQUESTOR STATS ============
         if ($role === 'requestor'): ?>
@@ -919,25 +943,30 @@ include 'layout/header.php';
         <div class="col-12 <?= $role === 'requestor' ? 'col-lg-6' : '' ?>">
             <div class="card border-0 shadow-sm h-100" id="activityCard">
                 <div class="card-body p-3 p-md-4">
-                    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-                        <div class="d-flex align-items-center gap-2">
-                            <h6 class="fw-bold text-dark mb-0"><i class="bi bi-activity me-2 text-primary"></i>Recent Activity Feed</h6>
-                            <span class="badge bg-danger rounded-pill px-2 py-1 small ms-1" id="dashUnreadBadge" style="<?= $unreadActivityCount > 0 ? '' : 'display:none;' ?>"><?= $unreadActivityCount ?> New</span>
-                        </div>
-                        <div class="d-flex align-items-center gap-2">
-                            <?php if ($unreadActivityCount > 0): ?>
-                                <button type="button" class="btn btn-link btn-xs text-decoration-none text-primary p-0 fw-bold me-2" id="markAllReadBtn" onclick="markAllDashboardActivityRead()">
-                                    <i class="bi bi-check2-all me-1"></i>Mark all read
+                    <!-- ACTIVITY FEED HEADER -->
+                    <div class="activity-feed-header mb-3">
+                        <div class="d-flex justify-content-between align-items-center gap-2 mb-2.5">
+                            <div class="d-flex align-items-center gap-2 min-w-0">
+                                <h6 class="fw-bold text-dark mb-0 text-truncate"><i class="bi bi-activity me-1.5 text-primary"></i>Recent Activity Feed</h6>
+                                <span class="badge bg-danger rounded-pill px-2 py-0.5 small fw-bold flex-shrink-0" id="dashUnreadBadge" style="<?= $unreadActivityCount > 0 ? '' : 'display:none;' ?>"><?= $unreadActivityCount ?> New</span>
+                            </div>
+                            <div class="flex-shrink-0">
+                                <button type="button" class="btn btn-link btn-xs text-decoration-none text-primary p-0 fw-bold mark-all-read-btn" id="markAllReadBtn" onclick="markAllDashboardActivityRead()" style="<?= $unreadActivityCount > 0 ? '' : 'display:none;' ?>">
+                                    <i class="bi bi-check2-all me-1"></i><span class="mark-all-text">Mark all read</span>
                                 </button>
-                            <?php endif; ?>
-                            <div class="d-flex align-items-center gap-1 activity-filter-group">
+                            </div>
+                        </div>
+
+                        <!-- TOUCH-FRIENDLY FILTER BAR -->
+                        <div class="activity-filter-wrapper">
+                            <div class="activity-filter-group" id="activityFilterGroup">
                                 <button type="button" class="btn btn-xs <?= $unreadActivityCount > 0 ? 'btn-primary active' : 'btn-outline-secondary' ?> activity-filter-btn" data-filter="unread">Unread</button>
                                 <button type="button" class="btn btn-xs <?= $unreadActivityCount === 0 ? 'btn-primary active' : 'btn-outline-secondary' ?> activity-filter-btn" data-filter="all">All</button>
-                                <button type="button" class="btn btn-xs btn-outline-secondary activity-filter-btn" data-filter="requisition">RS</button>
+                                <button type="button" class="btn btn-xs btn-outline-secondary activity-filter-btn" data-filter="requisition">Requisitions</button>
                                 <?php if ($role !== 'requestor'): ?>
-                                    <button type="button" class="btn btn-xs btn-outline-secondary activity-filter-btn" data-filter="po">PO</button>
+                                    <button type="button" class="btn btn-xs btn-outline-secondary activity-filter-btn" data-filter="po">Purchase Orders</button>
                                 <?php endif; ?>
-                                <button type="button" class="btn btn-xs btn-outline-secondary activity-filter-btn" data-filter="withdrawal">Withdrawal</button>
+                                <button type="button" class="btn btn-xs btn-outline-secondary activity-filter-btn" data-filter="withdrawal">Withdrawals</button>
                             </div>
                         </div>
                     </div>
@@ -961,25 +990,27 @@ include 'layout/header.php';
                                 $meta = getActivityMeta($activity['title'], $activity['message']);
                                 $isUnread = (int)$activity['is_read'] === 0;
                             ?>
-                                <a href="javascript:void(0)" onclick="readNotifAndNavigate(<?= (int)$activity['id'] ?>, '<?= htmlspecialchars($meta['target'], ENT_QUOTES, 'UTF-8') ?>')" class="activity-card-item d-flex align-items-start gap-3 p-2.5 rounded-3 mb-2 text-decoration-none text-reset <?= $isUnread ? 'activity-unread' : 'activity-read' ?>" data-category="<?= htmlspecialchars($meta['type'], ENT_QUOTES, 'UTF-8') ?>" data-read="<?= $isUnread ? '0' : '1' ?>">
-                                    <div class="activity-icon-badge <?= $meta['bg'] ?> text-<?= $meta['color'] ?> position-relative">
+                                <a href="javascript:void(0)" onclick="readNotifAndNavigate(<?= (int)$activity['id'] ?>, '<?= htmlspecialchars($meta['target'], ENT_QUOTES, 'UTF-8') ?>')" class="activity-card-item d-flex align-items-start gap-2.5 p-2.5 rounded-3 mb-2 text-decoration-none text-reset <?= $isUnread ? 'activity-unread' : 'activity-read' ?>" data-category="<?= htmlspecialchars($meta['type'], ENT_QUOTES, 'UTF-8') ?>" data-read="<?= $isUnread ? '0' : '1' ?>">
+                                    <div class="activity-icon-badge <?= $meta['bg'] ?> text-<?= $meta['color'] ?> position-relative flex-shrink-0">
                                         <i class="bi <?= $meta['icon'] ?>"></i>
                                     </div>
                                     <div class="flex-grow-1 min-w-0">
-                                        <div class="d-flex justify-content-between align-items-center gap-2">
-                                            <span class="fw-bold text-dark text-truncate d-flex align-items-center gap-1" style="font-size: 0.85rem;">
-                                                <?= htmlspecialchars($activity['title'], ENT_QUOTES, 'UTF-8') ?>
+                                        <div class="d-flex justify-content-between align-items-start gap-2 mb-1">
+                                            <div class="min-w-0 d-flex align-items-center gap-1.5 flex-wrap">
+                                                <span class="activity-item-title fw-bold text-dark text-truncate" style="font-size: 0.85rem;">
+                                                    <?= htmlspecialchars($activity['title'], ENT_QUOTES, 'UTF-8') ?>
+                                                </span>
                                                 <?php if ($isUnread): ?>
-                                                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-2 py-0.5 new-tag-badge" style="font-size: 0.65rem;">NEW</span>
+                                                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-1.5 py-0.5 new-tag-badge flex-shrink-0" style="font-size: 0.62rem; font-weight: 700;">NEW</span>
                                                 <?php endif; ?>
-                                            </span>
-                                            <span class="badge bg-light text-muted border px-2 py-1 flex-shrink-0" style="font-size: 0.7rem; font-weight: 600;">
+                                            </div>
+                                            <span class="badge bg-light text-muted border px-1.5 py-0.5 flex-shrink-0 activity-time-badge" style="font-size: 0.68rem; font-weight: 600;">
                                                 <i class="bi bi-clock me-1"></i><?= time_elapsed_string($activity['created_at']) ?>
                                             </span>
                                         </div>
-                                        <p class="mb-0 text-muted small text-truncate-2 mt-1" style="font-size: 0.78rem; line-height: 1.35;"><?= htmlspecialchars($activity['message'], ENT_QUOTES, 'UTF-8') ?></p>
+                                        <p class="mb-0 text-muted small text-truncate-2" style="font-size: 0.77rem; line-height: 1.35;"><?= htmlspecialchars($activity['message'], ENT_QUOTES, 'UTF-8') ?></p>
                                     </div>
-                                    <i class="bi bi-chevron-right text-muted opacity-50 ms-1 align-self-center"></i>
+                                    <i class="bi bi-chevron-right text-muted opacity-40 ms-0.5 align-self-center d-none d-sm-block flex-shrink-0"></i>
                                 </a>
                             <?php endforeach; ?>
                         <?php else: ?>
