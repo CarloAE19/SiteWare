@@ -132,7 +132,7 @@ $units = $units ?? [];
 <!-- MODAL: VIEW DETAILS & PRINT QR DOCUMENT                  -->
 <!-- ======================================================== -->
 <div class="modal fade" id="viewRsModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+    <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable modal-fullscreen-sm-down">
         <div class="modal-content border-0 shadow-lg">
             <div class="modal-header" style="background-color: var(--gb-dark); color: white;">
                 <h5 class="modal-title fw-bold"><i class="bi bi-card-list me-2" style="color: var(--gb-yellow);"></i>Requisition Document</h5>
@@ -203,27 +203,30 @@ $units = $units ?? [];
 <!-- MODAL: REJECT REASON                                     -->
 <!-- ======================================================== -->
 <div class="modal fade" id="rejectRsModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
-    <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-fullscreen-sm-down">
         <div class="modal-content border-0 shadow-lg">
             <div class="modal-header bg-danger text-white">
                 <h5 class="modal-title fw-bold"><i class="bi bi-exclamation-triangle me-2"></i>Reject Requisition</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-            <form method="POST" action="process/process.php">
+            <form method="POST" action="process/process.php" id="rejectRsForm">
                 <div class="modal-body p-4 bg-light">
                     <input type="hidden" name="action" value="reject_rs">
                     <input type="hidden" name="rs_id" id="rejectRsId">
+                    <?php if (function_exists('generate_csrf_token')): ?>
+                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(generate_csrf_token()) ?>">
+                    <?php endif; ?>
 
                     <p class="fw-bold text-dark mb-4">You are rejecting Requisition: <span id="rejectRsNoDisplay" class="text-danger fs-5"></span></p>
 
                     <div class="mb-3">
                         <label class="form-label fw-bold small text-muted text-uppercase">Reason for Rejection <span class="text-danger">*</span></label>
-                        <textarea class="form-control fw-bold" name="reject_reason" rows="3" required placeholder="e.g. Insufficient stock in inventory..."></textarea>
+                        <textarea class="form-control fw-bold" name="reject_reason" id="rejectReasonInput" rows="3" required placeholder="e.g. Insufficient stock in inventory..."></textarea>
                     </div>
                 </div>
                 <div class="modal-footer bg-white border-top-0">
                     <button type="button" class="btn btn-light fw-bold text-muted px-4" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-danger fw-bold px-4 shadow-sm"><i class="bi bi-x-circle me-2"></i>Confirm Reject</button>
+                    <button type="submit" class="btn btn-danger fw-bold px-4 shadow-sm" id="rejectRsSubmitBtn"><i class="bi bi-x-circle me-2"></i>Confirm Reject</button>
                 </div>
             </form>
         </div>
@@ -235,7 +238,7 @@ $units = $units ?? [];
 <!-- ======================================================== -->
 <?php if (in_array($role, ['requestor', 'warehouse', 'admin'])): ?>
     <div class="modal fade" id="rsModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
-        <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+        <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable modal-fullscreen-sm-down">
             <div class="modal-content border-0 shadow-lg">
                 <div class="modal-header" style="background-color: var(--gb-dark); color: white;">
                     <h5 class="modal-title fw-bold"><i class="bi bi-file-earmark-plus me-2" style="color: var(--gb-yellow);"></i>Create Requisition Slip (RS)</h5>
@@ -248,6 +251,9 @@ $units = $units ?? [];
                         <input type="hidden" name="requestor_id" value="<?= $_SESSION['user_id'] ?>">
                         <input type="hidden" name="requestor_name" value="<?= htmlspecialchars($_SESSION['user_name']) ?>">
                         <input type="hidden" name="rs_no" value="RS-<?= date('Y') ?>-<?= rand(1000, 9999) ?>">
+                        <?php if (function_exists('generate_csrf_token')): ?>
+                            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(generate_csrf_token()) ?>">
+                        <?php endif; ?>
 
                         <!-- 1. METADATA SUMMARY STRIP (HCI Information Chunking) -->
                         <div class="card border-0 bg-white rounded-3 shadow-sm mb-3 p-3">
@@ -386,7 +392,7 @@ $units = $units ?? [];
     <!-- MODAL: REQUEST RESTOCK (WAREHOUSE ONLY)                  -->
     <!-- ======================================================== -->
     <div class="modal fade" id="restockModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
-        <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+        <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable modal-fullscreen-sm-down">
             <div class="modal-content border-0 shadow-lg">
                 <div class="modal-header" style="background-color: var(--gb-dark); color: white;">
                     <h5 class="modal-title fw-bold"><i class="bi bi-arrow-repeat me-2" style="color: var(--gb-yellow);"></i>Request Inventory Restock</h5>
@@ -397,6 +403,9 @@ $units = $units ?? [];
                         <input type="hidden" name="action" value="create_rs">
                         <input type="hidden" name="project_name" value="Warehouse Restock">
                         <input type="hidden" name="requisition_type" value="restock">
+                        <?php if (function_exists('generate_csrf_token')): ?>
+                            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(generate_csrf_token()) ?>">
+                        <?php endif; ?>
 
                         <div class="alert alert-info border-0 shadow-sm d-flex align-items-center mb-3">
                             <i class="bi bi-info-circle-fill fs-4 me-3 text-primary"></i>
@@ -520,7 +529,7 @@ $units = $units ?? [];
 <!-- ======================================================== -->
 <?php if (in_array($role, ['management', 'admin'])): ?>
 <div class="modal fade" id="approveItemsModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
-    <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+    <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable modal-fullscreen-sm-down">
         <div class="modal-content border-0 shadow-lg">
             <div class="modal-header" style="background-color: var(--gb-dark); color: white;">
                 <h5 class="modal-title fw-bold"><i class="bi bi-check2-square me-2" style="color: var(--gb-yellow);"></i>Review &amp; Approve Items — <span id="approveRsNoLabel">RS-0000</span></h5>
@@ -530,6 +539,9 @@ $units = $units ?? [];
                 <div class="modal-body bg-light p-4">
                     <input type="hidden" name="action" value="approve_rs">
                     <input type="hidden" name="rs_id" id="approveRsIdField">
+                    <?php if (function_exists('generate_csrf_token')): ?>
+                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(generate_csrf_token()) ?>">
+                    <?php endif; ?>
 
                     <p class="text-muted small mb-3"><i class="bi bi-info-circle-fill me-1 text-primary"></i>For each item, choose <strong>Approve</strong> or <strong>Reject</strong>. Add a remark for any rejected item.</p>
 
@@ -545,7 +557,7 @@ $units = $units ?? [];
                     </div>
                     <div class="d-flex gap-2">
                         <button type="button" class="btn btn-secondary fw-bold px-4" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-success fw-bold px-4 shadow-sm"><i class="bi bi-send me-2"></i>Submit Decision</button>
+                        <button type="submit" class="btn btn-success fw-bold px-4 shadow-sm" id="approveItemsSubmitBtn"><i class="bi bi-send me-2"></i>Submit Decision</button>
                     </div>
                 </div>
             </form>
@@ -558,7 +570,7 @@ $units = $units ?? [];
 <!-- MODAL: EDIT & RESUBMIT REQUISITION                       -->
 <!-- ======================================================== -->
 <div class="modal fade" id="editRsModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
-    <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+    <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable modal-fullscreen-sm-down">
         <div class="modal-content border-0 shadow-lg">
             <div class="modal-header" style="background-color: var(--gb-dark); color: white;">
                 <h5 class="modal-title fw-bold"><i class="bi bi-pencil-square me-2" style="color: var(--gb-yellow);"></i>Edit Requisition — <span id="editRsNoLabel">RS-0000</span></h5>
@@ -569,6 +581,9 @@ $units = $units ?? [];
                 <div class="modal-body bg-light p-4">
                     <input type="hidden" name="action" value="edit_rs">
                     <input type="hidden" name="rs_id" id="editRsIdField">
+                    <?php if (function_exists('generate_csrf_token')): ?>
+                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(generate_csrf_token()) ?>">
+                    <?php endif; ?>
 
                     <div class="alert alert-info border-0 shadow-sm small py-2 mb-3 d-flex align-items-center">
                         <i class="bi bi-info-circle-fill me-2 fs-5"></i>

@@ -312,13 +312,111 @@ window.setAllItemStatuses = function(status) {
 };
 
 window.printRSDocument = function() {
-    const printContent = document.getElementById('rsPrintArea').innerHTML;
-    const originalContent = document.body.innerHTML;
-    document.body.innerHTML = `<div style="padding: 40px; background: white;">${printContent}</div>`;
-    window.print();
-    document.body.innerHTML = originalContent;
-    window.location.reload(); 
-}
+    const printArea = document.getElementById('rsPrintArea');
+    if (!printArea) {
+        alert("Unable to find Requisition document to print.");
+        return;
+    }
+
+    const rsNo = document.getElementById('viewRsNo')?.innerText || 'RS Document';
+    const printContent = printArea.innerHTML;
+    const printWindow = window.open('', '_blank', 'width=850,height=900');
+    if (!printWindow) {
+        alert("Pop-up blocked. Please allow pop-ups for this site to print.");
+        return;
+    }
+
+    printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>${rsNo} - Approved Requisition Slip</title>
+            <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+            <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+            <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+            <style>
+                @page {
+                    size: auto;
+                    margin: 0 !important;
+                }
+                * {
+                    -webkit-print-color-adjust: exact !important;
+                    print-color-adjust: exact !important;
+                    box-sizing: border-box !important;
+                }
+                html, body {
+                    width: 100% !important;
+                    margin: 0 !important;
+                    padding: 0 !important;
+                    background: #ffffff !important;
+                    color: #212529 !important;
+                    font-family: 'Plus Jakarta Sans', Arial, sans-serif;
+                }
+                body {
+                    font-size: 0.84rem;
+                    line-height: 1.3 !important;
+                }
+                .print-wrapper {
+                    width: 100% !important;
+                    max-width: 100% !important;
+                    margin: 0 !important;
+                    padding: 6mm 8mm !important;
+                    box-sizing: border-box !important;
+                    page-break-inside: avoid;
+                }
+                .table {
+                    width: 100% !important;
+                    margin-bottom: 0.5rem !important;
+                    border-collapse: collapse !important;
+                }
+                .table-light, thead.table-light th {
+                    background-color: #f8f9fa !important;
+                    color: #212529 !important;
+                    font-weight: 700;
+                }
+                .d-print-none {
+                    display: none !important;
+                }
+                .d-print-block {
+                    display: block !important;
+                }
+                .badge {
+                    border: 1px solid #ced4da;
+                    padding: 3px 8px;
+                    border-radius: 4px;
+                }
+                .remarks-box {
+                    border: 1px solid #dee2e6;
+                    border-radius: 6px;
+                    padding: 8px 12px;
+                    background: #fdfdfd;
+                }
+                .doc-summary-card {
+                    border: 1px solid #dee2e6;
+                    border-radius: 8px;
+                    padding: 12px;
+                    background: #fbfcfd;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="print-wrapper">
+                ${printContent}
+            </div>
+            <script>
+                window.addEventListener('load', function() {
+                    setTimeout(function() {
+                        window.focus();
+                        window.print();
+                        setTimeout(function() { window.close(); }, 750);
+                    }, 350);
+                });
+            </script>
+        </body>
+        </html>
+    `);
+    printWindow.document.close();
+};
 
 if (window.rsGlobalClickListener) {
     document.body.removeEventListener('click', window.rsGlobalClickListener);
@@ -1225,15 +1323,20 @@ function initializeRequisitionsPage() {
 
             try {
                 const formData = new FormData(rsForm);
+                const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+                const headers = { 'X-Requested-With': 'XMLHttpRequest' };
+                if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
+
                 const response = await fetch('process/process.php', {
                     method: 'POST',
                     body: formData,
-                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                    headers: headers
                 });
 
                 const result = await response.json();
+                const isSuccess = result.status === 'success' || result.success === true || (result.status && result.status.toLowerCase() === 'ok');
 
-                if (result.status === 'success' || result.success) {
+                if (isSuccess) {
                     const modalInstance = bootstrap.Modal.getInstance(rsModalEl);
                     if (modalInstance) modalInstance.hide();
 
@@ -1271,6 +1374,10 @@ function initializeRequisitionsPage() {
     }
 
     if (rsModalEl) {
+        rsModalEl.addEventListener('shown.bs.modal', () => {
+            const projSelect = rsModalEl.querySelector('select[name="project_name"]');
+            if (projSelect) projSelect.focus();
+        });
         rsModalEl.addEventListener('hidden.bs.modal', () => {
             const container = document.getElementById('materialsContainer');
             if (container) {
@@ -1287,6 +1394,11 @@ function initializeRequisitionsPage() {
                 window.updateDeleteButtons(container);
             }
             if (rsForm) rsForm.reset();
+            const submitBtn = document.getElementById('rsSubmitBtn');
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="bi bi-send me-2"></i>Submit Request';
+            }
         });
     }
 
@@ -1313,15 +1425,20 @@ function initializeRequisitionsPage() {
 
             try {
                 const formData = new FormData(restockForm);
+                const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+                const headers = { 'X-Requested-With': 'XMLHttpRequest' };
+                if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
+
                 const response = await fetch('process/process.php', {
                     method: 'POST',
                     body: formData,
-                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                    headers: headers
                 });
 
                 const result = await response.json();
+                const isSuccess = result.status === 'success' || result.success === true || (result.status && result.status.toLowerCase() === 'ok');
 
-                if (result.status === 'success' || result.success) {
+                if (isSuccess) {
                     const modalInstance = bootstrap.Modal.getInstance(restockModalEl);
                     if (modalInstance) modalInstance.hide();
 
@@ -1374,10 +1491,15 @@ function initializeRequisitionsPage() {
                 window.updateDeleteButtons(container);
             }
             if (restockForm) restockForm.reset();
+            const submitBtn = document.getElementById('restockSubmitBtn');
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="bi bi-send me-2"></i>Submit Restock Request';
+            }
         });
     }
 
-    // --- EDIT RS FORM AJAX SUBMISSION (cims-modal-ajax-handler standard) ---
+    // --- EDIT RS FORM AJAX SUBMISSION ---
     const editForm = document.getElementById('editRsForm');
     const editModalEl = document.getElementById('editRsModal');
 
@@ -1400,15 +1522,20 @@ function initializeRequisitionsPage() {
 
             try {
                 const formData = new FormData(editForm);
+                const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+                const headers = { 'X-Requested-With': 'XMLHttpRequest' };
+                if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
+
                 const response = await fetch('process/process.php', {
                     method: 'POST',
                     body: formData,
-                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                    headers: headers
                 });
 
                 const result = await response.json();
+                const isSuccess = result.status === 'success' || result.success === true || (result.status && result.status.toLowerCase() === 'ok');
 
-                if (result.status === 'success' || result.success) {
+                if (isSuccess) {
                     const modalInstance = bootstrap.Modal.getInstance(editModalEl);
                     if (modalInstance) modalInstance.hide();
 
@@ -1449,6 +1576,184 @@ function initializeRequisitionsPage() {
         editModalEl.addEventListener('hidden.bs.modal', () => {
             const container = document.getElementById('editMaterialsContainer');
             if (container) container.innerHTML = '';
+            const submitBtn = document.getElementById('editRsSubmitBtn');
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="bi bi-check2-circle me-2"></i>Save &amp; Resubmit';
+            }
+        });
+    }
+
+    // --- REJECT RS FORM AJAX SUBMISSION ---
+    const rejectForm = document.getElementById('rejectRsForm');
+    const rejectModalEl = document.getElementById('rejectRsModal');
+
+    if (rejectForm) {
+        rejectForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const submitBtn = document.getElementById('rejectRsSubmitBtn');
+            const originalText = submitBtn ? submitBtn.innerHTML : '<i class="bi bi-x-circle me-2"></i>Confirm Reject';
+
+            if (!rejectForm.checkValidity()) {
+                rejectForm.reportValidity();
+                return;
+            }
+
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Rejecting...';
+            }
+
+            try {
+                const formData = new FormData(rejectForm);
+                const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+                const headers = { 'X-Requested-With': 'XMLHttpRequest' };
+                if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
+
+                const response = await fetch('process/process.php', {
+                    method: 'POST',
+                    body: formData,
+                    headers: headers
+                });
+
+                const result = await response.json();
+                const isSuccess = result.status === 'success' || result.success === true || (result.status && result.status.toLowerCase() === 'ok');
+
+                if (isSuccess) {
+                    const modalInstance = bootstrap.Modal.getInstance(rejectModalEl);
+                    if (modalInstance) modalInstance.hide();
+
+                    if (typeof Swal !== 'undefined') {
+                        await Swal.fire({
+                            icon: 'success',
+                            title: 'Requisition Rejected',
+                            text: result.message || 'Requisition was marked as rejected.',
+                            timer: 2000,
+                            showConfirmButton: false
+                        });
+                    }
+                    window.location.reload();
+                } else {
+                    throw new Error(result.message || 'Failed to reject requisition.');
+                }
+            } catch (err) {
+                console.error('Error rejecting RS:', err);
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Action Failed',
+                        text: err.message || 'An error occurred while rejecting the requisition.'
+                    });
+                } else {
+                    alert(err.message || 'An error occurred while rejecting the requisition.');
+                }
+            } finally {
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalText;
+                }
+            }
+        });
+    }
+
+    if (rejectModalEl) {
+        rejectModalEl.addEventListener('shown.bs.modal', () => {
+            const reasonInput = document.getElementById('rejectReasonInput');
+            if (reasonInput) reasonInput.focus();
+        });
+        rejectModalEl.addEventListener('hidden.bs.modal', () => {
+            if (rejectForm) rejectForm.reset();
+            const submitBtn = document.getElementById('rejectRsSubmitBtn');
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="bi bi-x-circle me-2"></i>Confirm Reject';
+            }
+        });
+    }
+
+    // --- APPROVE RS ITEMS FORM AJAX SUBMISSION ---
+    const approveForm = document.getElementById('approveItemsForm');
+    const approveModalEl = document.getElementById('approveItemsModal');
+
+    if (approveForm) {
+        approveForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const submitBtn = document.getElementById('approveItemsSubmitBtn');
+            const originalText = submitBtn ? submitBtn.innerHTML : '<i class="bi bi-send me-2"></i>Submit Decision';
+
+            if (!approveForm.checkValidity()) {
+                approveForm.reportValidity();
+                return;
+            }
+
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Submitting Decision...';
+            }
+
+            try {
+                const formData = new FormData(approveForm);
+                const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+                const headers = { 'X-Requested-With': 'XMLHttpRequest' };
+                if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
+
+                const response = await fetch('process/process.php', {
+                    method: 'POST',
+                    body: formData,
+                    headers: headers
+                });
+
+                const result = await response.json();
+                const isSuccess = result.status === 'success' || result.success === true || (result.status && result.status.toLowerCase() === 'ok');
+
+                if (isSuccess) {
+                    const modalInstance = bootstrap.Modal.getInstance(approveModalEl);
+                    if (modalInstance) modalInstance.hide();
+
+                    if (typeof Swal !== 'undefined') {
+                        await Swal.fire({
+                            icon: 'success',
+                            title: 'Decision Recorded!',
+                            text: result.message || 'Requisition items review has been saved.',
+                            timer: 2000,
+                            showConfirmButton: false
+                        });
+                    }
+                    window.location.reload();
+                } else {
+                    throw new Error(result.message || 'Failed to submit approval decision.');
+                }
+            } catch (err) {
+                console.error('Error approving RS items:', err);
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Decision Failed',
+                        text: err.message || 'An error occurred while saving the review decision.'
+                    });
+                } else {
+                    alert(err.message || 'An error occurred while saving the review decision.');
+                }
+            } finally {
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalText;
+                }
+            }
+        });
+    }
+
+    if (approveModalEl) {
+        approveModalEl.addEventListener('hidden.bs.modal', () => {
+            const list = document.getElementById('approveItemsList');
+            if (list) list.innerHTML = '';
+            const submitBtn = document.getElementById('approveItemsSubmitBtn');
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="bi bi-send me-2"></i>Submit Decision';
+            }
         });
     }
 }
