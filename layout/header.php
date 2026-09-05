@@ -89,6 +89,9 @@ foreach ($notifications as $n) {
     <meta name="apple-mobile-web-app-title" content="GB Inventory">
     <link rel="apple-touch-icon" href="assets/LogoGB.png">
     <link rel="icon" type="image/png" href="assets/LogoGB.png">
+    <?php if (function_exists('generate_csrf_token')): ?>
+    <meta name="csrf-token" content="<?= htmlspecialchars(generate_csrf_token()) ?>">
+    <?php endif; ?>
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
