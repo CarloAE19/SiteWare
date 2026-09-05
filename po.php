@@ -1535,8 +1535,14 @@ include 'layout/header.php';
         formData.append('contact_number', phone);
         formData.append('message', message);
 
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+        const headers = {};
+        if (csrfToken) {
+            headers['X-CSRF-Token'] = csrfToken;
+        }
+
         try {
-            await fetch('process/process.php', { method: 'POST', body: formData });
+            await fetch('process/process.php', { method: 'POST', body: formData, headers: headers });
         } catch (e) {
             console.error('Error logging Viber order send:', e);
         } finally {
