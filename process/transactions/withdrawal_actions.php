@@ -32,40 +32,25 @@ if ($action === 'create_withdrawal') {
             }
         }
         
-        // 1. Process Digital Signature Image (Base64 -> PNG)
+        // 1. Process Digital Signature Image (5-Layer Defense: Base64 -> PNG)
+        require_once __DIR__ . '/../../classes/SecureUploadHandler.php';
         $signature_path = null;
         if (!empty($_POST['signature_data'])) {
-            $sigData = $_POST['signature_data'];
-            if (strpos($sigData, 'base64,') !== false) {
-                $sigData = explode('base64,', $sigData)[1];
-            }
-            $sigBinary = base64_decode($sigData);
-            if ($sigBinary) {
-                $sigDir = __DIR__ . '/../../uploads/signatures';
-                if (!file_exists($sigDir)) {
-                    mkdir($sigDir, 0777, true);
-                }
-                $sigFilename = 'sig_' . preg_replace('/[^A-Za-z0-9_-]/', '', $withdrawal_no) . '_' . time() . '.png';
-                file_put_contents($sigDir . '/' . $sigFilename, $sigBinary);
-                $signature_path = 'uploads/signatures/' . $sigFilename;
-            }
+            $signature_path = SecureUploadHandler::validateAndSaveBase64Image(
+                $_POST['signature_data'],
+                'signatures',
+                'sig_' . preg_replace('/[^A-Za-z0-9_-]/', '', $withdrawal_no)
+            );
         }
 
-        // 2. Process Photo Proof File Upload
+        // 2. Process Photo Proof File Upload (5-Layer Defense: Re-encoded Image)
         $photo_proof_path = null;
         if (isset($_FILES['photo_proof']) && $_FILES['photo_proof']['error'] === UPLOAD_ERR_OK) {
-            $photoDir = __DIR__ . '/../../uploads/proofs';
-            if (!file_exists($photoDir)) {
-                mkdir($photoDir, 0777, true);
-            }
-            $ext = strtolower(pathinfo($_FILES['photo_proof']['name'], PATHINFO_EXTENSION));
-            if (empty($ext)) $ext = 'jpg';
-            if (in_array($ext, ['jpg', 'jpeg', 'png', 'webp'])) {
-                $photoFilename = 'proof_' . preg_replace('/[^A-Za-z0-9_-]/', '', $withdrawal_no) . '_' . time() . '.' . $ext;
-                if (move_uploaded_file($_FILES['photo_proof']['tmp_name'], $photoDir . '/' . $photoFilename)) {
-                    $photo_proof_path = 'uploads/proofs/' . $photoFilename;
-                }
-            }
+            $photo_proof_path = SecureUploadHandler::validateAndSaveImageUpload(
+                $_FILES['photo_proof'],
+                'proofs',
+                'proof_' . preg_replace('/[^A-Za-z0-9_-]/', '', $withdrawal_no)
+            );
         }
 
         if (empty($photo_proof_path)) {
