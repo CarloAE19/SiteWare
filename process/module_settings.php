@@ -475,54 +475,32 @@ elseif ($action === 'add_project') {
         throw new Exception("File upload failed or no file selected.");
     }
 
-    $file = $_FILES['login_bg'];
-    $maxSize = 5 * 1024 * 1024; // 5MB
-    if ($file['size'] > $maxSize) {
-        throw new Exception("File size exceeds 5MB limit.");
-    }
+    require_once __DIR__ . '/../classes/SecureUploadHandler.php';
 
-    $allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
-    $fileMime = mime_content_type($file['tmp_name']);
-    if (!in_array($fileMime, $allowedTypes)) {
-        throw new Exception("Invalid file type. Only JPEG, PNG, WEBP, and GIF images are allowed.");
-    }
-
-    // Determine file extension
-    $ext = 'jpg';
-    if ($fileMime === 'image/png') $ext = 'png';
-    elseif ($fileMime === 'image/webp') $ext = 'webp';
-    elseif ($fileMime === 'image/gif') $ext = 'gif';
-
-    // Target upload directory
-    $uploadDir = '../assets/img/';
-    if (!is_dir($uploadDir)) {
-        mkdir($uploadDir, 0755, true);
-    }
-
-    // Retrieve old background to delete it
+    // Retrieve old background to delete it if customized
     $stmt = $pdo->prepare("SELECT setting_value FROM system_settings WHERE setting_key = 'login_background'");
     $stmt->execute();
     $oldBg = $stmt->fetchColumn();
 
-    $newFilename = 'custom_login_bg_' . time() . '.' . $ext;
-    $newPath = 'assets/img/' . $newFilename;
-    $uploadPath = $uploadDir . $newFilename;
+    // 5-Layer Defense: Binary MIME validation, structural check, script scan, GD pixel re-encode, random tokenized filename
+    $newPath = SecureUploadHandler::validateAndSaveAssetImage(
+        $_FILES['login_bg'],
+        'img',
+        'custom_login_bg',
+        5 * 1024 * 1024 // 5MB limit
+    );
 
-    if (move_uploaded_file($file['tmp_name'], $uploadPath)) {
-        // Delete old file if it is custom and exists
-        if ($oldBg && $oldBg !== 'assets/img/default_login_bg.png' && file_exists('../' . $oldBg)) {
-            unlink('../' . $oldBg);
-        }
-
-        // Save path to DB
-        $stmt = $pdo->prepare("INSERT INTO system_settings (setting_key, setting_value) VALUES ('login_background', ?) ON DUPLICATE KEY UPDATE setting_value = ?");
-        $stmt->execute([$newPath, $newPath]);
-
-        $_SESSION['message'] = "Login background updated successfully!";
-        $_SESSION['msg_type'] = "success";
-    } else {
-        throw new Exception("Failed to save uploaded file.");
+    // Delete old file if it is custom, safe, and exists
+    if ($oldBg && $oldBg !== 'assets/img/default_login_bg.png' && file_exists('../' . $oldBg)) {
+        @unlink('../' . $oldBg);
     }
+
+    // Save path to DB
+    $stmt = $pdo->prepare("INSERT INTO system_settings (setting_key, setting_value) VALUES ('login_background', ?) ON DUPLICATE KEY UPDATE setting_value = ?");
+    $stmt->execute([$newPath, $newPath]);
+
+    $_SESSION['message'] = "Login background updated successfully!";
+    $_SESSION['msg_type'] = "success";
 
     $targetRedirect = !empty($_POST['return_tab']) ? "../settings?tab=" . urlencode($_POST['return_tab']) : "../profile";
     header("Location: " . $targetRedirect);
