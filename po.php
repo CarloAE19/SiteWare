@@ -203,7 +203,34 @@ include 'layout/header.php';
             flex-shrink: 0;
             white-space: nowrap;
         }
-</style>
+
+        /* Interactive KPI Filter Tiles */
+        .po-filter-tile {
+            cursor: pointer;
+            transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.18s ease, border-color 0.18s ease;
+            user-select: none;
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+            position: relative;
+        }
+        .po-filter-tile:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08) !important;
+        }
+        .po-filter-tile:active {
+            transform: scale(0.98);
+        }
+        .po-filter-tile.active-filter {
+            box-shadow: 0 0 0 2px var(--gb-blue, #0033CC), 0 8px 20px rgba(0, 51, 204, 0.12) !important;
+            background-color: #f8fafc !important;
+        }
+        .po-filter-tile[data-filter="pending"].active-filter {
+            box-shadow: 0 0 0 2px var(--gb-yellow, #ffc107), 0 8px 20px rgba(255, 193, 7, 0.2) !important;
+        }
+        .po-filter-tile[data-filter="delayed"].active-filter {
+            box-shadow: 0 0 0 2px #dc3545, 0 8px 20px rgba(220, 53, 69, 0.2) !important;
+        }
+    </style>
 
 <div class="container-fluid px-3 px-md-4 py-4">
 
@@ -215,10 +242,11 @@ include 'layout/header.php';
         <?php unset($_SESSION['message'], $_SESSION['msg_type']); ?>
     <?php endif; ?>
 
-    <!-- PO Stats Cards (Premium Hover Effects applied via existing CSS) -->
+    <!-- PO Stats Cards (Interactive Filter Tiles) -->
     <div class="row mb-4 g-3">
         <div class="col-12 col-md-4">
-            <div class="card stat-card bg-white h-100 p-3 shadow-sm border-0 rounded-3"
+            <div class="card stat-card po-filter-tile active-filter bg-white h-100 p-3 shadow-sm border-0 rounded-3"
+                data-filter="all" role="button" tabindex="0" title="Click to view all purchase orders"
                 style="border-left: 5px solid var(--gb-blue) !important;">
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
@@ -232,7 +260,8 @@ include 'layout/header.php';
             </div>
         </div>
         <div class="col-12 col-md-4">
-            <div class="card stat-card bg-white h-100 p-3 shadow-sm border-0 rounded-3"
+            <div class="card stat-card po-filter-tile bg-white h-100 p-3 shadow-sm border-0 rounded-3"
+                data-filter="pending" role="button" tabindex="0" title="Click to filter Pending Deliveries"
                 style="border-left: 5px solid var(--gb-yellow) !important;">
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
@@ -245,7 +274,8 @@ include 'layout/header.php';
             </div>
         </div>
         <div class="col-12 col-md-4">
-            <div class="card stat-card bg-white h-100 p-3 shadow-sm border-0 rounded-3"
+            <div class="card stat-card po-filter-tile bg-white h-100 p-3 shadow-sm border-0 rounded-3"
+                data-filter="delayed" role="button" tabindex="0" title="Click to filter Delayed Orders"
                 style="border-left: 5px solid #dc3545 !important;">
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
@@ -1303,7 +1333,11 @@ include 'layout/header.php';
         printWindow.document.close();
     };
 
-    // Multi-Criteria Table Filtering (Search, Officer, Supplier, Project, Status, Urgency, Date)
+    // Interactive KPI Filter Tiles & Multi-Criteria Table Filtering
+    let currentPoTileFilter = 'all';
+    const poFilterTiles = document.querySelectorAll('.po-filter-tile');
+
+    // Multi-Criteria Table Filtering (Search, Officer, Supplier, Project, Status, Urgency, Date, Tile)
     window.filterPoTable = function () {
         const searchInput = document.getElementById('searchPo');
         const creatorSelect = document.getElementById('filterCreator');
@@ -1336,6 +1370,14 @@ include 'layout/header.php';
 
             const matchesSearch = !searchTerm || no.includes(searchTerm) || sup.includes(searchTerm);
 
+            // KPI Stat Tile Filter
+            let matchesTileStatus = true;
+            if (currentPoTileFilter === 'pending') {
+                matchesTileStatus = ['Generated', 'Viber Order Sent', 'Pending Delivery'].includes(rowStatus);
+            } else if (currentPoTileFilter === 'delayed') {
+                matchesTileStatus = rowStatus.includes('Delayed');
+            }
+
             let matchesCreator = true;
             if (creatorVal === 'me') {
                 matchesCreator = (rowCreator === currentUserId);
@@ -1356,7 +1398,7 @@ include 'layout/header.php';
             const matchesUrgency = (urgencyVal === 'all') || (rowUrgency === urgencyVal);
             const matchesDate = !dateVal || (rowDate === dateVal);
 
-            if (matchesSearch && matchesCreator && matchesSupplier && matchesProject && matchesStatus && matchesUrgency && matchesDate) {
+            if (matchesSearch && matchesTileStatus && matchesCreator && matchesSupplier && matchesProject && matchesStatus && matchesUrgency && matchesDate) {
                 row.style.display = '';
                 visibleCount++;
             } else {
@@ -1366,6 +1408,7 @@ include 'layout/header.php';
 
         // Active Filter Badge Count Update
         let activeFilterCount = 0;
+        if (currentPoTileFilter !== 'all') activeFilterCount++;
         if (creatorVal !== 'all') activeFilterCount++;
         if (supplierVal !== 'all') activeFilterCount++;
         if (projectVal !== 'all') activeFilterCount++;
@@ -1404,6 +1447,15 @@ include 'layout/header.php';
         if (urgencySelect) urgencySelect.value = 'all';
         if (dateInput) dateInput.value = '';
 
+        currentPoTileFilter = 'all';
+        poFilterTiles.forEach(t => {
+            if ((t.getAttribute('data-filter') || 'all') === 'all') {
+                t.classList.add('active-filter');
+            } else {
+                t.classList.remove('active-filter');
+            }
+        });
+
         window.filterPoTable();
     };
 
@@ -1416,13 +1468,50 @@ include 'layout/header.php';
         const filterEtaUrgency = document.getElementById('filterEtaUrgency');
         const filterDate = document.getElementById('filterDate');
 
-        if (searchPo) searchPo.onkeyup = window.filterPoTable;
+        if (searchPo) {
+            searchPo.onkeyup = window.filterPoTable;
+            searchPo.addEventListener('input', window.filterPoTable);
+        }
         if (filterCreator) filterCreator.onchange = window.filterPoTable;
         if (filterSupplier) filterSupplier.onchange = window.filterPoTable;
         if (filterProject) filterProject.onchange = window.filterPoTable;
         if (filterStatus) filterStatus.onchange = window.filterPoTable;
         if (filterEtaUrgency) filterEtaUrgency.onchange = window.filterPoTable;
         if (filterDate) filterDate.onchange = window.filterPoTable;
+
+        // KPI Stat Filter Tiles Click & Keyboard listeners
+        poFilterTiles.forEach(tile => {
+            tile.addEventListener('click', function () {
+                const targetFilter = this.getAttribute('data-filter') || 'all';
+
+                // Toggle behavior: clicking already active filter resets to 'all'
+                if (currentPoTileFilter === targetFilter && targetFilter !== 'all') {
+                    currentPoTileFilter = 'all';
+                } else {
+                    currentPoTileFilter = targetFilter;
+                }
+
+                // Sync active styling
+                poFilterTiles.forEach(t => {
+                    const f = t.getAttribute('data-filter') || 'all';
+                    if (f === currentPoTileFilter) {
+                        t.classList.add('active-filter');
+                    } else {
+                        t.classList.remove('active-filter');
+                    }
+                });
+
+                window.filterPoTable();
+            });
+
+            // Accessibility: Keyboard Enter / Space support
+            tile.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    this.click();
+                }
+            });
+        });
     };
     window.initPoSearch();
 
