@@ -62,17 +62,51 @@ if (!file_exists($filePath) || !is_file($filePath)) {
     exit('Image file not found.');
 }
 
-// 5. Determine Content-Type MIME
-$mimeType = mime_content_type($filePath);
-if (!$mimeType || !in_array($mimeType, ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'])) {
-    // Default fallback based on extension
-    $ext = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
-    $mimeType = ($ext === 'png') ? 'image/png' : (($ext === 'webp') ? 'image/webp' : 'image/jpeg');
+// 5. Determine Content-Type MIME with strict validation
+$allowedMimes = [
+    'image/jpeg' => 'jpg',
+    'image/png'  => 'png',
+    'image/webp' => 'webp',
+    'application/pdf' => 'pdf'
+];
+
+$realMime = null;
+if (function_exists('finfo_open')) {
+    $finfo = finfo_open(FILEINFO_MIME_TYPE);
+    $realMime = finfo_file($finfo, $filePath);
+    finfo_close($finfo);
+}
+if (!$realMime && function_exists('mime_content_type')) {
+    $realMime = mime_content_type($filePath);
 }
 
-// 6. Send Headers and Stream Binary File Content
-header('Content-Type: ' . $mimeType);
+if (!array_key_exists($realMime, $allowedMimes)) {
+    // Strict fallback check by extension
+    $ext = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
+    if ($ext === 'pdf') {
+        $realMime = 'application/pdf';
+    } elseif ($ext === 'png') {
+        $realMime = 'image/png';
+    } elseif ($ext === 'webp') {
+        $realMime = 'image/webp';
+    } elseif (in_array($ext, ['jpg', 'jpeg'])) {
+        $realMime = 'image/jpeg';
+    } else {
+        http_response_code(415);
+        exit('Unsupported Media Type.');
+    }
+}
+
+// 6. Send Hardened Headers and Stream Binary Content (Layer 5)
+header('Content-Type: ' . $realMime);
 header('Content-Length: ' . filesize($filePath));
+header('X-Content-Type-Options: nosniff');
+header('X-Frame-Options: SAMEORIGIN');
+header('Content-Disposition: inline; filename="' . rawurlencode($filename) . '"');
 header('Cache-Control: private, no-cache, no-store, must-revalidate');
+if ($realMime === 'application/pdf') {
+    header("Content-Security-Policy: default-src 'none'");
+}
+
 readfile($filePath);
 exit;
