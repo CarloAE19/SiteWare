@@ -32,7 +32,7 @@ $approvedRS = $pdo->query("
   1. MODAL: CREATE NEW PURCHASE ORDER
 =========================================== -->
 <div class="modal fade" id="poModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-fullscreen-sm-down">
         <div class="modal-content border-0 shadow-lg">
             <div class="modal-header" style="background-color: var(--gb-dark); color: white;">
                 <h5 class="modal-title fw-bold"><i class="bi bi-file-earmark-plus me-2"
@@ -152,7 +152,7 @@ $approvedRS = $pdo->query("
   2. MODAL: LOG WEATHER/LOGISTICS DELAY
 =========================================== -->
 <div class="modal fade" id="delayModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-fullscreen-sm-down">
         <div class="modal-content border-0 border-danger border-top border-4 shadow-lg">
             <div class="modal-header bg-white">
                 <h5 class="modal-title text-danger fw-bold"><i class="bi bi-cloud-lightning-rain-fill me-2"></i>Log
@@ -213,7 +213,7 @@ $approvedRS = $pdo->query("
   3. MODAL: RECEIVE PO / VERIFY DISCREPANCY
 =========================================== -->
 <div class="modal fade" id="receiveModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
-    <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable modal-fullscreen-sm-down">
         <div class="modal-content border-0 shadow-lg border-top border-success border-4">
             <div class="modal-header bg-white">
                 <h5 class="modal-title text-success fw-bold"><i class="bi bi-box-seam me-2"></i>Verify Stock In
@@ -350,7 +350,7 @@ $approvedRS = $pdo->query("
   4. MODAL: VIEW DISCREPANCY DETAILS
 =========================================== -->
 <div class="modal fade" id="discrepancyModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-fullscreen-sm-down">
         <div class="modal-content border-0 shadow-lg border-top border-danger border-4">
             <div class="modal-header bg-white">
                 <h5 class="modal-title text-danger fw-bold"><i
@@ -387,7 +387,7 @@ $approvedRS = $pdo->query("
   5. MODAL: REVIEW AND SEND VIBER ORDER
 =========================================== -->
 <div class="modal fade" id="viberPreviewModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
-    <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable modal-fullscreen-sm-down">
         <div class="modal-content border-0 shadow-lg" style="border-top: 4px solid #7360f2 !important;">
             <div class="modal-header bg-white">
                 <h5 class="modal-title fw-bold" style="color: #7360f2;"><i class="fa-brands fa-viber me-2"></i>Review &
@@ -482,7 +482,7 @@ $approvedRS = $pdo->query("
   MODAL: UPDATE PO ETA (Warehouse Delivery Target)
 =========================================== -->
 <div class="modal fade" id="editEtaModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-fullscreen-sm-down">
         <div class="modal-content border-0 shadow-lg">
             <div class="modal-header bg-dark text-white">
                 <h5 class="modal-title fw-bold"><i class="bi bi-calendar2-week me-2"
@@ -524,7 +524,7 @@ $approvedRS = $pdo->query("
   6. MODAL: VIRTUAL PURCHASE ORDER PAPER & PRINT VIEW
 =========================================== -->
 <div class="modal fade" id="poPrintModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable modal-fullscreen-sm-down">
         <div class="modal-content border-0 shadow-lg">
             <div class="modal-header bg-dark text-white d-print-none">
                 <h5 class="modal-title fw-bold"><i class="bi bi-file-earmark-pdf-fill me-2"
@@ -731,7 +731,7 @@ $approvedRS = $pdo->query("
         if (!form) return;
 
         const submitBtn = form.querySelector('button[type="submit"]');
-        const originalText = submitBtn ? submitBtn.innerHTML : 'Save Updated ETA';
+        const originalText = submitBtn ? submitBtn.innerHTML : '<i class="bi bi-check2-circle me-1"></i> Save Updated ETA';
 
         if (submitBtn) {
             submitBtn.disabled = true;
@@ -746,14 +746,21 @@ $approvedRS = $pdo->query("
         formData.append('po_id', poId);
         formData.append('expected_delivery_date', etaDate);
 
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+        const headers = { 'X-Requested-With': 'XMLHttpRequest' };
+        if (csrfToken) {
+            headers['X-CSRF-Token'] = csrfToken;
+        }
+
         fetch('process/process.php', {
             method: 'POST',
             body: formData,
-            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            headers: headers
         })
             .then(res => res.json())
             .then(data => {
-                if (data.status === 'success') {
+                const isSuccess = data.status === 'success' || data.success === true || (data.status && data.status.toLowerCase() === 'ok');
+                if (isSuccess) {
                     var myModalEl = document.getElementById('editEtaModal');
                     var editEtaModal = bootstrap.Modal.getInstance(myModalEl);
                     if (editEtaModal) editEtaModal.hide();
@@ -806,7 +813,7 @@ $approvedRS = $pdo->query("
     };
 
     // ==========================================================
-    // DOUBLE-SUBMISSION LOCKING & CLEANUP FOR PO FORMS
+    // MODAL LIFECYCLE MANAGEMENT & DOUBLE-SUBMISSION LOCKING
     // ==========================================================
     document.addEventListener('DOMContentLoaded', function () {
         // 1. Create PO Form
@@ -856,6 +863,81 @@ $approvedRS = $pdo->query("
                 if (submitBtn) {
                     submitBtn.disabled = true;
                     submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Processing Stock In...';
+                }
+            });
+        }
+
+        // Modal Lifecycle Event Listeners (Autofocus & Form Cleanup)
+        const poModal = document.getElementById('poModal');
+        if (poModal) {
+            poModal.addEventListener('shown.bs.modal', function () {
+                const rsSelect = document.getElementById('poRsSelect');
+                if (rsSelect) rsSelect.focus();
+            });
+            poModal.addEventListener('hidden.bs.modal', function () {
+                const submitBtn = this.querySelector('button[type="submit"]');
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="bi bi-check-circle me-1"></i> Generate & Save PO';
+                }
+                const preview = document.getElementById('rsItemsPreviewContainer');
+                if (preview) preview.classList.add('d-none');
+            });
+        }
+
+        const editEtaModal = document.getElementById('editEtaModal');
+        if (editEtaModal) {
+            editEtaModal.addEventListener('shown.bs.modal', function () {
+                const dateInput = document.getElementById('editEtaInputDate');
+                if (dateInput) dateInput.focus();
+            });
+            editEtaModal.addEventListener('hidden.bs.modal', function () {
+                const submitBtn = this.querySelector('button[type="submit"]');
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="bi bi-check2-circle me-1"></i> Save Updated ETA';
+                }
+            });
+        }
+
+        const delayModal = document.getElementById('delayModal');
+        if (delayModal) {
+            delayModal.addEventListener('shown.bs.modal', function () {
+                const sel = this.querySelector('select[name="delay_type"]');
+                if (sel) sel.focus();
+            });
+            delayModal.addEventListener('hidden.bs.modal', function () {
+                const submitBtn = this.querySelector('button[type="submit"]');
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="bi bi-exclamation-triangle-fill me-1"></i> Submit Delay Alert';
+                }
+            });
+        }
+
+        const receiveModal = document.getElementById('receiveModal');
+        if (receiveModal) {
+            receiveModal.addEventListener('hidden.bs.modal', function () {
+                if (typeof stopReceiptCamera === 'function') stopReceiptCamera();
+                const submitBtn = document.getElementById('confirmReceiveBtn');
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="bi bi-check2-all me-1"></i>Confirm & Stock In';
+                }
+            });
+        }
+
+        const viberModal = document.getElementById('viberPreviewModal');
+        if (viberModal) {
+            viberModal.addEventListener('shown.bs.modal', function () {
+                const phoneInput = document.getElementById('viberPhone');
+                if (phoneInput && !phoneInput.value) phoneInput.focus();
+            });
+            viberModal.addEventListener('hidden.bs.modal', function () {
+                const sendBtn = document.getElementById('sendViberSubmitBtn');
+                if (sendBtn) {
+                    sendBtn.disabled = false;
+                    sendBtn.innerHTML = '<i class="fa-brands fa-viber me-1"></i> Send via Viber';
                 }
             });
         }
