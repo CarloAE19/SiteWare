@@ -1,0 +1,37 @@
+# ==========================================================
+# CIMS ASSETS/IMG - PUBLIC MEDIA SECURITY FIREWALL
+# Allows public browser viewing of images while completely
+# disabling script execution engines and blocking executable files.
+# ==========================================================
+
+# 1. Disable PHP script engine inside assets/img (PHP 5, 7, 8)
+<IfModule mod_php.c>
+    php_flag engine off
+</IfModule>
+<IfModule mod_php7.c>
+    php_flag engine off
+</IfModule>
+<IfModule mod_php8.c>
+    php_flag engine off
+</IfModule>
+
+# 2. Strip handlers for script extensions
+RemoveHandler .php .phtml .php3 .php4 .php5 .php7 .php8 .phar .inc .cgi .pl .py .sh .bash .exe .bat .cmd .vbs .msi .dll .htm .html .shtml .js .jsp .asp .aspx
+RemoveType .php .phtml .php3 .php4 .php5 .php7 .php8 .phar .inc .cgi .pl .py .sh .bash .exe .bat .cmd .vbs .msi .dll .htm .html .shtml .js .jsp .asp .aspx
+
+# 3. Deny access to any non-media executable files
+<FilesMatch "\.(?i:php|phtml|php[3-8]|phar|inc|cgi|pl|py|sh|bash|exe|bat|cmd|vbs|msi|dll|htm|html|shtml|js|jsp|asp|aspx)$">
+    Require all denied
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# 4. Disable directory indexing and CGI script execution
+Options -Indexes -ExecCGI
+
+# 5. Prevent MIME sniffing
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options "nosniff"
+</IfModule>
