@@ -1867,6 +1867,27 @@ include 'layout/header.php';
 
                 try {
                     const formData = new FormData(receiveForm);
+
+                    // Pre-compress photo proof if an image file was selected
+                    const proofFileInput = document.getElementById('proofOfReceiptFileInput');
+                    if (proofFileInput && proofFileInput.files && proofFileInput.files.length > 0) {
+                        let pFile = proofFileInput.files[0];
+                        if (pFile.type && pFile.type.startsWith('image/') && typeof window.compressImageFile === 'function') {
+                            if (submitBtn) {
+                                submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Optimizing Photo...';
+                            }
+                            try {
+                                pFile = await window.compressImageFile(pFile, { maxDimension: 1920, quality: 0.82 });
+                                formData.set('proof_of_receipt', pFile);
+                            } catch (compErr) {
+                                console.warn('[CIMS] Proof compression fallback:', compErr);
+                            }
+                            if (submitBtn) {
+                                submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Stocking In...';
+                            }
+                        }
+                    }
+
                     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
                     if (csrfToken && !formData.has('csrf_token')) {
                         formData.append('csrf_token', csrfToken);
@@ -3144,12 +3165,26 @@ include 'layout/header.php';
         const submitBtn = document.getElementById('confirmUploadReceiptBtn');
         const originalBtnHtml = submitBtn ? submitBtn.innerHTML : '';
 
+        let uploadFile = fileInput.files[0];
+        if (uploadFile && uploadFile.type && uploadFile.type.startsWith('image/') && typeof window.compressImageFile === 'function') {
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Optimizing Photo...';
+            }
+            try {
+                uploadFile = await window.compressImageFile(uploadFile, { maxDimension: 1920, quality: 0.82 });
+            } catch (compErr) {
+                console.warn('[CIMS] Pre-upload compression bypassed:', compErr);
+            }
+        }
+
         if (submitBtn) {
             submitBtn.disabled = true;
             submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Uploading Receipt...';
         }
 
         const formData = new FormData(form);
+        formData.set('proof_of_receipt', uploadFile);
         const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
         const headers = {};
         if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
