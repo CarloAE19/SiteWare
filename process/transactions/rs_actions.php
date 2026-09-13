@@ -325,6 +325,12 @@ elseif ($action === 'approve_rs') {
     $itemRemarks  = $_POST['item_remarks']  ?? [];  // [item_id => 'reason text']
 
     if (empty($itemStatuses)) {
+        if (!empty($is_ajax)) {
+            if (ob_get_length()) ob_clean();
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode(['status' => 'error', 'success' => false, 'message' => "No item statuses were submitted."]);
+            exit;
+        }
         $_SESSION['message'] = "No item statuses were submitted.";
         $_SESSION['msg_type'] = "danger";
         header("Location: ../requisitions");
@@ -426,7 +432,24 @@ elseif ($action === 'approve_rs') {
 
     $pdo->commit();
 
-    $_SESSION['message'] = "Requisition {$rsStatus}. ({$approvedCount} approved, {$rejectedCount} rejected out of {$totalCount} items)";
+    $responseMsg = "Requisition {$rsStatus}. ({$approvedCount} approved, {$rejectedCount} rejected out of {$totalCount} items)";
+
+    if (!empty($is_ajax)) {
+        if (ob_get_length()) ob_clean();
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode([
+            'status' => 'success',
+            'success' => true,
+            'message' => $responseMsg,
+            'rs_status' => $rsStatus,
+            'approved_count' => $approvedCount,
+            'rejected_count' => $rejectedCount,
+            'total_count' => $totalCount
+        ]);
+        exit;
+    }
+
+    $_SESSION['message'] = $responseMsg;
     $_SESSION['msg_type'] = $msgType;
     header("Location: ../requisitions");
     exit;
@@ -494,7 +517,20 @@ elseif ($action === 'reject_rs') {
         ->execute([$rs['requestor_id'], "Your request {$rs['rs_no']} was rejected. Reason: {$reason}"]);
     sendPushNotification($pdo, 'Requisition Rejected', "Your request {$rs['rs_no']} was rejected. Reason: {$reason}", null, (int)$rs['requestor_id']);
 
-    $_SESSION['message'] = "Requisition Rejected successfully.";
+    $rejectMsg = "Requisition Rejected successfully.";
+
+    if (!empty($is_ajax)) {
+        if (ob_get_length()) ob_clean();
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode([
+            'status' => 'success',
+            'success' => true,
+            'message' => $rejectMsg
+        ]);
+        exit;
+    }
+
+    $_SESSION['message'] = $rejectMsg;
     $_SESSION['msg_type'] = "danger";
     header("Location: ../requisitions");
     exit;
