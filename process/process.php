@@ -10,7 +10,7 @@ $action = $_POST['action'] ?? $_GET['action'] ?? '';
 $is_ajax = (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest') ||
            (!empty($_SERVER['HTTP_ACCEPT']) && strpos($_SERVER['HTTP_ACCEPT'], 'application/json') !== false) ||
            (strpos($action, 'fetch_') === 0) ||
-           (in_array($action, ['live_sync', 'stock_in_scanned', 'verify_current_password', 'change_password_modal', 'unlock_screen', 'lock_screen', 'ping_session', 'update_idle_settings', 'submit_audit', 'create_backup', 'restore_backup', 'delete_backup', 'fetch_backups']));
+           (in_array($action, ['live_sync', 'stock_in_scanned', 'verify_current_password', 'change_password_modal', 'unlock_screen', 'lock_screen', 'ping_session', 'update_idle_settings', 'submit_audit', 'create_backup', 'restore_backup', 'delete_backup', 'fetch_backups', 'create_rs', 'edit_rs', 'approve_rs', 'reject_rs', 'stage_rs_materials']));
 
 if ($is_ajax) {
     ob_start();
