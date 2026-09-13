@@ -9,6 +9,22 @@ require_once __DIR__ . '/helpers/crypto_helper.php';
 global $pdo;
 $pdo = $pdo ?? ($GLOBALS['pdo'] ?? null);
 
+init_secure_session();
+
+// Public Rate Limiting Guard (60 verification requests / minute per IP)
+$isRateLimited = false;
+$retryAfter = 0;
+if (function_exists('check_rate_limit')) {
+    $rlCheck = check_rate_limit('public_verify', 60, 60, true);
+    if (!$rlCheck['allowed']) {
+        $isRateLimited = true;
+        $retryAfter = $rlCheck['retry_after'];
+        http_response_code(429);
+    } else {
+        record_rate_limit_attempt('public_verify', true);
+    }
+}
+
 $ref = trim($_GET['ref'] ?? $_GET['id'] ?? $_GET['doc'] ?? '');
 $type = strtolower(trim($_GET['type'] ?? ''));
 
@@ -30,7 +46,7 @@ $cryptoSignature = '';
 $signedAt = '';
 $canonicalPayload = '';
 
-if (!empty($ref)) {
+if (!$isRateLimited && !empty($ref)) {
     if ($type === 'po') {
         // Fetch Purchase Order
         $stmt = $pdo->prepare("
@@ -227,11 +243,12 @@ if (!empty($ref)) {
         .hash-code {
             font-family: 'Courier New', monospace;
             background: #f1f5f9;
-            padding: 4px 8px;
-            border-radius: 6px;
-            font-size: 0.8rem;
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-size: 0.82rem;
             color: #475569;
             word-break: break-all;
+            border: 1px solid #e2e8f0;
         }
 
         .seal-pulse {
@@ -254,14 +271,101 @@ if (!empty($ref)) {
                 opacity: 0.8;
             }
         }
+
+        /* Print Stylesheet for Physical Paper / Audit PDF */
+        @media print {
+            body {
+                background: #ffffff !important;
+                color: #0f172a !important;
+                padding: 0 !important;
+            }
+
+            .no-print,
+            .btn,
+            form,
+            nav.navbar,
+            .collapse {
+                display: none !important;
+            }
+
+            .container {
+                max-width: 100% !important;
+                padding: 0 !important;
+                margin: 0 !important;
+            }
+
+            .cert-card {
+                border: 1px solid #cbd5e1 !important;
+                box-shadow: none !important;
+                border-radius: 8px !important;
+                page-break-inside: avoid;
+            }
+
+            .cert-header {
+                background: #f8fafc !important;
+                color: #0f172a !important;
+                border-bottom: 2px solid #0f172a !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+
+            .cert-header h4,
+            .cert-header span {
+                color: #0f172a !important;
+            }
+
+            .status-badge-valid,
+            .status-badge-tampered {
+                border: 1px solid #0f172a !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+
+            .table {
+                color: #0f172a !important;
+            }
+
+            .hash-code {
+                border: 1px solid #cbd5e1 !important;
+                background: #f8fafc !important;
+            }
+        }
     </style>
 </head>
 
-<body class="py-4 py-md-5">
+<body class="pb-5">
+
+    <!-- Top Navigation Bar -->
+    <nav class="navbar navbar-expand bg-white border-bottom shadow-sm mb-4 no-print">
+        <div class="container" style="max-width: 780px;">
+            <a class="navbar-brand d-flex align-items-center gap-2 fw-bold text-dark py-1" href="verify">
+                <img src="assets/clearlogo.png" alt="GB Logo" height="30" class="d-inline-block">
+                <span class="fs-6">CIMS</span>
+                <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle fw-semibold ms-1"
+                    style="font-size: 0.7rem;">Trust Center</span>
+            </a>
+            <div class="ms-auto d-flex align-items-center gap-2">
+                <?php if ($verificationStatus === 'VALID'): ?>
+                    <button type="button" class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1"
+                        onclick="window.print()" title="Print Certificate" style="min-height: 36px;">
+                        <i class="bi bi-printer"></i>
+                        <span class="d-none d-sm-inline">Print</span>
+                    </button>
+                <?php endif; ?>
+                <?php if (isset($_SESSION['user_id'])): ?>
+                    <a href="dashboard" class="btn btn-outline-primary btn-sm d-inline-flex align-items-center gap-1"
+                        style="min-height: 36px;">
+                        <i class="bi bi-speedometer2"></i>
+                        <span>Dashboard</span>
+                    </a>
+                <?php endif; ?>
+            </div>
+        </div>
+    </nav>
 
     <div class="container" style="max-width: 780px;">
 
-        <!-- Top Logo / Header -->
+        <!-- Top Header Heading -->
         <div class="text-center mb-4">
             <h4 class="fw-bold text-dark mb-1 d-flex align-items-center justify-content-center gap-2">
                 <i class="bi bi-shield-lock-fill text-primary"></i> SiteWare Security Trust Center
@@ -269,7 +373,27 @@ if (!empty($ref)) {
             <p class="text-muted small mb-0">Cryptographic PKI Document Authentication & Integrity Engine</p>
         </div>
 
-        <?php if (empty($ref) || $verificationStatus === 'NOT_FOUND'): ?>
+        <?php if ($isRateLimited): ?>
+            <!-- RATE LIMIT CARD -->
+            <div class="cert-card p-4 text-center">
+                <div class="py-4">
+                    <i class="bi bi-shield-exclamation text-warning display-3 mb-3 d-block"></i>
+                    <h5 class="fw-bold text-dark mb-2">Verification Rate Limit Exceeded</h5>
+                    <p class="text-muted small mb-3">
+                        Too many verification requests were received from your network. To prevent automated scraping and system abuse, requests are temporarily throttled.
+                    </p>
+                    <div class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-3 py-2 mb-4 fs-6">
+                        Please wait <span id="rateLimitCountdown"><?= (int)$retryAfter ?></span> seconds before trying again.
+                    </div>
+                    <div>
+                        <button class="btn btn-outline-primary btn-sm px-4" onclick="location.reload();" style="min-height: 40px;">
+                            <i class="bi bi-arrow-clockwise me-1"></i> Check Again
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+        <?php elseif (empty($ref) || $verificationStatus === 'NOT_FOUND'): ?>
             <!-- NOT FOUND CARD -->
             <div class="cert-card p-4 text-center">
                 <div class="py-4">
@@ -279,11 +403,14 @@ if (!empty($ref)) {
                         The requested reference <code><?= htmlspecialchars($ref ?: 'EMPTY') ?></code> could not be found in
                         the system registry.
                     </p>
-                    <form action="verify" method="GET" class="d-flex justify-content-center gap-2 max-w-sm mx-auto"
-                        style="max-width: 400px;">
-                        <input type="text" name="ref" class="form-control form-control-sm"
-                            placeholder="Enter PO-XXXX or WD-XXXX..." required>
-                        <button type="submit" class="btn btn-primary btn-sm fw-bold px-3">Verify</button>
+                    <form action="verify" method="GET" class="d-flex flex-column flex-sm-row justify-content-center gap-2 max-w-sm mx-auto"
+                        style="max-width: 440px;">
+                        <input type="text" name="ref" class="form-control"
+                            placeholder="Enter PO-XXXX or WD-XXXX..." style="min-height: 44px;" required>
+                        <button type="submit" class="btn btn-primary fw-bold px-4 d-inline-flex align-items-center justify-content-center gap-1"
+                            style="min-height: 44px;">
+                            <i class="bi bi-search"></i> Verify
+                        </button>
                     </form>
                 </div>
             </div>
@@ -400,7 +527,7 @@ if (!empty($ref)) {
                                 <?php if ($document['status'] === 'Cancelled'): ?>
                                     <div>
                                         <span class="badge bg-dark text-white border border-secondary px-2 py-1" style="font-size: 0.75rem;">
-                                            <i class="bi bi-slash-circle-fill text-danger me-1"></i> Voided / Cancelled Order
+                                             Voided / Cancelled Order
                                         </span>
                                     </div>
                                     <small class="text-danger d-block mt-1 fw-semibold" style="font-size: 0.72rem;">Order voided by Authorized Officer &bull; Inventory intake revoked</small>
@@ -542,17 +669,22 @@ if (!empty($ref)) {
                         </div>
                     <?php endif; ?>
 
-                    <!-- Cryptographic Fingerprint -->
+                    <!-- Cryptographic Fingerprint (Touch-Friendly & Non-intrusive Inline Feedback) -->
                     <div class="mb-2">
                         <label class="text-muted small fw-bold text-uppercase d-block mb-1">
                             <i class="bi bi-fingerprint text-primary me-1"></i> SHA-256 Digital Fingerprint
                         </label>
-                        <div class="hash-code p-2 d-flex justify-content-between align-items-center">
-                            <span class="text-break"><?= htmlspecialchars($documentHash) ?></span>
-                            <button class="btn btn-sm btn-link text-primary p-0 ms-2 text-decoration-none"
-                                onclick="navigator.clipboard.writeText('<?= htmlspecialchars($documentHash) ?>'); alert('SHA-256 Hash copied!');"
-                                title="Copy Hash">
+                        <div class="hash-code p-2 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                            <span class="text-break user-select-all"><?= htmlspecialchars($documentHash) ?></span>
+                            <button type="button" class="btn btn-sm btn-outline-primary py-1 px-3 d-inline-flex align-items-center gap-1 copy-hash-btn flex-shrink-0"
+                                id="copyHashBtn"
+                                data-hash="<?= htmlspecialchars($documentHash) ?>"
+                                onclick="copyDocumentHash(this)"
+                                aria-label="Copy SHA-256 Hash"
+                                title="Copy Hash to Clipboard"
+                                style="min-height: 38px;">
                                 <i class="bi bi-copy"></i>
+                                <span class="copy-text">Copy</span>
                             </button>
                         </div>
                     </div>
@@ -610,8 +742,100 @@ if (!empty($ref)) {
             </div>
         <?php endif; ?>
 
+        <!-- Quick Lookup Another Document Accordion (User Control & Freedom) -->
+        <?php if (!$isRateLimited && !empty($ref) && $verificationStatus !== 'NOT_FOUND'): ?>
+            <div class="mt-4 text-center no-print">
+                <a class="text-decoration-none text-muted small d-inline-flex align-items-center gap-1 fw-semibold"
+                    data-bs-toggle="collapse" href="#searchAnotherCollapse" role="button" aria-expanded="false"
+                    aria-controls="searchAnotherCollapse">
+                    <i class="bi bi-search"></i> Verify another document
+                </a>
+                <div class="collapse mt-3" id="searchAnotherCollapse">
+                    <div class="card card-body border border-slate-200 shadow-sm mx-auto p-3" style="max-width: 440px;">
+                        <form action="verify" method="GET" class="d-flex flex-column flex-sm-row gap-2">
+                            <input type="text" name="ref" class="form-control form-control-sm"
+                                placeholder="PO-XXXX or WD-XXXX..." style="min-height: 40px;" required>
+                            <button type="submit"
+                                class="btn btn-primary btn-sm px-3 fw-bold d-inline-flex align-items-center justify-content-center gap-1"
+                                style="min-height: 40px;">
+                                <i class="bi bi-search"></i> Verify
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        <?php endif; ?>
+
     </div>
 
+    <!-- Bootstrap 5 JS Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Interactive Client Script -->
+    <script>
+        // Non-intrusive Clipboard Copy with Visual Status Feedback (HCI Usability)
+        function copyDocumentHash(btn) {
+            const hash = btn.getAttribute('data-hash') || '';
+            if (!hash) return;
+
+            const copyText = btn.querySelector('.copy-text');
+            const icon = btn.querySelector('i');
+            const origIcon = icon ? icon.className : 'bi bi-copy';
+            const origText = copyText ? copyText.textContent : 'Copy';
+
+            const onSuccess = () => {
+                btn.classList.remove('btn-outline-primary');
+                btn.classList.add('btn-success');
+                if (icon) icon.className = 'bi bi-check-lg';
+                if (copyText) copyText.textContent = 'Copied!';
+                setTimeout(() => {
+                    btn.classList.remove('btn-success');
+                    btn.classList.add('btn-outline-primary');
+                    if (icon) icon.className = origIcon;
+                    if (copyText) copyText.textContent = origText;
+                }, 2000);
+            };
+
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(hash).then(onSuccess).catch(() => fallbackCopy(hash, onSuccess));
+            } else {
+                fallbackCopy(hash, onSuccess);
+            }
+        }
+
+        function fallbackCopy(text, cb) {
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.position = 'fixed';
+            ta.style.left = '-9999px';
+            document.body.appendChild(ta);
+            ta.focus();
+            ta.select();
+            try {
+                document.execCommand('copy');
+                cb();
+            } catch (e) {
+                console.error('Copy fallback failed', e);
+            }
+            document.body.removeChild(ta);
+        }
+
+        // Rate Limit Live Countdown Handler
+        const countdownEl = document.getElementById('rateLimitCountdown');
+        if (countdownEl) {
+            let timeLeft = parseInt(countdownEl.textContent, 10) || 60;
+            const interval = setInterval(() => {
+                timeLeft--;
+                if (timeLeft <= 0) {
+                    clearInterval(interval);
+                    countdownEl.textContent = '0';
+                    location.reload();
+                } else {
+                    countdownEl.textContent = timeLeft;
+                }
+            }, 1000);
+        }
+    </script>
 </body>
 
 </html>
