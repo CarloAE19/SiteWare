@@ -974,14 +974,29 @@ function initWithdrawalSignaturePad() {
         }
     }
 
-    // Photo proof preview logic
+    // Photo proof preview & client-side compression logic
     const photoInput = document.getElementById('photoProofInput');
     const photoPreview = document.getElementById('photoProofPreview');
     const photoContainer = document.getElementById('photoProofPreviewContainer');
     if (photoInput && photoPreview && photoContainer) {
-        photoInput.addEventListener('change', function () {
-            const file = this.files[0];
+        photoInput.addEventListener('change', async function () {
+            let file = this.files && this.files[0];
             if (file) {
+                // Client-side auto-compression for high-res phone camera shots
+                if (file.type && file.type.startsWith('image/') && typeof window.compressImageFile === 'function') {
+                    try {
+                        const compressed = await window.compressImageFile(file, { maxDimension: 1920, quality: 0.82 });
+                        if (compressed && window.DataTransfer) {
+                            const dt = new DataTransfer();
+                            dt.items.add(compressed);
+                            this.files = dt.files;
+                            file = compressed;
+                        }
+                    } catch (e) {
+                        console.warn('[CIMS] Withdrawal photo proof compression bypassed:', e);
+                    }
+                }
+
                 const reader = new FileReader();
                 reader.onload = function (e) {
                     photoPreview.src = e.target.result;
