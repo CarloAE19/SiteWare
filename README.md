@@ -60,6 +60,28 @@ An enterprise-grade, cloud-ready **Construction Inventory Management System (CIM
 - **User Profile E-Signature Suite (`profile.php` / `process/update_signature.php`):** Officers draw or upload high-resolution digital signatures that automatically sync to prepared and approved documents.
 - **Proof of Receipt & Photo Verification:** Capture physical delivery receipts and recipient signatures directly into secure storage.
 
+### 8. 🛡️ Server Security Firewall & Anti-Brute Force Protection
+- **Sliding-Window Rate Limiting Engine (`Connection/rate_limiter.php`):** Centralized IP-based and session-based request throttler protecting sensitive endpoints (e.g. login brute-force defense locked at 5 failed attempts per 15 minutes with dynamic countdown timers, AI chat rate guards).
+- **Timing-Attack & Username Enumeration Mitigation:** Constant-time verification against realistic dummy Bcrypt hashes prevents attackers from discovering registered accounts via timing side-channel analysis.
+- **Immediate Administrative Session Revocation:** Live per-request authorization checks (`layout/header.php`) that instantly terminate sessions, clear auth cookies, and redirect to `login?deactivated=1` if an administrator deactivates a user.
+- **Hardened HTTP Headers & Web Firewall (`.htaccess`):** Strict directives enforcing `X-Frame-Options: SAMEORIGIN`, `X-Content-Type-Options: nosniff`, `X-XSS-Protection: 1; mode=block`, `Referrer-Policy: strict-origin-when-cross-origin`, HSTS (`Strict-Transport-Security`), and directory index suppression (`Options -Indexes`).
+
+### 9. ⏱️ Configurable Inactivity Lockout & Auto-Logout Policy
+- **System Settings Inactivity Controls (`settings.php`):** Administrators can configure idle screen lock thresholds (default: 15 minutes) and hard idle logout limits (default: 30 minutes).
+- **Server-Side Activity Tracker:** Tracks user activity timestamps server-side on every request, securely terminating abandoned sessions (`login?timeout=1`) to safeguard company data on shared site terminals.
+
+### 10. 🔔 Dynamic Notification Center & Live Supply Alerts
+- **Real-Time Header Dropdown (`layout/header.php` / `assets/js/notifications.js`):** Interactive notification bell with unread badge counter, AJAX mark-as-read, clear-all, and background polling.
+- **Combined Supply ETA & Alert Processor (`process/transactions/alert_actions.php`):** Aggregates imminent delivery ETAs, overdue supplier shipments, and low-inventory warnings in real-time with customizable audio alerts.
+
+### 11. 📑 New-Item Requisition Restocking Flow
+- **Uncataloged Restock Handling (`requisitions.php` / `process/transactions/rs_actions.php`):** Enables Project Engineers to request items not currently present in the master inventory database (`is_new_item`, `new_item_name`, `new_category`, `new_unit`).
+- **Seamless Catalog Integration:** Purchasing and Warehouse teams can approve, purchase, and automatically onboard new items into the permanent inventory catalog during PO creation and delivery receiving.
+
+### 12. 🏗️ Construction Project & Job-Site Registry
+- **Comprehensive Project Directory (`projects.php` / `settings.php`):** Central registry tracking active and completed project sites with unique project codes.
+- **Live Requisition & Withdrawal Counters:** Displays real-time counts of associated Material Requisitions (RS) and Material Withdrawal Slips (WS) bound to each construction project.
+
 ---
 
 ## 👥 Role-Based Access Control (RBAC)
@@ -141,9 +163,9 @@ All document receipts, proof photos, and user signatures pass through `classes/S
 
 1. **Binary MIME Verification:** Never relies on client-provided extensions; inspects binary magic bytes using PHP `finfo`.
 2. **Malicious Content Heuristics:** Scans image byte streams for embedded PHP tags, hex-encoded payloads, or polyglot scripts.
-3. **Cryptographic Naming:** Replaces original file names with cryptographically secure hashes in private directories with `.htaccess` execution restrictions.
+3. **Cryptographic Naming & Isolation:** Replaces original file names with cryptographically secure hashes stored in private directories with `.htaccess` execution restrictions (`Deny from all`).
 4. **Binary Re-Encoding:** Decodes and re-encodes images through the GD graphics library, permanently stripping EXIF metadata, GPS coordinates, and steganographic payloads.
-5. **Authenticated Secure Proxy (`secure_image.php`):** Prevents direct HTTP file browsing. Requires active login sessions and verifies role clearance (e.g. receipts only accessible to authorized roles).
+5. **Authenticated Secure Proxy (`secure_image.php`):** Prevents direct HTTP file browsing. Requires active login sessions and verifies role clearance (e.g. receipts only accessible to authorized roles). Clean REST URLs mapped via `/media/{type}/{file}` and `/secure-image`.
 
 ---
 
@@ -345,11 +367,16 @@ The system auto-migrates indexes from `cims_indexes.sql` into live databases, op
 - **Traceability & Complete Audit Trails (ISO 9001 Clause 8.5.2 & 7.5):** Every material movement, requisition status change, issuance, restock, and physical audit logs permanent, immutable entries.
 - **Control of Nonconformities (ISO 9001 Clause 8.7):** Dedicated workflows for delivery variance, physical count discrepancies, and mandatory rejection remarks on requisitions.
 - **Defensive & Clean Architecture (ISO/IEC 25010):**
-  - **100% Prepared Statements:** Eliminates SQL Injection (SQLi) vulnerabilities.
-  - **CSRF Token Protection with TTL:** Cryptographic tokens with 2-hour sliding expiry prevent cross-site request forgery.
-  - **Secure Sessions:** Cookies issued with `HttpOnly`, `SameSite=Lax`, and dynamic `Secure` HTTPS flags.
-  - **Anti-Brute Force Protection:** Centralized rate limiter guards authentication endpoints against credential stuffing.
-  - **XSS Sanitization:** All dynamic user inputs are strictly escaped using `htmlspecialchars(..., ENT_QUOTES, 'UTF-8')`.
+  - **100% Prepared Statements:** Eliminates SQL Injection (SQLi) vulnerabilities across all read and write queries.
+  - **CSRF Token Protection with TTL:** Cryptographic 256-bit random tokens with 2-hour sliding expiry prevent cross-site request forgery, verified via `hash_equals()`.
+  - **Secure Sessions & Anti-Fixation:** Mandatory `session_regenerate_id(true)` upon login, with cookie flags set to `HttpOnly`, `SameSite=Lax`, and dynamic `Secure` under HTTPS.
+  - **Timing-Attack & Username Enumeration Mitigation:** Employs constant-time dummy Bcrypt verifications for non-existent users, neutralizing timing side-channel attacks during authentication.
+  - **Immediate Administrative Session Revocation:** Continuous per-request validation automatically purges sessions and cookies if an administrator flags an account as inactive.
+  - **Configurable Inactivity Lockout & Auto-Logout:** Automated inactivity guards tracking user idle times against enterprise policies, redirecting expired sessions to secure re-authentication.
+  - **Centralized Anti-Brute Force Protection:** IP and username sliding-window rate limiters with progressive minute lockout countdowns guard login endpoints and API tools.
+  - **Web Security Firewall (`.htaccess`):** Blocks access to sensitive files (`.env`, `.git`, `.ini`, `.log`), suppresses directory listings (`Options -Indexes`), and enforces strict HTTP security headers (`X-Frame-Options`, `X-XSS-Protection`, `X-Content-Type-Options`, `Referrer-Policy`, and HSTS).
+  - **XSS Sanitization & Input Whitelisting:** All dynamic user inputs and outputs are strictly sanitized using `htmlspecialchars(..., ENT_QUOTES, 'UTF-8')` and typecast validation.
+  - **Custom Error Documents:** Dedicated error pages for HTTP 400, 403, 404, 500, and 503 suppress raw server errors and prevent information leakage.
 
 ---
 
