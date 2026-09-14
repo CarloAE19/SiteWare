@@ -431,6 +431,7 @@
 }
 
 .activity-card-item {
+    display: flex;
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     border: 1px solid transparent;
     background: rgba(248, 249, 250, 0.7);
