@@ -4,6 +4,7 @@
 [![Database](https://img.shields.io/badge/Database-MySQL%20%7C%20MariaDB-4479A1?logo=mysql&logoColor=white)](https://www.mysql.com/)
 [![Bootstrap](https://img.shields.io/badge/UI-Bootstrap%205.3-7952B3?logo=bootstrap&logoColor=white)](https://getbootstrap.com/)
 [![Security](https://img.shields.io/badge/Security-RSA--2048%20%7C%20SHA--256-green)](#-cryptographic-document-security--pki)
+[![License](https://img.shields.io/badge/License-Proprietary%20%7C%20All%20Rights%20Reserved-red)](LICENSE)
 [![PWA](https://img.shields.io/badge/PWA-Installable%20%26%20Offline--Resilient-orange?logo=pwa&logoColor=white)](#-progressive-web-app-pwa--offline-resilience)
 
 An enterprise-grade, cloud-ready **Construction Inventory Management System (CIMS)** engineered specifically for **GB Construction & Enterprise Inc.** Designed for mission-critical reliability across job sites, main warehousing, and executive management, the platform unifies real-time inventory tracking, AI-powered predictive replenishment, asymmetric cryptographic document sealing, Viber logistics messaging, cross-platform push alerts, and an offline-resilient Progressive Web App (PWA) architecture.
@@ -240,6 +241,7 @@ CIMS/
 ├── uploads/                        # Protected storage for receipts, signatures, and proof photos
 ├── .env                            # Environment credentials (DB, AI Key, SMS - not committed)
 ├── .htaccess                       # Server security rules, rewrite engine, header protections
+├── LICENSE                         # Proprietary & Confidential Software License (All Rights Reserved)
 ├── about.php                       # System & team credits page
 ├── analytics.php                   # AI restocking forecasting and consumption velocity interface
 ├── audit.php                       # Historical audit log and discrepancy ledger
