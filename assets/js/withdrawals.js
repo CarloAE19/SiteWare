@@ -264,7 +264,16 @@ window.triggerWdPrint = function () {
 
     const printWindow = window.open('', '_blank', 'width=850,height=900');
     if (!printWindow) {
-        alert("Pop-up blocked. Please allow pop-ups for this site to print.");
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                icon: 'info',
+                title: 'Pop-up Blocked',
+                text: 'Please allow pop-ups for this site to print the withdrawal slip.',
+                confirmButtonColor: '#0033CC'
+            });
+        } else {
+            alert("Pop-up blocked. Please allow pop-ups for this site to print.");
+        }
         return;
     }
     printWindow.document.write(`
@@ -465,6 +474,20 @@ function initWithdrawalsPage() {
         initWithdrawalSignaturePad();
     }
 
+    // --- COLUMN TOGGLE LOGIC ---
+    document.querySelectorAll('.col-toggle').forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            const colIndex = this.value;
+            const table = document.getElementById('withdrawalsTable');
+            if (!table) return;
+            if (this.checked) {
+                table.classList.remove('hide-col-' + colIndex);
+            } else {
+                table.classList.add('hide-col-' + colIndex);
+            }
+        });
+    });
+
     // --- SEARCH & PAGINATION LOGIC ---
     const table = document.getElementById('withdrawalsTable');
     if (!table) return;
@@ -480,7 +503,7 @@ function initWithdrawalsPage() {
     let currentPage = 1;
 
     const wrapper = document.createElement('div');
-    wrapper.className = 'd-flex justify-content-between align-items-center p-3 bg-white border-top pagination-wrapper';
+    wrapper.className = 'd-flex flex-column flex-md-row justify-content-between align-items-center p-3 bg-white border-top pagination-wrapper gap-3';
 
     const info = document.createElement('span'); 
     info.className = 'text-muted small fw-bold';
@@ -517,7 +540,7 @@ function initWithdrawalsPage() {
         const showingEnd = Math.min(end, filteredRows.length);
         const showingStart = filteredRows.length > 0 ? start + 1 : 0;
 
-        info.innerHTML = `Showing <b>${showingStart}</b> to <b>${showingEnd}</b> of <b>${filteredRows.length}</b>`;
+        info.innerHTML = `Showing <b>${showingStart}</b> to <b>${showingEnd}</b> of <b>${filteredRows.length}</b> entries`;
         indicator.innerText = `Page ${currentPage} / ${totalPages}`;
         
         prev.disabled = currentPage === 1; 
@@ -528,10 +551,27 @@ function initWithdrawalsPage() {
         const term = searchInput ? searchInput.value.toLowerCase().trim() : '';
 
         filteredRows = allRows.filter(row => {
-            const slip = row.querySelector('.wd-slip')?.textContent.toLowerCase() || '';
-            const proj = row.querySelector('.wd-project')?.textContent.toLowerCase() || '';
-            return slip.includes(term) || proj.includes(term);
+            return term === '' || row.innerText.toLowerCase().includes(term);
         });
+
+        const tbody = table.querySelector('tbody');
+        let noDataRow = tbody ? tbody.querySelector('.no-data-alert-row') : null;
+
+        if (filteredRows.length === 0) {
+            allRows.forEach(row => row.style.display = 'none');
+            if (!noDataRow && tbody) {
+                noDataRow = document.createElement('tr');
+                noDataRow.className = 'no-data-alert-row';
+                noDataRow.innerHTML = '<td colspan="5" class="text-center py-5 text-muted"><i class="bi bi-search fs-1 d-block mb-2"></i>No matching withdrawals found.</td>';
+                tbody.appendChild(noDataRow);
+            }
+            if (noDataRow) noDataRow.style.display = '';
+            wrapper.style.display = 'none';
+            return;
+        } else {
+            if (noDataRow) noDataRow.style.display = 'none';
+            wrapper.style.display = 'flex';
+        }
 
         currentPage = 1;
         updatePagination();
@@ -673,7 +713,16 @@ window.loadRsDataToWithdrawalForm = function (rsNo, callback) {
 window.lookupManualRsInput = function () {
     const inputVal = document.getElementById('manualRsInputText')?.value.trim();
     if (!inputVal) {
-        alert("Please enter or select an RS Number.");
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                icon: 'warning',
+                title: 'RS Number Required',
+                text: 'Please enter or select a Requisition Slip (RS) Number to load materials.',
+                confirmButtonColor: '#0033CC'
+            });
+        } else {
+            alert("Please enter or select an RS Number.");
+        }
         return;
     }
     window.loadRsDataToWithdrawalForm(inputVal);
@@ -940,7 +989,16 @@ function initWithdrawalSignaturePad() {
         if (saveFullBtn) {
             saveFullBtn.addEventListener('click', function () {
                 if (!fullHasSignature) {
-                    alert("Please sign on the canvas first.");
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({
+                            icon: 'warning',
+                            title: 'Signature Required',
+                            text: 'Please sign on the canvas first before applying.',
+                            confirmButtonColor: '#0033CC'
+                        });
+                    } else {
+                        alert("Please sign on the canvas first.");
+                    }
                     return;
                 }
                 const dataUrl = fullCanvas.toDataURL('image/png');
@@ -1009,23 +1067,25 @@ function initWithdrawalSignaturePad() {
         });
     }
 
-    // Form Submit Signature Check
-    const form = document.getElementById('withdrawalForm');
-    if (form) {
-        form.addEventListener('submit', function (e) {
-            const sigInput = document.getElementById('signatureData');
-            if (sigInput && (!sigInput.value || sigInput.value.trim() === '')) {
-                e.preventDefault();
-                alert('Please ask the receiver to sign in the Digital Signature pad before confirming release.');
-                return false;
-            }
-        });
-    }
-
-    // Modal Reset Handler on Close
+    // Modal Lifecycle Enhancements (Accessibility & Clean Reset)
     const withdrawModalEl = document.getElementById('withdrawModal');
     if (withdrawModalEl) {
+        // Auto-focus the primary input on modal open
+        withdrawModalEl.addEventListener('shown.bs.modal', function () {
+            const firstInput = document.getElementById('manualRsInputText');
+            if (firstInput) {
+                setTimeout(() => firstInput.focus(), 150);
+            }
+        });
+
+        // Clean up on modal close
         withdrawModalEl.addEventListener('hidden.bs.modal', function () {
+            const form = document.getElementById('withdrawalForm');
+            if (form) {
+                form.reset();
+                form.classList.remove('was-validated');
+            }
+
             const recInput = document.getElementById('wdReceivedBy');
             if (recInput) recInput.value = '';
             const reqDisplay = document.getElementById('wdRequestorDisplay');
@@ -1034,6 +1094,9 @@ function initWithdrawalSignaturePad() {
             if (projInput) projInput.value = '';
             const projDisplay = document.getElementById('wdProjectNameDisplay');
             if (projDisplay) projDisplay.value = '';
+            const rsNoField = document.getElementById('wdRsNo');
+            if (rsNoField) rsNoField.value = '';
+
             const container = document.getElementById('wdMaterialsContainer');
             if (container) {
                 container.innerHTML = `
@@ -1062,28 +1125,184 @@ function initWithdrawalSignaturePad() {
             // Clear photo proof preview
             if (photoInput) photoInput.value = '';
             if (photoContainer) photoContainer.classList.add('d-none');
+
+            // Reset submit button state
+            const submitBtn = document.getElementById('confirmWithdrawalBtn');
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="bi bi-check2-circle me-2"></i>Confirm Release';
+            }
         });
     }
 
-    // Double-Submission Locking for Material Withdrawal Form
+    // Standard Asynchronous Form Submission (cims-modal-ajax-handler / quality-standards.md)
     const wdForm = document.getElementById('withdrawalForm');
     if (wdForm) {
-        wdForm.addEventListener('submit', function (e) {
+        wdForm.addEventListener('submit', async function (e) {
+            e.preventDefault();
+
+            // 1. Client-side HTML5 validation check
             if (!this.checkValidity()) {
                 this.reportValidity();
-                e.preventDefault();
                 return;
             }
 
-            if (!confirm('Confirm release? This will permanently deduct from inventory.')) {
-                e.preventDefault();
+            // 2. Validate Project Selection
+            const projInput = document.getElementById('wdProjectName');
+            if (!projInput || !projInput.value || projInput.value.trim() === '') {
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Project Missing',
+                        text: 'Please load an approved RS Number so the project and release items can be assigned.',
+                        confirmButtonColor: '#0033CC'
+                    });
+                } else {
+                    alert('Please load an approved RS Number to assign project and items.');
+                }
                 return;
             }
 
+            // 3. Validate Digital Signature
+            const sigInput = document.getElementById('signatureData');
+            if (!sigInput || !sigInput.value || sigInput.value.trim() === '') {
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Digital Signature Required',
+                        text: 'Please ask the authorized recipient to sign in the Digital Signature pad before confirming release.',
+                        confirmButtonColor: '#0033CC'
+                    });
+                } else {
+                    alert('Please ask the receiver to sign in the Digital Signature pad before confirming release.');
+                }
+                return;
+            }
+
+            // 4. Validate Photo Proof
+            const photoInput = document.getElementById('photoProofInput');
+            if (!photoInput || !photoInput.files || photoInput.files.length === 0) {
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Photo Proof Required',
+                        text: 'Please take or upload photo proof of the handed-over materials before releasing.',
+                        confirmButtonColor: '#0033CC'
+                    });
+                } else {
+                    alert('Photo proof of handed-over materials is required before releasing.');
+                }
+                return;
+            }
+
+            // 5. Validate Material Items Loaded
+            const items = wdForm.querySelectorAll('input[name="items[]"]');
+            if (!items || items.length === 0) {
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'No Items to Release',
+                        text: 'Please load an approved RS Number containing materials before confirming release.',
+                        confirmButtonColor: '#0033CC'
+                    });
+                } else {
+                    alert('No items loaded to release.');
+                }
+                return;
+            }
+
+            // 6. User Confirmation via SweetAlert2 (HCI Standard)
+            if (typeof Swal !== 'undefined') {
+                const confirmResult = await Swal.fire({
+                    icon: 'question',
+                    title: 'Confirm Material Release?',
+                    text: 'This will permanently deduct items from inventory and generate a digitally signed withdrawal slip.',
+                    showCancelButton: true,
+                    confirmButtonText: '<i class="bi bi-check2-circle me-1"></i> Confirm & Release',
+                    cancelButtonText: 'Cancel',
+                    confirmButtonColor: '#0033CC',
+                    cancelButtonColor: '#6c757d',
+                    reverseButtons: true
+                });
+                if (!confirmResult.isConfirmed) {
+                    return;
+                }
+            } else {
+                if (!confirm('Confirm release? This will permanently deduct from inventory.')) {
+                    return;
+                }
+            }
+
+            // 7. Prevent duplicate submits & show loading state
             const submitBtn = document.getElementById('confirmWithdrawalBtn') || this.querySelector('button[type="submit"]');
+            const originalBtnHtml = submitBtn ? submitBtn.innerHTML : '<i class="bi bi-check2-circle me-2"></i>Confirm Release';
             if (submitBtn) {
                 submitBtn.disabled = true;
                 submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> Releasing Materials...';
+            }
+
+            try {
+                const formData = new FormData(this);
+                const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
+                               || this.querySelector('input[name="csrf_token"]')?.value
+                               || '';
+
+                if (csrfToken && !formData.has('csrf_token')) {
+                    formData.append('csrf_token', csrfToken);
+                }
+
+                const response = await fetch('process/process.php', {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRF-Token': csrfToken
+                    }
+                });
+
+                const result = await response.json();
+                const isSuccess = result.success === true || result.status === 'success';
+
+                if (isSuccess) {
+                    // Hide Modal
+                    if (withdrawModalEl) {
+                        const modalInstance = bootstrap.Modal.getInstance(withdrawModalEl);
+                        if (modalInstance) modalInstance.hide();
+                    }
+
+                    // Success Feedback
+                    if (typeof Swal !== 'undefined') {
+                        await Swal.fire({
+                            icon: 'success',
+                            title: 'Materials Released!',
+                            text: result.message || 'Materials successfully withdrawn and deducted from inventory.',
+                            timer: 2000,
+                            showConfirmButton: false
+                        });
+                    }
+
+                    // Reload page to reflect updated inventory and fresh withdrawal list
+                    window.location.reload();
+                } else {
+                    throw new Error(result.message || 'Failed to process material withdrawal.');
+                }
+            } catch (error) {
+                console.error('AJAX Error:', error);
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Release Failed',
+                        text: error.message || 'Failed to process material withdrawal.',
+                        confirmButtonColor: '#0033CC'
+                    });
+                } else {
+                    alert(error.message || 'Failed to process material withdrawal.');
+                }
+            } finally {
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalBtnHtml;
+                }
             }
         });
     }
