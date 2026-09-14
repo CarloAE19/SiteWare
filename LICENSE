@@ -1,1 +1,77 @@
 PROPRIETARY AND CONFIDENTIAL SOFTWARE LICENSE AGREEMENT
+========================================================================
+SiteWare — Construction Inventory Management System (CIMS)
+Copyright (c) GB Construction & Enterprises Inc. & The MedYas
+All Rights Reserved.
+========================================================================
+
+NOTICE: This software, its source code, database architecture, algorithms,
+graphical user interfaces, documentation, and associated digital assets are 
+the confidential, proprietary, and exclusive intellectual property of 
+GB Construction & Enterprises Inc. and the development team ("The MedYas").
+
+------------------------------------------------------------------------
+1. GRANT OF LICENSE & RESTRICTIONS
+------------------------------------------------------------------------
+This software is licensed, not sold, strictly for internal operational use 
+by authorized personnel of GB Construction & Enterprises Inc.
+
+Under no circumstances may any person, employee, contractor, vendor, or 
+third party:
+a. Copy, duplicate, clone, distribute, publish, transmit, sublicense, rent, 
+   lease, or sell the source code, binaries, schemas, or any derivative 
+   works in whole or in part.
+b. Reverse engineer, decompile, disassemble, or extract trade secret workflows, 
+   cryptographic implementation logic, or database models.
+c. Deploy, install, or execute this software on unauthorized servers, 
+   domains, third-party cloud infrastructure, or external client sites without 
+   prior formal written authorization from the copyright holders.
+d. Remove, alter, obscure, or circumvent any copyright notices, watermarks, 
+   digital signatures, or proprietary legends embedded within the codebase.
+
+------------------------------------------------------------------------
+2. TRADE SECRET & CONFIDENTIAL INFORMATION
+------------------------------------------------------------------------
+The structure, organization, source code, and security mechanisms of this 
+software constitute valuable commercial trade secrets. Access to this software 
+is granted solely under strict confidentiality obligations.
+
+Any unauthorized possession, exfiltration, transfer, copying (via physical media, 
+private repositories, unauthorized servers, or network downloads), or disclosure 
+of this software constitutes intellectual property theft and trade secret 
+misappropriation. 
+
+Violators will be prosecuted to the maximum extent permissible under applicable 
+domestic and international laws, including but not limited to:
+- Republic Act No. 8293 (The Intellectual Property Code of the Philippines)
+- Republic Act No. 10175 (Cybercrime Prevention Act of 2012)
+- The Berne Convention for the Protection of Literary and Artistic Works
+- The WIPO Copyright Treaty (WCT)
+
+Violators are subject to civil lawsuits for actual and statutory damages, 
+mandatory disgorgement of profits, permanent injunctions, and criminal penalties.
+
+------------------------------------------------------------------------
+3. PROVENANCE & WATERMARKING ACKNOWLEDGMENT
+------------------------------------------------------------------------
+This codebase contains internal cryptographic hashes, commit signatures, 
+digital watermarks, and architectural fingerprints. Possession of unauthorized 
+copies or fragments of this codebase establishes direct proof of intellectual 
+property infringement in judicial, arbitration, and audit proceedings.
+
+------------------------------------------------------------------------
+4. DISCLAIMER OF WARRANTY & LIMITATION OF LIABILITY
+------------------------------------------------------------------------
+THIS SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
+FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT. IN NO EVENT SHALL 
+THE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY 
+ARISING FROM OR IN CONNECTION WITH UNAUTHORIZED USE OR MODIFICATION OF THIS 
+SOFTWARE.
+
+========================================================================
+Authorized Contact & Rights Inquiries:
+GB Construction & Enterprises Inc. & The MedYas
+Lead Developer: Angelo Carlo P. Pedrosa (carlopedrosa14@gmail.com)
+Project Manager: Jahzeel James A. Jakosalem
+========================================================================
