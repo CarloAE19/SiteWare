@@ -2,7 +2,7 @@
 <!-- MODAL: RELEASE MATERIALS WITHDRAWAL FORM               -->
 <!-- ======================================================== -->
 <div class="modal fade" id="withdrawModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content border-0 shadow">
             <div class="modal-header bg-brand text-white">
                 <h5 class="modal-title fw-bold"><i class="bi bi-box-arrow-right me-2"></i>Release Materials (RS Issue)</h5>
@@ -12,6 +12,7 @@
             <form method="POST" action="process/process.php" id="withdrawalForm" enctype="multipart/form-data">
                 <div class="modal-body bg-light p-4">
                     <input type="hidden" name="action" value="create_withdrawal">
+                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(generate_csrf_token()) ?>">
                     <input type="hidden" name="rs_no" id="wdRsNo" value="">
                     <!-- RS Number Type & Auto-Load Section -->
                     <div class="p-3 bg-white border rounded shadow-sm mb-3" style="border-left: 4px solid var(--gb-blue, #0d6efd) !important;">
@@ -85,9 +86,9 @@
                         </div>
                         <div class="col-md-6">
                             <label class="form-label fw-bold small text-muted text-uppercase mb-1">
-                                <i class="bi bi-camera text-primary me-1"></i> Photo Proof of Handed-Over Items
+                                <i class="bi bi-camera text-primary me-1"></i> Photo Proof of Handed-Over Items <span class="text-danger">*</span>
                             </label>
-                            <input type="file" class="form-control shadow-sm mb-2" name="photo_proof" id="photoProofInput" accept="image/*" capture="environment">
+                            <input type="file" class="form-control shadow-sm mb-2" name="photo_proof" id="photoProofInput" accept="image/*" capture="environment" required>
                             <div id="photoProofPreviewContainer" class="d-none text-center border rounded bg-white p-1">
                                 <img id="photoProofPreview" src="" class="img-fluid rounded" style="max-height: 75px;">
                             </div>
