@@ -3438,6 +3438,39 @@ include 'layout/header.php';
                 new bootstrap.Modal(poModalEl).show();
             }
         }
+
+        const searchQuery = urlParams.get('search');
+        const poIdParam = urlParams.get('po_id');
+        const shouldOpen = urlParams.get('open') === '1' || urlParams.get('open') === 'true' || !!poIdParam || !!searchQuery;
+
+        if (searchQuery) {
+            const searchPo = document.getElementById('searchPo');
+            if (searchPo) {
+                searchPo.value = searchQuery;
+                if (typeof window.filterPoTable === 'function') {
+                    window.filterPoTable();
+                }
+            }
+        }
+
+        if (poIdParam && typeof window.openPoPrintModal === 'function') {
+            window.openPoPrintModal(parseInt(poIdParam, 10));
+        } else if (searchQuery && shouldOpen) {
+            // Find the visible PO row matching the search query and open its modal
+            setTimeout(function () {
+                const rows = document.querySelectorAll('.po-row');
+                for (let i = 0; i < rows.length; i++) {
+                    const r = rows[i];
+                    if (r.style.display !== 'none') {
+                        const link = r.querySelector('.po-no-link');
+                        if (link) {
+                            link.click();
+                            break;
+                        }
+                    }
+                }
+            }, 120);
+        }
     };
     window.initPoModalEvents();
 </script>
