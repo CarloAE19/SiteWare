@@ -1,4 +1,15 @@
 <?php
+/**
+ * SiteWare — Construction Inventory Management System (CIMS)
+ * Copyright (c) GB Construction & Enterprises Inc. & The MedYas.
+ * All Rights Reserved.
+ *
+ * PROPRIETARY AND CONFIDENTIAL.
+ * Unauthorized copying, distribution, modification, or deployment of this file,
+ * via any medium, is strictly prohibited and constitutes intellectual property theft.
+ * See LICENSE file in root directory for full legal terms and conditions.
+ */
+
 // =========================================================================
 // CIMS Secure Upload Handler
 // Implements 5-Layer Defense-in-Depth for File & Image Uploads
@@ -10,14 +21,14 @@ class SecureUploadHandler
     // Allowed MIME types and strictly mapped safe extensions
     private const IMAGE_MIMES = [
         'image/jpeg' => 'jpg',
-        'image/png'  => 'png',
+        'image/png' => 'png',
         'image/webp' => 'webp'
     ];
 
     private const RECEIPT_MIMES = [
-        'image/jpeg'      => 'jpg',
-        'image/png'       => 'png',
-        'image/webp'      => 'webp',
+        'image/jpeg' => 'jpg',
+        'image/png' => 'png',
+        'image/webp' => 'webp',
         'application/pdf' => 'pdf'
     ];
 
@@ -263,10 +274,10 @@ class SecureUploadHandler
             if ($origWidth > $maxDimension || $origHeight > $maxDimension) {
                 if ($origWidth >= $origHeight) {
                     $newWidth = $maxDimension;
-                    $newHeight = (int)round(($origHeight / $origWidth) * $maxDimension);
+                    $newHeight = (int) round(($origHeight / $origWidth) * $maxDimension);
                 } else {
                     $newHeight = $maxDimension;
-                    $newWidth = (int)round(($origWidth / $origHeight) * $maxDimension);
+                    $newWidth = (int) round(($origWidth / $origHeight) * $maxDimension);
                 }
 
                 $scaledImg = imagecreatetruecolor($newWidth, $newHeight);
@@ -321,11 +332,11 @@ class SecureUploadHandler
             $finfo = finfo_open(FILEINFO_MIME_TYPE);
             $mime = finfo_file($finfo, $filePath);
             finfo_close($finfo);
-            return strtolower(trim((string)$mime));
+            return strtolower(trim((string) $mime));
         }
 
         if (function_exists('mime_content_type')) {
-            return strtolower(trim((string)mime_content_type($filePath)));
+            return strtolower(trim((string) mime_content_type($filePath)));
         }
 
         throw new Exception("Server environment error: MIME inspection module (fileinfo) is unavailable.");
@@ -340,7 +351,7 @@ class SecureUploadHandler
             $finfo = finfo_open(FILEINFO_MIME_TYPE);
             $mime = finfo_buffer($finfo, $buffer);
             finfo_close($finfo);
-            return strtolower(trim((string)$mime));
+            return strtolower(trim((string) $mime));
         }
 
         return 'application/octet-stream';
