@@ -8,6 +8,11 @@ if ($action === 'create_withdrawal') {
         throw new Exception("Only the Warehouse In-Charge can release materials.");
     }
 
+    $clientCsrf = $_POST['csrf_token'] ?? $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
+    if (function_exists('validate_csrf_token') && !validate_csrf_token($clientCsrf)) {
+        throw new Exception("Security validation failed: Invalid or expired CSRF token. Please refresh and try again.");
+    }
+
     $withdrawal_no = $_POST['withdrawal_no'];
     $project_name = $_POST['project_name'];
     $remarks = $_POST['remarks'] ?? '';
@@ -140,7 +145,46 @@ if ($action === 'create_withdrawal') {
             }
         }
 
+        // ISO 9001 Clause 8.5.2 & 7.5: Complete Audit Trail Traceability
+        try {
+            $ip = $_SERVER['REMOTE_ADDR'] ?? 'UNKNOWN';
+            $auditStmt = $pdo->prepare("INSERT INTO audit_logs (user_id, action_type, entity_type, entity_id, previous_value, new_value, ip_address) VALUES (?, ?, ?, ?, ?, ?, ?)");
+            $auditStmt->execute([
+                $released_by,
+                'MATERIAL_WITHDRAWN',
+                'withdrawal',
+                $withdrawal_id,
+                null,
+                json_encode([
+                    'withdrawal_no'  => $withdrawal_no,
+                    'project_name'   => $project_name,
+                    'received_by'    => $received_by,
+                    'rs_no'          => $_POST['rs_no'] ?? null,
+                    'items_released' => count($items)
+                ]),
+                $ip
+            ]);
+        } catch (Exception $auditEx) {
+            error_log("Withdrawal Audit Log Notice: " . $auditEx->getMessage());
+        }
+
         $pdo->commit();
+
+        if (!empty($is_ajax)) {
+            if (ob_get_length()) ob_clean();
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode([
+                'success' => true,
+                'status'  => 'success',
+                'message' => "Materials successfully withdrawn and deducted from inventory.",
+                'data'    => [
+                    'withdrawal_id' => $withdrawal_id,
+                    'withdrawal_no' => $withdrawal_no,
+                    'project_name'  => $project_name
+                ]
+            ]);
+            exit;
+        }
 
         $_SESSION['message'] = "Materials successfully withdrawn and deducted from inventory.";
         $_SESSION['msg_type'] = "success";
