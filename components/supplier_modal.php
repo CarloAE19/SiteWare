@@ -1,5 +1,5 @@
 <div class="modal fade" id="supplierModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg modal-fullscreen-sm-down">
         <div class="modal-content border-0 shadow-lg">
             <div class="modal-header" style="background-color: var(--gb-dark); color: white;">
                 <h5 class="modal-title" id="supplierModalTitle"><span style="color: var(--gb-yellow);">Add Supplier</span></h5>
