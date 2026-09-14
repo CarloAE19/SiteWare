@@ -76,6 +76,7 @@ include 'layout/header.php';
         <?php unset($_SESSION['message'], $_SESSION['msg_type']); ?>
     <?php endif; ?>
 
+    <?php if (false): // Commented out: Total Inventory Value stat cards through Incoming Supply Deliveries ?>
     <!-- STAT CARDS -->
     <div class="row mb-4 g-3">
         <div class="col-12 col-md-4">
@@ -217,6 +218,7 @@ include 'layout/header.php';
             <?php endif; ?>
         </div>
     </div>
+    <?php endif; ?>
 
     <!-- INVENTORY TABLE -->
     <div class="card border-0 shadow-sm p-3 p-md-4 bg-white">
@@ -319,7 +321,7 @@ include 'layout/header.php';
                                 elseif ($qty <= $reorderLevel) { $statusText = 'Low Stock'; $statusClass = 'bg-warning text-dark'; } 
                                 else { $statusText = 'In Stock'; $statusClass = 'bg-success'; }
                             ?>
-                            <tr class="item-row" data-status="<?= $statusText ?>">
+                            <tr class="item-row" id="inventory_row_<?= (int)$item['id'] ?>" data-status="<?= $statusText ?>">
                                 <td class="fw-bold text-muted" data-label="Item Code"><?= htmlspecialchars($item['item_code']) ?></td>
                                 <td class="fw-bold text-dark" data-label="Item Name"><?= htmlspecialchars($item['item_name']) ?></td>
                                 <td data-label="Category"><span class="badge bg-secondary shadow-sm"><?= htmlspecialchars($item['category']) ?></span></td>
@@ -339,11 +341,10 @@ include 'layout/header.php';
                                 <td class="text-center" data-label="Actions">
                                     <button class="btn btn-sm btn-outline-secondary me-1 shadow-sm" title="Print QR Label" onclick="showItemQR('<?= $item['item_code'] ?>', '<?= addslashes($item['item_name']) ?>')"><i class="bi bi-qr-code"></i></button>
                                     <?php if ($role === 'admin'): ?>
-                                        <button type="button" class="btn btn-sm btn-outline-primary me-1 shadow-sm" data-bs-toggle="modal" data-bs-target="#itemModal" onclick="openEditModal(<?= $item['id'] ?>, '<?= htmlspecialchars(addslashes($item['item_code'])) ?>', '<?= htmlspecialchars(addslashes($item['item_name'])) ?>', '<?= htmlspecialchars(addslashes($item['category'])) ?>', <?= $qty ?>, '<?= htmlspecialchars(addslashes($item['unit'])) ?>', <?= (float)($item['unit_price'] ?? 0) ?>, '<?= $statusText ?>')"><i class="bi bi-pencil-square"></i></button>
-                                        <form method="POST" action="process/process.php" class="d-inline" onsubmit="return confirm('Delete item?');">
-                                            <input type="hidden" name="action" value="delete"><input type="hidden" name="id" value="<?= $item['id'] ?>">
-                                            <button type="submit" class="btn btn-sm btn-outline-danger shadow-sm"><i class="bi bi-trash3"></i></button>
-                                        </form>
+                                        <button type="button" class="btn btn-sm btn-outline-primary me-1 shadow-sm" title="Edit Material" data-bs-toggle="modal" data-bs-target="#itemModal" onclick="openEditModal(<?= $item['id'] ?>, '<?= htmlspecialchars(addslashes($item['item_code'])) ?>', '<?= htmlspecialchars(addslashes($item['item_name'])) ?>', '<?= htmlspecialchars(addslashes($item['category'])) ?>', <?= $qty ?>, '<?= htmlspecialchars(addslashes($item['unit'])) ?>', <?= (float)($item['unit_price'] ?? 0) ?>, '<?= $statusText ?>')"><i class="bi bi-pencil-square"></i></button>
+                                        <button type="button" class="btn btn-sm btn-outline-danger shadow-sm" title="Delete Material" onclick="deleteInventoryItem(<?= (int)$item['id'] ?>, '<?= htmlspecialchars(addslashes($item['item_code']), ENT_QUOTES, 'UTF-8') ?>', '<?= htmlspecialchars(addslashes($item['item_name']), ENT_QUOTES, 'UTF-8') ?>')">
+                                            <i class="bi bi-trash3"></i>
+                                        </button>
                                     <?php endif; ?>
                                 </td>
                                 <?php endif; ?>
