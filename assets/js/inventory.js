@@ -191,6 +191,223 @@ function initInventoryPagination() {
     showPage();
 }
 
+// ==========================================================
+// 4. ITEM MODAL AJAX HANDLER & LIFECYCLE (SKILL & QUALITY STANDARDS)
+// ==========================================================
+function initItemModalAjax() {
+    const form = document.getElementById('itemModalForm');
+    if (!form) return;
+
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const submitBtn = form.querySelector('button[type="submit"]');
+        const originalBtnHtml = submitBtn ? submitBtn.innerHTML : '<i class="bi bi-save me-1.5"></i>Save Item';
+
+        // 1. Client-side validation check
+        if (!form.checkValidity()) {
+            form.reportValidity();
+            return;
+        }
+
+        const qtyInput = form.querySelector('[name="quantity"]');
+        if (qtyInput && parseInt(qtyInput.value, 10) < 0) {
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({ icon: 'warning', title: 'Invalid Quantity', text: 'Quantity cannot be negative.' });
+            } else {
+                alert('Quantity cannot be negative.');
+            }
+            return;
+        }
+
+        const priceInput = form.querySelector('[name="unit_price"]');
+        if (priceInput && parseFloat(priceInput.value) < 0) {
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({ icon: 'warning', title: 'Invalid Price', text: 'Unit price cannot be negative.' });
+            } else {
+                alert('Unit price cannot be negative.');
+            }
+            return;
+        }
+
+        // 2. Prevent duplicate submits & show loading state
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1.5" role="status" aria-hidden="true"></span> Saving...';
+        }
+
+        try {
+            const formData = new FormData(form);
+            formData.append('ajax', '1');
+            const csrfToken = form.querySelector('input[name="csrf_token"]')?.value ||
+                              document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+
+            const response = await fetch('process/process.php', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json',
+                    'X-CSRF-Token': csrfToken
+                }
+            });
+
+            const result = await response.json();
+            const isSuccess = result.success === true || result.status === 'success';
+
+            if (isSuccess) {
+                // Hide modal
+                const modalEl = document.getElementById('itemModal');
+                const modalInstance = bootstrap.Modal.getInstance(modalEl);
+                if (modalInstance) modalInstance.hide();
+
+                // Success notification & seamless reload
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Success!',
+                        text: result.message || 'Material saved successfully.',
+                        timer: 1500,
+                        showConfirmButton: false
+                    }).then(() => {
+                        window.location.reload();
+                    });
+                } else {
+                    alert(result.message || 'Material saved successfully.');
+                    window.location.reload();
+                }
+            } else {
+                throw new Error(result.message || 'Failed to save material.');
+            }
+        } catch (error) {
+            console.error('AJAX Error:', error);
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: error.message || 'Failed to process request.'
+                });
+            } else {
+                alert(error.message || 'Failed to process request.');
+            }
+        } finally {
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalBtnHtml;
+            }
+        }
+    });
+
+    // Lifecycle: Auto-focus & cleanup
+    const itemModalEl = document.getElementById('itemModal');
+    if (itemModalEl) {
+        itemModalEl.addEventListener('shown.bs.modal', () => {
+            const nameInput = document.getElementById('itemName');
+            if (nameInput) nameInput.focus();
+        });
+
+        itemModalEl.addEventListener('hidden.bs.modal', () => {
+            form.reset();
+            form.classList.remove('was-validated');
+        });
+    }
+}
+
+// ==========================================================
+// 5. ASYNC ITEM DELETION (SWEETALERT2 CONFIRMATION & AUDIT)
+// ==========================================================
+window.deleteInventoryItem = function(id, itemCode, itemName) {
+    const doDelete = async () => {
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+        const formData = new FormData();
+        formData.append('action', 'delete');
+        formData.append('id', id);
+        formData.append('csrf_token', csrfToken);
+        formData.append('ajax', '1');
+
+        try {
+            const response = await fetch('process/process.php', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json',
+                    'X-CSRF-Token': csrfToken
+                }
+            });
+
+            const result = await response.json();
+            const isSuccess = result.success === true || result.status === 'success';
+
+            if (isSuccess) {
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Deleted!',
+                        text: result.message || 'Material deleted successfully.',
+                        timer: 1500,
+                        showConfirmButton: false
+                    });
+                }
+
+                // Smooth row transition & DOM removal
+                const row = document.getElementById('inventory_row_' + id);
+                if (row) {
+                    row.style.transition = 'all 0.35s ease';
+                    row.style.opacity = '0';
+                    row.style.transform = 'scale(0.95)';
+                    setTimeout(() => {
+                        row.remove();
+                        if (typeof initInventoryPagination === 'function') {
+                            initInventoryPagination();
+                        }
+                    }, 350);
+                }
+            } else {
+                throw new Error(result.message || 'Failed to delete material.');
+            }
+        } catch (err) {
+            console.error('Delete error:', err);
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Delete Failed',
+                    text: err.message || 'Could not delete item. Please try again.'
+                });
+            } else {
+                alert(err.message || 'Could not delete item. Please try again.');
+            }
+        }
+    };
+
+    if (typeof Swal === 'undefined') {
+        if (confirm(`Are you sure you want to delete material "${itemName}" (${itemCode})? This action cannot be undone.`)) {
+            doDelete();
+        }
+        return;
+    }
+
+    Swal.fire({
+        title: 'Delete Material?',
+        html: `Are you sure you want to delete <strong>${itemName}</strong> (<code>${itemCode}</code>)?<br><small class="text-danger mt-2 d-block"><i class="bi bi-exclamation-triangle me-1"></i>This action cannot be undone and will be permanently recorded in audit logs.</small>`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#dc3545',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: '<i class="bi bi-trash me-1"></i> Yes, delete item',
+        cancelButtonText: 'Cancel'
+    }).then((res) => {
+        if (res.isConfirmed) {
+            doDelete();
+        }
+    });
+};
+
+document.addEventListener("DOMContentLoaded", function() {
+    initItemModalAjax();
+});
+
 if (document.readyState !== "loading") {
     initInventoryPagination();
+    initItemModalAjax();
 }
