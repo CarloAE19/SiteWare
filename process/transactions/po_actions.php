@@ -80,6 +80,7 @@ if ($action === 'fetch_supplier_delivery_history') {
         }
 
         $orders[] = [
+            'id' => (int)$po['id'],
             'po_no' => $po['po_no'],
             'status' => $po['status'],
             'classification' => $classification,
@@ -155,8 +156,9 @@ elseif ($action === 'fetch_po_details') {
     }
 
     $po_id = (int)($_POST['po_id'] ?? 0);
+    $po_no = trim($_POST['po_no'] ?? '');
 
-    $poStmt = $pdo->prepare("
+    $queryBase = "
         SELECT 
             p.*, 
             s.company_name, 
@@ -175,15 +177,27 @@ elseif ($action === 'fetch_po_details') {
         LEFT JOIN requisitions r ON p.rs_id = r.id
         LEFT JOIN users u ON p.prepared_by = u.id
         LEFT JOIN users app_u ON COALESCE(p.approved_by, r.approved_by) = app_u.id
-        WHERE p.id = ?
-    ");
-    $poStmt->execute([$po_id]);
+    ";
+
+    if ($po_id > 0) {
+        $poStmt = $pdo->prepare($queryBase . " WHERE p.id = ? LIMIT 1");
+        $poStmt->execute([$po_id]);
+    } elseif (!empty($po_no)) {
+        $poStmt = $pdo->prepare($queryBase . " WHERE p.po_no = ? LIMIT 1");
+        $poStmt->execute([$po_no]);
+    } else {
+        echo json_encode(['status' => 'error', 'message' => 'PO identifier not specified.']);
+        exit;
+    }
+
     $po = $poStmt->fetch(PDO::FETCH_ASSOC);
 
     if (!$po) {
         echo json_encode(['status' => 'error', 'message' => 'Purchase Order not found.']);
         exit;
     }
+
+    $po_id = (int)$po['id'];
 
     $baseDir = dirname(__DIR__, 2) . '/';
 
