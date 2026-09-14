@@ -64,9 +64,6 @@ include 'layout/header.php';
 <!-- Include External CSS -->
 <link rel="stylesheet" href="assets/css/inventory.css">
 
-<!-- External Dependencies -->
-<script src="https://unpkg.com/html5-qrcode"></script>
-
 <!-- Dynamic PHP Data injected to JS -->
 <script> const inventoryData = <?= json_encode($items) ?>; </script>
 
@@ -292,13 +289,8 @@ include 'layout/header.php';
                     
                     <?php if ($role === 'admin'): ?>
                         <!-- Admin Direct Add Item Button -->
-                        <button class="btn btn-brand fw-bold shadow-sm flex-grow-1 flex-md-grow-0 px-3 order-2 order-md-4" data-bs-toggle="modal" data-bs-target="#itemModal" onclick="openAddModal()">
+                        <button class="btn btn-brand fw-bold shadow-sm flex-grow-1 flex-md-grow-0 px-3 order-2 order-md-3" data-bs-toggle="modal" data-bs-target="#itemModal" onclick="openAddModal()">
                             <i class="bi bi-plus-lg me-1"></i> Add Item
-                        </button>
-                    <?php endif; ?>
-                    <?php if (in_array($role, ['admin', 'warehouse'])): ?>
-                        <button class="btn btn-outline-success fw-bold shadow-sm flex-grow-1 flex-md-grow-0 px-3 order-3 order-md-3" onclick="startDeliveryScanner()">
-                            <i class="bi bi-upc-scan me-1"></i> Scan
                         </button>
                     <?php endif; ?>
                 </div>
@@ -366,46 +358,7 @@ include 'layout/header.php';
     </div>
 </div>
 
-<!-- PREMIUM SPA SCANNER MODAL -->
-<div class="modal fade" id="deliveryScannerModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content border-0 shadow-lg">
-            <div class="modal-header bg-success text-white">
-                <h5 class="modal-title fw-bold"><i class="bi bi-upc-scan me-2"></i>Scan Delivery QR</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" onclick="stopScanner()"></button>
-            </div>
-            <div class="modal-body text-center p-4">
-                <div id="reader" style="width: 100%; border-radius: 8px; overflow: hidden; border: 2px solid #198754;"></div>
-                <div id="scannerResult" class="mt-3 text-muted">Point your camera at the item's QR Code...</div>
-                
-                <form id="stockInForm" class="d-none mt-3 text-start" method="POST">
-                    <input type="hidden" name="action" value="stock_in_scanned">
-                    <input type="hidden" name="item_code" id="scan_item_code">
-                    
-                    <div class="alert alert-success d-flex align-items-center mb-3">
-                        <i class="bi bi-check-circle-fill fs-3 me-3"></i>
-                        <div>
-                            <strong id="scan_item_name" class="d-block fs-5 text-dark">Item Name</strong>
-                            <small id="scan_item_category" class="text-muted">Category</small>
-                        </div>
-                    </div>
-                    
-                    <div class="mb-4">
-                        <label class="form-label fw-bold text-dark">Quantity Delivered</label>
-                        <div class="input-group input-group-lg">
-                            <input type="number" class="form-control fw-bold text-center text-success" name="added_qty" id="scan_added_qty" required min="1" placeholder="0">
-                            <span class="input-group-text bg-light text-dark fw-bold" id="scan_item_unit">Unit</span>
-                        </div>
-                    </div>
-                    
-                    <button type="submit" class="btn btn-success w-100 btn-lg fw-bold shadow-sm" id="receiveSubmitBtn">
-                        <i class="bi bi-box-arrow-in-down me-2"></i>Confirm Delivery
-                    </button>
-                </form>
-            </div>
-        </div>
-    </div>
-</div>
+
 
 <!-- Include External JS File -->
 <script src="assets/js/inventory.js"></script>
