@@ -1,4 +1,15 @@
 <?php
+/**
+ * SiteWare — Construction Inventory Management System (CIMS)
+ * Copyright (c) GB Construction & Enterprises Inc. & The MedYas.
+ * All Rights Reserved.
+ *
+ * PROPRIETARY AND CONFIDENTIAL.
+ * Unauthorized copying, distribution, modification, or deployment of this file,
+ * via any medium, is strictly prohibited and constitutes intellectual property theft.
+ * See LICENSE file in root directory for full legal terms and conditions.
+ */
+
 // ==========================================================
 // CIMS (GB INVENTORY) - CRYPTOGRAPHIC PKI HELPER MODULE
 // Implements Asymmetric RSA-2048 + SHA-256 Document Signing & Integrity Verification
@@ -11,7 +22,8 @@ if (!defined('OPENSSL_KEY_BITS')) {
 /**
  * Returns the path to openssl.cnf if needed on Windows/XAMPP environments.
  */
-function getOpenSslConfig() {
+function getOpenSslConfig()
+{
     $candidates = [
         'C:/xampp/php/extras/ssl/openssl.cnf',
         'C:/xampp/apache/bin/openssl.cnf',
@@ -32,7 +44,8 @@ function getOpenSslConfig() {
  * 
  * @return array ['public' => string, 'private' => string]|null
  */
-function generateCryptoKeyPair() {
+function generateCryptoKeyPair()
+{
     $config = [
         "digest_alg" => "sha256",
         "private_key_bits" => OPENSSL_KEY_BITS,
@@ -76,8 +89,10 @@ function generateCryptoKeyPair() {
  * @param int $userId
  * @return array ['public' => string, 'private' => string]|null
  */
-function getOrCreateUserKeyPair($pdo, $userId) {
-    if (!$userId || !is_numeric($userId)) return null;
+function getOrCreateUserKeyPair($pdo, $userId)
+{
+    if (!$userId || !is_numeric($userId))
+        return null;
 
     try {
         $stmt = $pdo->prepare("SELECT public_key, private_key FROM users WHERE id = ?");
@@ -108,32 +123,33 @@ function getOrCreateUserKeyPair($pdo, $userId) {
 /**
  * Builds a deterministic canonical JSON payload for a Purchase Order.
  */
-function buildCanonicalPoPayload($po, $items) {
+function buildCanonicalPoPayload($po, $items)
+{
     $normalizedItems = [];
     if (is_array($items)) {
         foreach ($items as $item) {
             $normalizedItems[] = [
-                'code' => (string)($item['item_code'] ?? ''),
-                'name' => (string)($item['item_name'] ?? $item['custom_item_name'] ?? ''),
-                'qty'  => (float)($item['quantity'] ?? 0),
-                'price'=> (float)($item['unit_price'] ?? 0)
+                'code' => (string) ($item['item_code'] ?? ''),
+                'name' => (string) ($item['item_name'] ?? $item['custom_item_name'] ?? ''),
+                'qty' => (float) ($item['quantity'] ?? 0),
+                'price' => (float) ($item['unit_price'] ?? 0)
             ];
         }
     }
     // Sort items deterministically by item_code
-    usort($normalizedItems, function($a, $b) {
+    usort($normalizedItems, function ($a, $b) {
         return strcmp($a['code'], $b['code']);
     });
 
     $payload = [
-        'doc_type'     => 'PURCHASE_ORDER',
-        'po_no'        => (string)($po['po_no'] ?? ''),
-        'rs_no'        => (string)($po['rs_no'] ?? ''),
-        'supplier'     => (string)($po['company_name'] ?? $po['supplier_id'] ?? ''),
-        'prepared_by'  => (int)($po['prepared_by'] ?? 0),
-        'approved_by'  => (int)($po['approved_by'] ?? 0),
-        'created_at'   => (string)($po['created_at'] ?? ''),
-        'items'        => $normalizedItems
+        'doc_type' => 'PURCHASE_ORDER',
+        'po_no' => (string) ($po['po_no'] ?? ''),
+        'rs_no' => (string) ($po['rs_no'] ?? ''),
+        'supplier' => (string) ($po['company_name'] ?? $po['supplier_id'] ?? ''),
+        'prepared_by' => (int) ($po['prepared_by'] ?? 0),
+        'approved_by' => (int) ($po['approved_by'] ?? 0),
+        'created_at' => (string) ($po['created_at'] ?? ''),
+        'items' => $normalizedItems
     ];
 
     return json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
@@ -142,31 +158,32 @@ function buildCanonicalPoPayload($po, $items) {
 /**
  * Builds a deterministic canonical JSON payload for a Material Withdrawal.
  */
-function buildCanonicalWdPayload($wd, $items) {
+function buildCanonicalWdPayload($wd, $items)
+{
     $normalizedItems = [];
     if (is_array($items)) {
         foreach ($items as $item) {
             $normalizedItems[] = [
-                'code' => (string)($item['item_code'] ?? ''),
-                'name' => (string)($item['item_name'] ?? ''),
-                'qty'  => (float)($item['quantity'] ?? 0),
-                'unit' => (string)($item['unit'] ?? '')
+                'code' => (string) ($item['item_code'] ?? ''),
+                'name' => (string) ($item['item_name'] ?? ''),
+                'qty' => (float) ($item['quantity'] ?? 0),
+                'unit' => (string) ($item['unit'] ?? '')
             ];
         }
     }
     // Sort items deterministically by item_code
-    usort($normalizedItems, function($a, $b) {
+    usort($normalizedItems, function ($a, $b) {
         return strcmp($a['code'], $b['code']);
     });
 
     $payload = [
-        'doc_type'       => 'MATERIAL_WITHDRAWAL',
-        'withdrawal_no'  => (string)($wd['withdrawal_no'] ?? ''),
-        'project_name'   => (string)($wd['project_name'] ?? ''),
-        'released_by'    => (int)($wd['released_by'] ?? 0),
-        'received_by'    => (string)($wd['received_by'] ?? ''),
-        'date_withdrawn' => (string)($wd['date_withdrawn'] ?? ''),
-        'items'          => $normalizedItems
+        'doc_type' => 'MATERIAL_WITHDRAWAL',
+        'withdrawal_no' => (string) ($wd['withdrawal_no'] ?? ''),
+        'project_name' => (string) ($wd['project_name'] ?? ''),
+        'released_by' => (int) ($wd['released_by'] ?? 0),
+        'received_by' => (string) ($wd['received_by'] ?? ''),
+        'date_withdrawn' => (string) ($wd['date_withdrawn'] ?? ''),
+        'items' => $normalizedItems
     ];
 
     return json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
@@ -179,8 +196,10 @@ function buildCanonicalWdPayload($wd, $items) {
  * @param string $privateKeyPem
  * @return array ['hash' => string, 'signature' => string]|null
  */
-function cryptographicallySignPayload($payload, $privateKeyPem) {
-    if (empty($payload) || empty($privateKeyPem)) return null;
+function cryptographicallySignPayload($payload, $privateKeyPem)
+{
+    if (empty($payload) || empty($privateKeyPem))
+        return null;
 
     $documentHash = hash('sha256', $payload);
     $binarySignature = '';
@@ -204,11 +223,14 @@ function cryptographicallySignPayload($payload, $privateKeyPem) {
  * @param string $publicKeyPem
  * @return bool
  */
-function cryptographicallyVerifyPayload($payload, $signatureBase64, $publicKeyPem) {
-    if (empty($payload) || empty($signatureBase64) || empty($publicKeyPem)) return false;
+function cryptographicallyVerifyPayload($payload, $signatureBase64, $publicKeyPem)
+{
+    if (empty($payload) || empty($signatureBase64) || empty($publicKeyPem))
+        return false;
 
     $binarySignature = base64_decode($signatureBase64);
-    if ($binarySignature === false) return false;
+    if ($binarySignature === false)
+        return false;
 
     $result = openssl_verify($payload, $binarySignature, $publicKeyPem, OPENSSL_ALGO_SHA256);
     return ($result === 1);
