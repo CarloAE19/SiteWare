@@ -42,149 +42,13 @@ document.addEventListener("DOMContentLoaded", () => {
     }, 3000); 
 
     // ==========================================
-    // 2. AJAX STOCK-IN FORM SUBMISSION (SPA SAFE)
+    // 2. ITEM MANAGEMENT & LIVE POLLING
     // ==========================================
-    // FIXED 2: We use Event Delegation so this survives page transitions perfectly
-    document.body.addEventListener('submit', async (e) => {
-        if (e.target.id === 'stockInForm') {
-            e.preventDefault(); 
-            
-            const form = e.target;
-            const submitBtn = form.querySelector('button[type="submit"]');
-            const originalBtnText = submitBtn.innerHTML;
-            
-            submitBtn.disabled = true;
-            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Processing...';
-            
-            const formData = new FormData(form);
-            // FIXED 3: This tells the PHP backend to return JSON instead of reloading the page!
-            formData.append('ajax', '1'); 
-            
-            const itemCode = formData.get('item_code');
-            const addedQty = formData.get('added_qty');
-            
-            try {
-                const response = await fetch('process/process.php', { method: 'POST', body: formData });
-                const data = await response.json();
-                
-                if (data.status === 'success') {
-                    // Play success sound
-                    new Audio('assets/sounds/success.mp3').play().catch(err => {});
-                    
-                    // Dynamically update UI
-                    const qtyEl = document.getElementById('qty_' + itemCode);
-                    const statusEl = document.getElementById('status_' + itemCode);
-                    
-                    if (qtyEl && statusEl) {
-                        qtyEl.innerText = data.new_qty;
-                        qtyEl.className = 'fw-bold fs-5 text-success'; 
-                        setTimeout(() => { qtyEl.className = 'fw-bold fs-6'; }, 2000);
-                        
-                        statusEl.innerText = data.new_status;
-                        if(data.new_status === 'Out of Stock') statusEl.className = 'badge bg-danger';
-                        else if(data.new_status === 'Low Stock') statusEl.className = 'badge bg-warning text-dark';
-                        else statusEl.className = 'badge bg-success';
-                    }
-                    
-                    // Update global memory if it exists
-                    if (typeof inventoryData !== 'undefined') {
-                        let foundItem = inventoryData.find(item => item.item_code === itemCode);
-                        if(foundItem) foundItem.quantity = data.new_qty;
-                    }
-
-                    // Close Modal gracefully
-                    const modalEl = document.getElementById('deliveryScannerModal');
-                    if (modalEl) {
-                        const modal = bootstrap.Modal.getInstance(modalEl);
-                        if (modal) modal.hide();
-                    }
-                    
-                } else {
-                    alert("Server Error: " + data.message);
-                }
-            } catch (error) {
-                alert("Network Error. Could not process stock-in.");
-            } finally {
-                submitBtn.disabled = false;
-                submitBtn.innerHTML = originalBtnText;
-            }
-        }
-    });
 });
 
 // ==========================================
-// 3. QR SCANNER & PRINTING LOGIC
+// 3. QR LABEL PRINTING (PHYSICAL SHELF LABELS)
 // ==========================================
-window.html5QrcodeScanner = null;
-
-// FIXED 4: Updated IDs to match the new mobile-responsive 'index.php' modal!
-window.startDeliveryScanner = function() {
-    const modalEl = document.getElementById('deliveryScannerModal');
-    if (!modalEl) return;
-    
-    const modal = new bootstrap.Modal(modalEl);
-    modal.show();
-
-    document.getElementById('reader').style.display = 'block';
-    document.getElementById('stockInForm').classList.add('d-none');
-    document.getElementById('scannerResult').innerHTML = "Point your camera at the item's QR Code...";
-
-    if (!window.html5QrcodeScanner) {
-        window.html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: {width: 250, height: 250} }, false);
-    }
-
-    window.html5QrcodeScanner.render((decodedText, decodedResult) => {
-        const itemCode = decodedText.trim();
-        
-        // Check if item exists in global inventoryData
-        const item = (typeof inventoryData !== 'undefined') ? inventoryData.find(i => i.item_code === itemCode) : null;
-        
-        if (item) {
-            new Audio('assets/sounds/scan.mp3').play().catch(e => {});
-            
-            // Stop scanner camera
-            window.html5QrcodeScanner.clear().then(() => { window.html5QrcodeScanner = null; }).catch(e=>{});
-            document.getElementById('reader').style.display = 'none';
-            
-            // Populate the Delivery Form
-            document.getElementById('scannerResult').innerHTML = `<span class="text-success fw-bold"><i class="bi bi-check-circle me-1"></i> QR Code Recognized!</span>`;
-            document.getElementById('scan_item_code').value = item.item_code;
-            
-            // These IDs must match your index.php!
-            const nameEl = document.getElementById('scan_item_name');
-            const catEl = document.getElementById('scan_item_category');
-            const unitEl = document.getElementById('scan_item_unit');
-            
-            if(nameEl) nameEl.innerText = item.item_name;
-            if(catEl) catEl.innerText = item.category;
-            if(unitEl) unitEl.innerText = item.unit;
-            
-            document.getElementById('stockInForm').classList.remove('d-none');
-            document.getElementById('stockInForm').reset(); // Clear previous inputs
-            
-            // Auto-focus the quantity box so the user can just start typing!
-            setTimeout(() => {
-                const qtyInput = document.getElementById('scan_added_qty');
-                if(qtyInput) qtyInput.focus();
-            }, 300);
-        } else {
-            document.getElementById('scannerResult').innerHTML = `<span class="text-danger fw-bold"><i class="bi bi-x-circle me-1"></i> Item "${itemCode}" not found.</span>`;
-        }
-    }, (error) => {});
-};
-
-window.stopScanner = function() {
-    if (window.html5QrcodeScanner) {
-        window.html5QrcodeScanner.clear().then(() => { window.html5QrcodeScanner = null; }).catch(e=>{});
-    }
-};
-
-// Auto-stop scanner camera when the user clicks out of the modal
-document.body.addEventListener('hidden.bs.modal', function (e) {
-    if (e.target.id === 'deliveryScannerModal') {
-        window.stopScanner();
-    }
-});
 
 // QR Label Printing
 window.showItemQR = function(itemCode, itemName) {
@@ -327,6 +191,223 @@ function initInventoryPagination() {
     showPage();
 }
 
+// ==========================================================
+// 4. ITEM MODAL AJAX HANDLER & LIFECYCLE (SKILL & QUALITY STANDARDS)
+// ==========================================================
+function initItemModalAjax() {
+    const form = document.getElementById('itemModalForm');
+    if (!form) return;
+
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const submitBtn = form.querySelector('button[type="submit"]');
+        const originalBtnHtml = submitBtn ? submitBtn.innerHTML : '<i class="bi bi-save me-1.5"></i>Save Item';
+
+        // 1. Client-side validation check
+        if (!form.checkValidity()) {
+            form.reportValidity();
+            return;
+        }
+
+        const qtyInput = form.querySelector('[name="quantity"]');
+        if (qtyInput && parseInt(qtyInput.value, 10) < 0) {
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({ icon: 'warning', title: 'Invalid Quantity', text: 'Quantity cannot be negative.' });
+            } else {
+                alert('Quantity cannot be negative.');
+            }
+            return;
+        }
+
+        const priceInput = form.querySelector('[name="unit_price"]');
+        if (priceInput && parseFloat(priceInput.value) < 0) {
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({ icon: 'warning', title: 'Invalid Price', text: 'Unit price cannot be negative.' });
+            } else {
+                alert('Unit price cannot be negative.');
+            }
+            return;
+        }
+
+        // 2. Prevent duplicate submits & show loading state
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1.5" role="status" aria-hidden="true"></span> Saving...';
+        }
+
+        try {
+            const formData = new FormData(form);
+            formData.append('ajax', '1');
+            const csrfToken = form.querySelector('input[name="csrf_token"]')?.value ||
+                              document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+
+            const response = await fetch('process/process.php', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json',
+                    'X-CSRF-Token': csrfToken
+                }
+            });
+
+            const result = await response.json();
+            const isSuccess = result.success === true || result.status === 'success';
+
+            if (isSuccess) {
+                // Hide modal
+                const modalEl = document.getElementById('itemModal');
+                const modalInstance = bootstrap.Modal.getInstance(modalEl);
+                if (modalInstance) modalInstance.hide();
+
+                // Success notification & seamless reload
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Success!',
+                        text: result.message || 'Material saved successfully.',
+                        timer: 1500,
+                        showConfirmButton: false
+                    }).then(() => {
+                        window.location.reload();
+                    });
+                } else {
+                    alert(result.message || 'Material saved successfully.');
+                    window.location.reload();
+                }
+            } else {
+                throw new Error(result.message || 'Failed to save material.');
+            }
+        } catch (error) {
+            console.error('AJAX Error:', error);
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: error.message || 'Failed to process request.'
+                });
+            } else {
+                alert(error.message || 'Failed to process request.');
+            }
+        } finally {
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalBtnHtml;
+            }
+        }
+    });
+
+    // Lifecycle: Auto-focus & cleanup
+    const itemModalEl = document.getElementById('itemModal');
+    if (itemModalEl) {
+        itemModalEl.addEventListener('shown.bs.modal', () => {
+            const nameInput = document.getElementById('itemName');
+            if (nameInput) nameInput.focus();
+        });
+
+        itemModalEl.addEventListener('hidden.bs.modal', () => {
+            form.reset();
+            form.classList.remove('was-validated');
+        });
+    }
+}
+
+// ==========================================================
+// 5. ASYNC ITEM DELETION (SWEETALERT2 CONFIRMATION & AUDIT)
+// ==========================================================
+window.deleteInventoryItem = function(id, itemCode, itemName) {
+    const doDelete = async () => {
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+        const formData = new FormData();
+        formData.append('action', 'delete');
+        formData.append('id', id);
+        formData.append('csrf_token', csrfToken);
+        formData.append('ajax', '1');
+
+        try {
+            const response = await fetch('process/process.php', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json',
+                    'X-CSRF-Token': csrfToken
+                }
+            });
+
+            const result = await response.json();
+            const isSuccess = result.success === true || result.status === 'success';
+
+            if (isSuccess) {
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Deleted!',
+                        text: result.message || 'Material deleted successfully.',
+                        timer: 1500,
+                        showConfirmButton: false
+                    });
+                }
+
+                // Smooth row transition & DOM removal
+                const row = document.getElementById('inventory_row_' + id);
+                if (row) {
+                    row.style.transition = 'all 0.35s ease';
+                    row.style.opacity = '0';
+                    row.style.transform = 'scale(0.95)';
+                    setTimeout(() => {
+                        row.remove();
+                        if (typeof initInventoryPagination === 'function') {
+                            initInventoryPagination();
+                        }
+                    }, 350);
+                }
+            } else {
+                throw new Error(result.message || 'Failed to delete material.');
+            }
+        } catch (err) {
+            console.error('Delete error:', err);
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Delete Failed',
+                    text: err.message || 'Could not delete item. Please try again.'
+                });
+            } else {
+                alert(err.message || 'Could not delete item. Please try again.');
+            }
+        }
+    };
+
+    if (typeof Swal === 'undefined') {
+        if (confirm(`Are you sure you want to delete material "${itemName}" (${itemCode})? This action cannot be undone.`)) {
+            doDelete();
+        }
+        return;
+    }
+
+    Swal.fire({
+        title: 'Delete Material?',
+        html: `Are you sure you want to delete <strong>${itemName}</strong> (<code>${itemCode}</code>)?<br><small class="text-danger mt-2 d-block"><i class="bi bi-exclamation-triangle me-1"></i>This action cannot be undone and will be permanently recorded in audit logs.</small>`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#dc3545',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: '<i class="bi bi-trash me-1"></i> Yes, delete item',
+        cancelButtonText: 'Cancel'
+    }).then((res) => {
+        if (res.isConfirmed) {
+            doDelete();
+        }
+    });
+};
+
+document.addEventListener("DOMContentLoaded", function() {
+    initItemModalAjax();
+});
+
 if (document.readyState !== "loading") {
     initInventoryPagination();
+    initItemModalAjax();
 }

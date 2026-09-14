@@ -6,7 +6,7 @@ require_once 'Connection/db.php';
 $role = $_SESSION['user_role'];
 
 // Fetch all Withdrawals
-$query = "SELECT w.*, u.name as releaser_name, r.requestor_name 
+$query = "SELECT w.*, u.name as releaser_name, u.signature_path as releaser_signature_path, r.requestor_name 
           FROM withdrawals w
           LEFT JOIN users u ON w.released_by = u.id
           LEFT JOIN requisitions r ON (w.remarks LIKE CONCAT('%', r.rs_no, '%') AND r.rs_no != '')
@@ -147,7 +147,7 @@ include 'layout/header.php';
                                 
                                 <td class="text-center" data-label="Actions">
                                     <?php $currentItemsJson = htmlspecialchars(json_encode($wdItemsGrouped[$wd['id']] ?? []), ENT_QUOTES, 'UTF-8'); ?>
-                                    <button class="btn btn-sm btn-outline-secondary fw-bold shadow-sm px-3" title="View Details" onclick="viewWdDetails('<?= $wd['withdrawal_no'] ?>', '<?= addslashes($wd['project_name']) ?>', '<?= addslashes($wd['remarks'] ?? '') ?>', '<?= $currentItemsJson ?>', '<?= addslashes($wd['releaser_name'] ?? '') ?>', '<?= addslashes($wd['requestor_name'] ?? 'N/A') ?>', '<?= addslashes($wd['received_by'] ?? 'N/A') ?>', '<?= addslashes($wd['signature_path'] ?? '') ?>', '<?= addslashes($wd['photo_proof_path'] ?? '') ?>')">
+                                    <button class="btn btn-sm btn-outline-secondary fw-bold shadow-sm px-3" title="View Details" onclick="viewWdDetails('<?= $wd['withdrawal_no'] ?>', '<?= addslashes($wd['project_name']) ?>', '<?= addslashes($wd['remarks'] ?? '') ?>', '<?= $currentItemsJson ?>', '<?= addslashes($wd['releaser_name'] ?? '') ?>', '<?= addslashes($wd['requestor_name'] ?? 'N/A') ?>', '<?= addslashes($wd['received_by'] ?? 'N/A') ?>', '<?= addslashes($wd['signature_path'] ?? '') ?>', '<?= addslashes($wd['photo_proof_path'] ?? '') ?>', '<?= addslashes($wd['releaser_signature_path'] ?? '') ?>')">
                                         <i class="bi bi-qr-code-scan me-1"></i> View Trail
                                     </button>
                                 </td>
@@ -226,8 +226,8 @@ include 'layout/header.php';
                         <div class="row align-items-center text-center g-3">
                             <div class="col-md-6 border-end-md" id="viewWdSigWrapper">
                                 <div class="text-muted small fw-bold mb-2"><i class="bi bi-pen me-1 text-primary"></i> Digital Signature</div>
-                                <div id="viewWdSigContent">
-                                    <img id="viewWdSignatureImg" src="" class="img-fluid border rounded bg-light p-2 shadow-sm" style="max-height: 100px;">
+                                <div id="viewWdSigContent" class="p-1 border rounded shadow-sm d-inline-block bg-white" style="background-color: #ffffff !important;">
+                                    <img id="viewWdSignatureImg" src="" class="img-fluid rounded" style="max-height: 100px; background-color: #ffffff !important;">
                                 </div>
                             </div>
                             <div class="col-md-6" id="viewWdPhotoWrapper">
@@ -248,136 +248,15 @@ include 'layout/header.php';
                 </div>
             </div>
             <div class="modal-footer d-flex justify-content-between bg-white border-top-0">
-                <button type="button" class="btn btn-outline-primary fw-bold px-4" onclick="window.print()"><i class="bi bi-printer me-2"></i>Print Slip</button>
+                <button type="button" class="btn btn-outline-primary fw-bold px-4" onclick="triggerWdPrint()"><i class="bi bi-printer me-2"></i>Print Slip</button>
                 <button type="button" class="btn btn-secondary fw-bold px-4" data-bs-dismiss="modal">Close</button>
             </div>
         </div>
     </div>
 </div>
 
-<!-- NEW UI SCRIPT: Live Search, Column Filter & Pagination -->
-<script>
-let searchWdQuery = '';
 
-document.addEventListener("DOMContentLoaded", function() {
-    
-    // 1. COLUMN TOGGLE LOGIC
-    document.querySelectorAll('.col-toggle').forEach(checkbox => {
-        checkbox.addEventListener('change', function() {
-            const colIndex = this.value;
-            const table = document.getElementById('withdrawalsTable');
-            if (this.checked) {
-                table.classList.remove('hide-col-' + colIndex);
-            } else {
-                table.classList.add('hide-col-' + colIndex);
-            }
-        });
-    });
-
-    // 2. LIVE SEARCH LOGIC
-    const searchInput = document.getElementById('searchWithdrawals');
-    if(searchInput) {
-        searchInput.addEventListener('keyup', function(e) {
-            searchWdQuery = e.target.value.toLowerCase();
-            initWithdrawalsPagination();
-        });
-    }
-    
-    initWithdrawalsPagination();
-});
-
-function initWithdrawalsPagination() {
-    const table = document.getElementById('withdrawalsTable');
-    if (!table) return;
-
-    const tbody = table.querySelector('tbody');
-    const allRows = Array.from(tbody.querySelectorAll('tr.withdrawal-row'));
-    
-    if (allRows.length === 0) return;
-
-    // Filter by text search
-    const activeRows = allRows.filter(row => {
-        return searchWdQuery === '' || row.innerText.toLowerCase().includes(searchWdQuery);
-    });
-
-    allRows.forEach(row => row.style.display = 'none');
-
-    // Handle "No Data" Empty State
-    let noDataRow = tbody.querySelector('.no-data-alert-row');
-    if (activeRows.length === 0) {
-        if (!noDataRow) {
-            noDataRow = document.createElement('tr');
-            noDataRow.className = 'no-data-alert-row';
-            noDataRow.innerHTML = '<td colspan="5" class="text-center py-5 text-muted"><i class="bi bi-search fs-1 d-block mb-2"></i>No matching withdrawals found.</td>';
-            tbody.appendChild(noDataRow);
-        }
-        noDataRow.style.display = '';
-        const pw = table.parentElement.querySelector('.pagination-wrapper');
-        if (pw) pw.style.display = 'none';
-        return;
-    } else {
-        if (noDataRow) noDataRow.style.display = 'none';
-    }
-
-    // Pagination variables
-    const rowsPerPage = 10;
-    let currentPage = window.currentWdPage || 1; 
-    const totalPages = Math.ceil(activeRows.length / rowsPerPage);
-    if (currentPage > totalPages) currentPage = 1; 
-    window.currentWdPage = currentPage;
-
-    // Generate Pagination Footer UI
-    let paginationWrapper = table.parentElement.querySelector('.pagination-wrapper');
-    if (!paginationWrapper) {
-        paginationWrapper = document.createElement('div');
-        paginationWrapper.className = 'd-flex flex-column flex-md-row justify-content-between align-items-center p-3 bg-white border-top pagination-wrapper gap-3';
-        
-        paginationWrapper.innerHTML = `
-            <span class="text-muted small fw-bold" id="pageInfoTextWd"></span>
-            <div class="btn-group shadow-sm">
-                <button class="btn btn-sm btn-outline-primary fw-bold px-3" id="prevPageBtnWd"><i class="bi bi-chevron-left me-1"></i> Prev</button>
-                <button class="btn btn-sm btn-brand fw-bold px-3 pe-none" id="pageIndicatorBtnWd"></button>
-                <button class="btn btn-sm btn-outline-primary fw-bold px-3" id="nextPageBtnWd">Next <i class="bi bi-chevron-right ms-1"></i></button>
-            </div>
-        `;
-        table.parentElement.appendChild(paginationWrapper);
-
-        document.getElementById('prevPageBtnWd').addEventListener('click', () => { 
-            if (window.currentWdPage > 1) { window.currentWdPage--; showPage(); }
-        });
-        document.getElementById('nextPageBtnWd').addEventListener('click', () => { 
-            if (window.currentWdPage < Math.ceil(activeRows.length / rowsPerPage)) { window.currentWdPage++; showPage(); }
-        });
-    }
-    paginationWrapper.style.display = 'flex';
-
-    function showPage() {
-        activeRows.forEach(row => row.style.display = 'none'); 
-
-        const start = (window.currentWdPage - 1) * rowsPerPage;
-        const end = start + rowsPerPage;
-
-        for (let i = start; i < end && i < activeRows.length; i++) {
-            activeRows[i].style.display = ''; 
-        }
-
-        document.getElementById('pageInfoTextWd').innerHTML = `Showing <b>${start + 1}</b> to <b>${Math.min(end, activeRows.length)}</b> of <b>${activeRows.length}</b> entries`;
-        document.getElementById('pageIndicatorBtnWd').innerText = `Page ${window.currentWdPage} / ${totalPages}`;
-        
-        document.getElementById('prevPageBtnWd').disabled = window.currentWdPage === 1;
-        document.getElementById('nextPageBtnWd').disabled = window.currentWdPage === totalPages;
-    }
-
-    showPage();
-}
-
-// Reactivate if SPA Router navigates back
-if (document.readyState !== "loading") {
-    initWithdrawalsPagination();
-}
-</script>
-
-<!-- Load Modals and Separate Javascript Engine -->
+<!-- Load Modals and Unified JavaScript Engine -->
 <?php include 'components/withdrawal_modal.php'; ?>
 
 <!-- Preserved your scanner and entry logic safely here -->

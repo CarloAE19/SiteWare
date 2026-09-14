@@ -6,6 +6,32 @@
 if ($action === 'fetch_combined_alerts') {
     header('Content-Type: application/json');
 
+    if (!function_exists('time_elapsed_string')) {
+        function time_elapsed_string($datetime, $full = false)
+        {
+            if (empty($datetime)) return 'just now';
+            try {
+                $now = new DateTime;
+                $ago = new DateTime($datetime);
+                $diff = $now->diff($ago);
+                $weeks = floor($diff->d / 7);
+                $days = $diff->d - ($weeks * 7);
+                $values = ['y' => $diff->y, 'm' => $diff->m, 'w' => $weeks, 'd' => $days, 'h' => $diff->h, 'i' => $diff->i, 's' => $diff->s];
+                $string = ['y' => 'year', 'm' => 'month', 'w' => 'week', 'd' => 'day', 'h' => 'hour', 'i' => 'minute', 's' => 'second'];
+                $parts = [];
+                foreach ($string as $k => $v) {
+                    if ($values[$k])
+                        $parts[] = $values[$k] . ' ' . $v . ($values[$k] > 1 ? 's' : '');
+                }
+                if (!$full)
+                    $parts = array_slice($parts, 0, 1);
+                return $parts ? implode(', ', $parts) . ' ago' : 'just now';
+            } catch (Exception $e) {
+                return 'recently';
+            }
+        }
+    }
+
     $userRole = $_SESSION['user_role'] ?? 'warehouse';
     $combinedAlerts = [];
     $totalUnread = 0;
@@ -37,15 +63,17 @@ if ($action === 'fetch_combined_alerts') {
         $icon = 'bi-truck';
         $category = 'on_track';
         $timeAgo = 'Scheduled';
+        $poNumber = (stripos($po['po_no'], 'PO-') === 0) ? $po['po_no'] : 'PO-' . $po['po_no'];
+        $companyName = !empty($po['company_name']) ? $po['company_name'] : 'Unknown Supplier';
 
         if (!empty($eta)) {
-            $daysDiff = (int) (strtotime($eta) - strtotime($today)) / 86400;
+            $daysDiff = (int) round((strtotime($eta) - strtotime($today)) / 86400);
             if ($daysDiff == 0) {
                 $category = 'arriving_today';
                 $badgeClass = 'bg-warning text-dark';
                 $icon = 'bi-truck-flatbed';
-                $title = "🚚 Arriving Today: PO {$po['po_no']}";
-                $message = "Supplies from {$po['company_name']} scheduled to arrive at warehouse today (" . date('M d', strtotime($eta)) . ").";
+                $title = "{$poNumber} — {$companyName}";
+                $message = "Supplies scheduled to arrive at warehouse today (" . date('M d', strtotime($eta)) . ").";
                 $timeAgo = "TODAY";
                 $totalUnread++;
             } elseif ($daysDiff < 0) {
@@ -53,27 +81,29 @@ if ($action === 'fetch_combined_alerts') {
                 $badgeClass = 'bg-danger';
                 $icon = 'bi-exclamation-triangle-fill';
                 $daysOverdue = abs((int)$daysDiff);
-                $title = "⚠️ Overdue Delivery: PO {$po['po_no']}";
-                $message = "Supply delivery from {$po['company_name']} is overdue by {$daysOverdue} day(s). Target was " . date('M d', strtotime($eta)) . ".";
-                $timeAgo = "Overdue";
+                $title = "{$poNumber} — {$companyName}";
+                $message = "Delivery from {$companyName} is overdue by {$daysOverdue} day" . ($daysOverdue > 1 ? 's' : '') . " (Target: " . date('M d, Y', strtotime($eta)) . ").";
+                $timeAgo = "{$daysOverdue}d overdue";
                 $totalUnread++;
             } else {
                 $category = 'on_track';
                 $badgeClass = 'bg-info text-dark';
                 $icon = 'bi-box-seam';
-                $title = "📦 Scheduled Supply: PO {$po['po_no']}";
-                $message = "Supplies from {$po['company_name']} expected on " . date('M d, Y', strtotime($eta)) . " (in {$daysDiff} days).";
+                $title = "{$poNumber} — {$companyName}";
+                $message = "Supplies expected on " . date('M d, Y', strtotime($eta)) . " (in {$daysDiff} day" . ($daysDiff > 1 ? 's' : '') . ").";
                 $timeAgo = "In {$daysDiff}d";
             }
         } else {
-            $title = "📦 Pending Delivery: PO {$po['po_no']}";
-            $message = "Supplies from {$po['company_name']} pending delivery. Target ETA not set yet.";
+            $title = "{$poNumber} — {$companyName}";
+            $message = "Supplies from {$companyName} pending delivery. Target ETA not set yet.";
         }
 
         $combinedAlerts[] = [
             'id' => 'po_' . $po['id'],
-            'po_id' => $po['id'],
-            'po_no' => $po['po_no'],
+            'po_id' => (int) $po['id'],
+            'po_no' => $poNumber,
+            'supplier_name' => $companyName,
+            'expected_delivery_date' => $eta,
             'type' => $type,
             'category' => $category,
             'title' => $title,
@@ -86,44 +116,7 @@ if ($action === 'fetch_combined_alerts') {
         ];
     }
 
-    // 2. Fetch Supplier SMS Replies
-    if (in_array($userRole, ['admin', 'purchasing', 'management'])) {
-        $smsStmt = $pdo->prepare("
-            SELECT r.*, s.company_name, p.po_no
-            FROM supplier_sms_replies r
-            LEFT JOIN suppliers s ON r.supplier_id = s.id
-            LEFT JOIN purchase_orders p ON r.po_id = p.id
-            WHERE r.direction = 'inbound'
-            ORDER BY r.created_at DESC
-            LIMIT 5
-        ");
-        $smsStmt->execute();
-        $smsReplies = $smsStmt->fetchAll(PDO::FETCH_ASSOC);
 
-        foreach ($smsReplies as $sms) {
-            if ($sms['is_read'] == 0) $totalUnread++;
-
-            $hasDate = preg_match('/(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec|\d{1,2}\/\d{1,2}|\d{4}-\d{2}-\d{2}|today|tomorrow|monday|tuesday|wednesday|thursday|friday|saturday|sunday)/i', $sms['message_text']);
-
-            $combinedAlerts[] = [
-                'id' => 'sms_' . $sms['id'],
-                'type' => 'sms_reply',
-                'category' => 'sms',
-                'supplier_name' => $sms['company_name'] ?: 'Supplier',
-                'sender_number' => $sms['sender_number'],
-                'po_id' => $sms['po_id'],
-                'po_no' => $sms['po_no'],
-                'title' => "💬 SMS: " . ($sms['company_name'] ?: $sms['sender_number']),
-                'message' => "\"" . mb_strimwidth($sms['message_text'], 0, 85, '...') . "\"",
-                'time_ago' => time_elapsed_string($sms['created_at']),
-                'is_read' => (int) $sms['is_read'],
-                'badge_class' => 'bg-purple',
-                'icon' => 'bi-chat-left-text-fill',
-                'has_date_mention' => $hasDate ? 1 : 0,
-                'created_at' => $sms['created_at']
-            ];
-        }
-    }
 
     // 3. Fetch System Notifications
     $notifStmt = $pdo->prepare("

@@ -1,17 +1,18 @@
 <!-- ======================================================== -->
-<!-- MODAL: CREATE WITHDRAWAL (MANUAL OR QR AUTO-FILLED)      -->
+<!-- MODAL: RELEASE MATERIALS WITHDRAWAL FORM               -->
 <!-- ======================================================== -->
-<div class="modal fade" id="withdrawModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
-    <div class="modal-dialog modal-dialog-centered modal-lg">
-        <div class="modal-content border-0 shadow-lg">
+<div class="modal fade" id="withdrawModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow">
             <div class="modal-header bg-brand text-white">
-                <h5 class="modal-title fw-bold"><i class="bi bi-box-arrow-up-right me-2"></i>Release Materials</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                <h5 class="modal-title fw-bold"><i class="bi bi-box-arrow-right me-2"></i>Release Materials (RS Issue)</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             
             <form method="POST" action="process/process.php" id="withdrawalForm" enctype="multipart/form-data">
                 <div class="modal-body bg-light p-4">
                     <input type="hidden" name="action" value="create_withdrawal">
+                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(generate_csrf_token()) ?>">
                     <input type="hidden" name="rs_no" id="wdRsNo" value="">
                     <!-- RS Number Type & Auto-Load Section -->
                     <div class="p-3 bg-white border rounded shadow-sm mb-3" style="border-left: 4px solid var(--gb-blue, #0d6efd) !important;">
@@ -60,32 +61,34 @@
 
                     <div class="row mb-3">
                         <div class="col-md-6 mb-3 mb-md-0">
-                            <div class="d-flex justify-content-between align-items-center mb-1 flex-wrap gap-1">
-                                <label class="form-label fw-bold small text-muted text-uppercase mb-0">
-                                    <i class="bi bi-pen text-primary me-1"></i> Receiver Digital Signature <span class="text-danger">*</span>
-                                </label>
-                                <div>
-                                    <button type="button" class="btn btn-sm btn-outline-primary fw-bold me-1 py-0 px-2 small" id="openFullSigBtn" data-bs-toggle="modal" data-bs-target="#fullSigModal">
-                                        <i class="bi bi-arrows-fullscreen me-1"></i> Fullscreen Pad
-                                    </button>
-                                    <button type="button" class="btn btn-sm btn-link text-danger p-0 text-decoration-none fw-bold small" id="clearSignatureBtn">
-                                        <i class="bi bi-eraser me-1"></i> Clear
-                                    </button>
-                                </div>
-                            </div>
-                            <div class="border rounded bg-white p-1 text-center shadow-sm position-relative">
-                                <canvas id="signatureCanvas" width="380" height="120" style="width: 100%; height: 110px; touch-action: none; cursor: crosshair;" class="border rounded bg-light"></canvas>
-                                <div id="sigPlaceholder" class="position-absolute top-50 start-50 translate-middle text-muted small fw-bold" style="pointer-events: none; opacity: 0.6;">
-                                    Sign here with finger or mouse...
-                                </div>
-                            </div>
+                            <label class="form-label fw-bold small text-muted text-uppercase mb-2">
+                                <i class="bi bi-pen text-primary me-1"></i> Receiver Digital Signature <span class="text-danger">*</span>
+                            </label>
                             <input type="hidden" name="signature_data" id="signatureData">
+
+                            <div class="text-center">
+                                <!-- Drawn Signature Preview Box (shown after drawing in modal) -->
+                                <div id="wdSigDrawnPreview" class="d-none border rounded p-2 mb-2 sig-preview-box shadow-sm position-relative" style="background-color: #ffffff !important;">
+                                    <small class="d-block fw-bold text-uppercase mb-1" style="font-size: 0.65rem; color: #475569 !important;">Recipient Signature Preview</small>
+                                    <img id="wdSigPreviewImg" src="" alt="Recipient Signature" style="max-height: 80px; object-fit: contain;">
+                                    <button type="button" class="btn btn-sm btn-outline-danger position-absolute top-0 end-0 m-1 py-0 px-2" id="clearWdDrawnSigBtn" title="Clear signature">
+                                        <i class="bi bi-x-lg"></i>
+                                    </button>
+                                </div>
+
+                                <!-- Open Fullscreen Pad Button -->
+                                <button type="button" class="btn btn-outline-primary fw-bold w-100 py-3 shadow-sm border-2" id="openFullSigBtn">
+                                    <i class="bi bi-arrows-fullscreen display-6 d-block mb-1 text-primary"></i>
+                                    <span class="fs-6">Open Fullscreen Signature Pad</span>
+                                    <small class="d-block text-muted fw-normal mt-1" style="font-size: 0.75rem;">Touch or click to open full-screen pad without scroll interference</small>
+                                </button>
+                            </div>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label fw-bold small text-muted text-uppercase mb-1">
-                                <i class="bi bi-camera text-primary me-1"></i> Photo Proof of Handed-Over Items
+                                <i class="bi bi-camera text-primary me-1"></i> Photo Proof of Handed-Over Items <span class="text-danger">*</span>
                             </label>
-                            <input type="file" class="form-control shadow-sm mb-2" name="photo_proof" id="photoProofInput" accept="image/*" capture="environment">
+                            <input type="file" class="form-control shadow-sm mb-2" name="photo_proof" id="photoProofInput" accept="image/*" capture="environment" required>
                             <div id="photoProofPreviewContainer" class="d-none text-center border rounded bg-white p-1">
                                 <img id="photoProofPreview" src="" class="img-fluid rounded" style="max-height: 75px;">
                             </div>
@@ -99,7 +102,7 @@
                 </div>
                 <div class="modal-footer border-top-0 bg-white">
                     <button type="button" class="btn btn-light text-muted fw-bold px-4" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-brand fw-bold px-4 shadow-sm" onclick="return confirm('Confirm release? This will permanently deduct from inventory.');">
+                    <button type="submit" id="confirmWithdrawalBtn" class="btn btn-brand fw-bold px-4 shadow-sm">
                         <i class="bi bi-check2-circle me-2"></i>Confirm Release
                     </button>
                 </div>
@@ -112,6 +115,9 @@
 <!-- MODAL: FULLSCREEN SIGNATURE PAD                         -->
 <!-- ======================================================== -->
 <style>
+#fullSigModal {
+    z-index: 1080 !important;
+}
 /* Forced Landscape Mode for Mobile Signature Modal */
 @media screen and (max-width: 991px) and (orientation: portrait) {
     #fullSigModal .modal-dialog {
@@ -138,7 +144,7 @@
         <div class="modal-content border-0">
             <div class="modal-header bg-dark text-white py-2">
                 <div class="d-flex align-items-center">
-                    <button type="button" class="btn-close btn-close-white me-2" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <button type="button" class="btn-close btn-close-white me-2" id="cancelFullSigBtn" aria-label="Close"></button>
                     <h6 class="modal-title fw-bold text-uppercase mb-0">
                         <i class="bi bi-pen text-warning me-2"></i> Receiver Signature - Fullscreen Pad
                     </h6>
@@ -153,8 +159,8 @@
                 </div>
             </div>
             <div class="modal-body p-2 bg-light d-flex flex-column justify-content-center align-items-center position-relative" style="overflow: hidden;">
-                <canvas id="fullSigCanvas" class="border rounded bg-white shadow-sm" style="width: 100%; height: 100%; touch-action: none; cursor: crosshair;"></canvas>
-                <div id="fullSigPlaceholder" class="position-absolute top-50 start-50 translate-middle text-muted fw-bold pe-none fs-5 text-center" style="pointer-events: none; opacity: 0.5;">
+                <canvas id="fullSigCanvas" class="border rounded shadow-sm sig-white-bg" style="width: 100%; height: 100%; touch-action: none; cursor: crosshair; background-color: #ffffff !important;"></canvas>
+                <div id="fullSigPlaceholder" class="position-absolute top-50 start-50 translate-middle fw-bold pe-none fs-5 text-center" style="pointer-events: none; opacity: 0.6; color: #6c757d !important;">
                     <i class="bi bi-phone-landscape me-2 fs-3 d-block mb-1"></i> Sign here with finger...
                 </div>
             </div>

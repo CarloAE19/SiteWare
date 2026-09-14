@@ -1,29 +1,123 @@
 <?php
 // DB Auto-Patch
 if (!defined('DB_OFFLINE') && isset($pdo) && $pdo !== null) {
-    try { $pdo->exec("ALTER TABLE notifications ADD COLUMN is_read TINYINT(1) DEFAULT 0"); } catch (PDOException $e) { }
-    try { $pdo->exec("ALTER TABLE users ADD COLUMN fcm_token TEXT DEFAULT NULL"); } catch (PDOException $e) { }
+    try {
+        $pdo->exec("ALTER TABLE notifications ADD COLUMN is_read TINYINT(1) DEFAULT 0");
+    } catch (PDOException $e) {
+    }
+    try {
+        $pdo->exec("ALTER TABLE users ADD COLUMN fcm_token TEXT DEFAULT NULL");
+    } catch (PDOException $e) {
+    }
 }
 
 if (!function_exists('time_elapsed_string')) {
-    function time_elapsed_string($datetime, $full = false) {
-        $now = new DateTime; $ago = new DateTime($datetime); $diff = $now->diff($ago);
-        $weeks = floor($diff->d / 7); $days = $diff->d - ($weeks * 7);
+    function time_elapsed_string($datetime, $full = false)
+    {
+        $now = new DateTime;
+        $ago = new DateTime($datetime);
+        $diff = $now->diff($ago);
+        $weeks = floor($diff->d / 7);
+        $days = $diff->d - ($weeks * 7);
         $values = ['y' => $diff->y, 'm' => $diff->m, 'w' => $weeks, 'd' => $days, 'h' => $diff->h, 'i' => $diff->i, 's' => $diff->s];
         $string = ['y' => 'year', 'm' => 'month', 'w' => 'week', 'd' => 'day', 'h' => 'hour', 'i' => 'minute', 's' => 'second'];
-        $parts = []; foreach ($string as $k => $v) { if ($values[$k]) $parts[] = $values[$k] . ' ' . $v . ($values[$k] > 1 ? 's' : ''); }
-        if (!$full) $parts = array_slice($parts, 0, 1); return $parts ? implode(', ', $parts) . ' ago' : 'just now';
+        $parts = [];
+        foreach ($string as $k => $v) {
+            if ($values[$k])
+                $parts[] = $values[$k] . ' ' . $v . ($values[$k] > 1 ? 's' : '');
+        }
+        if (!$full)
+            $parts = array_slice($parts, 0, 1);
+        return $parts ? implode(', ', $parts) . ' ago' : 'just now';
     }
 }
 
 $currentUserRole = $_SESSION['user_role'] ?? 'requestor';
 $currentUserId = $_SESSION['user_id'] ?? 0;
 
+// Immediate Session Revocation Check (Enterprise Security & RBAC Standard)
+if (!defined('DB_OFFLINE') && isset($pdo) && $pdo !== null && $currentUserId > 0) {
+    $statusCheck = $pdo->prepare("SELECT status FROM users WHERE id = ?");
+    $statusCheck->execute([$currentUserId]);
+    $userActiveStatus = $statusCheck->fetchColumn();
+
+    if ($userActiveStatus !== false && strtolower($userActiveStatus) === 'inactive') {
+        $_SESSION = [];
+        if (ini_get("session.use_cookies")) {
+            $params = session_get_cookie_params();
+            setcookie(session_name(), '', time() - 42000,
+                $params["path"], $params["domain"],
+                $params["secure"], $params["httponly"]
+            );
+        }
+        session_destroy();
+        header("Location: login?deactivated=1");
+        exit;
+    }
+}
+
+// Inactivity & Session Expiry Policy (ISO/IEC 25010 & Quality Standards)
+$idleLockEnabled = '1';
+$idleLockMinutes = 15;
+$idleLogoutMinutes = 30;
+
+if (!defined('DB_OFFLINE') && isset($pdo) && $pdo !== null && function_exists('get_system_setting')) {
+    $idleLockEnabled = get_system_setting('idle_lock_enabled', '1');
+    $idleLockMinutes = (float) get_system_setting('idle_lock_minutes', 15);
+    $idleLogoutMinutes = (float) get_system_setting('idle_logout_minutes', 30);
+}
+if ($idleLockMinutes <= 0) $idleLockMinutes = 15;
+if ($idleLogoutMinutes < 0) $idleLogoutMinutes = 0;
+
+$isFreshLogin = !empty($_SESSION['fresh_login']);
+if ($isFreshLogin) {
+    unset($_SESSION['fresh_login']);
+    unset($_SESSION['screen_locked']);
+    $_SESSION['last_activity'] = time();
+}
+
+// Server-side hard inactivity guard
+if ($currentUserId > 0) {
+    if (!$isFreshLogin && $idleLockEnabled === '1' && $idleLogoutMinutes > 0 && isset($_SESSION['last_activity'])) {
+        $elapsedTime = time() - $_SESSION['last_activity'];
+        $hardLimitSeconds = $idleLogoutMinutes * 60;
+        if ($elapsedTime > $hardLimitSeconds) {
+            $_SESSION = [];
+            if (ini_get("session.use_cookies")) {
+                $params = session_get_cookie_params();
+                setcookie(session_name(), '', time() - 42000,
+                    $params["path"], $params["domain"],
+                    $params["secure"], $params["httponly"]
+                );
+            }
+            session_destroy();
+            header("Location: login?timeout=1");
+            exit;
+        }
+    }
+    $_SESSION['last_activity'] = time();
+}
+
+$isScreenLockedSession = !$isFreshLogin && !empty($_SESSION['screen_locked']);
+
 $notifications = [];
 $unreadCount = 0;
 if (!defined('DB_OFFLINE') && isset($pdo) && $pdo !== null) {
-    $notifStmt = $pdo->prepare("SELECT * FROM notifications WHERE target_user_id = ? OR target_role = ? ORDER BY created_at DESC LIMIT 10");
-    $notifStmt->execute([$currentUserId, $currentUserRole]);
+    if ($currentUserRole === 'requestor') {
+        $notifStmt = $pdo->prepare("
+            SELECT * FROM notifications 
+            WHERE (target_user_id = ? OR target_role = 'requestor')
+              AND title NOT LIKE '%PO%' 
+              AND title NOT LIKE '%Purchase Order%'
+              AND message NOT LIKE '%PO-%' 
+              AND message NOT LIKE '%Purchase Order%'
+            ORDER BY created_at DESC LIMIT 10
+        ");
+        $notifStmt->execute([$currentUserId]);
+    } else {
+        $notifStmt = $pdo->prepare("SELECT * FROM notifications WHERE target_user_id = ? OR target_role = ? ORDER BY created_at DESC LIMIT 10");
+        $notifStmt->execute([$currentUserId, $currentUserRole]);
+    }
     $notifications = $notifStmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
@@ -32,7 +126,7 @@ $headerRoles = [
     'warehouse' => ['label' => 'Warehouse In-Charge', 'class' => 'bg-success'],
     'management' => ['label' => 'Management / Approver', 'class' => 'bg-warning text-dark'],
     'purchasing' => ['label' => 'Purchasing Officer', 'class' => 'bg-info text-dark'],
-    'requestor' => ['label' => 'Requestor', 'class' => 'bg-secondary']
+    'requestor' => ['label' => 'Project Engineer', 'class' => 'bg-secondary']
 ];
 
 $userBadgeClass = $headerRoles[$currentUserRole]['class'] ?? 'bg-secondary';
@@ -42,11 +136,13 @@ $currentPage = basename($_SERVER['PHP_SELF']);
 // Count Unread
 $unreadCount = 0;
 foreach ($notifications as $n) {
-    if ($n['is_read'] == 0) $unreadCount++;
+    if ($n['is_read'] == 0)
+        $unreadCount++;
 }
 ?>
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -58,15 +154,19 @@ foreach ($notifications as $n) {
     <meta name="apple-mobile-web-app-title" content="GB Inventory">
     <link rel="apple-touch-icon" href="assets/LogoGB.png">
     <link rel="icon" type="image/png" href="assets/LogoGB.png">
-    
+    <?php if (function_exists('generate_csrf_token')): ?>
+    <meta name="csrf-token" content="<?= htmlspecialchars(generate_csrf_token()) ?>">
+    <?php endif; ?>
+
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
     <link rel="stylesheet" href="assets/css/style.css?v=<?= time() ?>">
     <link rel="stylesheet" href="assets/css/custom.css?v=<?= time() ?>">
 
     <!-- EARLY THEME INITIALIZATION (Prevents Flash of Unstyled Content) -->
     <script>
-        (function() {
+        (function () {
             const storedTheme = localStorage.getItem('cims_theme_preference') || 'system';
             function getSystemTheme() {
                 return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
@@ -78,7 +178,7 @@ foreach ($notifications as $n) {
 
     <style>
         #content {
-            padding: 0 !important; 
+            padding: 0 !important;
             display: flex;
             flex-direction: column;
             min-height: 100vh;
@@ -87,24 +187,26 @@ foreach ($notifications as $n) {
             overflow-x: hidden;
             transition: all 0.3s;
         }
+
         .top-navbar {
             padding: 12px 20px !important;
             background-color: #ffffff !important;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05) !important;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05) !important;
             border-bottom: 1px solid #e0e4e8;
             margin-bottom: 0 !important;
             width: 100%;
             z-index: 1000;
         }
+
         .app-footer {
             background-color: #ffffff;
             padding: 20px;
             text-align: center;
             border-top: 1px solid #e9ecef;
-            margin-top: auto; 
+            margin-top: auto;
             width: 100%;
         }
-        
+
         /* ==========================================
            FIXED: SIDEBAR TOGGLE & ALIGNMENT
            ========================================== */
@@ -112,11 +214,15 @@ foreach ($notifications as $n) {
             width: 275px;
             min-width: 275px;
             transition: all 0.3s ease-in-out;
-            -ms-overflow-style: none !important; /* IE & Edge */
-            scrollbar-width: none !important; /* Firefox */
+            -ms-overflow-style: none !important;
+            /* IE & Edge */
+            scrollbar-width: none !important;
+            /* Firefox */
         }
+
         #sidebar::-webkit-scrollbar {
-            display: none !important; /* Chrome, Safari & Opera */
+            display: none !important;
+            /* Chrome, Safari & Opera */
             width: 0 !important;
             height: 0 !important;
         }
@@ -136,29 +242,38 @@ foreach ($notifications as $n) {
                 left: 0;
                 height: 100vh;
                 z-index: 1050;
-                margin-left: -275px; 
+                margin-left: -275px;
             }
+
             #sidebar.active {
                 margin-left: 0 !important;
             }
+
             #sidebarClose {
                 display: block !important;
             }
-            .user-role-text { display: none !important; }
-            .top-navbar { padding: 12px 15px !important; }
+
+            .user-role-text {
+                display: none !important;
+            }
+
+            .top-navbar {
+                padding: 12px 15px !important;
+            }
         }
 
         /* Prevent text wrapping and misaligned icons */
         #sidebar .components li a {
             display: flex !important;
             align-items: center !important;
-            white-space: normal !important; 
-            line-height: 1.3 !important; 
+            white-space: normal !important;
+            line-height: 1.3 !important;
             padding-right: 15px !important;
         }
+
         #sidebar .components li a i {
-            min-width: 35px !important; 
-            flex-shrink: 0 !important; 
+            min-width: 35px !important;
+            flex-shrink: 0 !important;
             text-align: left !important;
             font-size: 1.15rem !important;
         }
@@ -166,7 +281,7 @@ foreach ($notifications as $n) {
 
     <!-- CIMS THEME & SIDEBAR SCRIPTS -->
     <script>
-        (function() {
+        (function () {
             function getSystemTheme() {
                 return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
             }
@@ -211,22 +326,22 @@ foreach ($notifications as $n) {
                 });
             }
 
-            window.setCimsTheme = function(pref) {
+            window.setCimsTheme = function (pref) {
                 localStorage.setItem('cims_theme_preference', pref);
                 applyCimsTheme(pref);
             };
 
             // Listen for OS theme changes if in system mode
             try {
-                window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function() {
+                window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function () {
                     const currentPref = localStorage.getItem('cims_theme_preference') || 'system';
                     if (currentPref === 'system') {
                         applyCimsTheme('system');
                     }
                 });
-            } catch (e) {}
+            } catch (e) { }
 
-            document.addEventListener("DOMContentLoaded", function() {
+            document.addEventListener("DOMContentLoaded", function () {
                 const currentPref = localStorage.getItem('cims_theme_preference') || 'system';
                 applyCimsTheme(currentPref);
 
@@ -236,7 +351,7 @@ foreach ($notifications as $n) {
 
                 // Toggle Button (Hamburger)
                 if (collapseBtn && sidebar) {
-                    collapseBtn.addEventListener('click', function(e) {
+                    collapseBtn.addEventListener('click', function (e) {
                         e.stopPropagation();
                         sidebar.classList.toggle('active');
                     });
@@ -244,14 +359,14 @@ foreach ($notifications as $n) {
 
                 // Close Button (Mobile X)
                 if (closeBtn && sidebar) {
-                    closeBtn.addEventListener('click', function(e) {
+                    closeBtn.addEventListener('click', function (e) {
                         e.stopPropagation();
                         sidebar.classList.remove('active');
                     });
                 }
 
                 // Auto-Close when clicking outside on mobile
-                document.body.addEventListener('click', function(e) {
+                document.body.addEventListener('click', function (e) {
                     if (window.innerWidth <= 768 && sidebar && sidebar.classList.contains('active')) {
                         if (!sidebar.contains(e.target) && !collapseBtn.contains(e.target)) {
                             sidebar.classList.remove('active');
@@ -261,15 +376,67 @@ foreach ($notifications as $n) {
             });
         })();
     </script>
-    <script> window.currentUserRole = '<?= $currentUserRole ?>'; </script>
+    <script>
+        window.currentUserRole = '<?= $currentUserRole ?>';
+        // Global Popup Window Helper for Secure Media Viewing (Desktop & Mobile PWA Compatible)
+        window.openPhotoWindow = function(url, title = 'Media Proof Viewer') {
+            if (!url || url === '#' || url === 'javascript:void(0);') return;
+
+            // Detect Mobile device, touch screen, PWA standalone mode, or narrow viewport
+            const isMobileOrPwa = (window.innerWidth <= 768) || 
+                                  window.matchMedia('(display-mode: standalone)').matches || 
+                                  (window.navigator.standalone === true);
+
+            if (isMobileOrPwa) {
+                const modalEl = document.getElementById('pwaMediaViewerModal');
+                const imgEl = document.getElementById('pwaMediaViewerImg');
+                const urlEl = document.getElementById('pwaMediaViewerUrl');
+                const openBtn = document.getElementById('pwaMediaViewerOpenBtn');
+                const titleEl = document.getElementById('pwaMediaViewerTitle');
+
+                if (modalEl && imgEl) {
+                    imgEl.src = url;
+                    if (urlEl) urlEl.innerText = url;
+                    if (openBtn) openBtn.href = url;
+                    if (titleEl) titleEl.innerHTML = `<i class="bi bi-image text-warning me-2"></i> ${title}`;
+
+                    let bsModal = bootstrap.Modal.getInstance(modalEl);
+                    if (!bsModal) bsModal = new bootstrap.Modal(modalEl);
+                    bsModal.show();
+                    return;
+                }
+            }
+
+            // Desktop Window Popup
+            const width = 850;
+            const height = 700;
+            const left = (window.screen.width / 2) - (width / 2);
+            const top = (window.screen.height / 2) - (height / 2);
+            const win = window.open(url, 'SecurePhotoViewer', `width=${width},height=${height},top=${top},left=${left},resizable=yes,scrollbars=yes,status=yes`);
+            if (!win) {
+                // Fallback if popup blocker catches window.open
+                const modalEl = document.getElementById('pwaMediaViewerModal');
+                if (modalEl) {
+                    document.getElementById('pwaMediaViewerImg').src = url;
+                    document.getElementById('pwaMediaViewerUrl').innerText = url;
+                    document.getElementById('pwaMediaViewerOpenBtn').href = url;
+                    new bootstrap.Modal(modalEl).show();
+                }
+            }
+        };
+    </script>
 </head>
-<body>
+
+<body<?= $isScreenLockedSession ? ' class="cims-body-locked"' : '' ?>>
     <?php // include_once 'components/splash_screen.php'; ?>
     <div class="wrapper">
         <nav id="sidebar">
             <div class="sidebar-header d-flex justify-content-between align-items-center">
-                <h4 class="mb-0 d-flex align-items-center"><img src="assets/LogoGB.png" alt="GB Logo" class="me-2" style="height: 32px; width: auto; object-fit: contain;">GB Inventory</h4>
-                <button type="button" id="sidebarClose" class="btn btn-link text-white d-md-none p-0 text-decoration-none"><i class="bi bi-x-lg fs-4"></i></button>
+                <h4 class="mb-0 d-flex align-items-center"><img src="assets/LogoGB.png" alt="GB Logo" class="me-2"
+                        style="height: 32px; width: auto; object-fit: contain;">GB Inventory</h4>
+                <button type="button" id="sidebarClose"
+                    class="btn btn-link text-white d-md-none p-0 text-decoration-none"><i
+                        class="bi bi-x-lg fs-4"></i></button>
             </div>
 
             <ul class="list-unstyled components">
@@ -277,124 +444,197 @@ foreach ($notifications as $n) {
                     <a href="dashboard"><i class="bi bi-speedometer2"></i> Dashboard</a>
                 </li>
                 <?php if (in_array($_SESSION['user_role'], ['admin', 'management', 'purchasing'])): ?>
-                <li class="<?= $currentPage == 'analytics.php' ? 'active' : '' ?>">
-                    <a href="analytics"><i class="bi bi-bar-chart-line"></i> Analytics & AI</a>
-                </li>
+                    <li class="<?= $currentPage == 'analytics.php' ? 'active' : '' ?>">
+                        <a href="analytics"><i class="bi bi-bar-chart-line"></i> AI Analytics</a>
+                    </li>
                 <?php endif; ?>
 
-                <li class="px-3 text-uppercase small fw-bold mb-2 mt-4" style="color: #adb5bd;">Master Data</li>
-                <li class="<?= $currentPage == 'index.php' ? 'active' : '' ?>"><a href="index"><i class="bi bi-box-seam"></i> Materials Inventory</a></li>
-                
-                <?php if (in_array($_SESSION['user_role'], ['admin', 'purchasing'])): ?>
-                <li class="<?= $currentPage == 'suppliers.php' ? 'active' : '' ?>"><a href="suppliers"><i class="bi bi-buildings"></i> Suppliers Database</a></li>
+                <?php if ($_SESSION['user_role'] !== 'requestor'): ?>
+                    <li class="px-3 text-uppercase small fw-bold mb-2 mt-4" style="color: #adb5bd;">Master Data</li>
+                    <li class="<?= $currentPage == 'index.php' ? 'active' : '' ?>"><a href="index"><i
+                                class="bi bi-box-seam"></i> Materials Inventory</a></li>
+
+                    <?php if (in_array($_SESSION['user_role'], ['admin', 'management', 'purchasing'])): ?>
+                        <li class="<?= $currentPage == 'projects.php' ? 'active' : '' ?>"><a href="projects"><i
+                                    class="bi bi-briefcase"></i> Projects Directory</a></li>
+                    <?php endif; ?>
+
+                    <?php if (in_array($_SESSION['user_role'], ['admin', 'purchasing'])): ?>
+                        <li class="<?= $currentPage == 'suppliers.php' ? 'active' : '' ?>"><a href="suppliers"><i
+                                    class="bi bi-buildings"></i> Suppliers Database</a></li>
+                    <?php endif; ?>
                 <?php endif; ?>
 
                 <li class="px-3 text-uppercase small fw-bold mb-2 mt-4" style="color: #adb5bd;">Transactions</li>
-                <li class="<?= $currentPage == 'withdrawals.php' ? 'active' : '' ?>"><a href="withdrawals"><i class="bi bi-tools"></i> Material Withdrawals</a></li>
-                <li class="<?= $currentPage == 'requisitions.php' ? 'active' : '' ?>"><a href="requisitions"><i class="bi bi-card-checklist"></i> Requisitions (RS)</a></li>
-                <li class="<?= $currentPage == 'po.php' ? 'active' : '' ?>"><a href="po"><i class="bi bi-file-earmark-text"></i> Purchase Orders (PO)</a></li>
-                
-                <?php if (in_array($_SESSION['user_role'], ['admin', 'management', 'warehouse'])): ?>
-                <li class="px-3 text-uppercase small fw-bold mb-2 mt-4" style="color: #adb5bd;">System</li>
-                <li class="<?= $currentPage == 'audit.php' ? 'active' : '' ?>"><a href="audit"><i class="bi bi-clipboard-check"></i> Weekly Audit History</a></li>
-                <?php if (in_array($_SESSION['user_role'], ['admin', 'warehouse'])): ?>
-                <li class="<?= $currentPage == 'physical_count.php' ? 'active' : '' ?>"><a href="physical_count"><i class="bi bi-calculator"></i> Perform Physical Count</a></li>
-                <?php endif; ?>
+                <li class="<?= $currentPage == 'withdrawals.php' ? 'active' : '' ?>"><a href="withdrawals"><i
+                            class="bi bi-tools"></i> Material Withdrawals</a></li>
+                <li class="<?= $currentPage == 'requisitions.php' ? 'active' : '' ?>"><a href="requisitions"><i
+                            class="bi bi-card-checklist"></i> Requisitions (RS)</a></li>
+                <?php if (in_array($_SESSION['user_role'], ['admin', 'management', 'purchasing', 'warehouse'])): ?>
+                    <li class="<?= $currentPage == 'po.php' ? 'active' : '' ?>"><a href="po"><i
+                                class="bi bi-file-earmark-text"></i> Purchase Orders (PO)</a></li>
                 <?php endif; ?>
 
-                <?php if ($_SESSION['user_role'] === 'admin'): ?>
-                <li class="<?= $currentPage == 'projects.php' ? 'active' : '' ?>"><a href="projects"><i class="bi bi-briefcase"></i> Manage Projects</a></li>
-                <li class="<?= $currentPage == 'categories.php' ? 'active' : '' ?>"><a href="categories"><i class="bi bi-tags"></i> Manage Categories</a></li>
-                <li class="<?= $currentPage == 'units.php' ? 'active' : '' ?>"><a href="units"><i class="bi bi-rulers"></i> Manage Units</a></li>
-                <li class="<?= $currentPage == 'users.php' ? 'active' : '' ?>"><a href="users"><i class="bi bi-people"></i> Manage Users</a></li>
+                <?php if (in_array($_SESSION['user_role'], ['admin', 'management', 'warehouse'])): ?>
+                    <li class="px-3 text-uppercase small fw-bold mb-2 mt-4" style="color: #adb5bd;">Inventory Audits</li>
+                    <li class="<?= $currentPage == 'audit.php' ? 'active' : '' ?>"><a href="audit"><i
+                                class="bi bi-clipboard-check"></i> Weekly Audit History</a></li>
+                    <?php if (in_array($_SESSION['user_role'], ['admin', 'warehouse'])): ?>
+                        <li class="<?= $currentPage == 'physical_count.php' ? 'active' : '' ?>"><a href="physical_count"><i
+                                    class="bi bi-calculator"></i> Perform Physical Count</a></li>
+                    <?php endif; ?>
                 <?php endif; ?>
             </ul>
         </nav>
 
-        <div id="content">
+        <div id="content"<?= $isScreenLockedSession ? ' inert' : '' ?>>
             <nav class="navbar navbar-expand-lg top-navbar">
                 <div class="container-fluid px-0">
-                    <button type="button" id="sidebarCollapse" class="btn btn-brand"><i class="bi bi-list fs-5"></i></button>
-                    
-                    <div class="d-flex align-items-center ms-auto">
-                        <!-- 1. SMS Inbox Quick Button -->
-                        <?php if (in_array($currentUserRole, ['admin', 'purchasing', 'management'])): ?>
-                        <div class="me-3 position-relative">
-                            <button type="button" class="btn btn-link text-muted p-0 position-relative text-decoration-none" onclick="openSmsInboxModal()" title="Supplier SMS Inbox">
-                                <i class="bi bi-chat-left-text fs-5"></i>
-                                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-success d-none" id="smsGlobalUnreadBadge" style="font-size: 0.65rem;">0</span>
-                            </button>
-                        </div>
-                        <?php endif; ?>
+                    <button type="button" id="sidebarCollapse" class="btn btn-brand"><i
+                            class="bi bi-list fs-5"></i></button>
 
+                    <div class="d-flex align-items-center ms-auto">
                         <!-- 2. DEDICATED SUPPLY LOGISTICS UPDATES & ETAS DROPDOWN -->
                         <div class="dropdown me-3">
-                            <a href="#" class="text-muted position-relative d-flex align-items-center text-decoration-none" id="dropdownSupplyUpdates" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false" title="Supply Deliveries & ETAs" onclick="loadSupplyUpdates()">
+                            <a href="#"
+                                class="text-muted position-relative d-flex align-items-center text-decoration-none"
+                                id="dropdownSupplyUpdates" data-bs-toggle="dropdown" data-bs-auto-close="outside"
+                                aria-expanded="false" title="Supply Deliveries & ETAs" onclick="loadSupplyUpdates()">
                                 <i class="bi bi-exclamation-triangle fs-5 text-muted" id="supplyTruckIcon"></i>
-                                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none" id="supplyUpdatesBadge" style="font-size: 0.65rem;">0</span>
+                                <span
+                                    class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none"
+                                    id="supplyUpdatesBadge" style="font-size: 0.65rem;">0</span>
                             </a>
-                            
-                            <div class="dropdown-menu dropdown-menu-end shadow-lg border-0 rounded-3 notif-menu p-0" aria-labelledby="dropdownSupplyUpdates" style="width: 360px; max-width: 90vw;">
-                                <div class="p-3 bg-dark text-white rounded-top-3 d-flex justify-content-between align-items-center">
+
+                            <div class="dropdown-menu dropdown-menu-end shadow-lg border-0 rounded-3 notif-menu p-0"
+                                aria-labelledby="dropdownSupplyUpdates" style="width: 360px; max-width: 90vw;">
+                                <div
+                                    class="p-3 bg-dark text-white rounded-top-3 d-flex justify-content-between align-items-center">
                                     <div class="d-flex align-items-center">
                                         <i class="bi bi-exclamation-triangle-fill text-warning me-2 fs-5"></i>
                                         <div>
                                             <h6 class="fw-bold mb-0 text-white">Supply Deliveries & ETAs</h6>
-                                            <small class="text-white-50" style="font-size: 0.72rem;">Warehouse arrival schedules & supplier tracking</small>
+                                            <small class="text-white-50" style="font-size: 0.72rem;">Warehouse arrival
+                                                schedules & supplier tracking</small>
                                         </div>
                                     </div>
                                 </div>
 
                                 <!-- Filter Tabs for Supplies -->
                                 <div class="bg-light border-bottom px-2 py-1 d-flex gap-1 overflow-auto">
-                                    <button type="button" class="btn btn-sm btn-primary rounded-pill px-2 py-0 fw-bold text-nowrap supply-tab-btn active" onclick="event.stopPropagation(); filterSupplyUpdates('all', this)" style="font-size: 0.72rem;">All Deliveries</button>
-                                    <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-2 py-0 fw-bold text-nowrap supply-tab-btn" onclick="event.stopPropagation(); filterSupplyUpdates('arriving_today', this)" style="font-size: 0.72rem;">🟡 Today</button>
-                                    <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-2 py-0 fw-bold text-nowrap supply-tab-btn" onclick="event.stopPropagation(); filterSupplyUpdates('overdue', this)" style="font-size: 0.72rem;">🔴 Overdue</button>
+                                    <button type="button"
+                                        class="btn btn-sm btn-primary rounded-pill px-2 py-0 fw-bold text-nowrap supply-tab-btn active"
+                                        onclick="event.stopPropagation(); filterSupplyUpdates('all', this)"
+                                        style="font-size: 0.72rem;">All Deliveries</button>
+                                    <button type="button"
+                                        class="btn btn-sm btn-outline-secondary rounded-pill px-2 py-0 fw-bold text-nowrap supply-tab-btn"
+                                        onclick="event.stopPropagation(); filterSupplyUpdates('arriving_today', this)"
+                                        style="font-size: 0.72rem;">🟡 Today</button>
+                                    <button type="button"
+                                        class="btn btn-sm btn-outline-secondary rounded-pill px-2 py-0 fw-bold text-nowrap supply-tab-btn"
+                                        onclick="event.stopPropagation(); filterSupplyUpdates('overdue', this)"
+                                        style="font-size: 0.72rem;">🔴 Overdue</button>
                                 </div>
 
                                 <!-- Supply Updates Container -->
                                 <div class="overflow-auto" style="max-height: 360px;" id="supplyUpdatesContainer">
                                     <div class="text-center text-muted py-4">
-                                        <div class="spinner-border spinner-border-sm text-primary mb-2" role="status"></div>
+                                        <div class="spinner-border spinner-border-sm text-primary mb-2" role="status">
+                                        </div>
                                         <p class="small mb-0">Loading supply updates...</p>
                                     </div>
                                 </div>
-                                
+
                                 <div class="p-2 border-top bg-light text-center">
-                                    <a href="po" class="text-primary fw-bold text-decoration-none small"><i class="bi bi-box-arrow-up-right me-1"></i>Open Purchase Orders Panel</a>
+                                    <a href="po" class="text-primary fw-bold text-decoration-none small"><i
+                                            class="bi bi-box-arrow-up-right me-1"></i>Open Purchase Orders Panel</a>
                                 </div>
                             </div>
                         </div>
 
                         <!-- 3. DEDICATED SYSTEM NOTIFICATIONS DROPDOWN -->
                         <div class="dropdown me-3">
-                            <a href="#" class="text-muted position-relative d-flex align-items-center text-decoration-none" id="dropdownNotif" data-bs-toggle="dropdown" aria-expanded="false" title="System Notifications">
+                            <a href="#"
+                                class="text-muted position-relative d-flex align-items-center text-decoration-none"
+                                id="dropdownNotif" data-bs-toggle="dropdown" aria-expanded="false"
+                                title="System Notifications">
                                 <i class="bi bi-bell fs-5 text-dark" id="systemBellIcon"></i>
-                                <?php if($unreadCount > 0): ?>
-                                    <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" id="systemNotifBadge" style="font-size: 0.65rem;"><?= $unreadCount ?></span>
+                                <?php if ($unreadCount > 0): ?>
+                                    <span
+                                        class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"
+                                        id="systemNotifBadge" style="font-size: 0.65rem;"><?= $unreadCount ?></span>
                                 <?php endif; ?>
                             </a>
-                            
-                            <ul class="dropdown-menu dropdown-menu-end shadow-lg border-0 rounded-3 notif-menu p-0" aria-labelledby="dropdownNotif" style="width: 340px; max-width: 90vw;">
+
+                            <ul class="dropdown-menu dropdown-menu-end shadow-lg border-0 rounded-3 notif-menu p-0"
+                                aria-labelledby="dropdownNotif" style="width: 360px; max-width: 92vw;">
                                 <li>
-                                    <div class="p-3 bg-dark text-white rounded-top-3 d-flex justify-content-between align-items-center">
+                                    <div
+                                        class="p-3 bg-dark text-white rounded-top-3 d-flex justify-content-between align-items-center">
                                         <div class="d-flex align-items-center">
                                             <i class="bi bi-bell-fill text-warning me-2 fs-5"></i>
                                             <div>
                                                 <h6 class="fw-bold mb-0 text-white">System Notifications</h6>
-                                                <small class="text-white-50" style="font-size: 0.72rem;">Requisitions, Audits & Alerts</small>
+                                                <small class="text-white-50" style="font-size: 0.72rem;">Requisitions,
+                                                    Audits & Alerts</small>
                                             </div>
                                         </div>
-                                        <?php if($unreadCount > 0): ?>
-                                            <button class="btn btn-sm btn-link text-white-50 text-decoration-none p-0 fw-bold" onclick="markAllNotifsRead()" style="font-size: 0.75rem;"><i class="bi bi-check2-all me-1"></i>Mark read</button>
+                                        <?php if ($unreadCount > 0): ?>
+                                            <button id="markAllNotifsBtn"
+                                                class="btn btn-sm btn-link text-white-50 text-decoration-none p-0 fw-bold"
+                                                onclick="markAllNotifsRead()" style="font-size: 0.75rem;"><i
+                                                    class="bi bi-check2-all me-1"></i>Mark read</button>
                                         <?php endif; ?>
                                     </div>
                                 </li>
-                                <div style="max-height: 350px; overflow-y: auto;">
-                                    <?php if(count($notifications) > 0): ?>
-                                        <?php foreach($notifications as $notif): 
+                                <div style="max-height: 360px; overflow-y: auto;" id="systemNotifsList">
+                                    <?php if (count($notifications) > 0): ?>
+                                        <?php foreach ($notifications as $notif):
                                             $titleLower = strtolower($notif['title']);
-                                            $targetLink = 'index'; 
+                                            $msgLower = strtolower($notif['message']);
+
+                                            $categoryTag = 'NOTICE';
+                                            $badgeClass = 'bg-primary';
+                                            $icon = 'bi-bell-fill';
+                                            $borderAccent = 'border-primary';
+                                            $bgTint = 'bg-white';
+
+                                            if (strpos($titleLower, 'discrepancy') !== false || strpos($titleLower, 'sold out') !== false || strpos($titleLower, 'reject') !== false || strpos($titleLower, 'cancel') !== false) {
+                                                $categoryTag = 'ALERT';
+                                                $badgeClass = 'bg-danger';
+                                                $icon = 'bi-exclamation-triangle-fill';
+                                                $borderAccent = 'border-danger';
+                                                $bgTint = 'bg-danger-subtle bg-opacity-10';
+                                            } elseif (strpos($titleLower, 'approved') !== false || strpos($titleLower, 'completed') !== false || strpos($titleLower, 'released') !== false || (strpos($titleLower, 'delivered') !== false && strpos($titleLower, 'partial') === false)) {
+                                                $categoryTag = 'APPROVED';
+                                                $badgeClass = 'bg-success';
+                                                $icon = 'bi-check-circle-fill';
+                                                $borderAccent = 'border-success';
+                                                $bgTint = 'bg-success-subtle bg-opacity-10';
+                                            } elseif (strpos($titleLower, 'partial') !== false || strpos($titleLower, 'pending') !== false || strpos($titleLower, 'delay') !== false || strpos($titleLower, 'stage') !== false) {
+                                                $categoryTag = 'PENDING';
+                                                $badgeClass = 'bg-warning text-dark';
+                                                $icon = 'bi-hourglass-split';
+                                                $borderAccent = 'border-warning';
+                                                $bgTint = 'bg-warning-subtle bg-opacity-10';
+                                            } elseif (strpos($titleLower, 'audit') !== false) {
+                                                $categoryTag = 'AUDIT';
+                                                $badgeClass = 'bg-info text-dark';
+                                                $icon = 'bi-clipboard-check';
+                                                $borderAccent = 'border-info';
+                                                $bgTint = 'bg-info-subtle bg-opacity-10';
+                                            } elseif (strpos($titleLower, 'po ') !== false || strpos($titleLower, 'supply') !== false) {
+                                                $categoryTag = 'SUPPLY';
+                                                $badgeClass = 'bg-primary';
+                                                $icon = 'bi-truck';
+                                                $borderAccent = 'border-primary';
+                                                $bgTint = 'bg-white';
+                                            }
+
+                                            $isUnread = ((int) $notif['is_read'] === 0);
+                                            $cardBorder = $isUnread ? "border-start border-3 {$borderAccent} {$bgTint}" : "bg-white";
+
+                                            $targetLink = 'index';
                                             if (strpos($titleLower, 'requisition') !== false || strpos($titleLower, 'ready for po') !== false) {
                                                 $targetLink = 'requisitions';
                                             } elseif (strpos($titleLower, 'po ') !== false || strpos($titleLower, 'delivery') !== false || strpos($titleLower, 'supply') !== false || strpos($titleLower, 'sms') !== false) {
@@ -402,69 +642,132 @@ foreach ($notifications as $n) {
                                             } elseif (strpos($titleLower, 'audit') !== false) {
                                                 $targetLink = 'audit';
                                             }
-                                            $bgClass = $notif['is_read'] == 0 ? 'bg-light border-start border-primary border-4' : 'bg-white';
-                                            $iconClass = $notif['is_read'] == 0 ? 'text-primary font-semibold' : 'text-muted';
-                                        ?>
-                                            <li>
-                                                <a class="dropdown-item py-3 border-bottom <?= $bgClass ?>" href="<?= $targetLink ?>" style="white-space: normal;">
-                                                    <div class="d-flex w-100 justify-content-between align-items-start mb-1">
-                                                        <strong class="mb-0 <?= $iconClass ?>" style="font-size: 0.85rem;"><?= htmlspecialchars($notif['title']) ?></strong>
-                                                        <small class="text-muted text-nowrap ms-2" style="font-size: 0.68rem;"><?= time_elapsed_string($notif['created_at']) ?></small>
+
+                                            $extractedPo = null;
+                                            $extractedRs = null;
+                                            if (preg_match('/(PO-\d{8}-\d+)/i', $notif['title'] . ' ' . $notif['message'], $poMatches)) {
+                                                $extractedPo = strtoupper($poMatches[1]);
+                                                $targetLink = "po?search=" . urlencode($extractedPo);
+                                            } elseif (preg_match('/(RS-\d{4}-\d+)/i', $notif['title'] . ' ' . $notif['message'], $rsMatches)) {
+                                                $extractedRs = strtoupper($rsMatches[1]);
+                                                $targetLink = "requisitions?search=" . urlencode($extractedRs);
+                                            }
+                                            ?>
+                                            <li class="system-notif-item p-3 border-bottom <?= $cardBorder ?> transition-all" data-notif-id="<?= (int)$notif['id'] ?>" data-read="<?= $isUnread ? '0' : '1' ?>">
+                                                <div class="d-flex align-items-start justify-content-between mb-1">
+                                                    <div class="d-flex align-items-center flex-wrap gap-1">
+                                                        <span class="badge <?= $badgeClass ?>" style="font-size: 0.65rem;">
+                                                            <i class="bi <?= $icon ?> me-1"></i><?= $categoryTag ?>
+                                                        </span>
+                                                        <strong class="text-dark" style="font-size: 0.83rem;"><?= htmlspecialchars($notif['title']) ?></strong>
                                                     </div>
-                                                    <p class="mb-0 text-muted" style="font-size: 0.78rem; line-height: 1.35;"><?= htmlspecialchars($notif['message']) ?></p>
-                                                </a>
+                                                    <small class="badge bg-light text-secondary border text-nowrap ms-2" style="font-size: 0.68rem;"><?= time_elapsed_string($notif['created_at']) ?></small>
+                                                </div>
+                                                <p class="mb-1 text-secondary" style="font-size: 0.78rem; line-height: 1.4;">
+                                                    <?= nl2br(htmlspecialchars($notif['message'])) ?>
+                                                </p>
+                                                <div class="d-flex align-items-center gap-2 mt-2 pt-1 border-top border-light">
+                                                    <?php if ($extractedPo): ?>
+                                                        <button type="button" class="btn btn-sm btn-outline-primary py-1 px-2 fw-bold text-nowrap" style="font-size: 0.72rem;"
+                                                            onclick="event.stopPropagation(); markSingleNotifRead(<?= (int)$notif['id'] ?>, this); if (typeof openPoModalByNo === 'function') { openPoModalByNo('<?= htmlspecialchars($extractedPo, ENT_QUOTES) ?>'); } else { window.location.href='po?search=<?= urlencode($extractedPo) ?>'; }"
+                                                            title="Preview <?= htmlspecialchars($extractedPo) ?>">
+                                                            <i class="bi bi-file-earmark-text me-1"></i>Quick View
+                                                        </button>
+                                                    <?php elseif ($extractedRs): ?>
+                                                        <button type="button" class="btn btn-sm btn-outline-primary py-1 px-2 fw-bold text-nowrap" style="font-size: 0.72rem;"
+                                                            onclick="event.stopPropagation(); markSingleNotifRead(<?= (int)$notif['id'] ?>, this); if (typeof openRsModalByNo === 'function') { openRsModalByNo('<?= htmlspecialchars($extractedRs, ENT_QUOTES) ?>'); } else { window.location.href='requisitions?search=<?= urlencode($extractedRs) ?>'; }"
+                                                            title="Preview <?= htmlspecialchars($extractedRs) ?>">
+                                                            <i class="bi bi-file-earmark-text me-1"></i>Quick View
+                                                        </button>
+                                                    <?php endif; ?>
+                                                    <a href="<?= $targetLink ?>" onclick="markSingleNotifRead(<?= (int)$notif['id'] ?>, this)"
+                                                        class="btn btn-sm btn-link text-muted p-0 ms-auto text-decoration-none" style="font-size: 0.72rem;"
+                                                        title="Open in module">
+                                                        Open <i class="bi bi-arrow-right"></i>
+                                                    </a>
+                                                </div>
                                             </li>
                                         <?php endforeach; ?>
                                     <?php else: ?>
-                                        <li><span class="dropdown-item text-muted small text-center py-4"><i class="bi bi-bell-slash d-block fs-3 mb-2 opacity-50"></i>No new system notifications.</span></li>
+                                        <li class="p-4 text-center text-muted small">
+                                            <i class="bi bi-bell-slash d-block fs-3 mb-2 opacity-50"></i>
+                                            No new system notifications.
+                                        </li>
                                     <?php endif; ?>
                                 </div>
                             </ul>
                         </div>
 
                         <div class="dropdown">
-                            <a href="#" class="d-flex align-items-center text-decoration-none dropdown-toggle text-body" id="dropdownUser1" data-bs-toggle="dropdown" aria-expanded="false">
-                                <i class="bi bi-person-circle fs-4 me-2"></i> 
+                            <a href="#" class="d-flex align-items-center text-decoration-none dropdown-toggle text-body"
+                                id="dropdownUser1" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="bi bi-person-circle fs-4 me-2"></i>
                                 <div class="text-start user-role-text">
-                                    <span class="fw-bold d-block lh-1" style="font-size: 0.95rem;"><?= htmlspecialchars($_SESSION['user_name'] ?? 'User') ?></span>
+                                    <span class="fw-bold d-block lh-1"
+                                        style="font-size: 0.95rem;"><?= htmlspecialchars($_SESSION['user_name'] ?? 'User') ?></span>
                                 </div>
                             </a>
-                            <ul class="dropdown-menu dropdown-menu-end shadow" aria-labelledby="dropdownUser1" style="min-width: 200px;">
-                                <li><a class="dropdown-item py-2 d-flex align-items-center" href="profile"><i class="bi bi-person-circle me-2 text-muted fs-6"></i>Profile</a></li>
-                                <li><hr class="dropdown-divider"></li>
-                                <li><h6 class="dropdown-header text-uppercase fs-7 fw-bold opacity-75">Theme Preference</h6></li>
+                            <ul class="dropdown-menu dropdown-menu-end shadow" aria-labelledby="dropdownUser1"
+                                style="min-width: 220px;">
+                                <li><a class="dropdown-item py-2 d-flex align-items-center <?= $currentPage == 'profile.php' ? 'active' : '' ?>" href="profile"><i
+                                            class="bi bi-person-circle me-2 text-muted fs-6"></i>Profile</a></li>
+                                <?php if ($_SESSION['user_role'] === 'admin'): ?>
+                                    <li><a class="dropdown-item py-2 d-flex align-items-center <?= $currentPage == 'settings.php' ? 'active' : '' ?>" href="settings"><i
+                                                class="bi bi-gear-fill me-2 text-primary fs-6"></i>System Settings</a></li>
+                                <?php endif; ?>
                                 <li>
-                                    <button type="button" class="dropdown-item py-2 d-flex align-items-center justify-content-between theme-option" data-theme-value="light" onclick="setCimsTheme('light')">
-                                        <span class="d-flex align-items-center"><i class="bi bi-sun-fill me-2 text-warning"></i> Light</span>
+                                    <hr class="dropdown-divider">
+                                </li>
+                                <li>
+                                    <h6 class="dropdown-header text-uppercase fs-7 fw-bold opacity-75">Theme Preference
+                                    </h6>
+                                </li>
+                                <li>
+                                    <button type="button"
+                                        class="dropdown-item py-2 d-flex align-items-center justify-content-between theme-option"
+                                        data-theme-value="light" onclick="setCimsTheme('light')">
+                                        <span class="d-flex align-items-center"><i
+                                                class="bi bi-sun-fill me-2 text-warning"></i> Light</span>
                                         <i class="bi bi-check2 theme-check-icon d-none text-primary fw-bold"></i>
                                     </button>
                                 </li>
                                 <li>
-                                    <button type="button" class="dropdown-item py-2 d-flex align-items-center justify-content-between theme-option" data-theme-value="dark" onclick="setCimsTheme('dark')">
-                                        <span class="d-flex align-items-center"><i class="bi bi-moon-stars-fill me-2 text-info"></i> Dark</span>
+                                    <button type="button"
+                                        class="dropdown-item py-2 d-flex align-items-center justify-content-between theme-option"
+                                        data-theme-value="dark" onclick="setCimsTheme('dark')">
+                                        <span class="d-flex align-items-center"><i
+                                                class="bi bi-moon-stars-fill me-2 text-info"></i> Dark</span>
                                         <i class="bi bi-check2 theme-check-icon d-none text-primary fw-bold"></i>
                                     </button>
                                 </li>
                                 <li>
-                                    <button type="button" class="dropdown-item py-2 d-flex align-items-center justify-content-between theme-option" data-theme-value="system" onclick="setCimsTheme('system')">
-                                        <span class="d-flex align-items-center"><i class="bi bi-display me-2 text-secondary"></i> System</span>
+                                    <button type="button"
+                                        class="dropdown-item py-2 d-flex align-items-center justify-content-between theme-option"
+                                        data-theme-value="system" onclick="setCimsTheme('system')">
+                                        <span class="d-flex align-items-center"><i
+                                                class="bi bi-display me-2 text-secondary"></i> System</span>
                                         <i class="bi bi-check2 theme-check-icon d-none text-primary fw-bold"></i>
                                     </button>
                                 </li>
-                                <li><hr class="dropdown-divider"></li>
-                                <li><a class="dropdown-item py-2 text-danger d-flex align-items-center" href="logout"><i class="bi bi-box-arrow-right me-2"></i>Sign out</a></li>
+                                <li>
+                                    <hr class="dropdown-divider">
+                                </li>
+                                <li><a class="dropdown-item py-2 text-danger d-flex align-items-center" href="logout"><i
+                                            class="bi bi-box-arrow-right me-2"></i>Sign out</a></li>
                             </ul>
                         </div>
                     </div>
                 </div>
             </nav>
             <?php if (defined('DB_OFFLINE')): ?>
-                <div class="alert alert-danger border-0 rounded-0 m-0 d-flex align-items-center justify-content-between px-4 py-3 shadow-sm" role="alert" style="background-color: #fef2f2; border-bottom: 1px solid #fca5a5 !important;">
+                <div class="alert alert-danger border-0 rounded-0 m-0 d-flex align-items-center justify-content-between px-4 py-3 shadow-sm"
+                    role="alert" style="background-color: #fef2f2; border-bottom: 1px solid #fca5a5 !important;">
                     <div class="d-flex align-items-center gap-2">
                         <i class="bi bi-database-fill-slash text-danger fs-5 animate-pulse-db-header"></i>
                         <div>
                             <strong class="text-danger">Can't Connect, You're Offline</strong>
-                            <span class="text-danger-emphasis ms-2 d-none d-md-inline" style="color: #991b1b;">The database is currently offline. Viewing page shell and cached elements only.</span>
+                            <span class="text-danger-emphasis ms-2 d-none d-md-inline" style="color: #991b1b;">The database
+                                is currently offline. Viewing page shell and cached elements only.</span>
                         </div>
                     </div>
                     <button class="btn btn-sm btn-outline-danger fw-bold border-2" onclick="window.location.reload()">
@@ -473,9 +776,17 @@ foreach ($notifications as $n) {
                 </div>
                 <style>
                     @keyframes pulseDbHeader {
-                        0%, 100% { opacity: 1; }
-                        50% { opacity: 0.4; }
+
+                        0%,
+                        100% {
+                            opacity: 1;
+                        }
+
+                        50% {
+                            opacity: 0.4;
+                        }
                     }
+
                     .animate-pulse-db-header {
                         animation: pulseDbHeader 2s infinite ease-in-out;
                     }

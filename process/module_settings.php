@@ -6,29 +6,110 @@
 // --- UNITS LOGIC ---
 if ($action === 'add_unit') {
     if ($_SESSION['user_role'] !== 'admin') throw new Exception("Unauthorized.");
+    
+    $unitName = trim($_POST['unit_name'] ?? '');
+    $abbreviation = trim($_POST['abbreviation'] ?? '');
+    $reorderLevel = max(1, (int)($_POST['reorder_level'] ?? 10));
+
+    if (empty($unitName) || empty($abbreviation)) {
+        $_SESSION['message'] = "Unit name and abbreviation are required.";
+        $_SESSION['msg_type'] = "warning";
+        header("Location: ../settings?tab=" . ($_POST['return_tab'] ?? 'units'));
+        exit;
+    }
+
+    // Check for duplicate name or abbreviation (case-insensitive)
+    $checkStmt = $pdo->prepare("SELECT COUNT(*) FROM units WHERE LOWER(unit_name) = LOWER(?) OR LOWER(abbreviation) = LOWER(?)");
+    $checkStmt->execute([$unitName, $abbreviation]);
+    if ($checkStmt->fetchColumn() > 0) {
+        $_SESSION['message'] = "A measurement unit with that name or abbreviation already exists.";
+        $_SESSION['msg_type'] = "warning";
+        header("Location: ../settings?tab=" . ($_POST['return_tab'] ?? 'units'));
+        exit;
+    }
+
     $stmt = $pdo->prepare("INSERT INTO units (unit_name, abbreviation, reorder_level) VALUES (?, ?, ?)");
-    $stmt->execute([$_POST['unit_name'], $_POST['abbreviation'], (int)($_POST['reorder_level'] ?? 10)]);
-    $_SESSION['message'] = "Measurement unit added successfully!";
+    $stmt->execute([$unitName, $abbreviation, $reorderLevel]);
+    $_SESSION['message'] = "Measurement unit '{$unitName}' added successfully!";
     $_SESSION['msg_type'] = "success";
-    header("Location: ../units"); 
+    header("Location: ../settings?tab=" . ($_POST['return_tab'] ?? 'units')); 
     exit;
 
 } elseif ($action === 'edit_unit') {
     if ($_SESSION['user_role'] !== 'admin') throw new Exception("Unauthorized.");
+
+    $unitId = (int)($_POST['unit_id'] ?? 0);
+    $unitName = trim($_POST['unit_name'] ?? '');
+    $abbreviation = trim($_POST['abbreviation'] ?? '');
+    $reorderLevel = max(1, (int)($_POST['reorder_level'] ?? 10));
+
+    if ($unitId <= 0 || empty($unitName) || empty($abbreviation)) {
+        $_SESSION['message'] = "Invalid unit details provided.";
+        $_SESSION['msg_type'] = "warning";
+        header("Location: ../settings?tab=" . ($_POST['return_tab'] ?? 'units'));
+        exit;
+    }
+
+    // Check for duplicate name or abbreviation excluding current record
+    $checkStmt = $pdo->prepare("SELECT COUNT(*) FROM units WHERE (LOWER(unit_name) = LOWER(?) OR LOWER(abbreviation) = LOWER(?)) AND id != ?");
+    $checkStmt->execute([$unitName, $abbreviation, $unitId]);
+    if ($checkStmt->fetchColumn() > 0) {
+        $_SESSION['message'] = "Another unit with that name or abbreviation already exists.";
+        $_SESSION['msg_type'] = "warning";
+        header("Location: ../settings?tab=" . ($_POST['return_tab'] ?? 'units'));
+        exit;
+    }
+
+    // Fetch existing unit name to cascade to inventory table if renamed
+    $fetchStmt = $pdo->prepare("SELECT unit_name FROM units WHERE id = ?");
+    $fetchStmt->execute([$unitId]);
+    $oldUnitName = $fetchStmt->fetchColumn();
+
     $stmt = $pdo->prepare("UPDATE units SET unit_name = ?, abbreviation = ?, reorder_level = ? WHERE id = ?");
-    $stmt->execute([$_POST['unit_name'], $_POST['abbreviation'], (int)($_POST['reorder_level'] ?? 10), $_POST['unit_id']]);
-    $_SESSION['message'] = "Unit updated successfully!";
+    $stmt->execute([$unitName, $abbreviation, $reorderLevel, $unitId]);
+
+    // Cascade rename to inventory table so low-stock joins and listings remain intact
+    if ($oldUnitName && $oldUnitName !== $unitName) {
+        $cascadeStmt = $pdo->prepare("UPDATE inventory SET unit = ? WHERE unit = ?");
+        $cascadeStmt->execute([$unitName, $oldUnitName]);
+    }
+
+    $_SESSION['message'] = "Unit '{$unitName}' updated successfully!";
     $_SESSION['msg_type'] = "success";
-    header("Location: ../units"); 
+    header("Location: ../settings?tab=" . ($_POST['return_tab'] ?? 'units')); 
     exit;
 
 } elseif ($action === 'delete_unit') {
     if ($_SESSION['user_role'] !== 'admin') throw new Exception("Unauthorized.");
-    $stmt = $pdo->prepare("DELETE FROM units WHERE id = ?");
-    $stmt->execute([$_POST['unit_id']]);
-    $_SESSION['message'] = "Unit deleted successfully.";
-    $_SESSION['msg_type'] = "danger";
-    header("Location: ../units"); 
+
+    $unitId = (int)($_POST['unit_id'] ?? 0);
+    $fetchStmt = $pdo->prepare("SELECT unit_name FROM units WHERE id = ?");
+    $fetchStmt->execute([$unitId]);
+    $unitName = $fetchStmt->fetchColumn();
+
+    if ($unitName) {
+        // Safe check: verify if any inventory items are actively using this unit
+        $usageStmt = $pdo->prepare("SELECT COUNT(*) FROM inventory WHERE unit = ?");
+        $usageStmt->execute([$unitName]);
+        $usageCount = (int)$usageStmt->fetchColumn();
+
+        if ($usageCount > 0) {
+            $_SESSION['message'] = "Cannot delete unit '<b>" . htmlspecialchars($unitName) . "</b>': It is currently assigned to <b>{$usageCount}</b> inventory item(s). Please reassign those items before deleting.";
+            $_SESSION['msg_type'] = "danger";
+            header("Location: ../settings?tab=" . ($_POST['return_tab'] ?? 'units'));
+            exit;
+        }
+
+        $stmt = $pdo->prepare("DELETE FROM units WHERE id = ?");
+        $stmt->execute([$unitId]);
+        $_SESSION['message'] = "Unit '<b>" . htmlspecialchars($unitName) . "</b>' deleted successfully.";
+        $_SESSION['msg_type'] = "success";
+    } else {
+        $_SESSION['message'] = "Unit not found.";
+        $_SESSION['msg_type'] = "warning";
+    }
+
+    header("Location: ../settings?tab=" . ($_POST['return_tab'] ?? 'units')); 
     exit;
 }
 
@@ -39,7 +120,7 @@ elseif ($action === 'add_category') {
     $stmt->execute([trim($_POST['category_name'])]);
     $_SESSION['message'] = "Category added successfully!";
     $_SESSION['msg_type'] = "success";
-    header("Location: ../categories"); 
+    header("Location: ../settings?tab=" . ($_POST['return_tab'] ?? 'categories')); 
     exit;
 
 } elseif ($action === 'edit_category') {
@@ -48,7 +129,7 @@ elseif ($action === 'add_category') {
     $stmt->execute([trim($_POST['category_name']), $_POST['category_id']]);
     $_SESSION['message'] = "Category updated successfully!";
     $_SESSION['msg_type'] = "success";
-    header("Location: ../categories"); 
+    header("Location: ../settings?tab=" . ($_POST['return_tab'] ?? 'categories')); 
     exit;
 
 } elseif ($action === 'delete_category') {
@@ -57,22 +138,36 @@ elseif ($action === 'add_category') {
     $stmt->execute([$_POST['category_id']]);
     $_SESSION['message'] = "Category deleted successfully.";
     $_SESSION['msg_type'] = "danger";
-    header("Location: ../categories"); 
+    header("Location: ../settings?tab=" . ($_POST['return_tab'] ?? 'categories')); 
     exit;
 }
 
 // --- PROJECTS LOGIC ---
 elseif ($action === 'add_project') {
-    if ($_SESSION['user_role'] !== 'admin') throw new Exception("Unauthorized.");
+    if (!in_array($_SESSION['user_role'], ['admin', 'management'])) throw new Exception("Unauthorized.");
     
     $projectCode = trim($_POST['project_code'] ?? '');
     $projectName = trim($_POST['project_name'] ?? '');
     $address = trim($_POST['address'] ?? '');
     $description = trim($_POST['description'] ?? '');
-    $status = $_POST['status'] ?? 'active';
+    $status = in_array($_POST['status'] ?? '', ['active', 'inactive']) ? $_POST['status'] : 'active';
+    $redirectUrl = !empty($_POST['return_to']) ? ('../' . $_POST['return_to']) : ('../settings?tab=' . ($_POST['return_tab'] ?? 'projects'));
 
     if (empty($projectName)) {
-        throw new Exception("Project Name is required.");
+        $_SESSION['message'] = "Project Name is required.";
+        $_SESSION['msg_type'] = "warning";
+        header("Location: " . $redirectUrl);
+        exit;
+    }
+
+    // Check duplicate Project Name (case-insensitive)
+    $dupNameStmt = $pdo->prepare("SELECT COUNT(*) FROM projects WHERE LOWER(project_name) = LOWER(?)");
+    $dupNameStmt->execute([$projectName]);
+    if ($dupNameStmt->fetchColumn() > 0) {
+        $_SESSION['message'] = "A project with the name '<b>" . htmlspecialchars($projectName) . "</b>' already exists.";
+        $_SESSION['msg_type'] = "warning";
+        header("Location: " . $redirectUrl);
+        exit;
     }
 
     // Auto-generate Project Code if not provided
@@ -88,44 +183,286 @@ elseif ($action === 'add_project') {
         if ($checkStmt->fetchColumn() > 0) {
             $projectCode = sprintf("PRJ-%s-%04d", $year, rand(1000, 9999));
         }
+    } else {
+        // Validate uniqueness of custom Project Code
+        $dupCodeStmt = $pdo->prepare("SELECT COUNT(*) FROM projects WHERE LOWER(project_code) = LOWER(?)");
+        $dupCodeStmt->execute([$projectCode]);
+        if ($dupCodeStmt->fetchColumn() > 0) {
+            $_SESSION['message'] = "A project with the ID '<b>" . htmlspecialchars($projectCode) . "</b>' already exists.";
+            $_SESSION['msg_type'] = "warning";
+            header("Location: " . $redirectUrl);
+            exit;
+        }
     }
 
     $stmt = $pdo->prepare("INSERT INTO projects (project_code, project_name, address, description, status) VALUES (?, ?, ?, ?, ?)");
     $stmt->execute([$projectCode, $projectName, $address, $description, $status]);
-    $_SESSION['message'] = "Project '{$projectName}' (ID: {$projectCode}) added successfully!";
+    $_SESSION['message'] = "Project '<b>" . htmlspecialchars($projectName) . "</b>' (ID: {$projectCode}) added successfully!";
     $_SESSION['msg_type'] = "success";
-    header("Location: ../projects"); 
+    header("Location: " . $redirectUrl); 
     exit;
 
 } elseif ($action === 'edit_project') {
-    if ($_SESSION['user_role'] !== 'admin') throw new Exception("Unauthorized.");
+    if (!in_array($_SESSION['user_role'], ['admin', 'management'])) throw new Exception("Unauthorized.");
     
+    $projectId = (int)($_POST['project_id'] ?? 0);
     $projectCode = trim($_POST['project_code'] ?? '');
     $projectName = trim($_POST['project_name'] ?? '');
     $address = trim($_POST['address'] ?? '');
     $description = trim($_POST['description'] ?? '');
-    $status = $_POST['status'] ?? 'active';
-    $projectId = $_POST['project_id'] ?? null;
+    $status = in_array($_POST['status'] ?? '', ['active', 'inactive']) ? $_POST['status'] : 'active';
+    $redirectUrl = !empty($_POST['return_to']) ? ('../' . $_POST['return_to']) : ('../settings?tab=' . ($_POST['return_tab'] ?? 'projects'));
+
+    if ($projectId <= 0 || empty($projectName)) {
+        $_SESSION['message'] = "Invalid project information provided.";
+        $_SESSION['msg_type'] = "warning";
+        header("Location: " . $redirectUrl);
+        exit;
+    }
+
+    // Check duplicate Project Name excluding current record
+    $dupNameStmt = $pdo->prepare("SELECT COUNT(*) FROM projects WHERE LOWER(project_name) = LOWER(?) AND id != ?");
+    $dupNameStmt->execute([$projectName, $projectId]);
+    if ($dupNameStmt->fetchColumn() > 0) {
+        $_SESSION['message'] = "Another project with the name '<b>" . htmlspecialchars($projectName) . "</b>' already exists.";
+        $_SESSION['msg_type'] = "warning";
+        header("Location: " . $redirectUrl);
+        exit;
+    }
 
     if (empty($projectCode)) {
         $year = date('Y');
-        $projectCode = sprintf("PRJ-%s-%03d", $year, (int)$projectId);
+        $projectCode = sprintf("PRJ-%s-%03d", $year, $projectId);
+    } else {
+        // Check duplicate Project Code excluding current record
+        $dupCodeStmt = $pdo->prepare("SELECT COUNT(*) FROM projects WHERE LOWER(project_code) = LOWER(?) AND id != ?");
+        $dupCodeStmt->execute([$projectCode, $projectId]);
+        if ($dupCodeStmt->fetchColumn() > 0) {
+            $_SESSION['message'] = "Another project with ID '<b>" . htmlspecialchars($projectCode) . "</b>' already exists.";
+            $_SESSION['msg_type'] = "warning";
+            header("Location: " . $redirectUrl);
+            exit;
+        }
     }
+
+    // Fetch previous project name to cascade renames to requisitions and withdrawals
+    $fetchOldStmt = $pdo->prepare("SELECT project_name FROM projects WHERE id = ?");
+    $fetchOldStmt->execute([$projectId]);
+    $oldProjectName = $fetchOldStmt->fetchColumn();
 
     $stmt = $pdo->prepare("UPDATE projects SET project_code = ?, project_name = ?, address = ?, description = ?, status = ? WHERE id = ?");
     $stmt->execute([$projectCode, $projectName, $address, $description, $status, $projectId]);
-    $_SESSION['message'] = "Project updated successfully!";
+
+    // Cascade rename to linked requisitions and withdrawals so history remains connected
+    if ($oldProjectName && $oldProjectName !== $projectName) {
+        $cascadeRsStmt = $pdo->prepare("UPDATE requisitions SET project_name = ? WHERE project_name = ?");
+        $cascadeRsStmt->execute([$projectName, $oldProjectName]);
+
+        $cascadeWsStmt = $pdo->prepare("UPDATE withdrawals SET project_name = ? WHERE project_name = ?");
+        $cascadeWsStmt->execute([$projectName, $oldProjectName]);
+    }
+
+    $_SESSION['message'] = "Project '<b>" . htmlspecialchars($projectName) . "</b>' updated successfully!";
     $_SESSION['msg_type'] = "success";
-    header("Location: ../projects"); 
+    header("Location: " . $redirectUrl); 
+    exit;
+
+} elseif ($action === 'toggle_project_status') {
+    if (!in_array($_SESSION['user_role'], ['admin', 'management'])) throw new Exception("Unauthorized.");
+
+    $projectId = (int)($_POST['project_id'] ?? 0);
+    $fetchStmt = $pdo->prepare("SELECT project_name, status FROM projects WHERE id = ?");
+    $fetchStmt->execute([$projectId]);
+    $project = $fetchStmt->fetch(PDO::FETCH_ASSOC);
+    $redirectUrl = !empty($_POST['return_to']) ? ('../' . $_POST['return_to']) : ('../settings?tab=' . ($_POST['return_tab'] ?? 'projects'));
+
+    if ($project) {
+        $newStatus = ($project['status'] === 'active') ? 'inactive' : 'active';
+        $updateStmt = $pdo->prepare("UPDATE projects SET status = ? WHERE id = ?");
+        $updateStmt->execute([$newStatus, $projectId]);
+
+        $statusBadge = ($newStatus === 'active') ? 'Active' : 'Inactive';
+        $_SESSION['message'] = "Project '<b>" . htmlspecialchars($project['project_name']) . "</b>' marked as <b>{$statusBadge}</b>.";
+        $_SESSION['msg_type'] = "success";
+    } else {
+        $_SESSION['message'] = "Project not found.";
+        $_SESSION['msg_type'] = "warning";
+    }
+
+    header("Location: " . $redirectUrl);
     exit;
 
 } elseif ($action === 'delete_project') {
-    if ($_SESSION['user_role'] !== 'admin') throw new Exception("Unauthorized.");
-    $stmt = $pdo->prepare("DELETE FROM projects WHERE id = ?");
-    $stmt->execute([$_POST['project_id']]);
-    $_SESSION['message'] = "Project deleted successfully.";
-    $_SESSION['msg_type'] = "danger";
-    header("Location: ../projects"); 
+    if (!in_array($_SESSION['user_role'], ['admin', 'management'])) throw new Exception("Unauthorized.");
+
+    $projectId = (int)($_POST['project_id'] ?? 0);
+    $fetchStmt = $pdo->prepare("SELECT project_name FROM projects WHERE id = ?");
+    $fetchStmt->execute([$projectId]);
+    $projectName = $fetchStmt->fetchColumn();
+    $redirectUrl = !empty($_POST['return_to']) ? ('../' . $_POST['return_to']) : ('../settings?tab=' . ($_POST['return_tab'] ?? 'projects'));
+
+    if ($projectName) {
+        // Safe check: verify if any requisitions or withdrawals reference this project
+        $rsStmt = $pdo->prepare("SELECT COUNT(*) FROM requisitions WHERE project_name = ?");
+        $rsStmt->execute([$projectName]);
+        $rsCount = (int)$rsStmt->fetchColumn();
+
+        $wsStmt = $pdo->prepare("SELECT COUNT(*) FROM withdrawals WHERE project_name = ?");
+        $wsStmt->execute([$projectName]);
+        $wsCount = (int)$wsStmt->fetchColumn();
+
+        $totalUsage = $rsCount + $wsCount;
+
+        if ($totalUsage > 0) {
+            $_SESSION['message'] = "Cannot delete project '<b>" . htmlspecialchars($projectName) . "</b>': It has <b>{$rsCount}</b> linked Requisition(s) and <b>{$wsCount}</b> linked Withdrawal(s). Please set its status to <b>Inactive</b> instead of deleting to preserve audit history.";
+            $_SESSION['msg_type'] = "danger";
+            header("Location: " . $redirectUrl);
+            exit;
+        }
+
+        $stmt = $pdo->prepare("DELETE FROM projects WHERE id = ?");
+        $stmt->execute([$projectId]);
+        $_SESSION['message'] = "Project '<b>" . htmlspecialchars($projectName) . "</b>' deleted successfully.";
+        $_SESSION['msg_type'] = "success";
+    } else {
+        $_SESSION['message'] = "Project not found.";
+        $_SESSION['msg_type'] = "warning";
+    }
+
+    header("Location: " . $redirectUrl); 
+    exit;
+
+} elseif ($action === 'fetch_project_details') {
+    if (!isset($_SESSION['user_id'])) {
+        header('Content-Type: application/json');
+        echo json_encode(['status' => 'error', 'message' => 'Unauthorized session.']);
+        exit;
+    }
+
+    $projectId = (int)($_GET['project_id'] ?? $_POST['project_id'] ?? 0);
+    if ($projectId <= 0) {
+        header('Content-Type: application/json');
+        echo json_encode(['status' => 'error', 'message' => 'Invalid project ID.']);
+        exit;
+    }
+
+    $projStmt = $pdo->prepare("SELECT * FROM projects WHERE id = ?");
+    $projStmt->execute([$projectId]);
+    $project = $projStmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$project) {
+        header('Content-Type: application/json');
+        echo json_encode(['status' => 'error', 'message' => 'Project not found.']);
+        exit;
+    }
+
+    $projectName = $project['project_name'];
+
+    // 1. Fetch linked Requisitions + Items
+    $rsStmt = $pdo->prepare("
+        SELECT r.id, r.rs_no, r.requestor_name, r.remarks, r.urgency, r.status, r.created_at,
+               u.name as user_name
+        FROM requisitions r
+        LEFT JOIN users u ON r.requestor_id = u.id
+        WHERE r.project_name = ?
+        ORDER BY r.created_at DESC
+    ");
+    $rsStmt->execute([$projectName]);
+    $requisitions = $rsStmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $rsIds = array_column($requisitions, 'id');
+    $rsItemsMap = [];
+    if (!empty($rsIds)) {
+        $inClause = implode(',', array_fill(0, count($rsIds), '?'));
+        $itemStmt = $pdo->prepare("
+            SELECT ri.requisition_id, ri.item_code, ri.quantity, ri.item_status, ri.item_notes,
+                   COALESCE(i.item_name, ri.new_item_name, ri.item_code) as item_name,
+                   COALESCE(i.unit, ri.new_unit, 'pcs') as unit
+            FROM requisition_items ri
+            LEFT JOIN inventory i ON ri.item_code = i.item_code
+            WHERE ri.requisition_id IN ($inClause)
+        ");
+        $itemStmt->execute($rsIds);
+        while ($row = $itemStmt->fetch(PDO::FETCH_ASSOC)) {
+            $rsItemsMap[$row['requisition_id']][] = $row;
+        }
+    }
+
+    foreach ($requisitions as &$rs) {
+        $rs['items'] = $rsItemsMap[$rs['id']] ?? [];
+        $rs['formatted_date'] = date('M d, Y h:i A', strtotime($rs['created_at']));
+    }
+    unset($rs);
+
+    // 2. Fetch linked Withdrawals + Items
+    $wsStmt = $pdo->prepare("
+        SELECT w.id, w.withdrawal_no, w.received_by, w.remarks, w.date_withdrawn, w.signature_path, w.photo_proof_path,
+               u.name as released_by_name
+        FROM withdrawals w
+        LEFT JOIN users u ON w.released_by = u.id
+        WHERE w.project_name = ?
+        ORDER BY w.date_withdrawn DESC
+    ");
+    $wsStmt->execute([$projectName]);
+    $withdrawals = $wsStmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $wsIds = array_column($withdrawals, 'id');
+    $wsItemsMap = [];
+    $consumptionSummary = [];
+
+    if (!empty($wsIds)) {
+        $inClause = implode(',', array_fill(0, count($wsIds), '?'));
+        $itemStmt = $pdo->prepare("
+            SELECT wi.withdrawal_id, wi.item_code, wi.quantity,
+                   COALESCE(i.item_name, wi.item_code) as item_name,
+                   COALESCE(i.unit, 'pcs') as unit
+            FROM withdrawal_items wi
+            LEFT JOIN inventory i ON wi.item_code = i.item_code
+            WHERE wi.withdrawal_id IN ($inClause)
+        ");
+        $itemStmt->execute($wsIds);
+        while ($row = $itemStmt->fetch(PDO::FETCH_ASSOC)) {
+            $wsItemsMap[$row['withdrawal_id']][] = $row;
+
+            // Aggregate consumption
+            $key = $row['item_name'] . '|' . $row['unit'];
+            if (!isset($consumptionSummary[$key])) {
+                $consumptionSummary[$key] = [
+                    'item_code' => $row['item_code'],
+                    'item_name' => $row['item_name'],
+                    'unit' => $row['unit'],
+                    'total_quantity' => 0,
+                    'withdrawal_count' => 0
+                ];
+            }
+            $consumptionSummary[$key]['total_quantity'] += (int)$row['quantity'];
+            $consumptionSummary[$key]['withdrawal_count'] += 1;
+        }
+    }
+
+    foreach ($withdrawals as &$ws) {
+        $ws['items'] = $wsItemsMap[$ws['id']] ?? [];
+        $ws['formatted_date'] = date('M d, Y h:i A', strtotime($ws['date_withdrawn']));
+    }
+    unset($ws);
+
+    // Sort consumption summary by total quantity descending
+    $consumptionSummaryList = array_values($consumptionSummary);
+    usort($consumptionSummaryList, fn($a, $b) => $b['total_quantity'] <=> $a['total_quantity']);
+
+    header('Content-Type: application/json');
+    echo json_encode([
+        'status' => 'success',
+        'project' => $project,
+        'requisitions' => $requisitions,
+        'withdrawals' => $withdrawals,
+        'consumption_summary' => $consumptionSummaryList,
+        'stats' => [
+            'rs_count' => count($requisitions),
+            'ws_count' => count($withdrawals),
+            'unique_materials' => count($consumptionSummaryList)
+        ]
+    ]);
     exit;
 
 // --- LOGIN BACKGROUND LOGIC ---
@@ -138,56 +475,35 @@ elseif ($action === 'add_project') {
         throw new Exception("File upload failed or no file selected.");
     }
 
-    $file = $_FILES['login_bg'];
-    $maxSize = 5 * 1024 * 1024; // 5MB
-    if ($file['size'] > $maxSize) {
-        throw new Exception("File size exceeds 5MB limit.");
-    }
+    require_once __DIR__ . '/../classes/SecureUploadHandler.php';
 
-    $allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
-    $fileMime = mime_content_type($file['tmp_name']);
-    if (!in_array($fileMime, $allowedTypes)) {
-        throw new Exception("Invalid file type. Only JPEG, PNG, WEBP, and GIF images are allowed.");
-    }
-
-    // Determine file extension
-    $ext = 'jpg';
-    if ($fileMime === 'image/png') $ext = 'png';
-    elseif ($fileMime === 'image/webp') $ext = 'webp';
-    elseif ($fileMime === 'image/gif') $ext = 'gif';
-
-    // Target upload directory
-    $uploadDir = '../assets/img/';
-    if (!is_dir($uploadDir)) {
-        mkdir($uploadDir, 0755, true);
-    }
-
-    // Retrieve old background to delete it
+    // Retrieve old background to delete it if customized
     $stmt = $pdo->prepare("SELECT setting_value FROM system_settings WHERE setting_key = 'login_background'");
     $stmt->execute();
     $oldBg = $stmt->fetchColumn();
 
-    $newFilename = 'custom_login_bg_' . time() . '.' . $ext;
-    $newPath = 'assets/img/' . $newFilename;
-    $uploadPath = $uploadDir . $newFilename;
+    // 5-Layer Defense: Binary MIME validation, structural check, script scan, GD pixel re-encode, random tokenized filename
+    $newPath = SecureUploadHandler::validateAndSaveAssetImage(
+        $_FILES['login_bg'],
+        'img',
+        'custom_login_bg',
+        5 * 1024 * 1024 // 5MB limit
+    );
 
-    if (move_uploaded_file($file['tmp_name'], $uploadPath)) {
-        // Delete old file if it is custom and exists
-        if ($oldBg && $oldBg !== 'assets/img/default_login_bg.png' && file_exists('../' . $oldBg)) {
-            unlink('../' . $oldBg);
-        }
-
-        // Save path to DB
-        $stmt = $pdo->prepare("INSERT INTO system_settings (setting_key, setting_value) VALUES ('login_background', ?) ON DUPLICATE KEY UPDATE setting_value = ?");
-        $stmt->execute([$newPath, $newPath]);
-
-        $_SESSION['message'] = "Login background updated successfully!";
-        $_SESSION['msg_type'] = "success";
-    } else {
-        throw new Exception("Failed to save uploaded file.");
+    // Delete old file if it is custom, safe, and exists
+    if ($oldBg && $oldBg !== 'assets/img/default_login_bg.png' && file_exists('../' . $oldBg)) {
+        @unlink('../' . $oldBg);
     }
 
-    header("Location: ../profile");
+    // Save path to DB
+    $stmt = $pdo->prepare("INSERT INTO system_settings (setting_key, setting_value) VALUES ('login_background', ?) ON DUPLICATE KEY UPDATE setting_value = ?");
+    $stmt->execute([$newPath, $newPath]);
+
+    $_SESSION['message'] = "Login background updated successfully!";
+    $_SESSION['msg_type'] = "success";
+
+    $targetRedirect = !empty($_POST['return_tab']) ? "../settings?tab=" . urlencode($_POST['return_tab']) : "../profile";
+    header("Location: " . $targetRedirect);
     exit;
 
 } elseif ($action === 'reset_login_bg') {
@@ -212,7 +528,75 @@ elseif ($action === 'add_project') {
 
     $_SESSION['message'] = "Login background reset to default successfully.";
     $_SESSION['msg_type'] = "success";
-    header("Location: ../profile");
+    $targetRedirect = !empty($_POST['return_tab']) ? "../settings?tab=" . urlencode($_POST['return_tab']) : "../profile";
+    header("Location: " . $targetRedirect);
+    exit;
+
+// --- LOGIN BLUR INTENSITY ---
+} elseif ($action === 'update_login_blur') {
+    if (!in_array($_SESSION['user_role'], ['admin', 'management'])) {
+        throw new Exception("Unauthorized. Only Admins and Management can change settings.");
+    }
+
+    $blur = isset($_POST['login_blur']) ? (int)$_POST['login_blur'] : 12;
+    $blur = max(0, min(30, $blur)); // clamp 0–30
+
+    $stmt = $pdo->prepare("INSERT INTO system_settings (setting_key, setting_value) VALUES ('login_blur', ?) ON DUPLICATE KEY UPDATE setting_value = ?");
+    $stmt->execute([$blur, $blur]);
+
+    $_SESSION['message'] = "Blur intensity updated to {$blur}px successfully!";
+    $_SESSION['msg_type'] = "success";
+    $targetRedirect = !empty($_POST['return_tab']) ? "../settings?tab=" . urlencode($_POST['return_tab']) : "../profile";
+    header("Location: " . $targetRedirect);
+    exit;
+
+// --- INACTIVITY & SESSION SECURITY POLICY (ISO/IEC 25010) ---
+} elseif ($action === 'update_idle_settings') {
+    if (!in_array($_SESSION['user_role'], ['admin', 'management'])) {
+        throw new Exception("Unauthorized. Only Admins and Management can change security settings.");
+    }
+
+    $submittedToken = $_POST['csrf_token'] ?? $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
+    if (function_exists('validate_csrf_token') && !validate_csrf_token($submittedToken)) {
+        throw new Exception("Security token invalid or expired. Please refresh the page.");
+    }
+
+    $idleLockEnabled = (!empty($_POST['idle_lock_enabled']) && $_POST['idle_lock_enabled'] === '1') ? '1' : '0';
+    $idleLockMinutes = max(0.1, min(120, (float)($_POST['idle_lock_minutes'] ?? 15)));
+    $idleLogoutMinutes = (float)($_POST['idle_logout_minutes'] ?? 30);
+    if ($idleLogoutMinutes < 0) $idleLogoutMinutes = 0;
+    if ($idleLogoutMinutes > 240) $idleLogoutMinutes = 240;
+
+    if ($idleLockEnabled === '1' && $idleLogoutMinutes > 0 && $idleLockMinutes >= $idleLogoutMinutes) {
+        throw new Exception("Auto-Logout duration must be greater than Screen Lock duration.");
+    }
+
+    $stmt = $pdo->prepare("INSERT INTO system_settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = ?");
+    $stmt->execute(['idle_lock_enabled', $idleLockEnabled, $idleLockEnabled]);
+    $stmt->execute(['idle_lock_minutes', (string)$idleLockMinutes, (string)$idleLockMinutes]);
+    $stmt->execute(['idle_logout_minutes', (string)$idleLogoutMinutes, (string)$idleLogoutMinutes]);
+
+    $isAjax = (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest') ||
+              (!empty($_SERVER['HTTP_ACCEPT']) && strpos($_SERVER['HTTP_ACCEPT'], 'application/json') !== false);
+
+    if ($isAjax) {
+        echo json_encode([
+            'success' => true,
+            'status' => 'success',
+            'message' => 'Inactivity and session security settings updated successfully!',
+            'data' => [
+                'idle_lock_enabled' => $idleLockEnabled,
+                'idle_lock_minutes' => $idleLockMinutes,
+                'idle_logout_minutes' => $idleLogoutMinutes
+            ]
+        ]);
+        exit;
+    }
+
+    $_SESSION['message'] = "Inactivity and session security settings updated successfully!";
+    $_SESSION['msg_type'] = "success";
+    $targetRedirect = !empty($_POST['return_tab']) ? "../settings?tab=" . urlencode($_POST['return_tab']) : "../settings?tab=general";
+    header("Location: " . $targetRedirect);
     exit;
 }
 ?>

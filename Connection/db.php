@@ -1,33 +1,200 @@
 <?php
-// Helper: Human-readable time elapsed string
+/**
+ * SiteWare — Construction Inventory Management System (CIMS)
+ * Copyright (c) GB Construction & Enterprises Inc. & The MedYas.
+ * All Rights Reserved.
+ *
+ * PROPRIETARY AND CONFIDENTIAL.
+ * Unauthorized copying, distribution, modification, or deployment of this file,
+ * via any medium, is strictly prohibited and constitutes intellectual property theft.
+ * See LICENSE file in root directory for full legal terms and conditions.
+ */
+
+// Set default timezone for Philippine Standard Time (PST / UTC+8)
+date_default_timezone_set('Asia/Manila');
+
+// Helper: Secure Session Initialization with HttpOnly, SameSite, and Secure flags
+if (!function_exists('init_secure_session')) {
+    function init_secure_session()
+    {
+        if (session_status() === PHP_SESSION_NONE) {
+            $is_https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ||
+                (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && strtolower($_SERVER['HTTP_X_FORWARDED_PROTO']) === 'https');
+
+            session_set_cookie_params([
+                'lifetime' => 0,
+                'path' => '/',
+                'domain' => '',
+                'secure' => $is_https,
+                'httponly' => true,
+                'samesite' => 'Lax'
+            ]);
+            session_start();
+        }
+    }
+}
+
+// Helper: Calculate relative time string (e.g., "5 minutes ago", "2 days ago")
 if (!function_exists('time_elapsed_string')) {
-    function time_elapsed_string($datetime, $full = false) {
-        $now = new DateTime; $ago = new DateTime($datetime); $diff = $now->diff($ago);
-        $weeks = floor($diff->d / 7); $days = $diff->d - ($weeks * 7);
-        $values = ['y' => $diff->y, 'm' => $diff->m, 'w' => $weeks, 'd' => $days, 'h' => $diff->h, 'i' => $diff->i, 's' => $diff->s];
-        $string = ['y' => 'year', 'm' => 'month', 'w' => 'week', 'd' => 'day', 'h' => 'hour', 'i' => 'minute', 's' => 'second'];
-        $parts = []; foreach ($string as $k => $v) { if ($values[$k]) $parts[] = $values[$k] . ' ' . $v . ($values[$k] > 1 ? 's' : ''); }
-        if (!$full) $parts = array_slice($parts, 0, 1); return $parts ? implode(', ', $parts) . ' ago' : 'just now';
+    function time_elapsed_string($datetime, $full = false)
+    {
+        if (empty($datetime))
+            return 'just now';
+        try {
+            $now = new DateTime;
+            $ago = new DateTime($datetime);
+            $diff = $now->diff($ago);
+            $weeks = floor($diff->d / 7);
+            $days = $diff->d - ($weeks * 7);
+            $values = ['y' => $diff->y, 'm' => $diff->m, 'w' => $weeks, 'd' => $days, 'h' => $diff->h, 'i' => $diff->i, 's' => $diff->s];
+            $string = ['y' => 'year', 'm' => 'month', 'w' => 'week', 'd' => 'day', 'h' => 'hour', 'i' => 'minute', 's' => 'second'];
+            $parts = [];
+            foreach ($string as $k => $v) {
+                if ($values[$k])
+                    $parts[] = $values[$k] . ' ' . $v . ($values[$k] > 1 ? 's' : '');
+            }
+            if (!$full)
+                $parts = array_slice($parts, 0, 1);
+            return $parts ? implode(', ', $parts) . ' ago' : 'just now';
+        } catch (Exception $e) {
+            return 'recently';
+        }
+    }
+}
+
+// Helper: Get system setting from database with fallback default
+if (!function_exists('get_system_setting')) {
+    function get_system_setting($key, $default = null)
+    {
+        global $pdo;
+        if (!defined('DB_OFFLINE') && isset($pdo) && $pdo !== null) {
+            try {
+                $stmt = $pdo->prepare("SELECT setting_value FROM system_settings WHERE setting_key = ?");
+                $stmt->execute([$key]);
+                $val = $stmt->fetchColumn();
+                if ($val !== false && $val !== null) {
+                    return $val;
+                }
+            } catch (Throwable $e) {
+                // Return default on error
+            }
+        }
+        return $default;
+    }
+}
+
+// Helper: Generate or retrieve active cryptographically secure CSRF Token with TTL expiration (2 hours)
+if (!function_exists('generate_csrf_token')) {
+    function generate_csrf_token($maxLifetime = 7200)
+    {
+        if (session_status() === PHP_SESSION_NONE) {
+            init_secure_session();
+        }
+
+        $now = time();
+        $isExpired = empty($_SESSION['csrf_token_time']) || ($now - $_SESSION['csrf_token_time'] > $maxLifetime);
+
+        if (empty($_SESSION['csrf_token']) || $isExpired) {
+            $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+            $_SESSION['csrf_token_time'] = $now;
+        }
+
+        return $_SESSION['csrf_token'];
+    }
+}
+
+// Helper: Validate CSRF Token with constant-time comparison & TTL expiration check
+if (!function_exists('validate_csrf_token')) {
+    function validate_csrf_token($token, $maxLifetime = 7200)
+    {
+        if (session_status() === PHP_SESSION_NONE) {
+            init_secure_session();
+        }
+
+        if (empty($_SESSION['csrf_token']) || empty($token) || !is_string($token)) {
+            return false;
+        }
+
+        // Check if token has expired past the TTL limit
+        $now = time();
+        if (empty($_SESSION['csrf_token_time']) || ($now - $_SESSION['csrf_token_time'] > $maxLifetime)) {
+            // Token expired - wipe old token so a fresh one is generated
+            unset($_SESSION['csrf_token'], $_SESSION['csrf_token_time']);
+            return false;
+        }
+
+        return hash_equals($_SESSION['csrf_token'], $token);
+    }
+}
+
+// Helper: Normalize Philippine phone numbers (09XX, +639XX, 639XX, 9XX) into canonical Viber E.164 (+639XXXXXXXXX)
+if (!function_exists('normalizeViberPhone')) {
+    function normalizeViberPhone(?string $phone): ?string
+    {
+        if (empty($phone))
+            return null;
+        $digits = preg_replace('/[^0-9]/', '', $phone);
+
+        // 09XXXXXXXXX (11 digits) -> +639XXXXXXXXX
+        if (str_starts_with($digits, '09') && strlen($digits) === 11) {
+            return '+63' . substr($digits, 1);
+        }
+        // 639XXXXXXXXX (12 digits) -> +639XXXXXXXXX
+        if (str_starts_with($digits, '639') && strlen($digits) === 12) {
+            return '+' . $digits;
+        }
+        // 9XXXXXXXXX (10 digits) -> +639XXXXXXXXX
+        if (str_starts_with($digits, '9') && strlen($digits) === 10) {
+            return '+63' . $digits;
+        }
+
+        return null;
+    }
+}
+
+// Helper: Format Philippine phone number for clean user-facing presentation (+63 9XX XXX XXXX or 09XX XXX XXXX)
+if (!function_exists('formatPhilippinePhone')) {
+    function formatPhilippinePhone(?string $phone, $preferInternational = true): string
+    {
+        $normalized = normalizeViberPhone($phone);
+        if ($normalized && strlen($normalized) === 13) {
+            if ($preferInternational) {
+                // +63 917 123 4567
+                return substr($normalized, 0, 3) . ' ' . substr($normalized, 3, 3) . ' ' . substr($normalized, 6, 3) . ' ' . substr($normalized, 9);
+            } else {
+                // 0917 123 4567
+                return '0' . substr($normalized, 3, 3) . ' ' . substr($normalized, 6, 3) . ' ' . substr($normalized, 9);
+            }
+        }
+        return $phone ?? '';
     }
 }
 
 // 1. Load the secure environment variables (.env)
 if (!function_exists('loadEnv')) {
-    function loadEnv($filePath) {
+    function loadEnv($filePath)
+    {
         if (!file_exists($filePath)) {
             die("Critical Error: .env file is missing. The system cannot start securely.");
         }
 
         $lines = file($filePath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-        
+
         foreach ($lines as $line) {
-            // Skip comments
-            if (strpos(trim($line), '#') === 0) continue;
+            $line = trim($line);
+            // Skip comments, empty lines, or lines without '='
+            if (empty($line) || strpos($line, '#') === 0 || strpos($line, '=') === false) {
+                continue;
+            }
 
             // Split "KEY=VALUE"
             list($name, $value) = explode('=', $line, 2);
             $name = trim($name);
             $value = trim($value);
+
+            if (empty($name)) {
+                continue;
+            }
 
             // Inject into PHP's global environment variables
             if (!array_key_exists($name, $_SERVER) && !array_key_exists($name, $_ENV)) {
@@ -52,15 +219,9 @@ if (!defined('AI_MODEL') && isset($_ENV['AI_MODEL'])) {
 if (!defined('AI_SYSTEM_PROMPT') && isset($_ENV['AI_SYSTEM_PROMPT'])) {
     define('AI_SYSTEM_PROMPT', trim($_ENV['AI_SYSTEM_PROMPT'], '"\''));
 }
-if (!defined('SMS_API_KEY') && isset($_ENV['SMS_API_KEY'])) {
-    define('SMS_API_KEY', trim($_ENV['SMS_API_KEY']));
-}
-if (!defined('SMS_FROM_NUMBER') && isset($_ENV['SMS_FROM_NUMBER'])) {
-    define('SMS_FROM_NUMBER', $_ENV['SMS_FROM_NUMBER']);
-}
-if (!defined('SMS_GATEWAY_URL') && isset($_ENV['SMS_GATEWAY_URL'])) {
-    define('SMS_GATEWAY_URL', $_ENV['SMS_GATEWAY_URL']);
-}
+
+// 4. Load Centralized Rate Limiter
+require_once __DIR__ . '/rate_limiter.php';
 
 try {
     // Connect to MySQL server (Without DB name first, to allow creation)
@@ -69,6 +230,8 @@ try {
 
     $pdo->exec("CREATE DATABASE IF NOT EXISTS `" . $_ENV['DB_NAME'] . "`");
     $pdo->exec("USE `" . $_ENV['DB_NAME'] . "`");
+    $GLOBALS['pdo'] = $pdo;
+    $GLOBALS['conn'] = $pdo;
 
     // 1. Create Users Table
     $pdo->exec("
@@ -78,13 +241,19 @@ try {
             username VARCHAR(50) NOT NULL UNIQUE,
             password VARCHAR(255) NOT NULL,
             role VARCHAR(50) NOT NULL DEFAULT 'requestor',
+            status VARCHAR(20) NOT NULL DEFAULT 'active',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     ");
 
+    try {
+        $pdo->exec("ALTER TABLE users ADD COLUMN status VARCHAR(20) NOT NULL DEFAULT 'active' AFTER role");
+    } catch (PDOException $e) {
+    }
+
     if ($pdo->query("SELECT COUNT(*) FROM users")->fetchColumn() == 0) {
         $hashed_password = password_hash('password123', PASSWORD_DEFAULT);
-        $stmt = $pdo->prepare("INSERT INTO users (name, username, password, role) VALUES (?, ?, ?, ?)");
+        $stmt = $pdo->prepare("INSERT INTO users (name, username, password, role, status) VALUES (?, ?, ?, ?, 'active')");
         $stmt->execute(['System Admin', 'admin', $hashed_password, 'admin']);
     }
 
@@ -129,10 +298,16 @@ try {
             urgency VARCHAR(50) DEFAULT 'Normal',
             remarks TEXT,
             status VARCHAR(50) DEFAULT 'Pending Approval',
+            approved_by INT NULL,
             type VARCHAR(50) DEFAULT 'project',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     ");
+
+    try {
+        $pdo->exec("ALTER TABLE requisitions ADD COLUMN approved_by INT NULL AFTER status");
+    } catch (PDOException $e) {
+    }
 
     // 5. Create Requisition Items Table
     $pdo->exec("
@@ -158,17 +333,22 @@ try {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     ");
 
-    // 6b. Create Supplier SMS Replies Table
+    // 6b. Create Supplier Viber Order Logs Table
+    try {
+        $pdo->exec("RENAME TABLE supplier_sms_replies TO supplier_viber_logs");
+    } catch (PDOException $e) {
+    }
+
     $pdo->exec("
-        CREATE TABLE IF NOT EXISTS supplier_sms_replies (
+        CREATE TABLE IF NOT EXISTS supplier_viber_logs (
             id INT AUTO_INCREMENT PRIMARY KEY,
             supplier_id INT NULL,
             po_id INT NULL,
-            direction ENUM('inbound', 'outbound') NOT NULL DEFAULT 'inbound',
+            direction ENUM('inbound', 'outbound') NOT NULL DEFAULT 'outbound',
             sender_number VARCHAR(50) NOT NULL,
             receiver_number VARCHAR(50) NOT NULL,
             message_text TEXT NOT NULL,
-            is_read TINYINT(1) DEFAULT 0,
+            is_read TINYINT(1) DEFAULT 1,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (supplier_id) REFERENCES suppliers(id) ON DELETE SET NULL,
             FOREIGN KEY (po_id) REFERENCES purchase_orders(id) ON DELETE SET NULL
@@ -200,6 +380,8 @@ try {
             po_id INT NOT NULL,
             item_code VARCHAR(50) NOT NULL,
             quantity INT NOT NULL,
+            received_quantity INT NOT NULL DEFAULT 0,
+            item_status VARCHAR(50) NOT NULL DEFAULT 'Pending',
             unit_price DECIMAL(10,2) NOT NULL DEFAULT 0.00,
             FOREIGN KEY (po_id) REFERENCES purchase_orders(id) ON DELETE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -284,6 +466,15 @@ try {
     $stmt = $pdo->prepare("INSERT IGNORE INTO system_settings (setting_key, setting_value) VALUES ('login_background', 'assets/img/default_login_bg.png')");
     $stmt->execute();
 
+    // Seed default blur intensity (12px) if not exists
+    $stmt = $pdo->prepare("INSERT IGNORE INTO system_settings (setting_key, setting_value) VALUES ('login_blur', '12')");
+    $stmt->execute();
+
+    // Seed default two-tier inactivity security settings (ISO/IEC 25010)
+    $pdo->prepare("INSERT IGNORE INTO system_settings (setting_key, setting_value) VALUES ('idle_lock_enabled', '1')")->execute();
+    $pdo->prepare("INSERT IGNORE INTO system_settings (setting_key, setting_value) VALUES ('idle_lock_minutes', '15')")->execute();
+    $pdo->prepare("INSERT IGNORE INTO system_settings (setting_key, setting_value) VALUES ('idle_logout_minutes', '30')")->execute();
+
     // 15. Create Categories Table
     $pdo->exec("
         CREATE TABLE IF NOT EXISTS categories (
@@ -313,7 +504,8 @@ try {
         $pdo->exec("UPDATE units SET reorder_level = 5 WHERE unit_name IN ('Cubic Meters', 'Liters')");
         $pdo->exec("UPDATE units SET reorder_level = 20 WHERE unit_name IN ('Kilograms')");
         $pdo->exec("UPDATE units SET reorder_level = 15 WHERE unit_name IN ('Meters')");
-    } catch (PDOException $e) { /* Column already exists or table freshly created */ }
+    } catch (PDOException $e) { /* Column already exists or table freshly created */
+    }
 
     if ($pdo->query("SELECT COUNT(*) FROM units")->fetchColumn() == 0) {
         $pdo->exec("INSERT INTO units (unit_name, abbreviation, reorder_level) VALUES 
@@ -325,39 +517,230 @@ try {
     try {
         $pdo->exec("ALTER TABLE requisitions ADD COLUMN type VARCHAR(50) DEFAULT 'project'");
         $pdo->exec("UPDATE requisitions SET type = 'restock' WHERE project_name = 'General Restocking'");
-    } catch (PDOException $e) { }
+    } catch (PDOException $e) {
+    }
 
     try {
         $pdo->exec("ALTER TABLE purchase_orders ADD COLUMN delay_remarks TEXT NULL");
-    } catch (PDOException $e) { }
+    } catch (PDOException $e) {
+    }
 
     try {
-        $pdo->exec("ALTER TABLE purchase_orders ADD COLUMN expected_delivery_date DATE NULL");
-    } catch (PDOException $e) { }
+        $pdo->exec("ALTER TABLE purchase_orders ADD COLUMN proof_of_receipt VARCHAR(255) NULL");
+    } catch (PDOException $e) {
+    }
+
+    try {
+        $pdo->exec("ALTER TABLE purchase_orders ADD COLUMN received_by INT NULL");
+    } catch (PDOException $e) {
+    }
+
+    // Ensure uploads/receipts directory exists
+    if (!file_exists(__DIR__ . '/../uploads/receipts')) {
+        @mkdir(__DIR__ . '/../uploads/receipts', 0777, true);
+    }
 
     try {
         $pdo->exec("ALTER TABLE users ADD COLUMN fcm_token TEXT DEFAULT NULL");
-    } catch (PDOException $e) { }
+    } catch (PDOException $e) {
+    }
 
     try {
         $pdo->exec("ALTER TABLE projects ADD COLUMN project_code VARCHAR(50) NULL");
-    } catch (PDOException $e) { }
+    } catch (PDOException $e) {
+    }
 
     try {
         $pdo->exec("ALTER TABLE notifications ADD COLUMN is_read TINYINT(1) DEFAULT 0");
-    } catch (PDOException $e) { }
+    } catch (PDOException $e) {
+    }
 
     try {
         $pdo->exec("ALTER TABLE withdrawals ADD COLUMN received_by VARCHAR(100) NULL");
-    } catch (PDOException $e) { }
+    } catch (PDOException $e) {
+    }
 
     try {
         $pdo->exec("ALTER TABLE withdrawals ADD COLUMN signature_path VARCHAR(255) NULL");
-    } catch (PDOException $e) { }
+    } catch (PDOException $e) {
+    }
 
     try {
         $pdo->exec("ALTER TABLE withdrawals ADD COLUMN photo_proof_path VARCHAR(255) NULL");
-    } catch (PDOException $e) { }
+    } catch (PDOException $e) {
+    }
+
+    // Auto-patch: Support E-Signatures for Users & Purchase Orders
+    try {
+        $pdo->exec("ALTER TABLE users ADD COLUMN signature_path VARCHAR(255) NULL");
+    } catch (PDOException $e) {
+    }
+    try {
+        $pdo->exec("ALTER TABLE users ADD COLUMN public_key TEXT NULL");
+    } catch (PDOException $e) {
+    }
+    try {
+        $pdo->exec("ALTER TABLE users ADD COLUMN private_key TEXT NULL");
+    } catch (PDOException $e) {
+    }
+    try {
+        $pdo->exec("ALTER TABLE purchase_orders ADD COLUMN approved_by INT NULL");
+    } catch (PDOException $e) {
+    }
+    try {
+        $pdo->exec("ALTER TABLE purchase_orders ADD COLUMN prepared_signature VARCHAR(255) NULL");
+    } catch (PDOException $e) {
+    }
+    try {
+        $pdo->exec("ALTER TABLE purchase_orders ADD COLUMN approved_signature VARCHAR(255) NULL");
+    } catch (PDOException $e) {
+    }
+    try {
+        $pdo->exec("ALTER TABLE purchase_orders ADD COLUMN crypto_signature TEXT NULL");
+    } catch (PDOException $e) {
+    }
+    try {
+        $pdo->exec("ALTER TABLE purchase_orders ADD COLUMN document_hash VARCHAR(64) NULL");
+    } catch (PDOException $e) {
+    }
+    try {
+        $pdo->exec("ALTER TABLE purchase_orders ADD COLUMN signed_at DATETIME NULL");
+    } catch (PDOException $e) {
+    }
+    try {
+        $pdo->exec("ALTER TABLE withdrawals ADD COLUMN crypto_signature TEXT NULL");
+    } catch (PDOException $e) {
+    }
+    try {
+        $pdo->exec("ALTER TABLE withdrawals ADD COLUMN document_hash VARCHAR(64) NULL");
+    } catch (PDOException $e) {
+    }
+    try {
+        $pdo->exec("ALTER TABLE withdrawals ADD COLUMN signed_at DATETIME NULL");
+    } catch (PDOException $e) {
+    }
+
+    // Auto-sync: Backfill signatures for existing Purchase Orders from profile signatures
+    try {
+        $pdo->exec("
+            UPDATE purchase_orders po
+            JOIN users u ON po.prepared_by = u.id
+            SET po.prepared_signature = u.signature_path
+            WHERE (po.prepared_signature IS NULL OR po.prepared_signature = '') 
+              AND u.signature_path IS NOT NULL AND u.signature_path != ''
+        ");
+        $pdo->exec("
+            UPDATE purchase_orders po
+            JOIN users u ON COALESCE(po.approved_by, (SELECT approved_by FROM requisitions r WHERE r.id = po.rs_id)) = u.id
+            SET po.approved_signature = u.signature_path
+            WHERE (po.approved_signature IS NULL OR po.approved_signature = '') 
+              AND u.signature_path IS NOT NULL AND u.signature_path != ''
+        ");
+    } catch (PDOException $e) {
+    }
+
+    // Auto-patch: Support New Item Restock Requests in Requisition Items & PO Items
+    try {
+        $pdo->exec("ALTER TABLE requisition_items ADD COLUMN is_new_item TINYINT(1) DEFAULT 0");
+    } catch (PDOException $e) {
+    }
+    try {
+        $pdo->exec("ALTER TABLE requisition_items ADD COLUMN new_item_name VARCHAR(255) NULL");
+    } catch (PDOException $e) {
+    }
+    try {
+        $pdo->exec("ALTER TABLE requisition_items ADD COLUMN new_category VARCHAR(100) NULL");
+    } catch (PDOException $e) {
+    }
+    try {
+        $pdo->exec("ALTER TABLE requisition_items ADD COLUMN new_unit VARCHAR(50) NULL");
+    } catch (PDOException $e) {
+    }
+
+    try {
+        $pdo->exec("ALTER TABLE po_items ADD COLUMN is_new_item TINYINT(1) DEFAULT 0");
+    } catch (PDOException $e) {
+    }
+    try {
+        $pdo->exec("ALTER TABLE po_items ADD COLUMN custom_item_name VARCHAR(255) NULL");
+    } catch (PDOException $e) {
+    }
+    try {
+        $pdo->exec("ALTER TABLE po_items ADD COLUMN category VARCHAR(100) NULL");
+    } catch (PDOException $e) {
+    }
+    try {
+        $pdo->exec("ALTER TABLE po_items ADD COLUMN unit VARCHAR(50) NULL");
+    } catch (PDOException $e) {
+    }
+
+    // Auto-patch: Support Partial Deliveries & Multi-Stage PO Fulfillment
+    try {
+        $pdo->exec("ALTER TABLE po_items ADD COLUMN received_quantity INT NOT NULL DEFAULT 0");
+    } catch (PDOException $e) {
+    }
+    try {
+        $pdo->exec("ALTER TABLE po_items ADD COLUMN item_status VARCHAR(50) NOT NULL DEFAULT 'Pending'");
+    } catch (PDOException $e) {
+    }
+    try {
+        $pdo->exec("ALTER TABLE purchase_orders ADD COLUMN payment_terms VARCHAR(100) DEFAULT 'Credit (30 Days Net)'");
+    } catch (PDOException $e) {
+    }
+    try {
+        // Backfill historical Delivered PO items if needed
+        $pdo->exec("
+            UPDATE po_items pi
+            JOIN purchase_orders po ON pi.po_id = po.id
+            SET pi.received_quantity = pi.quantity, pi.item_status = 'Complete'
+            WHERE po.status = 'Delivered' AND pi.received_quantity = 0
+        ");
+    } catch (PDOException $e) {
+    }
+
+    // Auto-patch: Performance Indexes (One-time migration check for maximum Hostinger performance)
+    $indexFlagFile = __DIR__ . '/../uploads/.db_indexes_applied';
+    if (!file_exists($indexFlagFile)) {
+        $autoIndexes = [
+            "ALTER TABLE inventory ADD INDEX idx_inventory_item_name (item_name)",
+            "ALTER TABLE inventory ADD INDEX idx_inventory_status (status)",
+            "ALTER TABLE inventory ADD INDEX idx_inventory_last_updated (last_updated)",
+            "ALTER TABLE inventory_audits ADD INDEX idx_audits_created_at (created_at)",
+            "ALTER TABLE inventory_audits ADD INDEX idx_audits_conducted_by (conducted_by)",
+            "ALTER TABLE audit_items ADD INDEX idx_audit_items_audit_id (audit_id)",
+            "ALTER TABLE audit_items ADD INDEX idx_audit_items_item_code (item_code)",
+            "ALTER TABLE requisitions ADD INDEX idx_req_status (status)",
+            "ALTER TABLE requisitions ADD INDEX idx_req_type (type)",
+            "ALTER TABLE requisitions ADD INDEX idx_req_requestor_id (requestor_id)",
+            "ALTER TABLE requisitions ADD INDEX idx_req_created_at (created_at)",
+            "ALTER TABLE requisition_items ADD INDEX idx_req_items_req_id (requisition_id)",
+            "ALTER TABLE requisition_items ADD INDEX idx_req_items_item_code (item_code)",
+            "ALTER TABLE requisition_items ADD INDEX idx_req_items_req_status (requisition_id, item_status)",
+            "ALTER TABLE purchase_orders ADD INDEX idx_po_rs_id (rs_id)",
+            "ALTER TABLE purchase_orders ADD INDEX idx_po_status (status)",
+            "ALTER TABLE purchase_orders ADD INDEX idx_po_created_at (created_at)",
+            "ALTER TABLE po_items ADD INDEX idx_po_items_po_id (po_id)",
+            "ALTER TABLE po_items ADD INDEX idx_po_items_item_code (item_code)",
+            "ALTER TABLE withdrawals ADD INDEX idx_withdrawals_date (date_withdrawn)",
+            "ALTER TABLE withdrawal_items ADD INDEX idx_wd_items_withdrawal_id (withdrawal_id)",
+            "ALTER TABLE withdrawal_items ADD INDEX idx_wd_items_item_code (item_code)",
+            "ALTER TABLE notifications ADD INDEX idx_notif_target_role (target_role)",
+            "ALTER TABLE notifications ADD INDEX idx_notif_target_user_id (target_user_id)",
+            "ALTER TABLE notifications ADD INDEX idx_notif_created_at (created_at)",
+            "ALTER TABLE supplier_viber_logs ADD INDEX idx_viber_supplier_id (supplier_id)",
+            "ALTER TABLE supplier_viber_logs ADD INDEX idx_viber_po_id (po_id)"
+        ];
+        foreach ($autoIndexes as $idxSql) {
+            try {
+                $pdo->exec($idxSql);
+            } catch (PDOException $e) {
+            }
+        }
+        if (!file_exists(dirname($indexFlagFile))) {
+            @mkdir(dirname($indexFlagFile), 0777, true);
+        }
+        @file_put_contents($indexFlagFile, date('Y-m-d H:i:s'));
+    }
 
 } catch (PDOException $e) {
     // 1. Define global constant to signify DB offline status
@@ -386,7 +769,7 @@ try {
             header("Location: " . ($_SERVER['HTTP_REFERER'] ?? '../index'));
             exit;
         }
-        
+
         // Otherwise, it is an AJAX query expecting JSON
         header('Content-Type: application/json');
         echo json_encode([
@@ -399,20 +782,22 @@ try {
     // 4. Check if the user is logged in
     if (isset($_SESSION['user_id'])) {
         $rootDir = dirname(__DIR__);
-        
+
         // Include layout/header.php which knows DB_OFFLINE is true and will render sidebar + top navigation
         include_once $rootDir . '/layout/header.php';
         ?>
         <div class="container-fluid px-3 px-md-4 py-5 text-center">
             <div class="card border-0 shadow-sm p-5 mx-auto bg-white" style="max-width: 600px; border-radius: 16px;">
                 <div class="icon-wrap mb-4 d-flex justify-content-center">
-                    <div class="d-flex align-items-center justify-content-center bg-danger-subtle rounded-circle" style="width: 80px; height: 80px;">
+                    <div class="d-flex align-items-center justify-content-center bg-danger-subtle rounded-circle"
+                        style="width: 80px; height: 80px;">
                         <i class="bi bi-database-exclamation text-danger fs-1 animate-pulse-db"></i>
                     </div>
                 </div>
                 <h3 class="fw-bold text-dark mb-2">Can't Connect, You're Offline</h3>
                 <p class="text-muted mb-4">
-                    The database server is currently offline. You can still navigate using the sidebar to other sections, but database read/write actions are disabled.
+                    The database server is currently offline. You can still navigate using the sidebar to other sections, but
+                    database read/write actions are disabled.
                 </p>
                 <button class="btn btn-brand fw-bold px-4 py-2 shadow-sm" onclick="window.location.reload()">
                     <i class="bi bi-arrow-clockwise me-1"></i> Retry Connection
@@ -421,9 +806,17 @@ try {
         </div>
         <style>
             @keyframes pulseDb {
-                0%, 100% { transform: scale(1); }
-                50% { transform: scale(1.08); }
+
+                0%,
+                100% {
+                    transform: scale(1);
+                }
+
+                50% {
+                    transform: scale(1.08);
+                }
             }
+
             .animate-pulse-db {
                 animation: pulseDb 2s infinite ease-in-out;
                 display: inline-block;
@@ -433,7 +826,7 @@ try {
         include_once $rootDir . '/layout/footer.php';
         exit;
     }
-    
+
     // If not logged in, return cleanly and let login.php handle its own error reporting
     return;
 }

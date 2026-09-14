@@ -4,100 +4,157 @@
 <!-- Premium Mobile Card Table CSS for Modal -->
 <style>
     @media (max-width: 767.98px) {
-        #auditDetailsTable { display: block; width: 100%; background: transparent !important; }
+        #auditDetailsTable { display: block; width: 100%; background: transparent !important; border: none !important; }
         #auditDetailsTable thead { display: none; }
         #auditDetailsTable tbody { display: block; width: 100%; }
 
         #auditDetailsTable tbody tr {
-            display: flex;
-            flex-direction: column;
-            border: none;
-            border-radius: 14px;
-            margin-bottom: 1rem;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
             background: #fff;
-            padding: 0;
-            box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+            border-radius: 12px;
+            margin-bottom: 0.85rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.06);
             overflow: hidden;
+            border: 1px solid #e2e8f0;
         }
 
-        /* First cell (Item Code) — dark header */
-        #auditDetailsTable tbody td:first-child {
-            background: #212529;
-            color: #adb5bd !important;
+        /* 1. Item Code Header with Unit */
+        #auditDetailsTable tbody td.audit-td-code {
+            grid-column: 1 / -1;
+            background: #1e293b;
+            color: #f8fafc !important;
             font-size: 0.72rem;
             font-weight: 700;
-            letter-spacing: 0.06em;
-            text-transform: uppercase;
-            padding: 10px 14px;
-            border: none;
-            text-align: left;
-        }
-        #auditDetailsTable tbody td:first-child::before { display: none; }
-
-        /* Standard label+value rows */
-        #auditDetailsTable tbody td {
+            letter-spacing: 0.05em;
+            padding: 7px 12px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 10px 14px;
             border: none;
-            border-bottom: 1px solid #f3f3f3;
-            white-space: normal !important;
-            word-break: break-word;
         }
-        #auditDetailsTable tbody td::before {
-            content: attr(data-label);
+        #auditDetailsTable tbody td.audit-td-code::before { display: none; }
+
+        /* 2. Item Name */
+        #auditDetailsTable tbody td.audit-td-name {
+            grid-column: 1 / -1;
+            padding: 9px 12px 5px;
             font-weight: 700;
-            font-size: 0.7rem;
-            color: #6c757d;
-            text-transform: uppercase;
-            letter-spacing: 0.04em;
-            text-align: left;
-            flex-shrink: 0;
-            padding-right: 12px;
+            font-size: 0.92rem;
+            color: #0f172a;
+            border: none;
+            display: block;
         }
+        #auditDetailsTable tbody td.audit-td-name::before { display: none; }
 
-        /* Prevent right-side values from being squeezed */
-        #auditDetailsTable tbody td > span,
-        #auditDetailsTable tbody td > strong,
-        #auditDetailsTable tbody td > b {
-            flex-shrink: 0;
-            text-align: right;
-        }
-
-        /* Discrepancy cell — full width centered badge, NO label */
-        #auditDetailsTable tbody td:last-child {
-            border-bottom: none;
-            justify-content: center !important;
-            padding: 12px 14px 14px;
-        }
-        #auditDetailsTable tbody td:last-child::before { display: none; }
-        #auditDetailsTable tbody td:last-child .badge {
-            width: 100%;
-            font-size: 0.85rem !important;
-            padding: 10px !important;
+        /* 3. System Qty Box */
+        #auditDetailsTable tbody td.audit-td-sys {
+            grid-column: 1 / 2;
+            padding: 7px 10px;
+            margin: 4px 5px 8px 12px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
             text-align: center;
+        }
+        #auditDetailsTable tbody td.audit-td-sys::before {
+            content: "SYSTEM";
+            font-size: 0.65rem;
+            font-weight: 800;
+            color: #64748b;
+            letter-spacing: 0.05em;
+            margin-bottom: 2px;
+        }
+
+        /* 4. Physical Qty Box */
+        #auditDetailsTable tbody td.audit-td-phys {
+            grid-column: 2 / 3;
+            padding: 7px 10px;
+            margin: 4px 12px 8px 5px;
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+        #auditDetailsTable tbody td.audit-td-phys::before {
+            content: "PHYSICAL";
+            font-size: 0.65rem;
+            font-weight: 800;
+            color: #2563eb;
+            letter-spacing: 0.05em;
+            margin-bottom: 2px;
+        }
+
+        /* 5. Discrepancy Badge */
+        #auditDetailsTable tbody td.audit-td-diff {
+            grid-column: 1 / -1;
+            padding: 0 12px 10px;
+            border: none;
+            display: flex;
+            justify-content: center;
+        }
+        #auditDetailsTable tbody td.audit-td-diff::before { display: none; }
+        #auditDetailsTable tbody td.audit-td-diff .badge {
+            width: 100%;
+            padding: 7px !important;
+            font-size: 0.8rem !important;
+            border-radius: 6px;
+            letter-spacing: 0.04em;
         }
     }
 </style>
 
 
 <div class="modal fade" id="auditModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
         <div class="modal-content border-0 shadow-lg">
             <div class="modal-header" style="background-color: var(--gb-dark); color: white;">
                 <h5 class="modal-title fw-bold"><i class="bi bi-file-earmark-ruled me-2" style="color: var(--gb-yellow);"></i>Audit Trail Details</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body bg-light p-4">
+            <div class="modal-body bg-light p-3 p-md-4">
                 
-                <div class="mb-4 border-bottom pb-3">
-                    <h4 class="fw-bold text-primary mb-0" id="modalAuditMonth">Month</h4>
+                <!-- Audit Title & Subtitle -->
+                <div class="border-bottom pb-2 mb-3">
+                    <h5 class="fw-bold text-primary mb-0" id="modalAuditMonth">Audit Details</h5>
                     <small class="text-muted fw-bold text-uppercase">Weekly Recount Report</small>
+
+                    <!-- Real-time KPI Summary Badges -->
+                    <div class="d-flex flex-wrap gap-2 mt-2" id="modalAuditKpis">
+                        <span class="badge bg-white text-dark border shadow-sm px-2 py-1"><i class="bi bi-box-seam me-1 text-primary"></i>Total: <strong id="modalKpiTotal">0</strong></span>
+                        <span class="badge bg-white text-success border border-success-subtle shadow-sm px-2 py-1"><i class="bi bi-check-circle-fill me-1 text-success"></i>In-Sync: <strong id="modalKpiMatch">0</strong></span>
+                        <span class="badge bg-white text-danger border border-danger-subtle shadow-sm px-2 py-1"><i class="bi bi-exclamation-triangle-fill me-1 text-danger"></i>Adjusted: <strong id="modalKpiDiff">0</strong></span>
+                    </div>
                 </div>
-                
-                <h6 class="fw-bold text-uppercase small text-muted mb-2">Itemized Count Results:</h6>
-                <div class="table-responsive mb-4 rounded border shadow-sm" style="border: none !important; box-shadow: none !important; background: transparent !important;">
+
+                <!-- Auditor Remarks -->
+                <div class="p-2 p-md-3 bg-white rounded border shadow-sm mb-3">
+                    <small class="text-muted fw-bold text-uppercase d-block mb-1" style="font-size: 0.68rem;">Auditor Remarks / Notes:</small>
+                    <div class="text-dark small" id="modalAuditRemarks" style="min-height: 20px;">No remarks.</div>
+                </div>
+
+                <!-- Itemized Results Header & Filter Controls -->
+                <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+                    <span class="fw-bold text-uppercase small text-muted">Itemized Count Results:</span>
+                    <div class="btn-group btn-group-sm shadow-sm" role="group">
+                        <button type="button" class="btn btn-outline-secondary active fw-bold" id="btnAuditFilterAll" onclick="filterAuditModalRows('all')">
+                            All (<span id="countFilterAll">0</span>)
+                        </button>
+                        <button type="button" class="btn btn-outline-danger fw-bold" id="btnAuditFilterDiff" onclick="filterAuditModalRows('diff')">
+                            Discrepancies (<span id="countFilterDiff">0</span>)
+                        </button>
+                    </div>
+                </div>
+
+                <div class="table-responsive mb-0 rounded border bg-white shadow-sm" style="border: none !important; box-shadow: none !important; background: transparent !important;">
                     <table class="table table-sm table-hover mb-0 bg-white text-nowrap" id="auditDetailsTable">
                         <thead class="table-light">
                             <tr>
@@ -110,11 +167,6 @@
                         </thead>
                         <tbody id="auditModalBody"></tbody>
                     </table>
-                </div>
-                
-                <div>
-                    <h6 class="fw-bold mb-2 text-dark small text-uppercase">Remarks / Notes:</h6>
-                    <p class="text-muted small border p-3 bg-white rounded shadow-sm mb-0" id="modalAuditRemarks" style="min-height: 60px;">No remarks.</p>
                 </div>
                 
             </div>
@@ -133,6 +185,40 @@
 // AUDIT MODAL LOGIC (Directly injected to bypass mobile cache!)
 // ==========================================================
 
+window.viewAuditDetailsFromBtn = function(btn) {
+    if (!btn) return;
+    const month = btn.getAttribute('data-month') || '';
+    const remarks = btn.getAttribute('data-remarks') || '';
+    const itemsJson = btn.getAttribute('data-items') || '[]';
+    window.viewAuditDetails(month, remarks, itemsJson);
+};
+
+window.filterAuditModalRows = function(filterType) {
+    const btnAll = document.getElementById('btnAuditFilterAll');
+    const btnDiff = document.getElementById('btnAuditFilterDiff');
+    const rows = document.querySelectorAll('#auditModalBody tr');
+
+    if (filterType === 'diff') {
+        if (btnDiff) btnDiff.classList.add('active', 'btn-danger');
+        if (btnDiff) btnDiff.classList.remove('btn-outline-danger');
+        if (btnAll) btnAll.classList.remove('active', 'btn-secondary');
+        if (btnAll) btnAll.classList.add('btn-outline-secondary');
+
+        rows.forEach(r => {
+            r.style.display = r.getAttribute('data-diff') === '1' ? '' : 'none';
+        });
+    } else {
+        if (btnAll) btnAll.classList.add('active', 'btn-secondary');
+        if (btnAll) btnAll.classList.remove('btn-outline-secondary');
+        if (btnDiff) btnDiff.classList.remove('active', 'btn-danger');
+        if (btnDiff) btnDiff.classList.add('btn-outline-danger');
+
+        rows.forEach(r => {
+            r.style.display = '';
+        });
+    }
+};
+
 window.viewAuditDetails = function(month, remarks, itemsJson) {
     document.getElementById('modalAuditMonth').innerText = "Audit: " + month;
     
@@ -144,14 +230,22 @@ window.viewAuditDetails = function(month, remarks, itemsJson) {
     tbody.innerHTML = '';
     
     let items = [];
+    let matchCount = 0;
+    let diffCount = 0;
+
     try {
-        items = JSON.parse(itemsJson);
+        items = typeof itemsJson === 'string' ? JSON.parse(itemsJson) : (itemsJson || []);
         if (items.length > 0) {
             items.forEach(item => {
-                let diff = parseInt(item.discrepancy);
+                let diff = parseInt(item.discrepancy) || 0;
+                let isDiff = diff !== 0;
+                if (isDiff) {
+                    diffCount++;
+                } else {
+                    matchCount++;
+                }
+
                 let diffDisplay = '';
-                
-                // Removed w-100 so badges fit perfectly next to labels on mobile
                 if (diff < 0) {
                     diffDisplay = `<span class="badge bg-danger shadow-sm px-3 py-2 text-uppercase"><i class="bi bi-arrow-down-circle-fill me-1"></i>${diff} Short</span>`;
                 } else if (diff > 0) {
@@ -160,14 +254,27 @@ window.viewAuditDetails = function(month, remarks, itemsJson) {
                     diffDisplay = `<span class="badge bg-success shadow-sm px-3 py-2 text-uppercase"><i class="bi bi-check-circle-fill me-1"></i>Match</span>`;
                 }
                 
-                // Injected data-label into every td so it works on mobile
+                const unitStr = item.unit ? `<span class="text-muted small ms-1">${item.unit}</span>` : '';
+                const unitBadge = item.unit ? `<span class="badge bg-dark-subtle text-light border border-secondary small">${item.unit}</span>` : '';
+
                 tbody.innerHTML += `
-                    <tr>
-                        <td data-label="Item Code" class="text-muted small align-middle px-3 fw-bold">${item.item_code}</td>
-                        <td data-label="Item Name" class="fw-bold align-middle text-dark">${item.item_name}</td>
-                        <td data-label="System Qty" class="text-end text-md-center align-middle text-secondary fw-bold fs-6">${item.system_qty}</td>
-                        <td data-label="Physical Qty" class="text-end text-md-center align-middle text-primary fw-bold fs-6">${item.physical_qty}</td>
-                        <td data-label="Discrepancy" class="text-end text-md-center align-middle">${diffDisplay}</td>
+                    <tr data-diff="${isDiff ? '1' : '0'}">
+                        <td class="audit-td-code text-muted small align-middle px-3 fw-bold">
+                            <span><i class="bi bi-tag me-1"></i>${item.item_code}</span>
+                            ${unitBadge}
+                        </td>
+                        <td class="audit-td-name fw-bold align-middle text-dark">
+                            ${item.item_name}
+                        </td>
+                        <td class="audit-td-sys text-end text-md-center align-middle text-secondary fw-bold fs-6">
+                            <span>${item.system_qty}</span>${unitStr}
+                        </td>
+                        <td class="audit-td-phys text-end text-md-center align-middle text-primary fw-bold fs-6">
+                            <span>${item.physical_qty}</span>${unitStr}
+                        </td>
+                        <td class="audit-td-diff text-end text-md-center align-middle">
+                            ${diffDisplay}
+                        </td>
                     </tr>
                 `;
             });
@@ -178,6 +285,16 @@ window.viewAuditDetails = function(month, remarks, itemsJson) {
         items = [];
         tbody.innerHTML = `<tr><td colspan="5" class="text-center text-danger py-4">Error loading audit details.</td></tr>`;
     }
+
+    // Update KPI badges & filter counts
+    document.getElementById('modalKpiTotal').innerText = items.length;
+    document.getElementById('modalKpiMatch').innerText = matchCount;
+    document.getElementById('modalKpiDiff').innerText = diffCount;
+    document.getElementById('countFilterAll').innerText = items.length;
+    document.getElementById('countFilterDiff').innerText = diffCount;
+
+    // Reset filter to 'all'
+    window.filterAuditModalRows('all');
     
     // Save active audit data globally for ExcelJS export
     window.activeAuditData = {
@@ -192,6 +309,16 @@ window.viewAuditDetails = function(month, remarks, itemsJson) {
     if (!auditModal) {
         auditModal = new bootstrap.Modal(myModalEl);
     }
+
+    // Clean up on modal hide (Standards compliance)
+    if (!myModalEl.dataset.hasCleanListener) {
+        myModalEl.addEventListener('hidden.bs.modal', function() {
+            document.getElementById('auditModalBody').innerHTML = '';
+            window.activeAuditData = null;
+        });
+        myModalEl.dataset.hasCleanListener = 'true';
+    }
+
     auditModal.show();
 }
 

@@ -1,8 +1,23 @@
 /* ==========================================================
- * GB INVENTORY - PROGRESSIVE WEB APP
- * Handles the custom "Install App" mobile banner
+ * GB INVENTORY - PROGRESSIVE WEB APP & OFFLINE MANAGER
+ * Handles PWA installation, Service Worker lifecycle,
+ * smart offline caching, read-only UI states, and route warming.
  * ========================================================== */
 
+// 1. Service Worker Registration (Always active for offline caching)
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/CIMS/firebase-messaging-sw.js', { scope: '/CIMS/' })
+            .then((reg) => {
+                console.log('[PWA] Service Worker registered with scope:', reg.scope);
+            })
+            .catch((err) => {
+                console.warn('[PWA] Service Worker registration failed:', err);
+            });
+    });
+}
+
+// 2. Custom "Install App" Mobile Banner
 document.addEventListener("DOMContentLoaded", () => {
     let deferredPrompt;
 
@@ -10,7 +25,7 @@ document.addEventListener("DOMContentLoaded", () => {
         e.preventDefault();
         deferredPrompt = e;
         
-        if(document.getElementById('pwa-install-banner')) return;
+        if (document.getElementById('pwa-install-banner')) return;
 
         const installBanner = document.createElement('div');
         installBanner.id = 'pwa-install-banner';
@@ -27,7 +42,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     <img src="assets/LogoGB.png" alt="Logo" width="45" height="45" class="me-3 rounded shadow-sm border">
                     <div>
                         <h6 class="mb-0 fw-bold text-dark" style="font-size: 1rem;">GB Inventory</h6>
-                        <small class="text-muted" style="font-size: 0.8rem;">Install app for quick access</small>
+                        <small class="text-muted" style="font-size: 0.8rem;">Install app for fast, offline-ready access</small>
                     </div>
                 </div>
                 <div>
@@ -55,23 +70,25 @@ document.addEventListener("DOMContentLoaded", () => {
 
     window.addEventListener('appinstalled', () => {
         const banner = document.getElementById('pwa-install-banner');
-        if(banner) banner.remove();
+        if (banner) banner.remove();
     });
 
     // Run initial offline UI check on DOM load
     updateOfflineUI();
+
+    // Warm offline routes in background when online
+    setTimeout(warmOfflineRoutes, 2500);
 });
 
-// Helper: Check if our specific app server is actually reachable
+// Helper: Check if backend server is genuinely reachable
 async function checkServerStatus() {
     if (!navigator.onLine) {
         return false;
     }
     try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
+        const timeoutId = setTimeout(() => controller.abort(), 2500); // 2.5s timeout
         
-        // Dynamically build ping URL based on current base path segment
         const pathSegments = window.location.pathname.split('/');
         const basePath = pathSegments[1] ? '/' + pathSegments[1] : '';
         const pingUrl = basePath + '/manifest.json?ping=' + Date.now();
@@ -84,15 +101,103 @@ async function checkServerStatus() {
         clearTimeout(timeoutId);
         return response.ok;
     } catch (e) {
-        return false; // Server unreachable
+        return false;
     }
 }
 
-// Dynamic Offline UI update
+// Background Route Warmer: pre-caches navigation routes based on user's authorized sidebar links
+function warmOfflineRoutes() {
+    if (!navigator.onLine) return;
+
+    const sidebarLinks = document.querySelectorAll('#sidebar a[href]');
+    if (!sidebarLinks || sidebarLinks.length === 0) return;
+
+    const routesToWarm = new Set();
+    sidebarLinks.forEach(link => {
+        const href = link.getAttribute('href');
+        if (
+            href &&
+            href !== '#' &&
+            !href.startsWith('http') &&
+            !href.includes('logout') &&
+            !href.startsWith('javascript:')
+        ) {
+            routesToWarm.add(href);
+        }
+    });
+
+    let delay = 1000;
+    routesToWarm.forEach(route => {
+        setTimeout(() => {
+            if (navigator.onLine) {
+                fetch(route, {
+                    headers: {
+                        'Accept': 'text/html',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                }).catch(() => {
+                    // Silently ignore prefetch errors
+                });
+            }
+        }, delay);
+        delay += 600;
+    });
+}
+
+// Intercept clicks on mutation actions when offline
+function handleOfflineActionClick(e) {
+    if (!navigator.onLine) {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                icon: 'info',
+                title: 'Offline Mode (Read-Only)',
+                text: 'Creating, editing, or approving records requires an active server connection. Modifications are paused until you are back online.',
+                confirmButtonColor: '#0d6efd'
+            });
+        } else {
+            alert('Offline Mode (Read-Only): Creating or editing records requires an active connection.');
+        }
+        return false;
+    }
+}
+
+// Retry button handler on offline banner
+async function handleOfflineRetry(btn) {
+    if (!btn) return;
+    const originalHtml = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Checking...';
+
+    const isReachable = await checkServerStatus();
+    if (isReachable) {
+        btn.innerHTML = '<i class="bi bi-check-circle me-1"></i> Connected!';
+        setTimeout(() => {
+            window.location.reload();
+        }, 500);
+    } else {
+        btn.disabled = false;
+        btn.innerHTML = originalHtml;
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Still Offline',
+                text: 'Could not establish connection to the server. Please check your network or Wi-Fi.',
+                confirmButtonColor: '#0d6efd',
+                timer: 3000
+            });
+        }
+    }
+}
+
+// Dynamic Offline UI update: preserves tables, marks read-only, locks write actions
 async function updateOfflineUI() {
     let isOnline = navigator.onLine;
     
-    // Double check actual server reachability if navigator says we are online
+    // If browser claims online, double-check server reachability
     if (isOnline) {
         isOnline = await checkServerStatus();
     }
@@ -100,6 +205,7 @@ async function updateOfflineUI() {
     let networkBanner = document.getElementById('network-offline-banner');
 
     if (!isOnline) {
+        // 1. Render sleek top banner
         if (!networkBanner) {
             networkBanner = document.createElement('div');
             networkBanner.id = 'network-offline-banner';
@@ -109,11 +215,13 @@ async function updateOfflineUI() {
                 <div class="d-flex align-items-center gap-2">
                     <i class="bi bi-wifi-off text-danger fs-5 animate-pulse-offline"></i>
                     <div>
-                        <strong class="text-danger">Can't Connect, You're Offline</strong>
-                        <span class="text-danger-emphasis ms-2 d-none d-md-inline" style="color: #991b1b;">No internet connection detected. Showing cached page layout.</span>
+                        <strong class="text-danger">Offline Mode (Read-Only)</strong>
+                        <span class="text-danger-emphasis ms-2 d-none d-md-inline" style="color: #991b1b;">
+                            Viewing cached data. Database modifications and new submissions are paused until reconnected.
+                        </span>
                     </div>
                 </div>
-                <button class="btn btn-sm btn-outline-danger fw-bold border-2" onclick="window.location.reload()">
+                <button class="btn btn-sm btn-outline-danger fw-bold border-2 d-flex align-items-center" id="btn-offline-retry" onclick="handleOfflineRetry(this)">
                     <i class="bi bi-arrow-clockwise me-1"></i> Retry
                 </button>
             `;
@@ -122,8 +230,16 @@ async function updateOfflineUI() {
                 const style = document.createElement('style');
                 style.id = 'pulse-offline-style';
                 style.textContent = `
-                    @keyframes pulseOffline { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+                    @keyframes pulseOffline { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
                     .animate-pulse-offline { animation: pulseOffline 2s infinite; }
+                    .offline-mutation-locked {
+                        opacity: 0.6 !important;
+                        cursor: not-allowed !important;
+                    }
+                    .offline-badge-tag {
+                        font-size: 0.72rem !important;
+                        letter-spacing: 0.02em;
+                    }
                 `;
                 document.head.appendChild(style);
             }
@@ -136,80 +252,87 @@ async function updateOfflineUI() {
             }
         }
 
-        // Mask all dynamic tables
-        document.querySelectorAll('table').forEach(table => {
-            if (!table.querySelector('.offline-placeholder-row')) {
-                const tbody = table.querySelector('tbody');
-                if (tbody) {
-                    if (!tbody.dataset.originalHtml) {
-                        tbody.dataset.originalHtml = tbody.innerHTML;
-                    }
-                    const colCount = table.querySelectorAll('thead th').length || 6;
-                    tbody.innerHTML = `
-                        <tr class="offline-placeholder-row">
-                            <td colspan="${colCount}" class="text-center py-5 text-muted">
-                                <i class="bi bi-wifi-off fs-1 d-block mb-2 text-danger"></i>
-                                <span class="fw-bold">Database records unavailable while offline.</span>
-                            </td>
-                        </tr>
-                    `;
+        // 2. Add subtle "Cached Data" badges to cards/tables WITHOUT wiping rows
+        document.querySelectorAll('.card-header, .table-responsive').forEach(container => {
+            if (!container.querySelector('.offline-badge-tag')) {
+                const badge = document.createElement('span');
+                badge.className = 'badge bg-secondary-subtle text-secondary border offline-badge-tag ms-2 fw-normal';
+                badge.innerHTML = '<i class="bi bi-cloud-slash me-1"></i> Cached';
+                
+                const heading = container.querySelector('h1, h2, h3, h4, h5, h6, .card-title');
+                if (heading) {
+                    heading.appendChild(badge);
                 }
             }
         });
 
-        // Disable standard actions
-        document.querySelectorAll('button[data-bs-toggle="modal"], button[type="submit"], input[type="submit"]').forEach(btn => {
-            // Keep the retry button, close buttons, and modal-footer buttons (like Close) enabled
-            if (btn.id === 'pwa-install-btn' || btn.id === 'pwa-dismiss' || btn.classList.contains('btn-close') || btn.closest('.modal-footer') || btn.closest('.alert')) {
+        // 3. Defensively guard mutation buttons (Create PO, Add Item, Delete, Edit, Submit)
+        const mutationSelectors = [
+            'button[type="submit"]',
+            'input[type="submit"]',
+            'button[data-bs-toggle="modal"]',
+            'a[data-bs-toggle="modal"]',
+            'button:has(.bi-plus-lg)',
+            'button:has(.bi-plus-circle)',
+            'button:has(.bi-plus)',
+            'button:has(.bi-trash)',
+            'button:has(.bi-pencil)',
+            'button:has(.bi-check-lg)'
+        ].join(', ');
+
+        document.querySelectorAll(mutationSelectors).forEach(btn => {
+            // Keep retry button, close buttons, modal dismiss buttons, and PWA install buttons active
+            if (
+                btn.id === 'pwa-install-btn' ||
+                btn.id === 'pwa-dismiss' ||
+                btn.id === 'btn-offline-retry' ||
+                btn.classList.contains('btn-close') ||
+                btn.getAttribute('data-bs-dismiss') === 'modal' ||
+                btn.closest('.modal-footer .btn-secondary') ||
+                btn.closest('#network-offline-banner')
+            ) {
                 return;
             }
-            btn.disabled = true;
-            btn.classList.add('disabled');
+
+            if (!btn.dataset.offlineDisabled) {
+                btn.dataset.offlineDisabled = 'true';
+                btn.classList.add('offline-mutation-locked');
+                btn.setAttribute('title', 'Modifications paused in Offline Mode');
+                btn.addEventListener('click', handleOfflineActionClick, true);
+            }
         });
 
-        // Mask stats count/value
-        document.querySelectorAll('.stat-card h3, .stat-card .fw-bold').forEach(stat => {
-            if (stat.closest('.alert')) return; // skip warning text in alerts
-            if (!stat.dataset.originalText) {
-                stat.dataset.originalText = stat.textContent;
-            }
-            stat.textContent = '—';
-        });
     } else {
-        // Restore if we went back online
+        // ONLINE RESTORATION: Clean up offline banners, badges, and locks
         if (networkBanner) {
             networkBanner.remove();
         }
 
-        document.querySelectorAll('table').forEach(table => {
-            const tbody = table.querySelector('tbody');
-            if (tbody && tbody.dataset.originalHtml) {
-                tbody.innerHTML = tbody.dataset.originalHtml;
-                delete tbody.dataset.originalHtml;
-            }
-        });
+        // Remove cached indicators
+        document.querySelectorAll('.offline-badge-tag').forEach(badge => badge.remove());
 
-        document.querySelectorAll('button[data-bs-toggle="modal"], button[type="submit"], input[type="submit"]').forEach(btn => {
-            btn.disabled = false;
-            btn.classList.remove('disabled');
-        });
-
-        document.querySelectorAll('.stat-card h3, .stat-card .fw-bold').forEach(stat => {
-            if (stat.dataset.originalText) {
-                stat.textContent = stat.dataset.originalText;
-                delete stat.dataset.originalText;
-            }
+        // Restore mutation buttons
+        document.querySelectorAll('.offline-mutation-locked').forEach(btn => {
+            btn.classList.remove('offline-mutation-locked');
+            delete btn.dataset.offlineDisabled;
+            btn.removeAttribute('title');
+            btn.removeEventListener('click', handleOfflineActionClick, true);
         });
     }
 }
 
-// Window Event Listeners for real-time online/offline toggle
-window.addEventListener('online', updateOfflineUI);
-window.addEventListener('offline', updateOfflineUI);
+// Window Event Listeners for real-time online/offline transitions
+window.addEventListener('online', () => {
+    updateOfflineUI();
+    warmOfflineRoutes();
+});
+window.addEventListener('offline', () => {
+    updateOfflineUI();
+});
 
-// Run a check every 10 seconds if tab is active to detect connection state drops/recovery in real-time
+// Periodic check every 12 seconds when the tab is visible
 setInterval(() => {
     if (document.visibilityState === 'visible') {
         updateOfflineUI();
     }
-}, 10000);
+}, 12000);

@@ -22,7 +22,7 @@ function _fcm_http_post(string $url, array $headers, string $body): ?string {
             'header'        => implode("\r\n", $headers),
             'content'       => $body,
             'ignore_errors' => true,   // read response body even on 4xx/5xx
-            'timeout'       => 10,
+            'timeout'       => 3,
         ],
         'ssl' => [
             'verify_peer'      => true,

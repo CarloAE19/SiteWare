@@ -15,6 +15,8 @@ window.viewRsDetails = function(rsNo, project, remarks, status, requestor, date,
             statusEl.classList.add('bg-warning', 'text-dark');
         } else if (status === 'Approved') {
             statusEl.classList.add('bg-success');
+        } else if (status === 'Partially Approved') {
+            statusEl.classList.add('bg-warning', 'text-dark');
         } else if (status === 'Staged (Ready for Pickup)') {
             statusEl.classList.add('bg-info', 'text-dark');
         } else if (status === 'Rejected') {
@@ -45,7 +47,7 @@ window.viewRsDetails = function(rsNo, project, remarks, status, requestor, date,
         printBtn.classList.remove('d-none');
     } else {
         qrContainer.classList.add('d-none');
-        if (status === 'Approved' || status === 'PO Created' || status === 'Staged (Ready for Pickup)') {
+        if (status === 'Approved' || status === 'Partially Approved' || status === 'PO Created' || status === 'Staged (Ready for Pickup)') {
             printBtn.classList.remove('d-none');
         } else {
             printBtn.classList.add('d-none');
@@ -54,6 +56,28 @@ window.viewRsDetails = function(rsNo, project, remarks, status, requestor, date,
     
     const tbody = document.getElementById('viewRsItemsBody');
     tbody.innerHTML = ''; 
+
+    const isRequestor = window.currentUserRole === 'requestor';
+    const theadRow = document.getElementById('viewRsTableHeadRow');
+    if (theadRow) {
+        if (isRequestor) {
+            theadRow.innerHTML = `
+                <th class="text-center" style="width:110px;">Item Code</th>
+                <th class="text-center">Item Name / Notes</th>
+                <th class="text-center" style="width:90px;">Qty</th>
+                <th class="text-center d-print-none" style="width:140px;">Item Status</th>
+            `;
+        } else {
+            theadRow.innerHTML = `
+                <th class="text-center" style="width:100px;">Item Code</th>
+                <th class="text-center">Item Name / Notes</th>
+                <th class="text-center" style="width:80px;">Qty</th>
+                <th class="text-center d-print-none" style="width:130px;">Item Status</th>
+                <th class="text-center d-print-none text-primary" style="width:90px;">Stock</th>
+                <th class="text-center d-print-none text-warning" style="width:130px;">Pending</th>
+            `;
+        }
+    }
     
     try {
         const itemsJson = atob(itemsB64);
@@ -61,14 +85,35 @@ window.viewRsDetails = function(rsNo, project, remarks, status, requestor, date,
         
         if (items.length > 0) {
             items.forEach(item => {
-                const itemName = item.item_name ? item.item_name : '<span class="text-danger">Item deleted</span>';
+                const isNewItem = parseInt(item.is_new_item) === 1;
+                const newBadge = isNewItem ? `<span class="badge bg-success ms-2 shadow-sm" style="font-size: 0.65rem;"><i class="bi bi-sparkles me-1"></i>NEW ITEM</span>` : '';
+                const itemName = (item.item_name ? item.item_name : '<span class="text-danger">Item deleted</span>') + newBadge;
                 const unit = item.unit ? item.unit : '';
                 const reqQty = parseInt(item.quantity);
                 const curStock = parseInt(item.current_stock) || 0;
                 const totalPending = parseInt(item.total_pending) || 0;
+
+                // --- Per-item notes (requestor) & remarks (reviewer) ---
+                let notesAndRemarksHtml = '';
+                if (item.item_notes) {
+                    notesAndRemarksHtml += `<div class="text-muted small mt-1"><i class="bi bi-chat-left-text me-1 text-primary"></i>${item.item_notes}</div>`;
+                }
+                if (item.item_remarks) {
+                    notesAndRemarksHtml += `<div class="d-flex justify-content-center mt-1"><div class="item-remark-pill"><i class="bi bi-info-circle-fill me-1"></i><span>${item.item_remarks}</span></div></div>`;
+                }
+
+                // --- Per-item status badge ---
+                const iStatus = item.item_status || 'Pending';
+                const statusBadgeMap = { 'Pending': 'bg-warning text-dark', 'Approved': 'bg-success', 'Rejected': 'bg-danger' };
+                const statusIconMap  = { 'Pending': 'bi-hourglass-split', 'Approved': 'bi-check-circle-fill', 'Rejected': 'bi-x-circle-fill' };
+                const sBadgeClass = statusBadgeMap[iStatus] || 'bg-secondary';
+                const sIcon       = statusIconMap[iStatus]  || 'bi-question';
+                const itemStatusHtml = `<span class="badge ${sBadgeClass} shadow-sm px-2.5 py-1.5"><i class="bi ${sIcon} me-1"></i>${iStatus}</span>`;
                 
                 let stockDisplay = '';
-                if (type === 'restock') {
+                if (isNewItem) {
+                    stockDisplay = `<span class="badge bg-info text-dark fs-6 shadow-sm"><i class="bi bi-plus-circle me-1"></i>New Item (0 Stock)</span>`;
+                } else if (type === 'restock') {
                     if (curStock === 0) {
                         stockDisplay = `<span class="badge bg-danger fs-6 shadow-sm">0 (Out of Stock)</span>`;
                     } else {
@@ -132,21 +177,32 @@ window.viewRsDetails = function(rsNo, project, remarks, status, requestor, date,
                     pendingDisplay = `<span class="text-muted small fw-bold">-</span>`;
                 }
                 
+                const statusCol = `<td class="text-center align-middle d-print-none">${itemStatusHtml}</td>`;
+                const stockCols = isRequestor ? '' : `
+                    <td class="text-center align-middle d-print-none">${stockDisplay}</td>
+                    <td class="text-center align-middle d-print-none">${pendingDisplay}</td>
+                `;
+
                 tbody.innerHTML += `
                     <tr>
-                        <td class="text-muted small align-middle">${item.item_code}</td>
-                        <td class="fw-bold align-middle">${itemName}</td>
-                        <td class="text-dark fw-bold text-center align-middle fs-5">${reqQty} <span class="fs-6 fw-normal">${unit}</span></td>
-                        <td class="text-center align-middle d-print-none">${stockDisplay}</td>
-                        <td class="text-center align-middle d-print-none">${pendingDisplay}</td>
+                        <td class="text-center align-middle"><span class="item-code-badge">${item.item_code}</span></td>
+                        <td class="text-center align-middle"><div class="fw-bold text-dark">${itemName}</div>${notesAndRemarksHtml}</td>
+                        <td class="text-center align-middle">
+                            <div class="fw-bold text-dark fs-6">${reqQty}</div>
+                            <small class="text-muted text-uppercase fw-semibold" style="font-size: 0.68rem;">${unit}</small>
+                        </td>
+                        ${statusCol}
+                        ${stockCols}
                     </tr>
                 `;
             });
         } else {
-            tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted py-3">No items found.</td></tr>`;
+            const colspan = isRequestor ? 4 : 6;
+            tbody.innerHTML = `<tr><td colspan="${colspan}" class="text-center text-muted py-3">No items found.</td></tr>`;
         }
     } catch (e) {
-        tbody.innerHTML = `<tr><td colspan="5" class="text-center text-danger py-3">Error loading items.</td></tr>`;
+        const colspan = isRequestor ? 4 : 6;
+        tbody.innerHTML = `<tr><td colspan="${colspan}" class="text-center text-danger py-3">Error loading items.</td></tr>`;
     }
     
     new bootstrap.Modal(document.getElementById('viewRsModal')).show();
@@ -158,14 +214,226 @@ window.openRejectModal = function(id, rsNo) {
     new bootstrap.Modal(document.getElementById('rejectRsModal')).show();
 }
 
+// --- Approve Items Modal ---
+window.openApproveItemsModal = function(rsId, rsNo, itemsB64) {
+    document.getElementById('approveRsIdField').value = rsId;
+    document.getElementById('approveRsNoLabel').innerText = rsNo;
+
+    const list = document.getElementById('approveItemsList');
+    list.innerHTML = '<div class="text-center text-muted py-4"><i class="bi bi-hourglass-split me-2"></i>Loading items...</div>';
+
+    try {
+        const items = JSON.parse(atob(itemsB64));
+        if (!items || items.length === 0) {
+            list.innerHTML = '<div class="alert alert-warning">No items found for this requisition.</div>';
+        } else {
+            list.innerHTML = items.map((item) => {
+                const itemId   = item.item_id || '';
+                const isNewItem = parseInt(item.is_new_item) === 1;
+                const rawName  = item.item_name || item.item_code || 'Unknown Item';
+                const qty      = parseInt(item.quantity) || 0;
+                const unit     = item.unit || '';
+                const notes    = item.item_notes
+                    ? `<div class="text-muted small fst-italic mt-1"><i class="bi bi-chat-left-text me-1"></i>${item.item_notes}</div>`
+                    : '';
+
+                const newBadge = isNewItem ? `<span class="badge bg-success ms-2 shadow-sm" style="font-size:0.65rem;"><i class="bi bi-sparkles me-1"></i>NEW / UNLISTED ITEM</span>` : '';
+
+                const typoEditHtml = isNewItem ? `
+                    <div class="mt-2 p-2 bg-success-subtle rounded border border-success-subtle">
+                        <label class="form-label text-success-emphasis small fw-bold mb-1 d-flex align-items-center">
+                            <i class="bi bi-pencil-square me-1"></i>Edit Item Name (Fix typo/spelling if needed):
+                        </label>
+                        <input type="text" class="form-control form-control-sm fw-bold border-success" name="item_names[${itemId}]" value="${rawName.replace(/"/g, '&quot;')}" placeholder="Correct item name...">
+                    </div>
+                ` : '';
+
+                return `
+                <div class="card border shadow-sm mb-3 approve-item-card" data-item-id="${itemId}">
+                    <div class="card-body py-3 px-3">
+                        <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+                            <div class="flex-grow-1 me-3">
+                                <div class="fw-bold text-dark fs-6 d-flex align-items-center flex-wrap gap-1">
+                                    <span>${rawName}</span>
+                                    ${newBadge}
+                                    <span class="badge bg-light text-muted border item-decision-pill ms-auto" style="font-size:0.7rem;"><i class="bi bi-question-circle me-1"></i>Decision Required</span>
+                                </div>
+                                <div class="text-muted small mt-1">
+                                    <span class="badge bg-light text-dark border me-1">${item.item_code}</span>
+                                    <span>Quantity: <strong>${qty} ${unit}</strong></span>
+                                </div>
+                                ${notes}
+                                ${typoEditHtml}
+                            </div>
+                            <div class="btn-group btn-group-sm shadow-sm" role="group">
+                                <input type="radio" class="btn-check" name="item_statuses[${itemId}]" id="approve_${itemId}" value="Approved" required>
+                                <label class="btn btn-outline-success fw-bold px-3" for="approve_${itemId}"><i class="bi bi-check-lg me-1"></i>Approve</label>
+                                <input type="radio" class="btn-check" name="item_statuses[${itemId}]" id="reject_${itemId}" value="Rejected">
+                                <label class="btn btn-outline-danger fw-bold px-3" for="reject_${itemId}"><i class="bi bi-x-lg me-1"></i>Reject</label>
+                            </div>
+                        </div>
+                        <div class="mt-2 remark-field">
+                            <input type="text" class="form-control form-control-sm" name="item_remarks[${itemId}]" placeholder="Remark (optional)..." maxlength="255">
+                        </div>
+                    </div>
+                </div>`;
+            }).join('');
+
+            // Dynamic remark field & card styling based on approve/reject selection
+            list.querySelectorAll('input[type="radio"]').forEach(radio => {
+                radio.addEventListener('change', function() {
+                    const card = this.closest('.approve-item-card');
+                    const remarkInput = card.querySelector('.remark-field input');
+                    const pill = card.querySelector('.item-decision-pill');
+                    if (this.value === 'Rejected') {
+                        card.classList.remove('border-success-subtle');
+                        card.classList.add('border-danger-subtle');
+                        if (pill) {
+                            pill.className = 'badge bg-danger text-white shadow-sm ms-auto item-decision-pill';
+                            pill.innerHTML = '<i class="bi bi-x-circle-fill me-1"></i>Rejected';
+                        }
+                        remarkInput.classList.add('border-danger');
+                        remarkInput.placeholder = 'Reason for rejection (required)...';
+                        remarkInput.required = true;
+                    } else if (this.value === 'Approved') {
+                        card.classList.remove('border-danger-subtle');
+                        card.classList.add('border-success-subtle');
+                        if (pill) {
+                            pill.className = 'badge bg-success text-white shadow-sm ms-auto item-decision-pill';
+                            pill.innerHTML = '<i class="bi bi-check-circle-fill me-1"></i>Approved';
+                        }
+                        remarkInput.classList.remove('border-danger');
+                        remarkInput.placeholder = 'Remark (optional)...';
+                        remarkInput.required = false;
+                    }
+                });
+            });
+        }
+    } catch(e) {
+        list.innerHTML = '<div class="alert alert-danger">Error loading items. Please try again.</div>';
+    }
+
+    new bootstrap.Modal(document.getElementById('approveItemsModal')).show();
+};
+
+window.setAllItemStatuses = function(status) {
+    const radioPrefix = status === 'Approved' ? 'approve_' : 'reject_';
+    document.querySelectorAll('#approveItemsList .approve-item-card').forEach(card => {
+        const itemId = card.dataset.itemId;
+        const radio = document.getElementById(radioPrefix + itemId);
+        if (radio) {
+            radio.checked = true;
+            radio.dispatchEvent(new Event('change'));
+        }
+    });
+};
+
 window.printRSDocument = function() {
-    const printContent = document.getElementById('rsPrintArea').innerHTML;
-    const originalContent = document.body.innerHTML;
-    document.body.innerHTML = `<div style="padding: 40px; background: white;">${printContent}</div>`;
-    window.print();
-    document.body.innerHTML = originalContent;
-    window.location.reload(); 
-}
+    const printArea = document.getElementById('rsPrintArea');
+    if (!printArea) {
+        alert("Unable to find Requisition document to print.");
+        return;
+    }
+
+    const rsNo = document.getElementById('viewRsNo')?.innerText || 'RS Document';
+    const printContent = printArea.innerHTML;
+    const printWindow = window.open('', '_blank', 'width=850,height=900');
+    if (!printWindow) {
+        alert("Pop-up blocked. Please allow pop-ups for this site to print.");
+        return;
+    }
+
+    printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>${rsNo} - Approved Requisition Slip</title>
+            <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+            <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+            <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+            <style>
+                @page {
+                    size: auto;
+                    margin: 0 !important;
+                }
+                * {
+                    -webkit-print-color-adjust: exact !important;
+                    print-color-adjust: exact !important;
+                    box-sizing: border-box !important;
+                }
+                html, body {
+                    width: 100% !important;
+                    margin: 0 !important;
+                    padding: 0 !important;
+                    background: #ffffff !important;
+                    color: #212529 !important;
+                    font-family: 'Plus Jakarta Sans', Arial, sans-serif;
+                }
+                body {
+                    font-size: 0.84rem;
+                    line-height: 1.3 !important;
+                }
+                .print-wrapper {
+                    width: 100% !important;
+                    max-width: 100% !important;
+                    margin: 0 !important;
+                    padding: 6mm 8mm !important;
+                    box-sizing: border-box !important;
+                    page-break-inside: avoid;
+                }
+                .table {
+                    width: 100% !important;
+                    margin-bottom: 0.5rem !important;
+                    border-collapse: collapse !important;
+                }
+                .table-light, thead.table-light th {
+                    background-color: #f8f9fa !important;
+                    color: #212529 !important;
+                    font-weight: 700;
+                }
+                .d-print-none {
+                    display: none !important;
+                }
+                .d-print-block {
+                    display: block !important;
+                }
+                .badge {
+                    border: 1px solid #ced4da;
+                    padding: 3px 8px;
+                    border-radius: 4px;
+                }
+                .remarks-box {
+                    border: 1px solid #dee2e6;
+                    border-radius: 6px;
+                    padding: 8px 12px;
+                    background: #fdfdfd;
+                }
+                .doc-summary-card {
+                    border: 1px solid #dee2e6;
+                    border-radius: 8px;
+                    padding: 12px;
+                    background: #fbfcfd;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="print-wrapper">
+                ${printContent}
+            </div>
+            <script>
+                window.addEventListener('load', function() {
+                    setTimeout(function() {
+                        window.focus();
+                        window.print();
+                        setTimeout(function() { window.close(); }, 750);
+                    }, 350);
+                });
+            </script>
+        </body>
+        </html>
+    `);
+    printWindow.document.close();
+};
 
 if (window.rsGlobalClickListener) {
     document.body.removeEventListener('click', window.rsGlobalClickListener);
@@ -174,30 +442,35 @@ if (window.rsGlobalClickListener) {
 window.rsGlobalClickListener = function(e) {
     const container = document.getElementById('materialsContainer');
     const restockContainer = document.getElementById('restockMaterialsContainer');
+    const editContainer = document.getElementById('editMaterialsContainer');
 
     if (e.target.closest('#addMaterialBtn') && container) {
-        const firstRow = container.querySelector('.material-row');
-        const newRow = firstRow.cloneNode(true);
-        newRow.querySelector('select').value = '';
-        newRow.querySelector('input[type="number"]').value = '';
-        newRow.querySelector('.remove-row').disabled = false;
-        container.appendChild(newRow);
-        window.updateDeleteButtons(container);
+        window.appendExistingItemRow(container, false);
+    }
+
+    if (e.target.closest('#addNewMaterialBtn') && container) {
+        window.appendNewItemRow(container);
     }
 
     if (e.target.closest('#addRestockMaterialBtn') && restockContainer) {
-        const firstRow = restockContainer.querySelector('.material-row');
-        const newRow = firstRow.cloneNode(true);
-        newRow.querySelector('select').value = '';
-        newRow.querySelector('input[type="number"]').value = '';
-        newRow.querySelector('.remove-row').disabled = false;
-        restockContainer.appendChild(newRow);
-        window.updateDeleteButtons(restockContainer);
+        window.appendExistingItemRow(restockContainer, true);
+    }
+
+    if (e.target.closest('#addNewRestockMaterialBtn') && restockContainer) {
+        window.appendNewItemRow(restockContainer);
+    }
+
+    if (e.target.closest('#addEditMaterialBtn') && editContainer) {
+        window.appendExistingItemRow(editContainer, false);
+    }
+
+    if (e.target.closest('#addNewEditMaterialBtn') && editContainer) {
+        window.appendNewItemRow(editContainer);
     }
 
     if (e.target.closest('.remove-row')) {
         const rowToRemove = e.target.closest('.material-row');
-        const parentContainer = rowToRemove.closest('#materialsContainer, #restockMaterialsContainer');
+        const parentContainer = rowToRemove ? rowToRemove.closest('#materialsContainer, #restockMaterialsContainer, #editMaterialsContainer') : null;
         if (parentContainer && parentContainer.querySelectorAll('.material-row').length > 1) {
             rowToRemove.remove();
             window.updateDeleteButtons(parentContainer);
@@ -207,15 +480,557 @@ window.rsGlobalClickListener = function(e) {
 
 document.body.addEventListener('click', window.rsGlobalClickListener);
 
+// ==========================================================
+// CIMS SEARCHABLE TYPEAHEAD COMBOBOX ENGINE
+// ==========================================================
+function escapeTypeaheadHtml(str) {
+    return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function highlightTypeaheadMatch(text, query) {
+    if (!query || !query.trim()) return escapeTypeaheadHtml(text);
+    const q = query.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`(${q})`, 'gi');
+    return escapeTypeaheadHtml(text).replace(regex, '<span class="match-highlight">$1</span>');
+}
+
+window.initSearchableCombobox = function(scope = document) {
+    const selects = scope.querySelectorAll('select.item-select-control');
+    selects.forEach(select => {
+        if (select.dataset.typeaheadInit === 'true' || select.closest('.cims-typeahead-wrap')) return;
+        select.dataset.typeaheadInit = 'true';
+
+        const optionsData = Array.from(select.options)
+            .filter(opt => opt.value !== '')
+            .map(opt => ({
+                value: opt.value,
+                name: opt.getAttribute('data-name') || opt.textContent.replace(/\[.*?\]\s*/, '').replace(/\s*\(.*?\)$/, '').trim(),
+                unit: opt.getAttribute('data-unit') || '',
+                stock: opt.getAttribute('data-stock') || '',
+                category: opt.getAttribute('data-category') || 'Materials',
+                fullLabel: opt.textContent.trim()
+            }));
+
+        // Keep native select in DOM for standard form POST submission & HTML5 validity
+        select.style.position = 'absolute';
+        select.style.opacity = '0';
+        select.style.pointerEvents = 'none';
+        select.style.height = '0';
+        select.style.width = '0';
+        select.style.margin = '0';
+        select.style.padding = '0';
+        select.tabIndex = -1;
+
+        const wrap = document.createElement('div');
+        wrap.className = 'cims-typeahead-wrap';
+
+        wrap.innerHTML = `
+            <div class="input-group">
+                <span class="input-group-text bg-white text-muted border-end-0"><i class="bi bi-search"></i></span>
+                <input type="text" class="form-control fw-bold cims-typeahead-input border-start-0 border-end-0" placeholder="Type to search material by code or name..." autocomplete="off">
+                <button type="button" class="btn btn-white border border-start-0 text-muted cims-typeahead-clear d-none" title="Clear selection" tabindex="-1"><i class="bi bi-x-circle-fill"></i></button>
+                <button type="button" class="btn btn-light border text-muted cims-typeahead-toggle" tabindex="-1"><i class="bi bi-chevron-down small"></i></button>
+            </div>
+            <div class="cims-typeahead-menu d-none"></div>
+        `;
+
+        select.parentNode.insertBefore(wrap, select);
+        wrap.appendChild(select);
+
+        const input = wrap.querySelector('.cims-typeahead-input');
+        const clearBtn = wrap.querySelector('.cims-typeahead-clear');
+        const toggleBtn = wrap.querySelector('.cims-typeahead-toggle');
+        const menu = wrap.querySelector('.cims-typeahead-menu');
+
+        let currentFiltered = optionsData;
+        let activeIndex = -1;
+
+        function updateMenu(query = '') {
+            const q = query.trim().toLowerCase();
+            if (!q) {
+                currentFiltered = optionsData;
+            } else {
+                const words = q.split(/\s+/);
+                currentFiltered = optionsData.filter(item => {
+                    const searchTarget = `${item.value} ${item.name} ${item.category} ${item.unit}`.toLowerCase();
+                    return words.every(w => searchTarget.includes(w));
+                });
+            }
+
+            activeIndex = -1;
+            if (currentFiltered.length === 0) {
+                menu.innerHTML = `<div class="cims-typeahead-empty"><i class="bi bi-search me-1"></i>No matching materials found for "<strong>${escapeTypeaheadHtml(query)}</strong>"</div>`;
+            } else {
+                menu.innerHTML = currentFiltered.slice(0, 60).map((it, idx) => {
+                    const highlightedName = highlightTypeaheadMatch(it.name, query);
+                    const highlightedCode = highlightTypeaheadMatch(it.value, query);
+                    const stockBadge = it.stock !== '' ? `<span class="badge bg-success-subtle text-success border border-success-subtle small ms-1">Stock: ${it.stock} ${it.unit}</span>` : '';
+                    const catBadge = it.category ? `<span class="badge bg-light text-muted border small">${escapeTypeaheadHtml(it.category)}</span>` : '';
+
+                    return `
+                        <div class="cims-typeahead-item" data-value="${escapeTypeaheadHtml(it.value)}" data-index="${idx}">
+                            <div class="d-flex align-items-center flex-wrap gap-1">
+                                <span class="badge bg-primary-subtle text-primary border border-primary-subtle small fw-bold">[${highlightedCode}]</span>
+                                <span class="item-title">${highlightedName}</span>
+                            </div>
+                            <div class="d-flex align-items-center gap-1 mt-1 mt-sm-0">
+                                ${catBadge}
+                                ${stockBadge}
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+            menu.classList.remove('d-none');
+        }
+
+        function selectItem(val) {
+            const chosen = optionsData.find(opt => opt.value === val);
+            if (chosen) {
+                select.value = chosen.value;
+                input.value = `[${chosen.value}] ${chosen.name}`;
+                clearBtn.classList.remove('d-none');
+            } else {
+                select.value = '';
+                input.value = '';
+                clearBtn.classList.add('d-none');
+            }
+            menu.classList.add('d-none');
+            select.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+
+        // Initial sync if select had pre-selected value
+        if (select.value) {
+            selectItem(select.value);
+        }
+
+        input.addEventListener('focus', function() {
+            updateMenu(this.value.replace(/\[.*?\]\s*/, ''));
+        });
+
+        input.addEventListener('input', function() {
+            if (this.value.trim() === '') {
+                select.value = '';
+                clearBtn.classList.add('d-none');
+                select.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+            updateMenu(this.value);
+        });
+
+        input.addEventListener('keydown', function(e) {
+            const items = menu.querySelectorAll('.cims-typeahead-item');
+            if (menu.classList.contains('d-none')) {
+                if (e.key === 'ArrowDown' || e.key === 'Enter') {
+                    e.preventDefault();
+                    updateMenu(this.value);
+                    return;
+                }
+            }
+
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                if (items.length > 0) {
+                    activeIndex = (activeIndex + 1) % items.length;
+                    items.forEach((it, idx) => it.classList.toggle('active', idx === activeIndex));
+                    items[activeIndex]?.scrollIntoView({ block: 'nearest' });
+                }
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                if (items.length > 0) {
+                    activeIndex = (activeIndex - 1 + items.length) % items.length;
+                    items.forEach((it, idx) => it.classList.toggle('active', idx === activeIndex));
+                    items[activeIndex]?.scrollIntoView({ block: 'nearest' });
+                }
+            } else if (e.key === 'Enter') {
+                if (!menu.classList.contains('d-none') && activeIndex >= 0 && items[activeIndex]) {
+                    e.preventDefault();
+                    const val = items[activeIndex].getAttribute('data-value');
+                    selectItem(val);
+                } else if (currentFiltered.length === 1 && !menu.classList.contains('d-none')) {
+                    e.preventDefault();
+                    selectItem(currentFiltered[0].value);
+                }
+            } else if (e.key === 'Escape') {
+                menu.classList.add('d-none');
+            }
+        });
+
+        menu.addEventListener('mousedown', function(e) {
+            const itemEl = e.target.closest('.cims-typeahead-item');
+            if (itemEl) {
+                const val = itemEl.getAttribute('data-value');
+                selectItem(val);
+            }
+        });
+
+        clearBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            select.value = '';
+            input.value = '';
+            clearBtn.classList.add('d-none');
+            select.dispatchEvent(new Event('change', { bubbles: true }));
+            input.focus();
+            updateMenu('');
+        });
+
+        toggleBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            if (menu.classList.contains('d-none')) {
+                input.focus();
+                updateMenu(input.value.replace(/\[.*?\]\s*/, ''));
+            } else {
+                menu.classList.add('d-none');
+            }
+        });
+    });
+};
+
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('.cims-typeahead-wrap')) {
+        document.querySelectorAll('.cims-typeahead-menu').forEach(m => m.classList.add('d-none'));
+    }
+});
+
+// Auto-initialize searchable combobox immediately upon script execution & DOM ready
+if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", () => window.initSearchableCombobox(document));
+} else {
+    window.initSearchableCombobox(document);
+}
+
+// Auto-initialize when modals are shown
+document.addEventListener('show.bs.modal', function(e) {
+    if (e.target && (e.target.id === 'rsModal' || e.target.id === 'restockModal' || e.target.id === 'editRsModal')) {
+        setTimeout(() => window.initSearchableCombobox(e.target), 20);
+    }
+});
+
+document.addEventListener('shown.bs.modal', function(e) {
+    if (e.target && (e.target.id === 'rsModal' || e.target.id === 'restockModal' || e.target.id === 'editRsModal')) {
+        window.initSearchableCombobox(e.target);
+    }
+});
+
+// Function to append an existing inventory material row (works even if all standard rows were deleted)
+window.appendExistingItemRow = function(container, isRestock = false) {
+    if (!container) return null;
+
+    const invTemplate = document.getElementById('jsInventoryOptionsTemplate');
+    let optionsHtml = invTemplate ? invTemplate.innerHTML : '';
+    if (!optionsHtml) {
+        const existingSelect = document.querySelector('select[name="items[]"]');
+        if (existingSelect) {
+            optionsHtml = existingSelect.innerHTML;
+        } else {
+            optionsHtml = '<option value="">Select Material from Inventory...</option>';
+        }
+    }
+
+    const placeholderText = isRestock 
+        ? 'Optional: Notes for this item (e.g. target quantity, reason for restock)...' 
+        : 'Optional: Notes for this item (e.g. specific brand, size, color, purpose)...';
+
+    const row = document.createElement('div');
+    row.className = 'material-row mb-2.5 bg-white p-3 rounded border shadow-sm mx-0';
+    row.innerHTML = `
+        <input type="hidden" name="is_new_items[]" value="0">
+        <input type="hidden" name="new_item_names[]" value="">
+        <input type="hidden" name="new_categories[]" value="">
+        <input type="hidden" name="new_units[]" value="">
+        
+        <div class="d-flex justify-content-between align-items-center mb-2 pb-1 border-bottom">
+            <span class="badge bg-light text-dark border small fw-bold row-index-badge"><i class="bi bi-box me-1 text-primary"></i>Item</span>
+            <span class="small text-muted fst-italic item-stock-hint" style="font-size: 0.75rem;"></span>
+        </div>
+
+        <div class="row g-2">
+            <div class="col-12 col-md-8">
+                <label class="form-label small fw-bold text-muted mb-1">Select Material <span class="text-danger">*</span></label>
+                <select class="form-select fw-bold text-dark item-select-control" name="items[]" required>
+                    ${optionsHtml}
+                </select>
+            </div>
+            <div class="col-12 col-md-4">
+                <label class="form-label small fw-bold text-muted mb-1">Quantity <span class="text-danger">*</span></label>
+                <div class="input-group">
+                    <input type="number" class="form-control fw-bold text-center text-primary item-qty-input" name="quantities[]" placeholder="Qty" required min="1" step="any">
+                    <span class="input-group-text bg-light text-muted small fw-bold item-unit-badge" style="min-width: 55px; font-size: 0.72rem;">Unit</span>
+                </div>
+            </div>
+            <div class="col-12 mt-2">
+                <input type="text" class="form-control form-control-sm text-muted" name="item_notes[]" placeholder="${placeholderText}" maxlength="255">
+            </div>
+        </div>
+        <div class="d-flex justify-content-end mt-2 pt-2 border-top">
+            <button type="button" class="btn btn-sm btn-outline-danger remove-row" aria-label="Remove item" title="Remove item">
+                <i class="bi bi-trash3 me-1" aria-hidden="true"></i>Remove Item
+            </button>
+        </div>
+    `;
+    container.appendChild(row);
+    window.initSearchableCombobox(row);
+    window.updateDeleteButtons(container);
+    return row;
+};
+
+// Sync unit badge next to quantity field when an item is selected & check duplicates
+window.syncRowUnitBadge = function(selectEl) {
+    if (!selectEl) return;
+    const row = selectEl.closest('.material-row');
+    if (!row) return;
+    const unitBadge = row.querySelector('.item-unit-badge');
+    const selectedOption = selectEl.options[selectEl.selectedIndex];
+    const unit = selectedOption ? (selectedOption.getAttribute('data-unit') || '') : '';
+    
+    if (unitBadge) {
+        if (unit) {
+            unitBadge.textContent = unit;
+            unitBadge.classList.remove('text-muted');
+            unitBadge.classList.add('text-primary');
+        } else {
+            unitBadge.textContent = 'Unit';
+            unitBadge.classList.remove('text-primary');
+            unitBadge.classList.add('text-muted');
+        }
+    }
+
+    // Check for duplicate material selections in the same container (HCI Error Prevention)
+    const container = row.closest('#materialsContainer, #restockMaterialsContainer, #editMaterialsContainer');
+    if (container && selectEl.value) {
+        const selects = container.querySelectorAll('select[name="items[]"]');
+        let count = 0;
+        selects.forEach(s => {
+            if (s.value && s.value === selectEl.value) count++;
+        });
+
+        if (count > 1) {
+            row.classList.add('border-warning');
+            let dupWarning = row.querySelector('.dup-warning-pill');
+            if (!dupWarning) {
+                dupWarning = document.createElement('span');
+                dupWarning.className = 'badge bg-warning text-dark small fw-bold dup-warning-pill ms-2';
+                dupWarning.innerHTML = '<i class="bi bi-exclamation-circle me-1"></i>Duplicate Item';
+                row.querySelector('.row-index-badge')?.parentElement.appendChild(dupWarning);
+            }
+        } else {
+            row.classList.remove('border-warning');
+            row.querySelector('.dup-warning-pill')?.remove();
+        }
+    }
+};
+
+document.addEventListener('change', function(e) {
+    if (e.target && e.target.matches('select[name="items[]"]')) {
+        window.syncRowUnitBadge(e.target);
+    }
+});
+
+window.appendNewItemRow = function(container) {
+    if (!container) return null;
+
+    const catTemplate = document.getElementById('jsCategoryOptionsTemplate');
+    const unitTemplate = document.getElementById('jsUnitOptionsTemplate');
+
+    const catHtml = catTemplate ? catTemplate.innerHTML : '<option value="Materials">Materials</option>';
+    const unitHtml = unitTemplate ? unitTemplate.innerHTML : '<option value="Pieces">Pieces</option>';
+
+    const row = document.createElement('div');
+    row.className = 'material-row new-item-row mb-2.5 bg-white p-3 rounded border border-success shadow-sm mx-0';
+    row.innerHTML = `
+        <input type="hidden" name="is_new_items[]" value="1">
+        <input type="hidden" name="items[]" value="">
+        <div class="d-flex justify-content-between align-items-center mb-2 pb-1 border-bottom">
+            <span class="badge bg-success shadow-sm row-index-badge"><i class="bi bi-plus-circle me-1"></i>New Item / Unlisted Material</span>
+            <button type="button" class="btn btn-sm btn-outline-danger remove-row"><i class="bi bi-trash3 me-1"></i> Remove</button>
+        </div>
+        <div class="row g-2">
+            <div class="col-12 col-md-5">
+                <label class="form-label small fw-bold text-muted mb-1">Item Name <span class="text-danger">*</span></label>
+                <input type="text" class="form-control form-control-sm fw-bold" name="new_item_names[]" placeholder="e.g. Solar Panel Mounting Bracket" required>
+            </div>
+            <div class="col-12 col-sm-6 col-md-3">
+                <label class="form-label small fw-bold text-muted mb-1">Category <span class="text-danger">*</span></label>
+                <select class="form-select form-select-sm fw-bold" name="new_categories[]" required>
+                    ${catHtml}
+                </select>
+            </div>
+            <div class="col-6 col-sm-3 col-md-2">
+                <label class="form-label small fw-bold text-muted mb-1">Unit <span class="text-danger">*</span></label>
+                <select class="form-select form-select-sm fw-bold" name="new_units[]" required>
+                    ${unitHtml}
+                </select>
+            </div>
+            <div class="col-6 col-sm-3 col-md-2">
+                <label class="form-label small fw-bold text-muted mb-1">Qty <span class="text-danger">*</span></label>
+                <input type="number" class="form-control form-control-sm fw-bold text-center text-primary" name="quantities[]" placeholder="Qty" required min="1" step="any">
+            </div>
+        </div>
+        <div class="mt-2">
+            <input type="text" class="form-control form-control-sm text-muted" name="item_notes[]" placeholder="Optional: Notes for this item (e.g. brand, specs)..." maxlength="255">
+        </div>
+    `;
+    container.appendChild(row);
+    window.updateDeleteButtons(container);
+    return row;
+};
+
 window.updateDeleteButtons = function(container) {
     if (!container) return;
     const rows = container.querySelectorAll('.material-row');
-    if (rows.length === 1) {
-        rows[0].querySelector('.remove-row').disabled = true;
-    } else {
-        rows.forEach(row => row.querySelector('.remove-row').disabled = false);
+    
+    // Update live item count badge in the modal card header
+    const modal = container.closest('.modal');
+    if (modal) {
+        const countBadge = modal.querySelector('.material-count-badge');
+        if (countBadge) {
+            countBadge.textContent = `${rows.length} ${rows.length === 1 ? 'Item' : 'Items'}`;
+        }
     }
-}
+
+    rows.forEach((row, index) => {
+        // Update item index label for standard rows
+        if (!row.classList.contains('new-item-row')) {
+            const indexBadge = row.querySelector('.row-index-badge');
+            if (indexBadge) {
+                indexBadge.innerHTML = `<i class="bi bi-box me-1 text-primary"></i>Item #${index + 1}`;
+            }
+        }
+
+        const btn = row.querySelector('.remove-row');
+        if (btn) {
+            btn.disabled = (rows.length === 1);
+        }
+    });
+};
+
+// Form submission feedback and double-click prevention (HCI Usability Principle)
+document.addEventListener('DOMContentLoaded', function() {
+    ['rsForm', 'restockForm', 'editRsForm'].forEach(formId => {
+        const form = document.getElementById(formId);
+        if (form) {
+            form.addEventListener('submit', function(e) {
+                const submitBtn = this.querySelector('button[type="submit"]');
+                if (submitBtn && !submitBtn.disabled) {
+                    submitBtn.disabled = true;
+                    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Submitting...';
+                }
+            });
+        }
+    });
+});
+
+// --- EDIT & RESUBMIT REQUISITION MODAL ---
+window.openEditRsModal = function(rsId, rsNo, project, urgency, remarks, itemsB64, type) {
+    const idField = document.getElementById('editRsIdField');
+    const label = document.getElementById('editRsNoLabel');
+    const input = document.getElementById('editRsNoInput');
+    const urg = document.getElementById('editRsUrgency');
+    const proj = document.getElementById('editRsProject');
+    const rem = document.getElementById('editRsRemarks');
+    const container = document.getElementById('editMaterialsContainer');
+
+    if (idField) idField.value = rsId;
+    if (label) label.innerText = rsNo;
+    if (input) input.value = rsNo;
+    if (urg) urg.value = urgency || 'Normal';
+    if (proj) proj.value = project || '';
+    if (rem) rem.value = remarks || '';
+
+    if (container) {
+        container.innerHTML = '';
+        try {
+            const items = JSON.parse(atob(itemsB64));
+            if (items && items.length > 0) {
+                const catTemplate = document.getElementById('jsCategoryOptionsTemplate');
+                const unitTemplate = document.getElementById('jsUnitOptionsTemplate');
+                const catHtml = catTemplate ? catTemplate.innerHTML : '<option value="Materials">Materials</option>';
+                const unitHtml = unitTemplate ? unitTemplate.innerHTML : '<option value="Pieces">Pieces</option>';
+
+                items.forEach(item => {
+                    const isNew = parseInt(item.is_new_item) === 1;
+                    const qty = parseInt(item.quantity) || 1;
+                    const note = item.item_notes || '';
+
+                    if (isNew) {
+                        const row = document.createElement('div');
+                        row.className = 'material-row new-item-row mb-2 bg-white p-3 rounded border border-success shadow-sm mx-0';
+                        const safeName = (item.item_name || '').replace(/"/g, '&quot;');
+                        const safeNote = note.replace(/"/g, '&quot;');
+
+                        row.innerHTML = `
+                            <input type="hidden" name="is_new_items[]" value="1">
+                            <input type="hidden" name="items[]" value="">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="badge bg-success shadow-sm"><i class="bi bi-plus-circle me-1"></i> New Item / Unlisted Material</span>
+                                <button type="button" class="btn btn-sm btn-outline-danger remove-row"><i class="bi bi-trash3 me-1"></i> Remove</button>
+                            </div>
+                            <div class="row g-2">
+                                <div class="col-md-5">
+                                    <label class="form-label small fw-bold text-muted mb-1">Item Name <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control form-control-sm fw-bold" name="new_item_names[]" value="${safeName}" placeholder="e.g. Solar Panel Mounting Bracket" required>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label small fw-bold text-muted mb-1">Category <span class="text-danger">*</span></label>
+                                    <select class="form-select form-select-sm fw-bold new-cat-select" name="new_categories[]" required>
+                                        ${catHtml}
+                                    </select>
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small fw-bold text-muted mb-1">Unit <span class="text-danger">*</span></label>
+                                    <select class="form-select form-select-sm fw-bold new-unit-select" name="new_units[]" required>
+                                        ${unitHtml}
+                                    </select>
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small fw-bold text-muted mb-1">Qty <span class="text-danger">*</span></label>
+                                    <input type="number" class="form-control form-control-sm fw-bold text-center text-primary" name="quantities[]" value="${qty}" required min="1">
+                                </div>
+                            </div>
+                            <div class="mt-2">
+                                <input type="text" class="form-control form-control-sm text-muted" name="item_notes[]" value="${safeNote}" placeholder="Optional: Notes for this item..." maxlength="255">
+                            </div>
+                        `;
+                        container.appendChild(row);
+                        if (item.new_category) {
+                            const catSel = row.querySelector('.new-cat-select');
+                            if (catSel) catSel.value = item.new_category;
+                        }
+                        if (item.new_unit || item.unit) {
+                            const unitSel = row.querySelector('.new-unit-select');
+                            if (unitSel) unitSel.value = item.new_unit || item.unit;
+                        }
+                    } else {
+                        const row = window.appendExistingItemRow(container, false);
+                        if (row) {
+                            const select = row.querySelector('select[name="items[]"]');
+                            if (select) {
+                                select.value = item.item_code;
+                                select.dispatchEvent(new Event('change', { bubbles: true }));
+                                const typeaheadInput = row.querySelector('.cims-typeahead-input');
+                                const clearBtn = row.querySelector('.cims-typeahead-clear');
+                                const opt = select.querySelector(`option[value="${item.item_code}"]`);
+                                if (typeaheadInput && opt) {
+                                    typeaheadInput.value = opt.textContent.trim();
+                                    if (clearBtn) clearBtn.classList.remove('d-none');
+                                }
+                            }
+                            const qtyInput = row.querySelector('input[name="quantities[]"]');
+                            if (qtyInput) qtyInput.value = qty;
+                            const notesInput = row.querySelector('input[name="item_notes[]"]');
+                            if (notesInput) notesInput.value = note;
+                        }
+                    }
+                });
+            }
+        } catch(e) {
+            console.error('Error populating edit RS items:', e);
+            container.innerHTML = '<div class="alert alert-danger py-2">Error parsing item list.</div>';
+        }
+        window.updateDeleteButtons(container);
+    }
+
+    new bootstrap.Modal(document.getElementById('editRsModal')).show();
+};
 
 // 5. COLUMN TOGGLE ENGINE & PAGINATION
 function initializeRequisitionsPage() {
@@ -239,16 +1054,16 @@ function initializeRequisitionsPage() {
         });
     });
 
-    // --- SEARCH & PAGINATION LOGIC ---
-    if (!table || table.parentElement.querySelector('.pagination-wrapper')) return;
-
-    const allRows = Array.from(table.querySelectorAll('tbody .rs-row'));
+    const allRows = Array.from(table ? table.querySelectorAll('tbody .rs-row') : []);
     let filteredRows = [...allRows];
-    const rowsPerPage = 10;
-    let currentPage = 1;
 
-    const paginationWrapper = document.createElement('div');
-    paginationWrapper.className = 'd-flex justify-content-between align-items-center p-3 bg-white border-top pagination-wrapper';
+    // --- SEARCH & PAGINATION LOGIC ---
+    if (table && !table.parentElement.querySelector('.pagination-wrapper')) {
+        const rowsPerPage = 10;
+        let currentPage = 1;
+
+        const paginationWrapper = document.createElement('div');
+        paginationWrapper.className = 'd-flex justify-content-between align-items-center p-3 bg-white border-top pagination-wrapper';
     
     const infoText = document.createElement('span'); 
     infoText.className = 'text-muted small fw-bold';
@@ -278,9 +1093,45 @@ function initializeRequisitionsPage() {
         const start = (currentPage - 1) * rowsPerPage; 
         const end = start + rowsPerPage;
 
-        allRows.forEach(row => row.style.display = 'none');
+        allRows.forEach(row => {
+            row.classList.add('d-none', 'rs-row-hidden');
+            row.style.setProperty('display', 'none', 'important');
+        });
         const rowsToShow = filteredRows.slice(start, end);
-        rowsToShow.forEach(row => row.style.display = '');
+        rowsToShow.forEach(row => {
+            row.classList.remove('d-none', 'rs-row-hidden');
+            row.style.removeProperty('display');
+        });
+
+        const tbody = table.querySelector('tbody');
+        let emptyRow = tbody ? tbody.querySelector('.rs-empty-row') : null;
+        if (filteredRows.length === 0) {
+            if (!emptyRow && tbody) {
+                emptyRow = document.createElement('tr');
+                emptyRow.className = 'rs-empty-row text-center';
+                emptyRow.innerHTML = `
+                    <td colspan="7" class="py-5 text-muted">
+                        <div class="py-3">
+                            <i class="bi bi-inbox fs-1 d-block mb-2 text-secondary opacity-50"></i>
+                            <h6 class="fw-bold text-dark">No requisitions found</h6>
+                            <p class="small text-muted mb-2">No records match your active filter or search keyword.</p>
+                            <button type="button" class="btn btn-sm btn-outline-primary fw-bold rs-reset-filter-btn px-3">
+                                <i class="bi bi-arrow-counterclockwise me-1"></i>Reset Filter
+                            </button>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(emptyRow);
+                emptyRow.querySelector('.rs-reset-filter-btn')?.addEventListener('click', () => {
+                    if (window.resetAllRsFilters) {
+                        window.resetAllRsFilters();
+                    }
+                });
+            }
+            if (emptyRow) emptyRow.style.display = '';
+        } else if (emptyRow) {
+            emptyRow.style.display = 'none';
+        }
 
         const showingEnd = Math.min(end, filteredRows.length);
         const showingStart = filteredRows.length > 0 ? start + 1 : 0;
@@ -292,29 +1143,168 @@ function initializeRequisitionsPage() {
         nextBtn.disabled = currentPage === totalPages || totalPages === 0;
     }
 
-    function filterData() {
-        const term = searchInput ? searchInput.value.toLowerCase() : '';
+    let currentStatusFilter = 'all';
+    const filterTiles = document.querySelectorAll('.rs-filter-tile');
+    const requestorSelect = document.getElementById('filterRsRequestor');
+    const projectSelect = document.getElementById('filterRsProject');
+    const statusSelect = document.getElementById('filterRsStatus');
+    const urgencySelect = document.getElementById('filterRsUrgency');
+    const dateInput = document.getElementById('filterRsDate');
+    const activeBadge = document.getElementById('activeRsFilterBadge');
+
+    window.filterRsTable = function() {
+        const term = searchInput ? searchInput.value.toLowerCase().trim() : '';
+        const requestorVal = requestorSelect ? requestorSelect.value : 'all';
+        const projectVal = projectSelect ? projectSelect.value : 'all';
+        const statusVal = statusSelect ? statusSelect.value : 'all';
+        const urgencyVal = urgencySelect ? urgencySelect.value : 'all';
+        const dateVal = dateInput ? dateInput.value : '';
 
         filteredRows = allRows.filter(row => {
-            const no = row.querySelector('.rs-no').textContent.toLowerCase();
-            const proj = row.querySelector('.rs-project').textContent.toLowerCase();
-            return no.includes(term) || proj.includes(term);
+            const no = (row.querySelector('.rs-no')?.textContent || '').toLowerCase();
+            const proj = (row.getAttribute('data-project') || row.querySelector('.rs-project')?.textContent || '').toLowerCase();
+            const req = (row.getAttribute('data-requestor-name') || row.querySelector('.rs-requestor')?.textContent || '').toLowerCase();
+            const rawStatus = (row.getAttribute('data-status') || row.querySelector('.col-status')?.textContent || '').trim();
+            const rawUrgency = (row.getAttribute('data-urgency') || row.querySelector('.col-urgency')?.textContent || '').trim();
+            const rawDate = row.getAttribute('data-created-date') || '';
+
+            // Search Keyword
+            const matchesSearch = !term || no.includes(term) || proj.includes(term) || req.includes(term);
+
+            // KPI Stat Tile Filter
+            let matchesTileStatus = true;
+            if (currentStatusFilter === 'pending') {
+                matchesTileStatus = (rawStatus === 'Pending Approval');
+            } else if (currentStatusFilter === 'approved') {
+                matchesTileStatus = ['Approved', 'Partially Approved', 'PO Created', 'Staged (Ready for Pickup)', 'Released'].includes(rawStatus);
+            }
+
+            // Advanced Dropdown Filters
+            let matchesRequestor = true;
+            if (requestorVal === 'me') {
+                const youBadge = row.querySelector('.col-requestor .badge');
+                matchesRequestor = (youBadge !== null);
+            } else if (requestorVal !== 'all') {
+                matchesRequestor = (req === requestorVal.toLowerCase());
+            }
+
+            const matchesProject = (projectVal === 'all') || (proj === projectVal.toLowerCase());
+            const matchesStatus = (statusVal === 'all') || (rawStatus === statusVal);
+            const matchesUrgency = (urgencyVal === 'all') || (rawUrgency === urgencyVal);
+            const matchesDate = !dateVal || (rawDate === dateVal);
+
+            return matchesSearch && matchesTileStatus && matchesRequestor && matchesProject && matchesStatus && matchesUrgency && matchesDate;
         });
+
+        // Update Active Filter Badge Count
+        let activeFilterCount = 0;
+        if (requestorVal !== 'all') activeFilterCount++;
+        if (projectVal !== 'all') activeFilterCount++;
+        if (statusVal !== 'all') activeFilterCount++;
+        if (urgencyVal !== 'all') activeFilterCount++;
+        if (dateVal !== '') activeFilterCount++;
+
+        if (activeBadge) {
+            if (activeFilterCount > 0) {
+                activeBadge.innerText = activeFilterCount;
+                activeBadge.classList.remove('d-none');
+            } else {
+                activeBadge.classList.add('d-none');
+            }
+        }
 
         currentPage = 1;
         updatePagination();
-    }
+    };
 
-    if (searchInput) searchInput.addEventListener('input', filterData);
+    window.resetAllRsFilters = function() {
+        if (searchInput) searchInput.value = '';
+        if (requestorSelect) requestorSelect.value = 'all';
+        if (projectSelect) projectSelect.value = 'all';
+        if (statusSelect) statusSelect.value = 'all';
+        if (urgencySelect) urgencySelect.value = 'all';
+        if (dateInput) dateInput.value = '';
+
+        currentStatusFilter = 'all';
+        filterTiles.forEach(t => {
+            if ((t.getAttribute('data-filter') || 'all') === 'all') {
+                t.classList.add('active-filter');
+            } else {
+                t.classList.remove('active-filter');
+            }
+        });
+
+        window.filterRsTable();
+    };
+
+    filterTiles.forEach(tile => {
+        tile.addEventListener('click', function() {
+            const targetFilter = this.getAttribute('data-filter') || 'all';
+            
+            // If already selected, clicking it again resets to 'all'
+            if (currentStatusFilter === targetFilter && targetFilter !== 'all') {
+                currentStatusFilter = 'all';
+            } else {
+                currentStatusFilter = targetFilter;
+            }
+
+            // Sync active classes
+            filterTiles.forEach(t => {
+                const f = t.getAttribute('data-filter') || 'all';
+                if (f === currentStatusFilter) {
+                    t.classList.add('active-filter');
+                } else {
+                    t.classList.remove('active-filter');
+                }
+            });
+
+            window.filterRsTable();
+        });
+
+        // Accessibility: Keyboard Enter / Space support
+        tile.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                this.click();
+            }
+        });
+    });
+
+    if (searchInput) searchInput.addEventListener('input', window.filterRsTable);
+    if (requestorSelect) requestorSelect.addEventListener('change', window.filterRsTable);
+    if (projectSelect) projectSelect.addEventListener('change', window.filterRsTable);
+    if (statusSelect) statusSelect.addEventListener('change', window.filterRsTable);
+    if (urgencySelect) urgencySelect.addEventListener('change', window.filterRsTable);
+    if (dateInput) dateInput.addEventListener('change', window.filterRsTable);
 
     prevBtn.addEventListener('click', () => { if (currentPage > 1) { currentPage--; updatePagination(); } });
     nextBtn.addEventListener('click', () => { const totalPages = Math.ceil(filteredRows.length / rowsPerPage); if (currentPage < totalPages) { currentPage++; updatePagination(); } });
 
-    updatePagination();
+        updatePagination();
+    }
 
-    // Check URL parameters for shortcut auto-open modals
+    // Check URL parameters for shortcut search and auto-open modals
     const urlParams = new URLSearchParams(window.location.search);
+    const searchTerm = urlParams.get('search') || urlParams.get('q');
+    const autoOpenRs = urlParams.get('rs_no') || urlParams.get('auto_open');
     const action = urlParams.get('action');
+
+    if (searchTerm && searchInput) {
+        searchInput.value = searchTerm;
+        if (typeof window.filterRsTable === 'function') window.filterRsTable();
+    }
+
+    if (autoOpenRs) {
+        const targetRow = allRows.find(r => {
+            const no = r.querySelector('.rs-no')?.textContent.trim().toLowerCase();
+            return no === autoOpenRs.trim().toLowerCase();
+        });
+        if (targetRow) {
+            const viewBtn = targetRow.querySelector('button[title="View Details"]');
+            if (viewBtn) viewBtn.click();
+        }
+    }
+
     if (action === 'new') {
         const rsModalEl = document.getElementById('rsModal');
         if (rsModalEl) {
@@ -325,6 +1315,527 @@ function initializeRequisitionsPage() {
         if (restockModalEl) {
             new bootstrap.Modal(restockModalEl).show();
         }
+    }
+
+    // --- CREATE RS FORM AJAX SUBMISSION ---
+    const rsForm = document.getElementById('rsForm');
+    const rsModalEl = document.getElementById('rsModal');
+
+    if (rsForm) {
+        rsForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const submitBtn = document.getElementById('rsSubmitBtn');
+            const originalText = submitBtn ? submitBtn.innerHTML : '<i class="bi bi-send me-2"></i>Submit Request';
+
+            if (!rsForm.checkValidity()) {
+                rsForm.reportValidity();
+                return;
+            }
+
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Submitting...';
+            }
+
+            try {
+                const formData = new FormData(rsForm);
+                const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+                const headers = { 'X-Requested-With': 'XMLHttpRequest' };
+                if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
+
+                const response = await fetch('process/process.php', {
+                    method: 'POST',
+                    body: formData,
+                    headers: headers
+                });
+
+                const rawText = await response.text();
+                let result;
+                try {
+                    result = JSON.parse(rawText);
+                } catch (jsonErr) {
+                    console.error('Non-JSON server response in rsForm:', rawText);
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = rawText;
+                    const cleanText = (tempDiv.textContent || tempDiv.innerText || rawText).trim();
+                    throw new Error(cleanText.substring(0, 250) || 'Server returned an invalid response.');
+                }
+
+                const isSuccess = result.status === 'success' || result.success === true || (result.status && result.status.toLowerCase() === 'ok');
+
+                if (isSuccess) {
+                    const modalInstance = bootstrap.Modal.getInstance(rsModalEl);
+                    if (modalInstance) modalInstance.hide();
+
+                    if (typeof Swal !== 'undefined') {
+                        await Swal.fire({
+                            icon: 'success',
+                            title: 'Requisition Created!',
+                            text: result.message || 'Requisition submitted successfully.',
+                            timer: 2000,
+                            showConfirmButton: false
+                        });
+                    }
+                    window.location.reload();
+                } else {
+                    throw new Error(result.message || 'Failed to submit requisition.');
+                }
+            } catch (err) {
+                console.error('Error submitting RS:', err);
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Submission Failed',
+                        text: err.message || 'An error occurred while creating the requisition.'
+                    });
+                } else {
+                    alert(err.message || 'An error occurred while creating the requisition.');
+                }
+            } finally {
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalText;
+                }
+            }
+        });
+    }
+
+    if (rsModalEl) {
+        rsModalEl.addEventListener('shown.bs.modal', () => {
+            const projSelect = rsModalEl.querySelector('select[name="project_name"]');
+            if (projSelect) projSelect.focus();
+        });
+        rsModalEl.addEventListener('hidden.bs.modal', () => {
+            const container = document.getElementById('materialsContainer');
+            if (container) {
+                // Keep only the first template row and reset its values
+                const rows = container.querySelectorAll('.material-row');
+                rows.forEach((row, idx) => {
+                    if (idx > 0) row.remove();
+                    else {
+                        row.querySelectorAll('input, select').forEach(el => {
+                            if (el.type !== 'hidden') el.value = '';
+                        });
+                    }
+                });
+                window.updateDeleteButtons(container);
+            }
+            if (rsForm) {
+                rsForm.reset();
+                const rsNoInput = rsForm.querySelector('input[name="rs_no"]');
+                if (rsNoInput) {
+                    rsNoInput.value = 'RS-' + new Date().getFullYear() + '-' + Math.floor(1000 + Math.random() * 9000);
+                }
+            }
+            const submitBtn = document.getElementById('rsSubmitBtn');
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="bi bi-send me-2"></i>Submit Request';
+            }
+        });
+    }
+
+    // --- RESTOCK RS FORM AJAX SUBMISSION ---
+    const restockForm = document.getElementById('restockForm');
+    const restockModalEl = document.getElementById('restockModal');
+
+    if (restockForm) {
+        restockForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const submitBtn = document.getElementById('restockSubmitBtn');
+            const originalText = submitBtn ? submitBtn.innerHTML : '<i class="bi bi-send me-2"></i>Submit Restock Request';
+
+            if (!restockForm.checkValidity()) {
+                restockForm.reportValidity();
+                return;
+            }
+
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Submitting...';
+            }
+
+            try {
+                const formData = new FormData(restockForm);
+                const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+                const headers = { 'X-Requested-With': 'XMLHttpRequest' };
+                if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
+
+                const response = await fetch('process/process.php', {
+                    method: 'POST',
+                    body: formData,
+                    headers: headers
+                });
+
+                const rawText = await response.text();
+                let result;
+                try {
+                    result = JSON.parse(rawText);
+                } catch (jsonErr) {
+                    console.error('Non-JSON server response in restockForm:', rawText);
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = rawText;
+                    const cleanText = (tempDiv.textContent || tempDiv.innerText || rawText).trim();
+                    throw new Error(cleanText.substring(0, 250) || 'Server returned an invalid response.');
+                }
+
+                const isSuccess = result.status === 'success' || result.success === true || (result.status && result.status.toLowerCase() === 'ok');
+
+                if (isSuccess) {
+                    const modalInstance = bootstrap.Modal.getInstance(restockModalEl);
+                    if (modalInstance) modalInstance.hide();
+
+                    if (typeof Swal !== 'undefined') {
+                        await Swal.fire({
+                            icon: 'success',
+                            title: 'Restock Request Created!',
+                            text: result.message || 'Restock request submitted successfully.',
+                            timer: 2000,
+                            showConfirmButton: false
+                        });
+                    }
+                    window.location.reload();
+                } else {
+                    throw new Error(result.message || 'Failed to submit restock request.');
+                }
+            } catch (err) {
+                console.error('Error submitting restock RS:', err);
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Submission Failed',
+                        text: err.message || 'An error occurred while creating restock request.'
+                    });
+                } else {
+                    alert(err.message || 'An error occurred while creating restock request.');
+                }
+            } finally {
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalText;
+                }
+            }
+        });
+    }
+
+    if (restockModalEl) {
+        restockModalEl.addEventListener('hidden.bs.modal', () => {
+            const container = document.getElementById('restockMaterialsContainer');
+            if (container) {
+                const rows = container.querySelectorAll('.material-row');
+                rows.forEach((row, idx) => {
+                    if (idx > 0) row.remove();
+                    else {
+                        row.querySelectorAll('input, select').forEach(el => {
+                            if (el.type !== 'hidden') el.value = '';
+                        });
+                    }
+                });
+                window.updateDeleteButtons(container);
+            }
+            if (restockForm) {
+                restockForm.reset();
+                const rsNoInput = restockForm.querySelector('input[name="rs_no"]');
+                if (rsNoInput) {
+                    rsNoInput.value = 'RS-' + new Date().getFullYear() + '-' + Math.floor(1000 + Math.random() * 9000);
+                }
+            }
+            const submitBtn = document.getElementById('restockSubmitBtn');
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="bi bi-send me-2"></i>Submit Restock Request';
+            }
+        });
+    }
+
+    // --- EDIT RS FORM AJAX SUBMISSION ---
+    const editForm = document.getElementById('editRsForm');
+    const editModalEl = document.getElementById('editRsModal');
+
+    if (editForm) {
+        editForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const submitBtn = document.getElementById('editRsSubmitBtn');
+            const originalText = submitBtn ? submitBtn.innerHTML : '<i class="bi bi-check2-circle me-2"></i>Save &amp; Resubmit';
+
+            if (!editForm.checkValidity()) {
+                editForm.reportValidity();
+                return;
+            }
+
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Saving...';
+            }
+
+            try {
+                const formData = new FormData(editForm);
+                const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+                const headers = { 'X-Requested-With': 'XMLHttpRequest' };
+                if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
+
+                const response = await fetch('process/process.php', {
+                    method: 'POST',
+                    body: formData,
+                    headers: headers
+                });
+
+                const rawText = await response.text();
+                let result;
+                try {
+                    result = JSON.parse(rawText);
+                } catch (jsonErr) {
+                    console.error('Non-JSON server response in editRsForm:', rawText);
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = rawText;
+                    const cleanText = (tempDiv.textContent || tempDiv.innerText || rawText).trim();
+                    throw new Error(cleanText.substring(0, 250) || 'Server returned an invalid response.');
+                }
+
+                const isSuccess = result.status === 'success' || result.success === true || (result.status && result.status.toLowerCase() === 'ok');
+
+                if (isSuccess) {
+                    const modalInstance = bootstrap.Modal.getInstance(editModalEl);
+                    if (modalInstance) modalInstance.hide();
+
+                    if (typeof Swal !== 'undefined') {
+                        await Swal.fire({
+                            icon: 'success',
+                            title: 'Requisition Updated!',
+                            text: result.message || 'Requisition details updated successfully.',
+                            timer: 2000,
+                            showConfirmButton: false
+                        });
+                    }
+                    window.location.reload();
+                } else {
+                    throw new Error(result.message || 'Failed to update requisition.');
+                }
+            } catch (err) {
+                console.error('Error submitting edit RS:', err);
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Update Failed',
+                        text: err.message || 'An error occurred while updating the requisition.'
+                    });
+                } else {
+                    alert(err.message || 'An error occurred while updating the requisition.');
+                }
+            } finally {
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalText;
+                }
+            }
+        });
+    }
+
+    if (editModalEl) {
+        editModalEl.addEventListener('hidden.bs.modal', () => {
+            const container = document.getElementById('editMaterialsContainer');
+            if (container) container.innerHTML = '';
+            const submitBtn = document.getElementById('editRsSubmitBtn');
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="bi bi-check2-circle me-2"></i>Save &amp; Resubmit';
+            }
+        });
+    }
+
+    // --- REJECT RS FORM AJAX SUBMISSION ---
+    const rejectForm = document.getElementById('rejectRsForm');
+    const rejectModalEl = document.getElementById('rejectRsModal');
+
+    if (rejectForm) {
+        rejectForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const submitBtn = document.getElementById('rejectRsSubmitBtn');
+            const originalText = submitBtn ? submitBtn.innerHTML : '<i class="bi bi-x-circle me-2"></i>Confirm Reject';
+
+            if (!rejectForm.checkValidity()) {
+                rejectForm.reportValidity();
+                return;
+            }
+
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Rejecting...';
+            }
+
+            try {
+                const formData = new FormData(rejectForm);
+                const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+                const headers = { 'X-Requested-With': 'XMLHttpRequest' };
+                if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
+
+                const response = await fetch('process/process.php', {
+                    method: 'POST',
+                    body: formData,
+                    headers: headers
+                });
+
+                const result = await response.json();
+                const isSuccess = result.status === 'success' || result.success === true || (result.status && result.status.toLowerCase() === 'ok');
+
+                if (isSuccess) {
+                    const modalInstance = bootstrap.Modal.getInstance(rejectModalEl);
+                    if (modalInstance) modalInstance.hide();
+
+                    if (typeof Swal !== 'undefined') {
+                        await Swal.fire({
+                            icon: 'success',
+                            title: 'Requisition Rejected',
+                            text: result.message || 'Requisition was marked as rejected.',
+                            timer: 2000,
+                            showConfirmButton: false
+                        });
+                    }
+                    window.location.reload();
+                } else {
+                    throw new Error(result.message || 'Failed to reject requisition.');
+                }
+            } catch (err) {
+                console.error('Error rejecting RS:', err);
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Action Failed',
+                        text: err.message || 'An error occurred while rejecting the requisition.'
+                    });
+                } else {
+                    alert(err.message || 'An error occurred while rejecting the requisition.');
+                }
+            } finally {
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalText;
+                }
+            }
+        });
+    }
+
+    if (rejectModalEl) {
+        rejectModalEl.addEventListener('shown.bs.modal', () => {
+            const reasonInput = document.getElementById('rejectReasonInput');
+            if (reasonInput) reasonInput.focus();
+        });
+        rejectModalEl.addEventListener('hidden.bs.modal', () => {
+            if (rejectForm) rejectForm.reset();
+            const submitBtn = document.getElementById('rejectRsSubmitBtn');
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="bi bi-x-circle me-2"></i>Confirm Reject';
+            }
+        });
+    }
+
+    // --- APPROVE RS ITEMS FORM AJAX SUBMISSION ---
+    const approveForm = document.getElementById('approveItemsForm');
+    const approveModalEl = document.getElementById('approveItemsModal');
+
+    if (approveForm) {
+        approveForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const submitBtn = document.getElementById('approveItemsSubmitBtn');
+            const originalText = submitBtn ? submitBtn.innerHTML : '<i class="bi bi-send me-2"></i>Submit Decision';
+
+            if (!approveForm.checkValidity()) {
+                const unselectedCard = Array.from(approveForm.querySelectorAll('.approve-item-card')).find(card => {
+                    return !card.querySelector('input[type="radio"]:checked');
+                });
+                if (unselectedCard) {
+                    unselectedCard.classList.add('border-warning', 'border-2', 'shadow');
+                    unselectedCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    setTimeout(() => unselectedCard.classList.remove('border-warning', 'border-2', 'shadow'), 3000);
+                }
+                approveForm.reportValidity();
+                return;
+            }
+
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Submitting Decision...';
+            }
+
+            try {
+                const formData = new FormData(approveForm);
+                const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+                const headers = { 'X-Requested-With': 'XMLHttpRequest' };
+                if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
+
+                const response = await fetch('process/process.php', {
+                    method: 'POST',
+                    body: formData,
+                    headers: headers
+                });
+
+                const rawText = await response.text();
+                let result;
+                try {
+                    result = JSON.parse(rawText);
+                } catch (jsonErr) {
+                    console.error('Non-JSON server response in approveItemsForm:', rawText);
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = rawText;
+                    const cleanText = (tempDiv.textContent || tempDiv.innerText || rawText).trim();
+                    throw new Error(cleanText.substring(0, 250) || 'Server returned an invalid response.');
+                }
+
+                const isSuccess = result.status === 'success' || result.success === true || (result.status && result.status.toLowerCase() === 'ok');
+
+                if (isSuccess) {
+                    const modalInstance = bootstrap.Modal.getInstance(approveModalEl);
+                    if (modalInstance) modalInstance.hide();
+
+                    if (typeof Swal !== 'undefined') {
+                        await Swal.fire({
+                            icon: 'success',
+                            title: 'Decision Recorded!',
+                            text: result.message || 'Requisition items review has been saved.',
+                            timer: 2000,
+                            showConfirmButton: false
+                        });
+                    }
+                    window.location.reload();
+                } else {
+                    throw new Error(result.message || 'Failed to submit approval decision.');
+                }
+            } catch (err) {
+                console.error('Error approving RS items:', err);
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Decision Failed',
+                        text: err.message || 'An error occurred while saving the review decision.'
+                    });
+                } else {
+                    alert(err.message || 'An error occurred while saving the review decision.');
+                }
+            } finally {
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalText;
+                }
+            }
+        });
+    }
+
+    if (approveModalEl) {
+        approveModalEl.addEventListener('hidden.bs.modal', () => {
+            const list = document.getElementById('approveItemsList');
+            if (list) list.innerHTML = '';
+            const submitBtn = document.getElementById('approveItemsSubmitBtn');
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="bi bi-send me-2"></i>Submit Decision';
+            }
+        });
     }
 }
 
