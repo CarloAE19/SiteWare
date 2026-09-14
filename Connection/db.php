@@ -1,4 +1,15 @@
 <?php
+/**
+ * SiteWare — Construction Inventory Management System (CIMS)
+ * Copyright (c) GB Construction & Enterprises Inc. & The MedYas.
+ * All Rights Reserved.
+ *
+ * PROPRIETARY AND CONFIDENTIAL.
+ * Unauthorized copying, distribution, modification, or deployment of this file,
+ * via any medium, is strictly prohibited and constitutes intellectual property theft.
+ * See LICENSE file in root directory for full legal terms and conditions.
+ */
+
 // Set default timezone for Philippine Standard Time (PST / UTC+8)
 date_default_timezone_set('Asia/Manila');
 
@@ -27,7 +38,8 @@ if (!function_exists('init_secure_session')) {
 if (!function_exists('time_elapsed_string')) {
     function time_elapsed_string($datetime, $full = false)
     {
-        if (empty($datetime)) return 'just now';
+        if (empty($datetime))
+            return 'just now';
         try {
             $now = new DateTime;
             $ago = new DateTime($datetime);
@@ -119,7 +131,8 @@ if (!function_exists('validate_csrf_token')) {
 if (!function_exists('normalizeViberPhone')) {
     function normalizeViberPhone(?string $phone): ?string
     {
-        if (empty($phone)) return null;
+        if (empty($phone))
+            return null;
         $digits = preg_replace('/[^0-9]/', '', $phone);
 
         // 09XXXXXXXXX (11 digits) -> +639XXXXXXXXX
@@ -235,7 +248,8 @@ try {
 
     try {
         $pdo->exec("ALTER TABLE users ADD COLUMN status VARCHAR(20) NOT NULL DEFAULT 'active' AFTER role");
-    } catch (PDOException $e) {}
+    } catch (PDOException $e) {
+    }
 
     if ($pdo->query("SELECT COUNT(*) FROM users")->fetchColumn() == 0) {
         $hashed_password = password_hash('password123', PASSWORD_DEFAULT);
@@ -292,7 +306,8 @@ try {
 
     try {
         $pdo->exec("ALTER TABLE requisitions ADD COLUMN approved_by INT NULL AFTER status");
-    } catch (PDOException $e) {}
+    } catch (PDOException $e) {
+    }
 
     // 5. Create Requisition Items Table
     $pdo->exec("
@@ -321,7 +336,8 @@ try {
     // 6b. Create Supplier Viber Order Logs Table
     try {
         $pdo->exec("RENAME TABLE supplier_sms_replies TO supplier_viber_logs");
-    } catch (PDOException $e) { }
+    } catch (PDOException $e) {
+    }
 
     $pdo->exec("
         CREATE TABLE IF NOT EXISTS supplier_viber_logs (
@@ -557,40 +573,52 @@ try {
     // Auto-patch: Support E-Signatures for Users & Purchase Orders
     try {
         $pdo->exec("ALTER TABLE users ADD COLUMN signature_path VARCHAR(255) NULL");
-    } catch (PDOException $e) {}
+    } catch (PDOException $e) {
+    }
     try {
         $pdo->exec("ALTER TABLE users ADD COLUMN public_key TEXT NULL");
-    } catch (PDOException $e) {}
+    } catch (PDOException $e) {
+    }
     try {
         $pdo->exec("ALTER TABLE users ADD COLUMN private_key TEXT NULL");
-    } catch (PDOException $e) {}
+    } catch (PDOException $e) {
+    }
     try {
         $pdo->exec("ALTER TABLE purchase_orders ADD COLUMN approved_by INT NULL");
-    } catch (PDOException $e) {}
+    } catch (PDOException $e) {
+    }
     try {
         $pdo->exec("ALTER TABLE purchase_orders ADD COLUMN prepared_signature VARCHAR(255) NULL");
-    } catch (PDOException $e) {}
+    } catch (PDOException $e) {
+    }
     try {
         $pdo->exec("ALTER TABLE purchase_orders ADD COLUMN approved_signature VARCHAR(255) NULL");
-    } catch (PDOException $e) {}
+    } catch (PDOException $e) {
+    }
     try {
         $pdo->exec("ALTER TABLE purchase_orders ADD COLUMN crypto_signature TEXT NULL");
-    } catch (PDOException $e) {}
+    } catch (PDOException $e) {
+    }
     try {
         $pdo->exec("ALTER TABLE purchase_orders ADD COLUMN document_hash VARCHAR(64) NULL");
-    } catch (PDOException $e) {}
+    } catch (PDOException $e) {
+    }
     try {
         $pdo->exec("ALTER TABLE purchase_orders ADD COLUMN signed_at DATETIME NULL");
-    } catch (PDOException $e) {}
+    } catch (PDOException $e) {
+    }
     try {
         $pdo->exec("ALTER TABLE withdrawals ADD COLUMN crypto_signature TEXT NULL");
-    } catch (PDOException $e) {}
+    } catch (PDOException $e) {
+    }
     try {
         $pdo->exec("ALTER TABLE withdrawals ADD COLUMN document_hash VARCHAR(64) NULL");
-    } catch (PDOException $e) {}
+    } catch (PDOException $e) {
+    }
     try {
         $pdo->exec("ALTER TABLE withdrawals ADD COLUMN signed_at DATETIME NULL");
-    } catch (PDOException $e) {}
+    } catch (PDOException $e) {
+    }
 
     // Auto-sync: Backfill signatures for existing Purchase Orders from profile signatures
     try {
@@ -608,45 +636,57 @@ try {
             WHERE (po.approved_signature IS NULL OR po.approved_signature = '') 
               AND u.signature_path IS NOT NULL AND u.signature_path != ''
         ");
-    } catch (PDOException $e) {}
+    } catch (PDOException $e) {
+    }
 
     // Auto-patch: Support New Item Restock Requests in Requisition Items & PO Items
     try {
         $pdo->exec("ALTER TABLE requisition_items ADD COLUMN is_new_item TINYINT(1) DEFAULT 0");
-    } catch (PDOException $e) {}
+    } catch (PDOException $e) {
+    }
     try {
         $pdo->exec("ALTER TABLE requisition_items ADD COLUMN new_item_name VARCHAR(255) NULL");
-    } catch (PDOException $e) {}
+    } catch (PDOException $e) {
+    }
     try {
         $pdo->exec("ALTER TABLE requisition_items ADD COLUMN new_category VARCHAR(100) NULL");
-    } catch (PDOException $e) {}
+    } catch (PDOException $e) {
+    }
     try {
         $pdo->exec("ALTER TABLE requisition_items ADD COLUMN new_unit VARCHAR(50) NULL");
-    } catch (PDOException $e) {}
+    } catch (PDOException $e) {
+    }
 
     try {
         $pdo->exec("ALTER TABLE po_items ADD COLUMN is_new_item TINYINT(1) DEFAULT 0");
-    } catch (PDOException $e) {}
+    } catch (PDOException $e) {
+    }
     try {
         $pdo->exec("ALTER TABLE po_items ADD COLUMN custom_item_name VARCHAR(255) NULL");
-    } catch (PDOException $e) {}
+    } catch (PDOException $e) {
+    }
     try {
         $pdo->exec("ALTER TABLE po_items ADD COLUMN category VARCHAR(100) NULL");
-    } catch (PDOException $e) {}
+    } catch (PDOException $e) {
+    }
     try {
         $pdo->exec("ALTER TABLE po_items ADD COLUMN unit VARCHAR(50) NULL");
-    } catch (PDOException $e) {}
+    } catch (PDOException $e) {
+    }
 
     // Auto-patch: Support Partial Deliveries & Multi-Stage PO Fulfillment
     try {
         $pdo->exec("ALTER TABLE po_items ADD COLUMN received_quantity INT NOT NULL DEFAULT 0");
-    } catch (PDOException $e) {}
+    } catch (PDOException $e) {
+    }
     try {
         $pdo->exec("ALTER TABLE po_items ADD COLUMN item_status VARCHAR(50) NOT NULL DEFAULT 'Pending'");
-    } catch (PDOException $e) {}
+    } catch (PDOException $e) {
+    }
     try {
         $pdo->exec("ALTER TABLE purchase_orders ADD COLUMN payment_terms VARCHAR(100) DEFAULT 'Credit (30 Days Net)'");
-    } catch (PDOException $e) {}
+    } catch (PDOException $e) {
+    }
     try {
         // Backfill historical Delivered PO items if needed
         $pdo->exec("
@@ -655,7 +695,8 @@ try {
             SET pi.received_quantity = pi.quantity, pi.item_status = 'Complete'
             WHERE po.status = 'Delivered' AND pi.received_quantity = 0
         ");
-    } catch (PDOException $e) {}
+    } catch (PDOException $e) {
+    }
 
     // Auto-patch: Performance Indexes (One-time migration check for maximum Hostinger performance)
     $indexFlagFile = __DIR__ . '/../uploads/.db_indexes_applied';
@@ -692,7 +733,8 @@ try {
         foreach ($autoIndexes as $idxSql) {
             try {
                 $pdo->exec($idxSql);
-            } catch (PDOException $e) {}
+            } catch (PDOException $e) {
+            }
         }
         if (!file_exists(dirname($indexFlagFile))) {
             @mkdir(dirname($indexFlagFile), 0777, true);
