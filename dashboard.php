@@ -283,11 +283,11 @@ include 'layout/header.php';
                         <h2 class="fw-bold mb-1 welcome-title text-truncate" id="dashGreeting">
                             <i class="bi <?= $timeIcon ?> me-1" id="dashTimeIcon"></i><span id="dashGreetingText"><?= $timeGreeting ?></span>, <?= htmlspecialchars($userName) ?>!
                         </h2>
-                        <div class="d-flex align-items-center gap-1.5 flex-wrap welcome-meta-badges">
+                        <div class="d-flex align-items-center gap-2 gap-md-2.5 flex-wrap welcome-meta-badges">
                             <span class="badge <?= $currentRole['class'] ?> px-2.5 py-1 shadow-sm"><?= $currentRole['label'] ?></span>
-                            <span class="badge bg-light text-secondary border px-2 py-1 shadow-sm small fw-bold d-none d-sm-inline-flex"><i class="bi bi-compass me-1 text-muted"></i><?= htmlspecialchars($currentRole['greeting']) ?></span>
-                            <span class="text-muted small fw-bold d-none d-md-inline-flex"><i class="bi bi-calendar3 me-1"></i><?= date('l, F j, Y') ?></span>
-                            <span class="badge bg-light text-dark border px-2 py-1 shadow-sm small fw-bold" id="dashLiveClock"><i class="bi bi-clock me-1 text-primary"></i><?= date('g:i A') ?></span>
+                            <span class="badge bg-light text-secondary border px-2.5 py-1 shadow-sm small fw-bold d-none d-sm-inline-flex"><i class="bi bi-compass me-1.5 text-muted"></i><?= htmlspecialchars($currentRole['greeting']) ?></span>
+                            <span class="text-muted small fw-bold d-none d-md-inline-flex align-items-center welcome-date-text"><i class="bi bi-calendar3 me-1.5 text-secondary"></i><?= date('l, F j, Y') ?></span>
+                            <span class="badge bg-light text-dark border px-2.5 py-1 shadow-sm small fw-bold" id="dashLiveClock"><i class="bi bi-clock me-1.5 text-primary"></i><?= date('g:i A') ?></span>
                         </div>
                     </div>
                 </div>
@@ -1091,15 +1091,15 @@ include 'layout/header.php';
                                     </div>
                                     <div class="flex-grow-1 min-w-0">
                                         <div class="d-flex justify-content-between align-items-start gap-2 mb-1">
-                                            <div class="min-w-0 d-flex align-items-center gap-1.5 flex-wrap">
-                                                <span class="activity-item-title fw-bold text-dark text-truncate" style="font-size: 0.85rem;">
+                                            <div class="min-w-0 flex-grow-1">
+                                                <span class="activity-item-title fw-bold text-dark">
                                                     <?= htmlspecialchars($activity['title'], ENT_QUOTES, 'UTF-8') ?>
                                                 </span>
                                                 <?php if ($isUnread): ?>
-                                                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-1.5 py-0.5 new-tag-badge flex-shrink-0" style="font-size: 0.62rem; font-weight: 700;">NEW</span>
+                                                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-1.5 py-0.5 new-tag-badge align-middle ms-1 flex-shrink-0">NEW</span>
                                                 <?php endif; ?>
                                             </div>
-                                            <span class="badge bg-light text-muted border px-1.5 py-0.5 flex-shrink-0 activity-time-badge" style="font-size: 0.68rem; font-weight: 600;">
+                                            <span class="badge bg-light text-muted border px-1.5 py-0.5 flex-shrink-0 activity-time-badge align-self-start">
                                                 <i class="bi bi-clock me-1"></i><?= time_elapsed_string($activity['created_at']) ?>
                                             </span>
                                         </div>
@@ -1159,7 +1159,7 @@ include 'layout/header.php';
 
             if (liveClock) {
                 const timeString = now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true });
-                liveClock.innerHTML = `<i class="bi bi-clock me-1 text-primary"></i>${timeString}`;
+                liveClock.innerHTML = `<i class="bi bi-clock me-1.5 text-primary"></i>${timeString}`;
             }
         }
 
