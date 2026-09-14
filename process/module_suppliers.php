@@ -111,22 +111,41 @@ if ($action === 'add_supplier') {
     $id = (int) ($_POST['id'] ?? 0);
     if ($id <= 0) throw new Exception("Invalid supplier ID specified.");
 
+    // Fetch supplier info first to confirm existence & get company name
+    $supCheck = $pdo->prepare("SELECT company_name FROM suppliers WHERE id = ?");
+    $supCheck->execute([$id]);
+    $supRow = $supCheck->fetch(PDO::FETCH_ASSOC);
+    if (!$supRow) {
+        throw new Exception("Supplier not found or has already been deleted.");
+    }
+    $companyName = $supRow['company_name'];
+
+    // Check for linked purchase orders (ISO 9001 / Traceability & Foreign Key Protection)
+    $poCheck = $pdo->prepare("SELECT COUNT(*) FROM purchase_orders WHERE supplier_id = ?");
+    $poCheck->execute([$id]);
+    $poCount = (int) $poCheck->fetchColumn();
+
+    if ($poCount > 0) {
+        throw new Exception("Cannot delete '{$companyName}' because {$poCount} purchase order(s) are linked to this supplier. Please set their status to 'Inactive' instead to preserve audit traceability.");
+    }
+
     $stmt = $pdo->prepare("DELETE FROM suppliers WHERE id = ?");
     $stmt->execute([$id]);
 
-    $msg = "Supplier deleted successfully.";
+    $msg = "Supplier '{$companyName}' was deleted successfully.";
     if ($is_ajax) {
         header('Content-Type: application/json; charset=utf-8');
         echo json_encode([
             'success' => true,
             'status' => 'success',
-            'message' => $msg
+            'message' => $msg,
+            'data' => ['id' => $id, 'company_name' => $companyName]
         ]);
         exit;
     }
 
     $_SESSION['message'] = $msg;
-    $_SESSION['msg_type'] = "danger";
+    $_SESSION['msg_type'] = "success";
     header("Location: ../suppliers");
     exit;
 }
