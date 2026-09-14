@@ -1,4 +1,15 @@
 <?php
+/**
+ * SiteWare — Construction Inventory Management System (CIMS)
+ * Copyright (c) GB Construction & Enterprises Inc. & The MedYas.
+ * All Rights Reserved.
+ *
+ * PROPRIETARY AND CONFIDENTIAL.
+ * Unauthorized copying, distribution, modification, or deployment of this file,
+ * via any medium, is strictly prohibited and constitutes intellectual property theft.
+ * See LICENSE file in root directory for full legal terms and conditions.
+ */
+
 require_once __DIR__ . '/../Connection/db.php';
 init_secure_session();
 
@@ -8,9 +19,9 @@ $action = $_POST['action'] ?? $_GET['action'] ?? '';
 
 // Check if the action is expected to return JSON (AJAX / Fetch request)
 $is_ajax = (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest') ||
-           (!empty($_SERVER['HTTP_ACCEPT']) && strpos($_SERVER['HTTP_ACCEPT'], 'application/json') !== false) ||
-           (strpos($action, 'fetch_') === 0) ||
-           (in_array($action, ['live_sync', 'stock_in_scanned', 'verify_current_password', 'change_password_modal', 'unlock_screen', 'lock_screen', 'ping_session', 'update_idle_settings', 'submit_audit', 'create_backup', 'restore_backup', 'delete_backup', 'fetch_backups', 'create_rs', 'edit_rs', 'approve_rs', 'reject_rs', 'stage_rs_materials', 'create_withdrawal']));
+    (!empty($_SERVER['HTTP_ACCEPT']) && strpos($_SERVER['HTTP_ACCEPT'], 'application/json') !== false) ||
+    (strpos($action, 'fetch_') === 0) ||
+    (in_array($action, ['live_sync', 'stock_in_scanned', 'verify_current_password', 'change_password_modal', 'unlock_screen', 'lock_screen', 'ping_session', 'update_idle_settings', 'submit_audit', 'create_backup', 'restore_backup', 'delete_backup', 'fetch_backups', 'create_rs', 'edit_rs', 'approve_rs', 'reject_rs', 'stage_rs_materials', 'create_withdrawal']));
 
 if ($is_ajax) {
     ob_start();
@@ -20,7 +31,8 @@ if ($is_ajax) {
 // === 1. GLOBAL AUTHENTICATION CHECK ===
 if (!isset($_SESSION['user_id'])) {
     if ($is_ajax) {
-        if (ob_get_length()) ob_clean();
+        if (ob_get_length())
+            ob_clean();
         header('Content-Type: application/json; charset=utf-8');
         echo json_encode(['status' => 'error', 'message' => 'Unauthorized. Please log in again.']);
         exit;
@@ -40,15 +52,21 @@ if (!defined('DB_OFFLINE') && isset($pdo) && $pdo !== null) {
         $_SESSION = [];
         if (ini_get("session.use_cookies")) {
             $params = session_get_cookie_params();
-            setcookie(session_name(), '', time() - 42000,
-                $params["path"], $params["domain"],
-                $params["secure"], $params["httponly"]
+            setcookie(
+                session_name(),
+                '',
+                time() - 42000,
+                $params["path"],
+                $params["domain"],
+                $params["secure"],
+                $params["httponly"]
             );
         }
         session_destroy();
 
         if ($is_ajax) {
-            if (ob_get_length()) ob_clean();
+            if (ob_get_length())
+                ob_clean();
             header('Content-Type: application/json; charset=utf-8');
             http_response_code(403);
             echo json_encode(['status' => 'error', 'message' => 'Your account has been deactivated. Access revoked.']);
@@ -62,7 +80,8 @@ if (!defined('DB_OFFLINE') && isset($pdo) && $pdo !== null) {
 
 // === 2.5 SERVER-SIDE SCREEN LOCK GUARD (Zero-Trust Anti-Tamper) ===
 if (!empty($_SESSION['screen_locked']) && !in_array($action, ['unlock_screen', 'lock_screen', 'logout', 'ping_session', 'fetch_combined_alerts'])) {
-    if (ob_get_length()) ob_clean();
+    if (ob_get_length())
+        ob_clean();
     header('Content-Type: application/json; charset=utf-8');
     http_response_code(423); // 423 Locked
     echo json_encode([
@@ -98,8 +117,7 @@ if ($requestMethod === 'POST' || (strpos($action, 'fetch_') === 0 && !empty($act
             require __DIR__ . '/module_suppliers.php';
         } elseif (in_array($action, ['add_user', 'edit_user', 'delete_user', 'toggle_user_status', 'update_profile', 'verify_current_password', 'change_password_modal', 'unlock_screen', 'lock_screen', 'ping_session'])) {
             require __DIR__ . '/module_users.php';
-        }
-        elseif (in_array($action, ['create_rs', 'edit_rs', 'approve_rs', 'reject_rs', 'stage_rs_materials', 'create_po', 'update_po_eta', 'mark_po_out_for_delivery', 'upload_po_receipt', 'mark_po_delivered', 'cancel_po', 'log_viber_order_sent', 'log_po_delay', 'create_withdrawal', 'fetch_rs_data', 'fetch_rs_with_history', 'fetch_po_items', 'fetch_po_details', 'fetch_supplier_delivery_history', 'fetch_po_viber_preview', 'fetch_combined_alerts'])) {
+        } elseif (in_array($action, ['create_rs', 'edit_rs', 'approve_rs', 'reject_rs', 'stage_rs_materials', 'create_po', 'update_po_eta', 'mark_po_out_for_delivery', 'upload_po_receipt', 'mark_po_delivered', 'cancel_po', 'log_viber_order_sent', 'log_po_delay', 'create_withdrawal', 'fetch_rs_data', 'fetch_rs_with_history', 'fetch_po_items', 'fetch_po_details', 'fetch_supplier_delivery_history', 'fetch_po_viber_preview', 'fetch_combined_alerts'])) {
             require __DIR__ . '/module_transactions.php';
         } elseif ($action === 'submit_audit') {
             require __DIR__ . '/module_audit.php';
