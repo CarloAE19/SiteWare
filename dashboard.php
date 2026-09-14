@@ -139,18 +139,113 @@ foreach ($recentActivity as $act) {
 // Helper to categorize recent activity for rich UI feed
 function getActivityMeta($title, $message) {
     $t = strtolower($title . ' ' . $message);
-    if (strpos($t, 'requisition') !== false || strpos($t, 'rs') !== false) {
-        return ['type' => 'requisition', 'icon' => 'bi-card-checklist', 'color' => 'primary', 'bg' => 'bg-primary-subtle', 'target' => 'requisitions'];
-    } elseif (strpos($t, 'po') !== false || strpos($t, 'purchase order') !== false) {
-        return ['type' => 'po', 'icon' => 'bi-file-earmark-text', 'color' => 'info', 'bg' => 'bg-info-subtle', 'target' => 'po'];
-    } elseif (strpos($t, 'withdrawal') !== false || strpos($t, 'withdrawn') !== false) {
-        return ['type' => 'withdrawal', 'icon' => 'bi-tools', 'color' => 'success', 'bg' => 'bg-success-subtle', 'target' => 'withdrawals'];
-    } elseif (strpos($t, 'low stock') !== false || strpos($t, 'recount') !== false || strpos($t, 'audit') !== false) {
-        return ['type' => 'alert', 'icon' => 'bi-exclamation-triangle-fill', 'color' => 'danger', 'bg' => 'bg-danger-subtle', 'target' => 'audit'];
-    } elseif (strpos($t, 'sms') !== false || strpos($t, 'eta') !== false || strpos($t, 'supplier') !== false) {
-        return ['type' => 'po', 'icon' => 'bi-chat-left-text-fill', 'color' => 'warning', 'bg' => 'bg-warning-subtle', 'target' => 'po'];
+    
+    $isReq = false;
+    $isPO = false;
+    $isWithdrawal = false;
+    $isAlert = false;
+    
+    // Check Requisitions: 'requisition', 'rs-', '\brs\b', 'materials staged', 'ready for pickup'
+    if (
+        strpos($t, 'requisition') !== false ||
+        preg_match('/\brs[-\s]?\d+/i', $t) ||
+        strpos($t, 'materials staged') !== false ||
+        strpos($t, 'ready for pickup') !== false
+    ) {
+        $isReq = true;
     }
-    return ['type' => 'system', 'icon' => 'bi-bell-fill', 'color' => 'secondary', 'bg' => 'bg-secondary-subtle', 'target' => 'index'];
+    
+    // Check Purchase Orders: 'po-', '\bpo\b', 'purchase order', 'viber order', 'sms order', 'sms reply', 'supply chain', 'delivery', 'supplier', 'eta'
+    if (
+        strpos($t, 'purchase order') !== false ||
+        strpos($t, 'ready for po') !== false ||
+        preg_match('/\bpo[-\s]?\d+/i', $t) ||
+        preg_match('/\bpo\b/i', $title) ||
+        strpos($t, 'viber order') !== false ||
+        strpos($t, 'sms order') !== false ||
+        strpos($t, 'sms reply') !== false ||
+        strpos($t, 'supply chain') !== false ||
+        strpos($t, 'delivery') !== false ||
+        strpos($t, 'supplier') !== false
+    ) {
+        $isPO = true;
+    }
+    
+    // Check Withdrawal: 'withdrawal', 'withdrawn', 'released from the warehouse'
+    if (
+        strpos($t, 'withdrawal') !== false ||
+        strpos($t, 'withdrawn') !== false ||
+        strpos($t, 'released from the warehouse') !== false
+    ) {
+        $isWithdrawal = true;
+    }
+    
+    // Check Audits / Alerts
+    if (
+        strpos($t, 'audit') !== false ||
+        strpos($t, 'recount') !== false ||
+        strpos($t, 'low stock') !== false ||
+        (strpos($t, 'discrepancy') !== false && !$isPO)
+    ) {
+        $isAlert = true;
+    }
+    
+    // Build category list for filtering
+    $cats = [];
+    if ($isReq) $cats[] = 'requisition';
+    if ($isPO) $cats[] = 'po';
+    if ($isWithdrawal) $cats[] = 'withdrawal';
+    if ($isAlert) $cats[] = 'alert';
+    if (empty($cats)) $cats[] = 'system';
+    
+    $primaryType = $cats[0];
+    
+    // Visual styling and destination routing
+    $icon = 'bi-bell-fill';
+    $color = 'secondary';
+    $bg = 'bg-secondary-subtle';
+    $target = 'index';
+    
+    if (strpos($t, 'ready for po') !== false) {
+        $icon = 'bi-cart-plus-fill';
+        $color = 'info';
+        $bg = 'bg-info-subtle';
+        $target = 'po';
+    } elseif ($isPO && !$isReq) {
+        $icon = 'bi-file-earmark-text';
+        $color = 'info';
+        $bg = 'bg-info-subtle';
+        $target = 'po';
+        if (strpos($t, 'sms') !== false || strpos($t, 'viber') !== false) {
+            $icon = 'bi-chat-left-text-fill';
+            $color = 'warning';
+            $bg = 'bg-warning-subtle';
+        }
+    } elseif ($isWithdrawal) {
+        $icon = 'bi-tools';
+        $color = 'success';
+        $bg = 'bg-success-subtle';
+        $target = 'withdrawals';
+    } elseif ($isReq) {
+        $icon = 'bi-card-checklist';
+        $color = 'primary';
+        $bg = 'bg-primary-subtle';
+        $target = 'requisitions';
+    } elseif ($isAlert) {
+        $icon = 'bi-exclamation-triangle-fill';
+        $color = 'danger';
+        $bg = 'bg-danger-subtle';
+        $target = 'audit';
+    }
+    
+    return [
+        'type' => $primaryType,
+        'categories' => implode(' ', $cats),
+        'icon' => $icon,
+        'color' => $color,
+        'bg' => $bg,
+        'target' => $target
+    ];
 }
 
 include 'layout/header.php';
@@ -990,7 +1085,7 @@ include 'layout/header.php';
                                 $meta = getActivityMeta($activity['title'], $activity['message']);
                                 $isUnread = (int)$activity['is_read'] === 0;
                             ?>
-                                <a href="javascript:void(0)" onclick="readNotifAndNavigate(<?= (int)$activity['id'] ?>, '<?= htmlspecialchars($meta['target'], ENT_QUOTES, 'UTF-8') ?>')" class="activity-card-item d-flex align-items-start gap-2.5 p-2.5 rounded-3 mb-2 text-decoration-none text-reset <?= $isUnread ? 'activity-unread' : 'activity-read' ?>" data-category="<?= htmlspecialchars($meta['type'], ENT_QUOTES, 'UTF-8') ?>" data-read="<?= $isUnread ? '0' : '1' ?>">
+                                <a href="javascript:void(0)" onclick="readNotifAndNavigate(<?= (int)$activity['id'] ?>, '<?= htmlspecialchars($meta['target'], ENT_QUOTES, 'UTF-8') ?>')" class="activity-card-item align-items-start gap-2.5 p-2.5 rounded-3 mb-2 text-decoration-none text-reset <?= $isUnread ? 'activity-unread' : 'activity-read' ?>" data-category="<?= htmlspecialchars($meta['categories'], ENT_QUOTES, 'UTF-8') ?>" data-read="<?= $isUnread ? '0' : '1' ?>">
                                     <div class="activity-icon-badge <?= $meta['bg'] ?> text-<?= $meta['color'] ?> position-relative flex-shrink-0">
                                         <i class="bi <?= $meta['icon'] ?>"></i>
                                     </div>
@@ -1172,6 +1267,47 @@ include 'layout/header.php';
             const feedList = document.getElementById('activityFeedList');
             const emptyFilter = document.getElementById('emptyFilterFeedback');
 
+            function applyFilter(filter) {
+                const items = document.querySelectorAll('.activity-card-item');
+                let visibleCount = 0;
+
+                items.forEach(item => {
+                    const catAttr = item.getAttribute('data-category') || '';
+                    const categories = catAttr.split(/\s+/).filter(Boolean);
+                    const isRead = item.getAttribute('data-read');
+
+                    let show = false;
+                    if (filter === 'all') {
+                        show = true;
+                    } else if (filter === 'unread') {
+                        show = (isRead === '0');
+                    } else {
+                        show = categories.includes(filter);
+                    }
+
+                    if (show) {
+                        item.style.setProperty('display', 'flex', 'important');
+                        visibleCount++;
+                    } else {
+                        item.style.setProperty('display', 'none', 'important');
+                    }
+                });
+
+                if (filter === 'unread' && visibleCount === 0) {
+                    if (caughtUpView) caughtUpView.classList.remove('d-none');
+                    if (feedList) feedList.classList.add('d-none');
+                    if (emptyFilter) emptyFilter.classList.add('d-none');
+                } else if (visibleCount === 0) {
+                    if (caughtUpView) caughtUpView.classList.add('d-none');
+                    if (feedList) feedList.classList.add('d-none');
+                    if (emptyFilter) emptyFilter.classList.remove('d-none');
+                } else {
+                    if (caughtUpView) caughtUpView.classList.add('d-none');
+                    if (feedList) feedList.classList.remove('d-none');
+                    if (emptyFilter) emptyFilter.classList.add('d-none');
+                }
+            }
+
             filterBtns.forEach(btn => {
                 btn.addEventListener('click', function() {
                     filterBtns.forEach(b => {
@@ -1182,45 +1318,16 @@ include 'layout/header.php';
                     this.classList.add('btn-primary', 'active');
 
                     const filter = this.getAttribute('data-filter');
-                    const items = document.querySelectorAll('.activity-card-item');
-                    let visibleCount = 0;
-
-                    items.forEach(item => {
-                        const cat = item.getAttribute('data-category');
-                        const isRead = item.getAttribute('data-read');
-
-                        let show = false;
-                        if (filter === 'all') {
-                            show = true;
-                        } else if (filter === 'unread') {
-                            show = (isRead === '0');
-                        } else {
-                            show = (cat === filter);
-                        }
-
-                        if (show) {
-                            item.style.display = 'flex';
-                            visibleCount++;
-                        } else {
-                            item.style.display = 'none';
-                        }
-                    });
-
-                    if (filter === 'unread' && visibleCount === 0) {
-                        if (caughtUpView) caughtUpView.classList.remove('d-none');
-                        if (feedList) feedList.classList.add('d-none');
-                        if (emptyFilter) emptyFilter.classList.add('d-none');
-                    } else if (visibleCount === 0) {
-                        if (caughtUpView) caughtUpView.classList.add('d-none');
-                        if (feedList) feedList.classList.add('d-none');
-                        if (emptyFilter) emptyFilter.classList.remove('d-none');
-                    } else {
-                        if (caughtUpView) caughtUpView.classList.add('d-none');
-                        if (feedList) feedList.classList.remove('d-none');
-                        if (emptyFilter) emptyFilter.classList.add('d-none');
-                    }
+                    applyFilter(filter);
                 });
             });
+
+            // If an active button is already marked in HTML, apply its filter on load
+            const activeBtn = document.querySelector('.activity-filter-btn.active');
+            if (activeBtn) {
+                const activeFilter = activeBtn.getAttribute('data-filter');
+                applyFilter(activeFilter);
+            }
         }
 
         function initQuickActionsScroll() {
