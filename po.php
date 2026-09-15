@@ -14,49 +14,53 @@ require_once 'Connection/db.php';
 
 $role = $_SESSION['user_role'];
 
-// AUTO-PATCH DB: Ensures the PO table can handle SMS Status and Weather Delays!
-try {
-    $pdo->exec("ALTER TABLE purchase_orders ADD COLUMN status VARCHAR(50) DEFAULT 'Generated'");
-    $pdo->exec("ALTER TABLE purchase_orders ADD COLUMN delay_remarks TEXT");
-    $pdo->exec("UPDATE purchase_orders SET status = 'Viber Order Sent' WHERE status = 'SMS Sent'");
+// AUTO-PATCH DB: Ensures the PO table can handle SMS Status and Weather Delays! (Guarded once per session for TTFB speed)
+if (empty($_SESSION['po_schema_patched_v2'])) {
     try {
-        $pdo->exec("ALTER TABLE purchase_orders ADD COLUMN payment_terms VARCHAR(100) DEFAULT 'Credit (30 Days Net)'");
-    } catch (PDOException $e) {}
-    try {
-        $pdo->exec("ALTER TABLE requisitions ADD COLUMN approved_by INT NULL AFTER status");
-    } catch (PDOException $e) {}
+        $pdo->exec("ALTER TABLE purchase_orders ADD COLUMN status VARCHAR(50) DEFAULT 'Generated'");
+        $pdo->exec("ALTER TABLE purchase_orders ADD COLUMN delay_remarks TEXT");
+        $pdo->exec("UPDATE purchase_orders SET status = 'Viber Order Sent' WHERE status = 'SMS Sent'");
+        try {
+            $pdo->exec("ALTER TABLE purchase_orders ADD COLUMN payment_terms VARCHAR(100) DEFAULT 'Credit (30 Days Net)'");
+        } catch (PDOException $e) {}
+        try {
+            $pdo->exec("ALTER TABLE requisitions ADD COLUMN approved_by INT NULL AFTER status");
+        } catch (PDOException $e) {}
 
-    // Clean existing duplicated discrepancy records in delay_remarks if present
-    $dupPos = $pdo->query("SELECT id, delay_remarks FROM purchase_orders WHERE delay_remarks LIKE '%[DELIVERY DISCREPANCY]%'")->fetchAll(PDO::FETCH_ASSOC);
-    foreach ($dupPos as $dupPo) {
-        $normalized = str_replace(["\r\n", "\r"], "\n", $dupPo['delay_remarks'] ?? '');
-        $parts = explode('[DELIVERY DISCREPANCY]:', $normalized);
-        $unique = [];
-        $preface = trim($parts[0]);
-        for ($i = 1; $i < count($parts); $i++) {
-            $t = trim($parts[$i]);
-            $normT = preg_replace('/\s+/', ' ', $t);
-            $alreadyExists = false;
-            foreach ($unique as $u) {
-                if (preg_replace('/\s+/', ' ', $u) === $normT) {
-                    $alreadyExists = true;
-                    break;
+        // Clean existing duplicated discrepancy records in delay_remarks if present
+        $dupPos = $pdo->query("SELECT id, delay_remarks FROM purchase_orders WHERE delay_remarks LIKE '%[DELIVERY DISCREPANCY]%'")->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($dupPos as $dupPo) {
+            $normalized = str_replace(["\r\n", "\r"], "\n", $dupPo['delay_remarks'] ?? '');
+            $parts = explode('[DELIVERY DISCREPANCY]:', $normalized);
+            $unique = [];
+            $preface = trim($parts[0]);
+            for ($i = 1; $i < count($parts); $i++) {
+                $t = trim($parts[$i]);
+                $normT = preg_replace('/\s+/', ' ', $t);
+                $alreadyExists = false;
+                foreach ($unique as $u) {
+                    if (preg_replace('/\s+/', ' ', $u) === $normT) {
+                        $alreadyExists = true;
+                        break;
+                    }
+                }
+                if (!empty($t) && !$alreadyExists) {
+                    $unique[] = $t;
                 }
             }
-            if (!empty($t) && !$alreadyExists) {
-                $unique[] = $t;
+            if (!empty($unique)) {
+                $cleanedText = (!empty($preface) ? $preface . "\n\n" : "") . implode("\n\n[DELIVERY DISCREPANCY]:\n", array_map(fn($u) => "[DELIVERY DISCREPANCY]:\n" . $u, $unique));
+                $cleanedText = str_replace("[DELIVERY DISCREPANCY]:\n[DELIVERY DISCREPANCY]:", "[DELIVERY DISCREPANCY]:", $cleanedText);
+                if ($cleanedText !== $dupPo['delay_remarks']) {
+                    $cleanStmt = $pdo->prepare("UPDATE purchase_orders SET delay_remarks = ? WHERE id = ?");
+                    $cleanStmt->execute([$cleanedText, $dupPo['id']]);
+                }
             }
         }
-        if (!empty($unique)) {
-            $cleanedText = (!empty($preface) ? $preface . "\n\n" : "") . implode("\n\n[DELIVERY DISCREPANCY]:\n", array_map(fn($u) => "[DELIVERY DISCREPANCY]:\n" . $u, $unique));
-            $cleanedText = str_replace("[DELIVERY DISCREPANCY]:\n[DELIVERY DISCREPANCY]:", "[DELIVERY DISCREPANCY]:", $cleanedText);
-            if ($cleanedText !== $dupPo['delay_remarks']) {
-                $cleanStmt = $pdo->prepare("UPDATE purchase_orders SET delay_remarks = ? WHERE id = ?");
-                $cleanStmt->execute([$cleanedText, $dupPo['id']]);
-            }
-        }
+        $_SESSION['po_schema_patched_v2'] = true;
+    } catch (PDOException $e) { /* Columns already exist */
+        $_SESSION['po_schema_patched_v2'] = true;
     }
-} catch (PDOException $e) { /* Columns already exist */
 }
 
 // Fetch Purchase Orders
