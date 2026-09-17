@@ -1169,3 +1169,43 @@ body:has(.modal.show) #cims-chatbot-container {
     border: 1px solid #30363d !important;
     border-radius: 8px !important;
 }
+
+/* ==========================================================
+ * CIMS DYNAMIC SKELETON SHIMMER & WAVE ANIMATION
+ * Ultra-smooth, hardware-accelerated animated placeholders
+ * ========================================================== */
+@keyframes cimsShimmerWave {
+    0% {
+        background-position: -200% 0;
+    }
+    100% {
+        background-position: 200% 0;
+    }
+}
+
+.cims-shimmer,
+.placeholder-wave .placeholder,
+.placeholder.cims-shimmer {
+    background: linear-gradient(
+        90deg,
+        rgba(215, 220, 225, 0.45) 0%,
+        rgba(245, 248, 250, 0.95) 50%,
+        rgba(215, 220, 225, 0.45) 100%
+    ) !important;
+    background-size: 200% 100% !important;
+    animation: cimsShimmerWave 1.4s ease-in-out infinite !important;
+    border-radius: 4px;
+}
+
+[data-bs-theme="dark"] .cims-shimmer,
+[data-bs-theme="dark"] .placeholder-wave .placeholder,
+[data-bs-theme="dark"] .placeholder.cims-shimmer {
+    background: linear-gradient(
+        90deg,
+        rgba(33, 38, 45, 0.8) 0%,
+        rgba(48, 54, 61, 0.95) 50%,
+        rgba(33, 38, 45, 0.8) 100%
+    ) !important;
+    background-size: 200% 100% !important;
+    animation: cimsShimmerWave 1.4s ease-in-out infinite !important;
+}
