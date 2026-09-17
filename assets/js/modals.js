@@ -47,6 +47,68 @@ window.cimsFetchWithTimeout = async function (url, options = {}, timeoutMs = 300
     }
 };
 
+/**
+ * CIMS Standardized Table Skeleton Generator (Animated Shimmer Wave)
+ * Renders pulsating animated shimmer placeholders in table body while data is being fetched.
+ * 
+ * @param {HTMLElement|string} tbody - The tbody element or selector
+ * @param {number} rowCount - Number of placeholder rows (default: 3)
+ * @param {Array<string>} colWidths - Optional column width classes
+ */
+window.cimsRenderTableSkeleton = function (tbody, rowCount = 3, colWidths = ['col-8', 'col-4', 'col-6']) {
+    const el = (typeof tbody === 'string') ? document.querySelector(tbody) : tbody;
+    if (!el) return;
+
+    let html = '';
+    for (let r = 0; r < rowCount; r++) {
+        html += '<tr class="placeholder-wave align-middle">';
+        colWidths.forEach((w, idx) => {
+            const align = (idx === 1 || idx === 2 || idx === 3) && colWidths.length > 4 ? 'text-center' : (idx === 1 ? 'text-center' : '');
+            html += `<td class="${align} py-2.5"><span class="placeholder cims-shimmer ${w} rounded" style="min-height: 20px; display: inline-block;"></span></td>`;
+        });
+        html += '</tr>';
+    }
+    el.innerHTML = html;
+};
+
+/**
+ * CIMS Standardized Card List Skeleton Generator (Animated Shimmer Wave)
+ * Renders shimmering animated card placeholders for item approval lists.
+ * 
+ * @param {HTMLElement|string} container - The container element or selector
+ * @param {number} cardCount - Number of placeholder cards (default: 2)
+ */
+window.cimsRenderCardSkeleton = function (container, cardCount = 2) {
+    const el = (typeof container === 'string') ? document.querySelector(container) : container;
+    if (!el) return;
+
+    let html = '';
+    for (let c = 0; c < cardCount; c++) {
+        html += `
+        <div class="card border shadow-sm mb-3 placeholder-wave">
+            <div class="card-body py-3 px-3">
+                <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+                    <div class="flex-grow-1 me-3">
+                        <div class="d-flex align-items-center gap-2 mb-2">
+                            <span class="placeholder cims-shimmer col-6 rounded py-2"></span>
+                            <span class="placeholder cims-shimmer col-2 rounded-pill ms-auto py-2"></span>
+                        </div>
+                        <div class="mb-2">
+                            <span class="placeholder cims-shimmer col-3 rounded me-2 py-1"></span>
+                            <span class="placeholder cims-shimmer col-4 rounded py-1"></span>
+                        </div>
+                    </div>
+                    <div class="btn-group btn-group-sm">
+                        <span class="placeholder cims-shimmer rounded" style="width: 80px; height: 31px; display: inline-block;"></span>
+                        <span class="placeholder cims-shimmer rounded ms-1" style="width: 80px; height: 31px; display: inline-block;"></span>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+    }
+    el.innerHTML = html;
+};
+
 document.addEventListener("DOMContentLoaded", () => {
     // Receive QR Scanner Init
     document.body.addEventListener('click', (e) => {
