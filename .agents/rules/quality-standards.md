@@ -18,12 +18,19 @@ Follow these strict standards across all tasks, edits, and recommendations for t
 - **Color & Contrast:** Employ curated, cohesive color palettes with appropriate contrast ratios for readability. Avoid harsh or generic browser-default colors.
 - **Interactive State Polish:** Every interactive component (buttons, inputs, dropdowns, tables, modals) must have refined styling for default, `:hover`, `:focus`, `:active`, and `:disabled` states.
 
-## 3. Mobile & Multi-Device Web App Optimization (Responsive & Touch-Friendly)
-- **Multi-Device Compatibility:** The system is a fully responsive web application. All layouts, dashboards, forms, modals, and data views must be thoroughly optimized for smartphones, tablets, laptops, and desktop screens.
-- **Touch-Friendly Controls:** Ensure buttons, inputs, icons, and action links meet minimum touch-target guidelines (easy to tap on mobile without misclicks).
-- **Responsive Tables & Lists:** Wrap data tables in responsive containers (`table-responsive`) or provide mobile-friendly card/stacked views to prevent horizontal overflow and broken layouts on small screens.
-- **Mobile Modals & Forms:** Modal dialogs must fit mobile viewports cleanly (`modal-fullscreen-sm-down` or scrollable bodies), keeping action buttons accessible without getting cut off by virtual keyboards.
-- **Adaptive Navigation:** Menus, sidebars, and filter toolbars must collapse cleanly into mobile-friendly toggles or offcanvas drawers on smaller screens.
+## 3. Mobile & Multi-Device Web App Optimization (All Phone Screen Sizes & Touch-Friendly)
+- **Universal Mobile Phone Support:** The system is a fully responsive web application engineered to adapt flawlessly to all mobile phone sizes:
+  - **Compact / Small Displays (320px – 360px, e.g. iPhone SE, compact Androids, folded foldables):** Layouts must never clip, overlap, or trigger horizontal scrollbars (`overflow-x: hidden`). Elements must stack vertically without squishing text or buttons.
+  - **Standard Mobile Displays (375px – 430px, e.g. iPhone 13/14/15/16, Samsung Galaxy S series, Pixel):** Grid columns, cards, and modal widths must adapt dynamically with balanced padding and readable font hierarchies.
+  - **Large Phones / Phablets & Foldables (430px – 600px+):** Utilize available screen real estate efficiently with adaptive multi-column form layouts and flexible table views.
+- **Strict Viewport & Horizontal Overflow Prevention:** Prevent horizontal scrolling across all mobile screen widths down to 320px. Ensure tables, long strings (item codes, serial numbers, URLs), and button toolbars wrap cleanly using `text-break`, responsive wrappers, or flex-wrap.
+- **Touch-Friendly Controls & Minimum Hit Targets:** Ensure all buttons, inputs, icons, dropdown triggers, and delete/action links meet a minimum touch target of 44x44px (or 48x48px where possible) with adequate spacing between adjacent buttons to eliminate misclicks on small touchscreens.
+- **Mobile Form Usability & Virtual Keyboard Awareness:** 
+  - Ensure form input font size is at least 16px on mobile to prevent iOS Safari auto-zooming on focus.
+  - Form dialogs and inputs must remain visible and accessible when virtual keyboards are displayed.
+- **Mobile Modals & Dialogs:** Use `modal-fullscreen-sm-down` or `modal-dialog-scrollable` so modal headers and sticky action footers remain easily reachable on both short and tall phone viewports.
+- **Responsive Tables & Data Lists:** Data tables must be enclosed in `table-responsive` containers or dynamically transform into mobile-friendly stacked card views on narrow screens so users can read data without awkward horizontal panning.
+- **Adaptive Navigation & Safe Areas:** Sidebars, navigation headers, and filter toolbars must collapse cleanly into mobile-friendly offcanvas drawers or sticky bottom/top navbars, respecting device safe areas (`env(safe-area-inset-bottom)`).
 
 ## 4. Human-Computer Interaction (HCI) & Usability Principles
 - **Visibility of System Status:** Provide immediate, unambiguous feedback for user actions (loading spinners during AJAX, disabled buttons to prevent double-submits, clear toast/alert confirmations).
