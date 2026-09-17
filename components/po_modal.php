@@ -1261,7 +1261,7 @@ $approvedRS = $pdo->query("
             headers['X-CSRF-Token'] = csrfToken;
         }
 
-        fetch('process/process.php', {
+        (window.cimsFetchWithTimeout || fetch)('process/process.php', {
             method: 'POST',
             body: formData,
             headers: headers
@@ -1349,36 +1349,172 @@ $approvedRS = $pdo->query("
     // MODAL LIFECYCLE MANAGEMENT & DOUBLE-SUBMISSION LOCKING
     // ==========================================================
     document.addEventListener('DOMContentLoaded', function () {
-        // 1. Create PO Form
+        // 1. Create PO Form (AJAX & Double-Submit Guard per cims-modal-ajax-handler)
         const createPoForm = document.getElementById('createPoForm');
         if (createPoForm) {
-            createPoForm.addEventListener('submit', function (e) {
+            createPoForm.addEventListener('submit', async function (e) {
+                e.preventDefault();
+
                 if (!this.checkValidity()) {
                     this.reportValidity();
-                    e.preventDefault();
                     return;
                 }
+
+                const rsSelect = document.getElementById('poRsSelect');
+                if (!rsSelect || !rsSelect.value) {
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({
+                            icon: 'warning',
+                            title: 'Requisition Required',
+                            text: 'Please select an approved requisition slip to generate the Purchase Order.'
+                        });
+                    } else {
+                        alert('Please select an approved requisition slip.');
+                    }
+                    return;
+                }
+
                 const submitBtn = this.querySelector('button[type="submit"]');
+                const originalBtnHtml = submitBtn ? submitBtn.innerHTML : '<i class="bi bi-check-circle me-1"></i> Generate & Save PO';
+
                 if (submitBtn) {
                     submitBtn.disabled = true;
                     submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Generating & Saving PO...';
                 }
+
+                try {
+                    const formData = new FormData(this);
+                    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || this.querySelector('[name="csrf_token"]')?.value || '';
+                    const headers = { 'X-Requested-With': 'XMLHttpRequest' };
+                    if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
+
+                    const response = await (window.cimsFetchWithTimeout || fetch)('process/process.php', {
+                        method: 'POST',
+                        body: formData,
+                        headers: headers
+                    });
+
+                    const rawText = await response.text();
+                    let result;
+                    try {
+                        result = JSON.parse(rawText);
+                    } catch (jsonErr) {
+                        console.error('Non-JSON response in createPoForm:', rawText);
+                        throw new Error('Server returned an invalid response. Please refresh and try again.');
+                    }
+
+                    const isSuccess = result.status === 'success' || result.success === true;
+                    if (isSuccess) {
+                        const modalEl = document.getElementById('poModal');
+                        const modalInstance = bootstrap.Modal.getInstance(modalEl);
+                        if (modalInstance) modalInstance.hide();
+
+                        if (typeof Swal !== 'undefined') {
+                            await Swal.fire({
+                                icon: 'success',
+                                title: 'Purchase Order Created!',
+                                text: result.message || 'Purchase Order generated and sent to Supplier successfully.',
+                                timer: 2000,
+                                showConfirmButton: false
+                            });
+                        }
+                        window.location.reload();
+                    } else {
+                        throw new Error(result.message || 'Failed to create Purchase Order.');
+                    }
+                } catch (err) {
+                    console.error('Error creating PO:', err);
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Action Failed',
+                            text: err.message || 'An error occurred while creating the Purchase Order.'
+                        });
+                    } else {
+                        alert(err.message || 'An error occurred while creating the Purchase Order.');
+                    }
+                    if (submitBtn) {
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = originalBtnHtml;
+                    }
+                }
             });
         }
 
-        // 2. Log Delay Form
+        // 2. Log Delay Form (AJAX & Double-Submit Guard per cims-modal-ajax-handler)
         const delayForm = document.getElementById('delayForm');
         if (delayForm) {
-            delayForm.addEventListener('submit', function (e) {
+            delayForm.addEventListener('submit', async function (e) {
+                e.preventDefault();
+
                 if (!this.checkValidity()) {
                     this.reportValidity();
-                    e.preventDefault();
                     return;
                 }
+
                 const submitBtn = this.querySelector('button[type="submit"]');
+                const originalBtnHtml = submitBtn ? submitBtn.innerHTML : '<i class="bi bi-exclamation-triangle-fill me-1"></i> Submit Delay Alert';
+
                 if (submitBtn) {
                     submitBtn.disabled = true;
                     submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Submitting Delay Alert...';
+                }
+
+                try {
+                    const formData = new FormData(this);
+                    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || this.querySelector('[name="csrf_token"]')?.value || '';
+                    const headers = { 'X-Requested-With': 'XMLHttpRequest' };
+                    if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
+
+                    const response = await (window.cimsFetchWithTimeout || fetch)('process/process.php', {
+                        method: 'POST',
+                        body: formData,
+                        headers: headers
+                    });
+
+                    const rawText = await response.text();
+                    let result;
+                    try {
+                        result = JSON.parse(rawText);
+                    } catch (jsonErr) {
+                        console.error('Non-JSON response in delayForm:', rawText);
+                        throw new Error('Server returned an invalid response. Please refresh and try again.');
+                    }
+
+                    const isSuccess = result.status === 'success' || result.success === true;
+                    if (isSuccess) {
+                        const modalEl = document.getElementById('delayModal');
+                        const modalInstance = bootstrap.Modal.getInstance(modalEl);
+                        if (modalInstance) modalInstance.hide();
+
+                        if (typeof Swal !== 'undefined') {
+                            await Swal.fire({
+                                icon: 'warning',
+                                title: 'Delay Alert Logged',
+                                text: result.message || 'Logistics delay & revised ETA successfully logged.',
+                                timer: 2000,
+                                showConfirmButton: false
+                            });
+                        }
+                        window.location.reload();
+                    } else {
+                        throw new Error(result.message || 'Failed to log delay.');
+                    }
+                } catch (err) {
+                    console.error('Error logging delay:', err);
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Action Failed',
+                            text: err.message || 'An error occurred while logging the supply delay.'
+                        });
+                    } else {
+                        alert(err.message || 'An error occurred while logging the supply delay.');
+                    }
+                    if (submitBtn) {
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = originalBtnHtml;
+                    }
                 }
             });
         }
@@ -1393,6 +1529,11 @@ $approvedRS = $pdo->query("
                 if (rsSelect) rsSelect.focus();
             });
             poModal.addEventListener('hidden.bs.modal', function () {
+                const form = document.getElementById('createPoForm');
+                if (form) {
+                    form.reset();
+                    form.classList.remove('was-validated');
+                }
                 const submitBtn = this.querySelector('button[type="submit"]');
                 if (submitBtn) {
                     submitBtn.disabled = false;
@@ -1425,6 +1566,11 @@ $approvedRS = $pdo->query("
                 if (sel) sel.focus();
             });
             delayModal.addEventListener('hidden.bs.modal', function () {
+                const form = document.getElementById('delayForm');
+                if (form) {
+                    form.reset();
+                    form.classList.remove('was-validated');
+                }
                 const submitBtn = this.querySelector('button[type="submit"]');
                 if (submitBtn) {
                     submitBtn.disabled = false;
