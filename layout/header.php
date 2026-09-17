@@ -146,7 +146,7 @@ foreach ($notifications as $n) {
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>GB Construction & Enterprise Inc.</title>
 
     <link rel="manifest" href="manifest.json">
@@ -429,6 +429,7 @@ foreach ($notifications as $n) {
 </head>
 
 <body<?= $isScreenLockedSession ? ' class="cims-body-locked"' : '' ?>>
+    <div id="cims-top-progress-bar" role="progressbar" aria-hidden="true"></div>
     <?php // include_once 'components/splash_screen.php'; ?>
     <div class="wrapper">
         <nav id="sidebar">
