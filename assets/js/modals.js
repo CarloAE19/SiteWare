@@ -3,6 +3,112 @@
  * Handles passwords toggles, modal triggers, and UI events
  * ========================================================== */
 
+/**
+ * CIMS Standardized Network Fetch with AbortController Timeout Guard
+ * Prevents network requests from hanging indefinitely on low-bandwidth / high-latency connections.
+ * 
+ * @param {string} url - Target URL endpoint
+ * @param {RequestInit} options - Standard fetch options (method, body, headers, etc.)
+ * @param {number} timeoutMs - Timeout in milliseconds (default: 30,000ms = 30s)
+ * @returns {Promise<Response>}
+ */
+window.cimsFetchWithTimeout = async function (url, options = {}, timeoutMs = 30000) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+        controller.abort(new DOMException('Network request timed out after ' + Math.round(timeoutMs / 1000) + 's.', 'TimeoutError'));
+    }, timeoutMs);
+
+    const originalSignal = options.signal;
+    if (originalSignal) {
+        if (originalSignal.aborted) {
+            clearTimeout(timeoutId);
+            controller.abort(originalSignal.reason);
+        } else {
+            originalSignal.addEventListener('abort', () => {
+                clearTimeout(timeoutId);
+                controller.abort(originalSignal.reason);
+            });
+        }
+    }
+
+    try {
+        const fetchOptions = { ...options, signal: controller.signal };
+        return await fetch(url, fetchOptions);
+    } catch (err) {
+        if (err.name === 'AbortError' || err.name === 'TimeoutError') {
+            const timeoutError = new Error('Network connection timed out. The server took too long to respond. Please check your cellular connection and try again.');
+            timeoutError.name = 'TimeoutError';
+            timeoutError.isTimeout = true;
+            throw timeoutError;
+        }
+        throw err;
+    } finally {
+        clearTimeout(timeoutId);
+    }
+};
+
+/**
+ * CIMS Standardized Table Skeleton Generator (Animated Shimmer Wave)
+ * Renders pulsating animated shimmer placeholders in table body while data is being fetched.
+ * 
+ * @param {HTMLElement|string} tbody - The tbody element or selector
+ * @param {number} rowCount - Number of placeholder rows (default: 3)
+ * @param {Array<string>} colWidths - Optional column width classes
+ */
+window.cimsRenderTableSkeleton = function (tbody, rowCount = 3, colWidths = ['col-8', 'col-4', 'col-6']) {
+    const el = (typeof tbody === 'string') ? document.querySelector(tbody) : tbody;
+    if (!el) return;
+
+    let html = '';
+    for (let r = 0; r < rowCount; r++) {
+        html += '<tr class="placeholder-wave align-middle">';
+        colWidths.forEach((w, idx) => {
+            const align = (idx === 1 || idx === 2 || idx === 3) && colWidths.length > 4 ? 'text-center' : (idx === 1 ? 'text-center' : '');
+            html += `<td class="${align} py-2.5"><span class="placeholder cims-shimmer ${w} rounded" style="min-height: 20px; display: inline-block;"></span></td>`;
+        });
+        html += '</tr>';
+    }
+    el.innerHTML = html;
+};
+
+/**
+ * CIMS Standardized Card List Skeleton Generator (Animated Shimmer Wave)
+ * Renders shimmering animated card placeholders for item approval lists.
+ * 
+ * @param {HTMLElement|string} container - The container element or selector
+ * @param {number} cardCount - Number of placeholder cards (default: 2)
+ */
+window.cimsRenderCardSkeleton = function (container, cardCount = 2) {
+    const el = (typeof container === 'string') ? document.querySelector(container) : container;
+    if (!el) return;
+
+    let html = '';
+    for (let c = 0; c < cardCount; c++) {
+        html += `
+        <div class="card border shadow-sm mb-3 placeholder-wave">
+            <div class="card-body py-3 px-3">
+                <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+                    <div class="flex-grow-1 me-3">
+                        <div class="d-flex align-items-center gap-2 mb-2">
+                            <span class="placeholder cims-shimmer col-6 rounded py-2"></span>
+                            <span class="placeholder cims-shimmer col-2 rounded-pill ms-auto py-2"></span>
+                        </div>
+                        <div class="mb-2">
+                            <span class="placeholder cims-shimmer col-3 rounded me-2 py-1"></span>
+                            <span class="placeholder cims-shimmer col-4 rounded py-1"></span>
+                        </div>
+                    </div>
+                    <div class="btn-group btn-group-sm">
+                        <span class="placeholder cims-shimmer rounded" style="width: 80px; height: 31px; display: inline-block;"></span>
+                        <span class="placeholder cims-shimmer rounded ms-1" style="width: 80px; height: 31px; display: inline-block;"></span>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+    }
+    el.innerHTML = html;
+};
+
 document.addEventListener("DOMContentLoaded", () => {
     // Receive QR Scanner Init
     document.body.addEventListener('click', (e) => {

@@ -238,14 +238,14 @@ window.initSupplierModalEvents = function() {
                 const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || 
                                   form.querySelector('input[name="csrf_token"]')?.value || '';
 
-                const response = await fetch('process/process.php', {
+                const response = await (window.cimsFetchWithTimeout || fetch)('process/process.php', {
                     method: 'POST',
                     body: formData,
                     headers: {
                         'X-Requested-With': 'XMLHttpRequest',
                         'X-CSRF-Token': csrfToken
                     }
-                });
+                }, 25000);
 
                 const result = await response.json();
                 const isSuccess = result.success === true || result.status === 'success';

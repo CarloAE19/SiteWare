@@ -639,8 +639,27 @@ $approvedRS = $pdo->query("
             </div>
 
             <div class="modal-body p-2 p-sm-3 p-md-4 bg-light" id="poPrintDocumentBody">
-                <div class="text-center text-muted py-5" id="poPrintLoadingSpinner">
-                    <div class="spinner-border text-primary me-2"></div> Loading Purchase Order Details...
+                <div class="placeholder-wave p-3 p-md-4 bg-white rounded-3 border shadow-sm my-2" id="poPrintLoadingSpinner">
+                    <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom border-2">
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="placeholder cims-shimmer rounded" style="width: 38px; height: 38px; display: inline-block;"></span>
+                            <div>
+                                <span class="placeholder cims-shimmer col-8 rounded py-2 d-block mb-1" style="width: 140px;"></span>
+                                <span class="placeholder cims-shimmer col-5 rounded d-block" style="width: 100px;"></span>
+                            </div>
+                        </div>
+                        <span class="placeholder cims-shimmer rounded-pill py-2" style="width: 70px; display: inline-block;"></span>
+                    </div>
+                    <div class="row g-2 mb-3">
+                        <div class="col-6"><div class="p-2 bg-light rounded border"><span class="placeholder cims-shimmer col-10 rounded d-block mb-2"></span><span class="placeholder cims-shimmer col-7 rounded d-block"></span></div></div>
+                        <div class="col-6"><div class="p-2 bg-light rounded border"><span class="placeholder cims-shimmer col-10 rounded d-block mb-2"></span><span class="placeholder cims-shimmer col-7 rounded d-block"></span></div></div>
+                    </div>
+                    <div class="table-responsive border rounded bg-light p-2 mb-2">
+                        <div class="d-flex justify-content-between py-2 border-bottom"><span class="placeholder cims-shimmer col-4 rounded"></span><span class="placeholder cims-shimmer col-2 rounded"></span></div>
+                        <div class="d-flex justify-content-between py-2 border-bottom"><span class="placeholder cims-shimmer col-5 rounded"></span><span class="placeholder cims-shimmer col-2 rounded"></span></div>
+                        <div class="d-flex justify-content-between py-2"><span class="placeholder cims-shimmer col-3 rounded"></span><span class="placeholder cims-shimmer col-2 rounded"></span></div>
+                    </div>
+                    <div class="text-center text-muted small py-1"><span class="spinner-border spinner-border-sm me-1 text-primary"></span> Retrieving Purchase Order Data...</div>
                 </div>
 
                 <div id="poPrintModalContent" class="d-none">
@@ -1261,7 +1280,7 @@ $approvedRS = $pdo->query("
             headers['X-CSRF-Token'] = csrfToken;
         }
 
-        fetch('process/process.php', {
+        (window.cimsFetchWithTimeout || fetch)('process/process.php', {
             method: 'POST',
             body: formData,
             headers: headers
@@ -1349,36 +1368,172 @@ $approvedRS = $pdo->query("
     // MODAL LIFECYCLE MANAGEMENT & DOUBLE-SUBMISSION LOCKING
     // ==========================================================
     document.addEventListener('DOMContentLoaded', function () {
-        // 1. Create PO Form
+        // 1. Create PO Form (AJAX & Double-Submit Guard per cims-modal-ajax-handler)
         const createPoForm = document.getElementById('createPoForm');
         if (createPoForm) {
-            createPoForm.addEventListener('submit', function (e) {
+            createPoForm.addEventListener('submit', async function (e) {
+                e.preventDefault();
+
                 if (!this.checkValidity()) {
                     this.reportValidity();
-                    e.preventDefault();
                     return;
                 }
+
+                const rsSelect = document.getElementById('poRsSelect');
+                if (!rsSelect || !rsSelect.value) {
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({
+                            icon: 'warning',
+                            title: 'Requisition Required',
+                            text: 'Please select an approved requisition slip to generate the Purchase Order.'
+                        });
+                    } else {
+                        alert('Please select an approved requisition slip.');
+                    }
+                    return;
+                }
+
                 const submitBtn = this.querySelector('button[type="submit"]');
+                const originalBtnHtml = submitBtn ? submitBtn.innerHTML : '<i class="bi bi-check-circle me-1"></i> Generate & Save PO';
+
                 if (submitBtn) {
                     submitBtn.disabled = true;
                     submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Generating & Saving PO...';
                 }
+
+                try {
+                    const formData = new FormData(this);
+                    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || this.querySelector('[name="csrf_token"]')?.value || '';
+                    const headers = { 'X-Requested-With': 'XMLHttpRequest' };
+                    if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
+
+                    const response = await (window.cimsFetchWithTimeout || fetch)('process/process.php', {
+                        method: 'POST',
+                        body: formData,
+                        headers: headers
+                    });
+
+                    const rawText = await response.text();
+                    let result;
+                    try {
+                        result = JSON.parse(rawText);
+                    } catch (jsonErr) {
+                        console.error('Non-JSON response in createPoForm:', rawText);
+                        throw new Error('Server returned an invalid response. Please refresh and try again.');
+                    }
+
+                    const isSuccess = result.status === 'success' || result.success === true;
+                    if (isSuccess) {
+                        const modalEl = document.getElementById('poModal');
+                        const modalInstance = bootstrap.Modal.getInstance(modalEl);
+                        if (modalInstance) modalInstance.hide();
+
+                        if (typeof Swal !== 'undefined') {
+                            await Swal.fire({
+                                icon: 'success',
+                                title: 'Purchase Order Created!',
+                                text: result.message || 'Purchase Order generated and sent to Supplier successfully.',
+                                timer: 2000,
+                                showConfirmButton: false
+                            });
+                        }
+                        window.location.reload();
+                    } else {
+                        throw new Error(result.message || 'Failed to create Purchase Order.');
+                    }
+                } catch (err) {
+                    console.error('Error creating PO:', err);
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Action Failed',
+                            text: err.message || 'An error occurred while creating the Purchase Order.'
+                        });
+                    } else {
+                        alert(err.message || 'An error occurred while creating the Purchase Order.');
+                    }
+                    if (submitBtn) {
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = originalBtnHtml;
+                    }
+                }
             });
         }
 
-        // 2. Log Delay Form
+        // 2. Log Delay Form (AJAX & Double-Submit Guard per cims-modal-ajax-handler)
         const delayForm = document.getElementById('delayForm');
         if (delayForm) {
-            delayForm.addEventListener('submit', function (e) {
+            delayForm.addEventListener('submit', async function (e) {
+                e.preventDefault();
+
                 if (!this.checkValidity()) {
                     this.reportValidity();
-                    e.preventDefault();
                     return;
                 }
+
                 const submitBtn = this.querySelector('button[type="submit"]');
+                const originalBtnHtml = submitBtn ? submitBtn.innerHTML : '<i class="bi bi-exclamation-triangle-fill me-1"></i> Submit Delay Alert';
+
                 if (submitBtn) {
                     submitBtn.disabled = true;
                     submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Submitting Delay Alert...';
+                }
+
+                try {
+                    const formData = new FormData(this);
+                    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || this.querySelector('[name="csrf_token"]')?.value || '';
+                    const headers = { 'X-Requested-With': 'XMLHttpRequest' };
+                    if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
+
+                    const response = await (window.cimsFetchWithTimeout || fetch)('process/process.php', {
+                        method: 'POST',
+                        body: formData,
+                        headers: headers
+                    });
+
+                    const rawText = await response.text();
+                    let result;
+                    try {
+                        result = JSON.parse(rawText);
+                    } catch (jsonErr) {
+                        console.error('Non-JSON response in delayForm:', rawText);
+                        throw new Error('Server returned an invalid response. Please refresh and try again.');
+                    }
+
+                    const isSuccess = result.status === 'success' || result.success === true;
+                    if (isSuccess) {
+                        const modalEl = document.getElementById('delayModal');
+                        const modalInstance = bootstrap.Modal.getInstance(modalEl);
+                        if (modalInstance) modalInstance.hide();
+
+                        if (typeof Swal !== 'undefined') {
+                            await Swal.fire({
+                                icon: 'warning',
+                                title: 'Delay Alert Logged',
+                                text: result.message || 'Logistics delay & revised ETA successfully logged.',
+                                timer: 2000,
+                                showConfirmButton: false
+                            });
+                        }
+                        window.location.reload();
+                    } else {
+                        throw new Error(result.message || 'Failed to log delay.');
+                    }
+                } catch (err) {
+                    console.error('Error logging delay:', err);
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Action Failed',
+                            text: err.message || 'An error occurred while logging the supply delay.'
+                        });
+                    } else {
+                        alert(err.message || 'An error occurred while logging the supply delay.');
+                    }
+                    if (submitBtn) {
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = originalBtnHtml;
+                    }
                 }
             });
         }
@@ -1393,6 +1548,11 @@ $approvedRS = $pdo->query("
                 if (rsSelect) rsSelect.focus();
             });
             poModal.addEventListener('hidden.bs.modal', function () {
+                const form = document.getElementById('createPoForm');
+                if (form) {
+                    form.reset();
+                    form.classList.remove('was-validated');
+                }
                 const submitBtn = this.querySelector('button[type="submit"]');
                 if (submitBtn) {
                     submitBtn.disabled = false;
@@ -1425,6 +1585,11 @@ $approvedRS = $pdo->query("
                 if (sel) sel.focus();
             });
             delayModal.addEventListener('hidden.bs.modal', function () {
+                const form = document.getElementById('delayForm');
+                if (form) {
+                    form.reset();
+                    form.classList.remove('was-validated');
+                }
                 const submitBtn = this.querySelector('button[type="submit"]');
                 if (submitBtn) {
                     submitBtn.disabled = false;

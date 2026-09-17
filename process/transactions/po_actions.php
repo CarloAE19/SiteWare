@@ -376,6 +376,15 @@ elseif ($action === 'create_po') {
 
         $pdo->commit();
 
+        if (!empty($is_ajax)) {
+            echo json_encode([
+                'status' => 'success',
+                'success' => true,
+                'message' => "Purchase Order {$po_no} generated and sent to Supplier successfully!"
+            ]);
+            exit;
+        }
+
         $_SESSION['message'] = "Purchase Order generated and sent to Supplier successfully!";
         $_SESSION['msg_type'] = "success";
         header("Location: ../po");
@@ -728,6 +737,15 @@ elseif ($action === 'log_po_delay') {
     sendPushNotification($pdo, 'Supply Chain Delay', $alertMsg, 'management', null);
     sendPushNotification($pdo, 'Expected Delivery Delayed', $alertMsg, 'warehouse', null);
     sendPushNotification($pdo, 'Supply Chain Delay', $alertMsg, 'admin', null);
+
+    if (!empty($is_ajax)) {
+        echo json_encode([
+            'status' => 'success',
+            'success' => true,
+            'message' => 'Logistics delay & revised ETA successfully logged and alerts sent.'
+        ]);
+        exit;
+    }
 
     $_SESSION['message'] = "Logistics delay & revised ETA successfully logged and alerts sent.";
     $_SESSION['msg_type'] = "warning";

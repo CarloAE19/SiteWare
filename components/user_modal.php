@@ -5,7 +5,7 @@
                 <h5 class="modal-title" id="userModalTitle"><span style="color: var(--gb-yellow);">Add User</span></h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-            <form method="POST" action="process/process.php">
+            <form method="POST" action="process/process.php" id="userModalForm">
                 <div class="modal-body bg-light p-4">
                     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(generate_csrf_token()) ?>">
                     <input type="hidden" name="action" id="userFormAction" value="add_user">
@@ -110,5 +110,45 @@
             icon.classList.replace("bi-eye", "bi-eye-slash");
             icon.classList.replace("text-primary", "text-muted");
         }
-    }
+    };
+
+    // User Form Lifecycle & Double-Submit Guard (per cims-modal-ajax-handler)
+    document.addEventListener('DOMContentLoaded', function () {
+        const userForm = document.getElementById('userModalForm');
+        const userModalEl = document.getElementById('userModal');
+
+        if (userForm) {
+            userForm.addEventListener('submit', function (e) {
+                if (!userForm.checkValidity()) {
+                    userForm.reportValidity();
+                    e.preventDefault();
+                    return;
+                }
+
+                const submitBtn = document.getElementById('userSubmitBtn');
+                if (submitBtn) {
+                    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Saving User...';
+                    setTimeout(() => { submitBtn.disabled = true; }, 0);
+                }
+            });
+        }
+
+        if (userModalEl) {
+            userModalEl.addEventListener('shown.bs.modal', function () {
+                const nameInput = document.getElementById('userName');
+                if (nameInput) nameInput.focus();
+            });
+
+            userModalEl.addEventListener('hidden.bs.modal', function () {
+                if (userForm) {
+                    userForm.classList.remove('was-validated');
+                }
+                const submitBtn = document.getElementById('userSubmitBtn');
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="bi bi-save me-1"></i> Save User';
+                }
+            });
+        }
+    });
 </script>

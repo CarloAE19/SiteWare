@@ -242,7 +242,7 @@ function initItemModalAjax() {
             const csrfToken = form.querySelector('input[name="csrf_token"]')?.value ||
                               document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
 
-            const response = await fetch('process/process.php', {
+            const response = await (window.cimsFetchWithTimeout || fetch)('process/process.php', {
                 method: 'POST',
                 body: formData,
                 headers: {
@@ -250,7 +250,7 @@ function initItemModalAjax() {
                     'Accept': 'application/json',
                     'X-CSRF-Token': csrfToken
                 }
-            });
+            }, 25000);
 
             const result = await response.json();
             const isSuccess = result.success === true || result.status === 'success';

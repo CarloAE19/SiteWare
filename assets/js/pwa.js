@@ -75,9 +75,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Run initial offline UI check on DOM load
     updateOfflineUI();
-
-    // Warm offline routes in background when online
-    setTimeout(warmOfflineRoutes, 2500);
 });
 
 // Helper: Check if backend server is genuinely reachable
@@ -103,45 +100,6 @@ async function checkServerStatus() {
     } catch (e) {
         return false;
     }
-}
-
-// Background Route Warmer: pre-caches navigation routes based on user's authorized sidebar links
-function warmOfflineRoutes() {
-    if (!navigator.onLine) return;
-
-    const sidebarLinks = document.querySelectorAll('#sidebar a[href]');
-    if (!sidebarLinks || sidebarLinks.length === 0) return;
-
-    const routesToWarm = new Set();
-    sidebarLinks.forEach(link => {
-        const href = link.getAttribute('href');
-        if (
-            href &&
-            href !== '#' &&
-            !href.startsWith('http') &&
-            !href.includes('logout') &&
-            !href.startsWith('javascript:')
-        ) {
-            routesToWarm.add(href);
-        }
-    });
-
-    let delay = 1000;
-    routesToWarm.forEach(route => {
-        setTimeout(() => {
-            if (navigator.onLine) {
-                fetch(route, {
-                    headers: {
-                        'Accept': 'text/html',
-                        'X-Requested-With': 'XMLHttpRequest'
-                    }
-                }).catch(() => {
-                    // Silently ignore prefetch errors
-                });
-            }
-        }, delay);
-        delay += 600;
-    });
 }
 
 // Intercept clicks on mutation actions when offline

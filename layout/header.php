@@ -1,6 +1,6 @@
 <?php
-// DB Auto-Patch
-if (!defined('DB_OFFLINE') && isset($pdo) && $pdo !== null) {
+// DB Auto-Patch (Session-guarded once per session to avoid table metadata lock overhead)
+if (!defined('DB_OFFLINE') && isset($pdo) && $pdo !== null && empty($_SESSION['header_db_patched_v2'])) {
     try {
         $pdo->exec("ALTER TABLE notifications ADD COLUMN is_read TINYINT(1) DEFAULT 0");
     } catch (PDOException $e) {
@@ -9,6 +9,7 @@ if (!defined('DB_OFFLINE') && isset($pdo) && $pdo !== null) {
         $pdo->exec("ALTER TABLE users ADD COLUMN fcm_token TEXT DEFAULT NULL");
     } catch (PDOException $e) {
     }
+    $_SESSION['header_db_patched_v2'] = true;
 }
 
 if (!function_exists('time_elapsed_string')) {
@@ -145,7 +146,7 @@ foreach ($notifications as $n) {
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>GB Construction & Enterprise Inc.</title>
 
     <link rel="manifest" href="manifest.json">
@@ -428,6 +429,7 @@ foreach ($notifications as $n) {
 </head>
 
 <body<?= $isScreenLockedSession ? ' class="cims-body-locked"' : '' ?>>
+    <div id="cims-top-progress-bar" role="progressbar" aria-hidden="true"></div>
     <?php // include_once 'components/splash_screen.php'; ?>
     <div class="wrapper">
         <nav id="sidebar">

@@ -885,10 +885,11 @@ include 'layout/header.php';
                                     ?>
 
                                     <?php if (in_array($role, ['warehouse', 'admin']) && $rs['status'] === 'Approved' && !$isRestock): ?>
-                                        <form method="POST" action="process/process.php" class="d-inline">
+                                        <form method="POST" action="process/process.php" class="d-inline stage-rs-form" data-rs-no="<?= htmlspecialchars($rs['rs_no']) ?>" data-rs-id="<?= $rs['id'] ?>">
+                                            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
                                             <input type="hidden" name="action" value="stage_rs_materials">
                                             <input type="hidden" name="rs_id" value="<?= $rs['id'] ?>">
-                                            <button class="btn btn-sm btn-outline-info fw-bold shadow-sm me-1" title="Mark Materials as Staged & Ready for Express Pickup" aria-label="Mark Requisition Materials as Staged">
+                                            <button type="submit" class="btn btn-sm btn-outline-info fw-bold shadow-sm me-1" title="Mark Materials as Staged & Ready for Express Pickup" aria-label="Mark Requisition Materials as Staged">
                                                 <i class="bi bi-box-seam me-1" aria-hidden="true"></i> Stage
                                             </button>
                                         </form>

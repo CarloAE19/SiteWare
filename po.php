@@ -14,49 +14,53 @@ require_once 'Connection/db.php';
 
 $role = $_SESSION['user_role'];
 
-// AUTO-PATCH DB: Ensures the PO table can handle SMS Status and Weather Delays!
-try {
-    $pdo->exec("ALTER TABLE purchase_orders ADD COLUMN status VARCHAR(50) DEFAULT 'Generated'");
-    $pdo->exec("ALTER TABLE purchase_orders ADD COLUMN delay_remarks TEXT");
-    $pdo->exec("UPDATE purchase_orders SET status = 'Viber Order Sent' WHERE status = 'SMS Sent'");
+// AUTO-PATCH DB: Ensures the PO table can handle SMS Status and Weather Delays! (Guarded once per session for TTFB speed)
+if (empty($_SESSION['po_schema_patched_v2'])) {
     try {
-        $pdo->exec("ALTER TABLE purchase_orders ADD COLUMN payment_terms VARCHAR(100) DEFAULT 'Credit (30 Days Net)'");
-    } catch (PDOException $e) {}
-    try {
-        $pdo->exec("ALTER TABLE requisitions ADD COLUMN approved_by INT NULL AFTER status");
-    } catch (PDOException $e) {}
+        $pdo->exec("ALTER TABLE purchase_orders ADD COLUMN status VARCHAR(50) DEFAULT 'Generated'");
+        $pdo->exec("ALTER TABLE purchase_orders ADD COLUMN delay_remarks TEXT");
+        $pdo->exec("UPDATE purchase_orders SET status = 'Viber Order Sent' WHERE status = 'SMS Sent'");
+        try {
+            $pdo->exec("ALTER TABLE purchase_orders ADD COLUMN payment_terms VARCHAR(100) DEFAULT 'Credit (30 Days Net)'");
+        } catch (PDOException $e) {}
+        try {
+            $pdo->exec("ALTER TABLE requisitions ADD COLUMN approved_by INT NULL AFTER status");
+        } catch (PDOException $e) {}
 
-    // Clean existing duplicated discrepancy records in delay_remarks if present
-    $dupPos = $pdo->query("SELECT id, delay_remarks FROM purchase_orders WHERE delay_remarks LIKE '%[DELIVERY DISCREPANCY]%'")->fetchAll(PDO::FETCH_ASSOC);
-    foreach ($dupPos as $dupPo) {
-        $normalized = str_replace(["\r\n", "\r"], "\n", $dupPo['delay_remarks'] ?? '');
-        $parts = explode('[DELIVERY DISCREPANCY]:', $normalized);
-        $unique = [];
-        $preface = trim($parts[0]);
-        for ($i = 1; $i < count($parts); $i++) {
-            $t = trim($parts[$i]);
-            $normT = preg_replace('/\s+/', ' ', $t);
-            $alreadyExists = false;
-            foreach ($unique as $u) {
-                if (preg_replace('/\s+/', ' ', $u) === $normT) {
-                    $alreadyExists = true;
-                    break;
+        // Clean existing duplicated discrepancy records in delay_remarks if present
+        $dupPos = $pdo->query("SELECT id, delay_remarks FROM purchase_orders WHERE delay_remarks LIKE '%[DELIVERY DISCREPANCY]%'")->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($dupPos as $dupPo) {
+            $normalized = str_replace(["\r\n", "\r"], "\n", $dupPo['delay_remarks'] ?? '');
+            $parts = explode('[DELIVERY DISCREPANCY]:', $normalized);
+            $unique = [];
+            $preface = trim($parts[0]);
+            for ($i = 1; $i < count($parts); $i++) {
+                $t = trim($parts[$i]);
+                $normT = preg_replace('/\s+/', ' ', $t);
+                $alreadyExists = false;
+                foreach ($unique as $u) {
+                    if (preg_replace('/\s+/', ' ', $u) === $normT) {
+                        $alreadyExists = true;
+                        break;
+                    }
+                }
+                if (!empty($t) && !$alreadyExists) {
+                    $unique[] = $t;
                 }
             }
-            if (!empty($t) && !$alreadyExists) {
-                $unique[] = $t;
+            if (!empty($unique)) {
+                $cleanedText = (!empty($preface) ? $preface . "\n\n" : "") . implode("\n\n[DELIVERY DISCREPANCY]:\n", array_map(fn($u) => "[DELIVERY DISCREPANCY]:\n" . $u, $unique));
+                $cleanedText = str_replace("[DELIVERY DISCREPANCY]:\n[DELIVERY DISCREPANCY]:", "[DELIVERY DISCREPANCY]:", $cleanedText);
+                if ($cleanedText !== $dupPo['delay_remarks']) {
+                    $cleanStmt = $pdo->prepare("UPDATE purchase_orders SET delay_remarks = ? WHERE id = ?");
+                    $cleanStmt->execute([$cleanedText, $dupPo['id']]);
+                }
             }
         }
-        if (!empty($unique)) {
-            $cleanedText = (!empty($preface) ? $preface . "\n\n" : "") . implode("\n\n[DELIVERY DISCREPANCY]:\n", array_map(fn($u) => "[DELIVERY DISCREPANCY]:\n" . $u, $unique));
-            $cleanedText = str_replace("[DELIVERY DISCREPANCY]:\n[DELIVERY DISCREPANCY]:", "[DELIVERY DISCREPANCY]:", $cleanedText);
-            if ($cleanedText !== $dupPo['delay_remarks']) {
-                $cleanStmt = $pdo->prepare("UPDATE purchase_orders SET delay_remarks = ? WHERE id = ?");
-                $cleanStmt->execute([$cleanedText, $dupPo['id']]);
-            }
-        }
+        $_SESSION['po_schema_patched_v2'] = true;
+    } catch (PDOException $e) { /* Columns already exist */
+        $_SESSION['po_schema_patched_v2'] = true;
     }
-} catch (PDOException $e) { /* Columns already exist */
 }
 
 // Fetch Purchase Orders
@@ -1088,7 +1092,11 @@ include 'layout/header.php';
                 const container = document.getElementById('rsItemsPreviewContainer');
                 const tbody = document.getElementById('rsItemsPreviewBody');
 
-                tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted py-3"><div class="spinner-border spinner-border-sm me-2"></div> Loading items...</td></tr>';
+                if (typeof window.cimsRenderTableSkeleton === 'function') {
+                    window.cimsRenderTableSkeleton(tbody, 3, ['col-8', 'col-3', 'col-6']);
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted py-3"><div class="spinner-border spinner-border-sm me-2"></div> Loading items...</td></tr>';
+                }
                 container.classList.remove('d-none');
 
                 let formData = new FormData();
@@ -1096,10 +1104,10 @@ include 'layout/header.php';
                 formData.append('rs_id', rsId);
 
                 try {
-                    const response = await fetch('process/process.php', {
+                    const response = await (window.cimsFetchWithTimeout || fetch)('process/process.php', {
                         method: 'POST',
                         body: formData
-                    });
+                    }, 25000);
                     const data = await response.json();
 
                     if (data.status === 'success') {
@@ -1155,8 +1163,11 @@ include 'layout/header.php';
             window.stopReceiptCamera();
         }
 
-        const tbody = document.getElementById('receiveItemsBody');
-        tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4"><div class="spinner-border text-success spinner-border-sm me-2"></div> Fetching Manifest...</td></tr>';
+        if (typeof window.cimsRenderTableSkeleton === 'function') {
+            window.cimsRenderTableSkeleton(tbody, 4, ['col-8', 'col-3', 'col-2', 'col-3', 'col-4', 'col-3', 'col-3', 'col-4']);
+        } else {
+            tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4"><div class="spinner-border text-success spinner-border-sm me-2"></div> Fetching Manifest...</td></tr>';
+        }
 
         var myModalEl = document.getElementById('receiveModal');
         var receiveModal = bootstrap.Modal.getInstance(myModalEl);
@@ -1168,10 +1179,10 @@ include 'layout/header.php';
         formData.append('po_id', id);
 
         try {
-            const response = await fetch('process/process.php', {
+            const response = await (window.cimsFetchWithTimeout || fetch)('process/process.php', {
                 method: 'POST',
                 body: formData
-            });
+            }, 25000);
             const data = await response.json();
 
             if (data.status === 'success') {
@@ -1893,7 +1904,7 @@ include 'layout/header.php';
                         formData.append('csrf_token', csrfToken);
                     }
 
-                    const response = await fetch('process/process.php', {
+                    const response = await (window.cimsFetchWithTimeout || fetch)('process/process.php', {
                         method: 'POST',
                         body: formData,
                         headers: {
@@ -1901,7 +1912,7 @@ include 'layout/header.php';
                             'Accept': 'application/json',
                             'X-CSRF-Token': csrfToken
                         }
-                    });
+                    }, 45000);
 
                     const rawText = await response.text();
                     let result = null;
@@ -2003,10 +2014,10 @@ include 'layout/header.php';
         formData.append('po_id', poId);
 
         try {
-            const response = await fetch('process/process.php', {
+            const response = await (window.cimsFetchWithTimeout || fetch)('process/process.php', {
                 method: 'POST',
                 body: formData
-            });
+            }, 25000);
             const data = await response.json();
 
             if (data.status === 'success') {
@@ -3010,7 +3021,7 @@ include 'layout/header.php';
         }
 
         try {
-            await fetch('process/process.php', { method: 'POST', body: formData, headers: headers });
+            await (window.cimsFetchWithTimeout || fetch)('process/process.php', { method: 'POST', body: formData, headers: headers }, 25000);
         } catch (e) {
             console.error('Error logging Viber order send:', e);
         } finally {
@@ -3190,11 +3201,11 @@ include 'layout/header.php';
         if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
 
         try {
-            const response = await fetch('process/process.php', {
+            const response = await (window.cimsFetchWithTimeout || fetch)('process/process.php', {
                 method: 'POST',
                 body: formData,
                 headers: headers
-            });
+            }, 45000);
             const result = await response.json();
 
             if (result.status === 'success') {
@@ -3337,11 +3348,11 @@ include 'layout/header.php';
         }
 
         try {
-            const response = await fetch('process/process.php', {
+            const response = await (window.cimsFetchWithTimeout || fetch)('process/process.php', {
                 method: 'POST',
                 body: formData,
                 headers: headers
-            });
+            }, 25000);
             const result = await response.json();
 
             if (result.status === 'success') {
