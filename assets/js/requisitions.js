@@ -220,7 +220,11 @@ window.openApproveItemsModal = function(rsId, rsNo, itemsB64) {
     document.getElementById('approveRsNoLabel').innerText = rsNo;
 
     const list = document.getElementById('approveItemsList');
-    list.innerHTML = '<div class="text-center text-muted py-4"><i class="bi bi-hourglass-split me-2"></i>Loading items...</div>';
+    if (typeof window.cimsRenderCardSkeleton === 'function') {
+        window.cimsRenderCardSkeleton(list, 2);
+    } else {
+        list.innerHTML = '<div class="text-center text-muted py-4"><i class="bi bi-hourglass-split me-2"></i>Loading items...</div>';
+    }
 
     try {
         const items = JSON.parse(atob(itemsB64));
