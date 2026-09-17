@@ -1251,14 +1251,14 @@ function initWithdrawalSignaturePad() {
                     formData.append('csrf_token', csrfToken);
                 }
 
-                const response = await fetch('process/process.php', {
+                const response = await (window.cimsFetchWithTimeout || fetch)('process/process.php', {
                     method: 'POST',
                     body: formData,
                     headers: {
                         'X-Requested-With': 'XMLHttpRequest',
                         'X-CSRF-Token': csrfToken
                     }
-                });
+                }, 35000);
 
                 const result = await response.json();
                 const isSuccess = result.success === true || result.status === 'success';
