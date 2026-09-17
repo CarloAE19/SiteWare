@@ -499,6 +499,7 @@ function highlightTypeaheadMatch(text, query) {
 }
 
 window.initSearchableCombobox = function(scope = document) {
+    const isRequestor = (window.currentUserRole === 'requestor');
     const selects = scope.querySelectorAll('select.item-select-control');
     selects.forEach(select => {
         if (select.dataset.typeaheadInit === 'true' || select.closest('.cims-typeahead-wrap')) return;
@@ -510,7 +511,7 @@ window.initSearchableCombobox = function(scope = document) {
                 value: opt.value,
                 name: opt.getAttribute('data-name') || opt.textContent.replace(/\[.*?\]\s*/, '').replace(/\s*\(.*?\)$/, '').trim(),
                 unit: opt.getAttribute('data-unit') || '',
-                stock: opt.getAttribute('data-stock') || '',
+                stock: isRequestor ? '' : (opt.getAttribute('data-stock') || ''),
                 category: opt.getAttribute('data-category') || 'Materials',
                 fullLabel: opt.textContent.trim()
             }));
@@ -568,7 +569,8 @@ window.initSearchableCombobox = function(scope = document) {
                 menu.innerHTML = currentFiltered.slice(0, 60).map((it, idx) => {
                     const highlightedName = highlightTypeaheadMatch(it.name, query);
                     const highlightedCode = highlightTypeaheadMatch(it.value, query);
-                    const stockBadge = it.stock !== '' ? `<span class="badge bg-success-subtle text-success border border-success-subtle small ms-1">Stock: ${it.stock} ${it.unit}</span>` : '';
+                    const canViewStock = (window.currentUserRole !== 'requestor');
+                    const stockBadge = (canViewStock && it.stock !== '') ? `<span class="badge bg-success-subtle text-success border border-success-subtle small ms-1">Stock: ${it.stock} ${it.unit}</span>` : '';
                     const catBadge = it.category ? `<span class="badge bg-light text-muted border small">${escapeTypeaheadHtml(it.category)}</span>` : '';
 
                     return `
