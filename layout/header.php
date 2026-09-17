@@ -496,63 +496,65 @@ foreach ($notifications as $n) {
                             class="bi bi-list fs-5"></i></button>
 
                     <div class="d-flex align-items-center ms-auto">
-                        <!-- 2. DEDICATED SUPPLY LOGISTICS UPDATES & ETAS DROPDOWN -->
-                        <div class="dropdown me-3">
-                            <a href="#"
-                                class="text-muted position-relative d-flex align-items-center text-decoration-none"
-                                id="dropdownSupplyUpdates" data-bs-toggle="dropdown" data-bs-auto-close="outside"
-                                aria-expanded="false" title="Supply Deliveries & ETAs" onclick="loadSupplyUpdates()">
-                                <i class="bi bi-exclamation-triangle fs-5 text-muted" id="supplyTruckIcon"></i>
-                                <span
-                                    class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none"
-                                    id="supplyUpdatesBadge" style="font-size: 0.65rem;">0</span>
-                            </a>
+                        <?php if (in_array($_SESSION['user_role'] ?? '', ['admin', 'management', 'purchasing', 'warehouse'])): ?>
+                            <!-- 2. DEDICATED SUPPLY LOGISTICS UPDATES & ETAS DROPDOWN -->
+                            <div class="dropdown me-3">
+                                <a href="#"
+                                    class="text-muted position-relative d-flex align-items-center text-decoration-none"
+                                    id="dropdownSupplyUpdates" data-bs-toggle="dropdown" data-bs-auto-close="outside"
+                                    aria-expanded="false" title="Supply Deliveries & ETAs" onclick="loadSupplyUpdates()">
+                                    <i class="bi bi-exclamation-triangle fs-5 text-muted" id="supplyTruckIcon"></i>
+                                    <span
+                                        class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none"
+                                        id="supplyUpdatesBadge" style="font-size: 0.65rem;">0</span>
+                                </a>
 
-                            <div class="dropdown-menu dropdown-menu-end shadow-lg border-0 rounded-3 notif-menu p-0"
-                                aria-labelledby="dropdownSupplyUpdates" style="width: 360px; max-width: 90vw;">
-                                <div
-                                    class="p-3 bg-dark text-white rounded-top-3 d-flex justify-content-between align-items-center">
-                                    <div class="d-flex align-items-center">
-                                        <i class="bi bi-exclamation-triangle-fill text-warning me-2 fs-5"></i>
-                                        <div>
-                                            <h6 class="fw-bold mb-0 text-white">Supply Deliveries & ETAs</h6>
-                                            <small class="text-white-50" style="font-size: 0.72rem;">Warehouse arrival
-                                                schedules & supplier tracking</small>
+                                <div class="dropdown-menu dropdown-menu-end shadow-lg border-0 rounded-3 notif-menu p-0"
+                                    aria-labelledby="dropdownSupplyUpdates" style="width: 360px; max-width: 90vw;">
+                                    <div
+                                        class="p-3 bg-dark text-white rounded-top-3 d-flex justify-content-between align-items-center">
+                                        <div class="d-flex align-items-center">
+                                            <i class="bi bi-exclamation-triangle-fill text-warning me-2 fs-5"></i>
+                                            <div>
+                                                <h6 class="fw-bold mb-0 text-white">Supply Deliveries & ETAs</h6>
+                                                <small class="text-white-50" style="font-size: 0.72rem;">Warehouse arrival
+                                                    schedules & supplier tracking</small>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
 
-                                <!-- Filter Tabs for Supplies -->
-                                <div class="bg-light border-bottom px-2 py-1 d-flex gap-1 overflow-auto">
-                                    <button type="button"
-                                        class="btn btn-sm btn-primary rounded-pill px-2 py-0 fw-bold text-nowrap supply-tab-btn active"
-                                        onclick="event.stopPropagation(); filterSupplyUpdates('all', this)"
-                                        style="font-size: 0.72rem;">All Deliveries</button>
-                                    <button type="button"
-                                        class="btn btn-sm btn-outline-secondary rounded-pill px-2 py-0 fw-bold text-nowrap supply-tab-btn"
-                                        onclick="event.stopPropagation(); filterSupplyUpdates('arriving_today', this)"
-                                        style="font-size: 0.72rem;">🟡 Today</button>
-                                    <button type="button"
-                                        class="btn btn-sm btn-outline-secondary rounded-pill px-2 py-0 fw-bold text-nowrap supply-tab-btn"
-                                        onclick="event.stopPropagation(); filterSupplyUpdates('overdue', this)"
-                                        style="font-size: 0.72rem;">🔴 Overdue</button>
-                                </div>
-
-                                <!-- Supply Updates Container -->
-                                <div class="overflow-auto" style="max-height: 360px;" id="supplyUpdatesContainer">
-                                    <div class="text-center text-muted py-4">
-                                        <div class="spinner-border spinner-border-sm text-primary mb-2" role="status">
-                                        </div>
-                                        <p class="small mb-0">Loading supply updates...</p>
+                                    <!-- Filter Tabs for Supplies -->
+                                    <div class="bg-light border-bottom px-2 py-1 d-flex gap-1 overflow-auto">
+                                        <button type="button"
+                                            class="btn btn-sm btn-primary rounded-pill px-2 py-0 fw-bold text-nowrap supply-tab-btn active"
+                                            onclick="event.stopPropagation(); filterSupplyUpdates('all', this)"
+                                            style="font-size: 0.72rem;">All Deliveries</button>
+                                        <button type="button"
+                                            class="btn btn-sm btn-outline-secondary rounded-pill px-2 py-0 fw-bold text-nowrap supply-tab-btn"
+                                            onclick="event.stopPropagation(); filterSupplyUpdates('arriving_today', this)"
+                                            style="font-size: 0.72rem;">🟡 Today</button>
+                                        <button type="button"
+                                            class="btn btn-sm btn-outline-secondary rounded-pill px-2 py-0 fw-bold text-nowrap supply-tab-btn"
+                                            onclick="event.stopPropagation(); filterSupplyUpdates('overdue', this)"
+                                            style="font-size: 0.72rem;">🔴 Overdue</button>
                                     </div>
-                                </div>
 
-                                <div class="p-2 border-top bg-light text-center">
-                                    <a href="po" class="text-primary fw-bold text-decoration-none small"><i
-                                            class="bi bi-box-arrow-up-right me-1"></i>Open Purchase Orders Panel</a>
+                                    <!-- Supply Updates Container -->
+                                    <div class="overflow-auto" style="max-height: 360px;" id="supplyUpdatesContainer">
+                                        <div class="text-center text-muted py-4">
+                                            <div class="spinner-border spinner-border-sm text-primary mb-2" role="status">
+                                            </div>
+                                            <p class="small mb-0">Loading supply updates...</p>
+                                        </div>
+                                    </div>
+
+                                    <div class="p-2 border-top bg-light text-center">
+                                        <a href="po" class="text-primary fw-bold text-decoration-none small"><i
+                                                class="bi bi-box-arrow-up-right me-1"></i>Open Purchase Orders Panel</a>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
+                        <?php endif; ?>
 
                         <!-- 3. DEDICATED SYSTEM NOTIFICATIONS DROPDOWN -->
                         <div class="dropdown me-3">
