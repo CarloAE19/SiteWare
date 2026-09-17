@@ -639,8 +639,27 @@ $approvedRS = $pdo->query("
             </div>
 
             <div class="modal-body p-2 p-sm-3 p-md-4 bg-light" id="poPrintDocumentBody">
-                <div class="text-center text-muted py-5" id="poPrintLoadingSpinner">
-                    <div class="spinner-border text-primary me-2"></div> Loading Purchase Order Details...
+                <div class="placeholder-wave p-3 p-md-4 bg-white rounded-3 border shadow-sm my-2" id="poPrintLoadingSpinner">
+                    <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom border-2">
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="placeholder cims-shimmer rounded" style="width: 38px; height: 38px; display: inline-block;"></span>
+                            <div>
+                                <span class="placeholder cims-shimmer col-8 rounded py-2 d-block mb-1" style="width: 140px;"></span>
+                                <span class="placeholder cims-shimmer col-5 rounded d-block" style="width: 100px;"></span>
+                            </div>
+                        </div>
+                        <span class="placeholder cims-shimmer rounded-pill py-2" style="width: 70px; display: inline-block;"></span>
+                    </div>
+                    <div class="row g-2 mb-3">
+                        <div class="col-6"><div class="p-2 bg-light rounded border"><span class="placeholder cims-shimmer col-10 rounded d-block mb-2"></span><span class="placeholder cims-shimmer col-7 rounded d-block"></span></div></div>
+                        <div class="col-6"><div class="p-2 bg-light rounded border"><span class="placeholder cims-shimmer col-10 rounded d-block mb-2"></span><span class="placeholder cims-shimmer col-7 rounded d-block"></span></div></div>
+                    </div>
+                    <div class="table-responsive border rounded bg-light p-2 mb-2">
+                        <div class="d-flex justify-content-between py-2 border-bottom"><span class="placeholder cims-shimmer col-4 rounded"></span><span class="placeholder cims-shimmer col-2 rounded"></span></div>
+                        <div class="d-flex justify-content-between py-2 border-bottom"><span class="placeholder cims-shimmer col-5 rounded"></span><span class="placeholder cims-shimmer col-2 rounded"></span></div>
+                        <div class="d-flex justify-content-between py-2"><span class="placeholder cims-shimmer col-3 rounded"></span><span class="placeholder cims-shimmer col-2 rounded"></span></div>
+                    </div>
+                    <div class="text-center text-muted small py-1"><span class="spinner-border spinner-border-sm me-1 text-primary"></span> Retrieving Purchase Order Data...</div>
                 </div>
 
                 <div id="poPrintModalContent" class="d-none">
