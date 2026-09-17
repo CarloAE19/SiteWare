@@ -418,6 +418,7 @@ let currentSupplyFilter = 'all';
 async function loadSupplyUpdates() {
 const container = document.getElementById('supplyUpdatesContainer');
 const badge = document.getElementById('supplyUpdatesBadge');
+if (!container && !badge) return;
 
 try {
 const formData = new FormData();
@@ -575,12 +576,15 @@ items.forEach(item => {
 container.innerHTML = html;
 }
 
-// Poll for supply updates every 25 seconds
+// Poll for supply updates every 25 seconds (Only for roles with the supply dropdown)
 document.addEventListener('DOMContentLoaded', () => {
     if (typeof loadSmsThreads === 'function') loadSmsThreads();
-    loadSupplyUpdates();
+    const hasSupplyDropdown = document.getElementById('dropdownSupplyUpdates');
+    if (hasSupplyDropdown) {
+        loadSupplyUpdates();
+        setInterval(loadSupplyUpdates, 25000);
+    }
     if (typeof loadSmsThreads === 'function') setInterval(loadSmsThreads, 30000);
-    setInterval(loadSupplyUpdates, 25000);
 });
 </script>
 <!-- ======================================================== -->
