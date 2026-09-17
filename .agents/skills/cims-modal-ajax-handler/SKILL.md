@@ -147,11 +147,13 @@ if (modalEl) {
 
 ---
 
-## 4. Mobile & Multi-Device Modal Standards
+## 4. Mobile & Multi-Device Modal Standards (All Mobile Phone Sizes)
 
-- **Scrollable Modals:** Use `modal-dialog-scrollable` so long forms (like multi-item requisition tables) remain easily navigable when the virtual keyboard is open.
-- **Dynamic Row Stacking:** On mobile screens (`<768px`), form rows with item selectors, quantities, notes, and remove buttons must stack vertically or use responsive grids (`col-12 col-md-6 col-lg-3`) so elements do not squish or overflow.
-- **Touch-Friendly Hit Targets:** Buttons and delete icons must have sufficient padding (minimum 40x40px touch area) to prevent misclicks on touch devices.
+- **Coverage Across All Phone Sizes:** Modals and dynamic form rows must adapt properly from compact displays (320px–360px like iPhone SE) up to large smartphones/foldables (430px+):
+  - Use `modal-fullscreen-sm-down` or `modal-dialog-scrollable` so modals fit tiny phone screens without action buttons being pushed off-screen.
+- **Dynamic Row Stacking on Small Phones:** On mobile screens (`<768px`), multi-item form rows (e.g. item selectors, quantities, notes, remove buttons) must stack cleanly into block/vertical layouts with full-width inputs so nothing squishes or breaks layout on 320px–375px screens.
+- **Touch-Friendly Hit Targets:** All buttons, close icons (`btn-close`), action triggers, and delete row buttons must maintain a minimum touch target of 44x44px to prevent misclicks on touch screens.
+- **Virtual Keyboard & Input Font Size:** Set input font sizes to at least 16px to prevent mobile browser auto-zoom, and ensure sticky footers or scroll containers keep input fields visible when the virtual keyboard pops up.
 
 ---
 
