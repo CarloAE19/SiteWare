@@ -3,6 +3,50 @@
  * Handles passwords toggles, modal triggers, and UI events
  * ========================================================== */
 
+/**
+ * CIMS Standardized Network Fetch with AbortController Timeout Guard
+ * Prevents network requests from hanging indefinitely on low-bandwidth / high-latency connections.
+ * 
+ * @param {string} url - Target URL endpoint
+ * @param {RequestInit} options - Standard fetch options (method, body, headers, etc.)
+ * @param {number} timeoutMs - Timeout in milliseconds (default: 30,000ms = 30s)
+ * @returns {Promise<Response>}
+ */
+window.cimsFetchWithTimeout = async function (url, options = {}, timeoutMs = 30000) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+        controller.abort(new DOMException('Network request timed out after ' + Math.round(timeoutMs / 1000) + 's.', 'TimeoutError'));
+    }, timeoutMs);
+
+    const originalSignal = options.signal;
+    if (originalSignal) {
+        if (originalSignal.aborted) {
+            clearTimeout(timeoutId);
+            controller.abort(originalSignal.reason);
+        } else {
+            originalSignal.addEventListener('abort', () => {
+                clearTimeout(timeoutId);
+                controller.abort(originalSignal.reason);
+            });
+        }
+    }
+
+    try {
+        const fetchOptions = { ...options, signal: controller.signal };
+        return await fetch(url, fetchOptions);
+    } catch (err) {
+        if (err.name === 'AbortError' || err.name === 'TimeoutError') {
+            const timeoutError = new Error('Network connection timed out. The server took too long to respond. Please check your cellular connection and try again.');
+            timeoutError.name = 'TimeoutError';
+            timeoutError.isTimeout = true;
+            throw timeoutError;
+        }
+        throw err;
+    } finally {
+        clearTimeout(timeoutId);
+    }
+};
+
 document.addEventListener("DOMContentLoaded", () => {
     // Receive QR Scanner Init
     document.body.addEventListener('click', (e) => {
