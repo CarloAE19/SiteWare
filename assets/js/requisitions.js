@@ -1344,7 +1344,7 @@ function initializeRequisitionsPage() {
                 const headers = { 'X-Requested-With': 'XMLHttpRequest' };
                 if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
 
-                const response = await fetch('process/process.php', {
+                const response = await (window.cimsFetchWithTimeout || fetch)('process/process.php', {
                     method: 'POST',
                     body: formData,
                     headers: headers
@@ -1463,7 +1463,7 @@ function initializeRequisitionsPage() {
                 const headers = { 'X-Requested-With': 'XMLHttpRequest' };
                 if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
 
-                const response = await fetch('process/process.php', {
+                const response = await (window.cimsFetchWithTimeout || fetch)('process/process.php', {
                     method: 'POST',
                     body: formData,
                     headers: headers
@@ -1577,7 +1577,7 @@ function initializeRequisitionsPage() {
                 const headers = { 'X-Requested-With': 'XMLHttpRequest' };
                 if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
 
-                const response = await fetch('process/process.php', {
+                const response = await (window.cimsFetchWithTimeout || fetch)('process/process.php', {
                     method: 'POST',
                     body: formData,
                     headers: headers
@@ -1673,7 +1673,7 @@ function initializeRequisitionsPage() {
                 const headers = { 'X-Requested-With': 'XMLHttpRequest' };
                 if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
 
-                const response = await fetch('process/process.php', {
+                const response = await (window.cimsFetchWithTimeout || fetch)('process/process.php', {
                     method: 'POST',
                     body: formData,
                     headers: headers
@@ -1769,7 +1769,7 @@ function initializeRequisitionsPage() {
                 const headers = { 'X-Requested-With': 'XMLHttpRequest' };
                 if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
 
-                const response = await fetch('process/process.php', {
+                const response = await (window.cimsFetchWithTimeout || fetch)('process/process.php', {
                     method: 'POST',
                     body: formData,
                     headers: headers
@@ -1837,6 +1837,94 @@ function initializeRequisitionsPage() {
             }
         });
     }
+
+    // --- STAGE MATERIALS INLINE AJAX HANDLER (Double-Submit Guard & Instant Feedback) ---
+    document.addEventListener('submit', async function (e) {
+        const stageForm = e.target.closest('.stage-rs-form');
+        if (!stageForm) return;
+
+        e.preventDefault();
+
+        const submitBtn = stageForm.querySelector('button[type="submit"]');
+        const originalHtml = submitBtn ? submitBtn.innerHTML : '<i class="bi bi-box-seam me-1"></i> Stage';
+        const rsNo = stageForm.getAttribute('data-rs-no') || 'this requisition';
+
+        // 1. Confirm Intent (HCI Principle: Error Prevention)
+        if (typeof Swal !== 'undefined') {
+            const confirmResult = await Swal.fire({
+                title: 'Stage Materials for Pickup?',
+                html: `Mark requisition <strong>${rsNo}</strong> materials as pre-picked and staged in the warehouse?<br><small class="text-muted">This notifies the requester that items are ready for express collection.</small>`,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: '<i class="bi bi-box-seam me-1"></i> Yes, Stage Materials',
+                cancelButtonText: 'Cancel',
+                confirmButtonColor: '#0dcaf0',
+                reverseButtons: true
+            });
+            if (!confirmResult.isConfirmed) return;
+        } else {
+            if (!confirm(`Mark requisition ${rsNo} as Staged & Ready for Express Pickup?`)) return;
+        }
+
+        // 2. Prevent double-submit & show loading spinner
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Staging...';
+        }
+
+        try {
+            const formData = new FormData(stageForm);
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || stageForm.querySelector('[name="csrf_token"]')?.value || '';
+            const headers = { 'X-Requested-With': 'XMLHttpRequest' };
+            if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
+
+            const response = await (window.cimsFetchWithTimeout || fetch)(stageForm.getAttribute('action') || 'process/process.php', {
+                method: 'POST',
+                body: formData,
+                headers: headers
+            });
+
+            const rawText = await response.text();
+            let result;
+            try {
+                result = JSON.parse(rawText);
+            } catch (jsonErr) {
+                console.error('Non-JSON server response in stage-rs-form:', rawText);
+                throw new Error('Server returned an unexpected response. Please refresh.');
+            }
+
+            const isSuccess = result.status === 'success' || result.success === true;
+            if (isSuccess) {
+                if (typeof Swal !== 'undefined') {
+                    await Swal.fire({
+                        icon: 'success',
+                        title: 'Materials Staged!',
+                        text: result.message || `Requisition ${rsNo} marked as Staged & Ready for Pickup.`,
+                        timer: 2000,
+                        showConfirmButton: false
+                    });
+                }
+                window.location.reload();
+            } else {
+                throw new Error(result.message || 'Failed to stage materials.');
+            }
+        } catch (err) {
+            console.error('Error staging RS materials:', err);
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Action Failed',
+                    text: err.message || 'An error occurred while updating staging status.'
+                });
+            } else {
+                alert(err.message || 'An error occurred while updating staging status.');
+            }
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalHtml;
+            }
+        }
+    });
 }
 
 if (document.readyState === "loading") { document.addEventListener("DOMContentLoaded", initializeRequisitionsPage); } else { initializeRequisitionsPage(); }
