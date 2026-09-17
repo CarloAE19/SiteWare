@@ -5,8 +5,9 @@
                 <h5 class="modal-title" id="unitModalTitle"><span style="color: var(--gb-yellow);">Add Unit</span></h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-            <form method="POST" action="process/process.php">
+            <form method="POST" action="process/process.php" id="unitModalForm">
                 <div class="modal-body bg-light">
+                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
                     <input type="hidden" name="action" id="unitFormAction" value="add_unit">
                     <input type="hidden" name="unit_id" id="unitId" value="">
                     
@@ -50,7 +51,7 @@
                 </div>
                 <div class="modal-footer justify-content-between">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-brand">Save Unit</button>
+                    <button type="submit" class="btn btn-brand fw-bold shadow-sm" id="unitSubmitBtn"><i class="bi bi-save me-1"></i> Save Unit</button>
                 </div>
             </form>
         </div>
@@ -179,6 +180,45 @@ document.addEventListener('DOMContentLoaded', function() {
     if (reorderInput) {
         reorderInput.addEventListener('input', function() {
             userManuallyChanged = true;
+        });
+    }
+
+    // Unit Form Lifecycle & Double-Submit Guard (per cims-modal-ajax-handler)
+    const unitForm = document.getElementById('unitModalForm');
+    const unitModalEl = document.getElementById('unitModal');
+
+    if (unitForm) {
+        unitForm.addEventListener('submit', function (e) {
+            if (!unitForm.checkValidity()) {
+                unitForm.reportValidity();
+                e.preventDefault();
+                return;
+            }
+
+            const submitBtn = document.getElementById('unitSubmitBtn');
+            if (submitBtn) {
+                submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Saving Unit...';
+                setTimeout(() => { submitBtn.disabled = true; }, 0);
+            }
+        });
+    }
+
+    if (unitModalEl) {
+        unitModalEl.addEventListener('shown.bs.modal', function () {
+            const nameInput = document.getElementById('unitName');
+            if (nameInput) nameInput.focus();
+        });
+
+        unitModalEl.addEventListener('hidden.bs.modal', function () {
+            if (unitForm) {
+                unitForm.classList.remove('was-validated');
+            }
+            const submitBtn = document.getElementById('unitSubmitBtn');
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="bi bi-save me-1"></i> Save Unit';
+            }
+            hideAiHint();
         });
     }
 });
