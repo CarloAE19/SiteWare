@@ -1209,3 +1209,85 @@ body:has(.modal.show) #cims-chatbot-container {
     background-size: 200% 100% !important;
     animation: cimsShimmerWave 1.4s ease-in-out infinite !important;
 }
+
+/* ==========================================================
+ * TOP NANO-PROGRESS BAR (SPA Route Switching)
+ * Enterprise-grade progress bar for page-to-page navigation
+ * ========================================================== */
+#cims-top-progress-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 3px;
+    width: 0%;
+    background: linear-gradient(90deg, var(--gb-yellow, #ffc107) 0%, var(--gb-blue, #0d6efd) 70%, #00d2ff 100%);
+    box-shadow: 0 0 10px rgba(13, 110, 253, 0.8), 0 0 5px rgba(255, 193, 7, 0.9);
+    z-index: 9999999;
+    pointer-events: none;
+    opacity: 0;
+    transition: width 0.35s cubic-bezier(0.1, 0.05, 0.25, 1), opacity 0.25s ease;
+}
+
+#cims-top-progress-bar.active {
+    opacity: 1;
+}
+
+#cims-top-progress-bar::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 100px;
+    height: 3px;
+    box-shadow: 0 0 12px #00d2ff, 0 0 6px var(--gb-yellow, #ffc107);
+    opacity: 0.8;
+}
+
+@supports (padding-top: env(safe-area-inset-top)) {
+    @media (display-mode: standalone) {
+        #cims-top-progress-bar {
+            top: env(safe-area-inset-top, 0px);
+        }
+    }
+}
+
+/* Floating Route Transition Pill (Safe on Notch, Dynamic Island & Mobile Screens) */
+.cims-route-loading-pill {
+    position: fixed;
+    top: 20px;
+    top: max(16px, calc(env(safe-area-inset-top, 0px) + 12px));
+    left: 50%;
+    transform: translate3d(-50%, -25px, 0);
+    background: rgba(15, 23, 42, 0.90);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    color: #f8fafc;
+    font-size: 0.82rem;
+    font-weight: 600;
+    padding: 7px 18px;
+    border-radius: 50px;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.15);
+    z-index: 9999998;
+    pointer-events: none;
+    opacity: 0;
+    max-width: calc(100vw - 32px);
+    box-sizing: border-box;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow: hidden;
+    will-change: transform, opacity;
+    transition: opacity 0.22s ease, transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.cims-route-loading-pill.show {
+    opacity: 1;
+    transform: translate3d(-50%, 0, 0);
+}
+
+[data-bs-theme="dark"] .cims-route-loading-pill {
+    background: rgba(30, 41, 59, 0.94);
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.2);
+}
