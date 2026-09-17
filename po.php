@@ -1092,7 +1092,11 @@ include 'layout/header.php';
                 const container = document.getElementById('rsItemsPreviewContainer');
                 const tbody = document.getElementById('rsItemsPreviewBody');
 
-                tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted py-3"><div class="spinner-border spinner-border-sm me-2"></div> Loading items...</td></tr>';
+                if (typeof window.cimsRenderTableSkeleton === 'function') {
+                    window.cimsRenderTableSkeleton(tbody, 3, ['col-8', 'col-3', 'col-6']);
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted py-3"><div class="spinner-border spinner-border-sm me-2"></div> Loading items...</td></tr>';
+                }
                 container.classList.remove('d-none');
 
                 let formData = new FormData();
@@ -1100,10 +1104,10 @@ include 'layout/header.php';
                 formData.append('rs_id', rsId);
 
                 try {
-                    const response = await fetch('process/process.php', {
+                    const response = await (window.cimsFetchWithTimeout || fetch)('process/process.php', {
                         method: 'POST',
                         body: formData
-                    });
+                    }, 25000);
                     const data = await response.json();
 
                     if (data.status === 'success') {
@@ -1159,8 +1163,11 @@ include 'layout/header.php';
             window.stopReceiptCamera();
         }
 
-        const tbody = document.getElementById('receiveItemsBody');
-        tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4"><div class="spinner-border text-success spinner-border-sm me-2"></div> Fetching Manifest...</td></tr>';
+        if (typeof window.cimsRenderTableSkeleton === 'function') {
+            window.cimsRenderTableSkeleton(tbody, 4, ['col-8', 'col-3', 'col-2', 'col-3', 'col-4', 'col-3', 'col-3', 'col-4']);
+        } else {
+            tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4"><div class="spinner-border text-success spinner-border-sm me-2"></div> Fetching Manifest...</td></tr>';
+        }
 
         var myModalEl = document.getElementById('receiveModal');
         var receiveModal = bootstrap.Modal.getInstance(myModalEl);
@@ -1172,10 +1179,10 @@ include 'layout/header.php';
         formData.append('po_id', id);
 
         try {
-            const response = await fetch('process/process.php', {
+            const response = await (window.cimsFetchWithTimeout || fetch)('process/process.php', {
                 method: 'POST',
                 body: formData
-            });
+            }, 25000);
             const data = await response.json();
 
             if (data.status === 'success') {
@@ -2007,10 +2014,10 @@ include 'layout/header.php';
         formData.append('po_id', poId);
 
         try {
-            const response = await fetch('process/process.php', {
+            const response = await (window.cimsFetchWithTimeout || fetch)('process/process.php', {
                 method: 'POST',
                 body: formData
-            });
+            }, 25000);
             const data = await response.json();
 
             if (data.status === 'success') {
