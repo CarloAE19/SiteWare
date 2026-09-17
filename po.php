@@ -1897,7 +1897,7 @@ include 'layout/header.php';
                         formData.append('csrf_token', csrfToken);
                     }
 
-                    const response = await fetch('process/process.php', {
+                    const response = await (window.cimsFetchWithTimeout || fetch)('process/process.php', {
                         method: 'POST',
                         body: formData,
                         headers: {
@@ -1905,7 +1905,7 @@ include 'layout/header.php';
                             'Accept': 'application/json',
                             'X-CSRF-Token': csrfToken
                         }
-                    });
+                    }, 45000);
 
                     const rawText = await response.text();
                     let result = null;
@@ -3014,7 +3014,7 @@ include 'layout/header.php';
         }
 
         try {
-            await fetch('process/process.php', { method: 'POST', body: formData, headers: headers });
+            await (window.cimsFetchWithTimeout || fetch)('process/process.php', { method: 'POST', body: formData, headers: headers }, 25000);
         } catch (e) {
             console.error('Error logging Viber order send:', e);
         } finally {
@@ -3194,11 +3194,11 @@ include 'layout/header.php';
         if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
 
         try {
-            const response = await fetch('process/process.php', {
+            const response = await (window.cimsFetchWithTimeout || fetch)('process/process.php', {
                 method: 'POST',
                 body: formData,
                 headers: headers
-            });
+            }, 45000);
             const result = await response.json();
 
             if (result.status === 'success') {
@@ -3341,11 +3341,11 @@ include 'layout/header.php';
         }
 
         try {
-            const response = await fetch('process/process.php', {
+            const response = await (window.cimsFetchWithTimeout || fetch)('process/process.php', {
                 method: 'POST',
                 body: formData,
                 headers: headers
-            });
+            }, 25000);
             const result = await response.json();
 
             if (result.status === 'success') {
