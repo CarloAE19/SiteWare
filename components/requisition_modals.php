@@ -5,6 +5,7 @@ if (defined('CIMS_REQUISITION_MODALS_LOADED')) {
 define('CIMS_REQUISITION_MODALS_LOADED', true);
 
 $role = $_SESSION['user_role'] ?? 'requestor';
+$isRequestor = ($role === 'requestor');
 $activeProjects = $activeProjects ?? [];
 $inventoryItems = $inventoryItems ?? [];
 $categories = $categories ?? [];
@@ -126,6 +127,122 @@ $units = $units ?? [];
     .cims-typeahead-item .item-title {
         font-size: 0.88rem;
     }
+}
+
+/* ==========================================================
+ * CIMS TYPEAHEAD SEARCHABLE COMBOBOX — DARK MODE OVERRIDES
+ * ========================================================== */
+[data-bs-theme="dark"] .cims-typeahead-wrap .cims-typeahead-input {
+    background-color: var(--gb-dark-bg, #0d1117) !important;
+    color: var(--gb-dark-text-main, #f0f6fc) !important;
+    border-color: var(--gb-dark-border, #30363d) !important;
+}
+[data-bs-theme="dark"] .cims-typeahead-wrap .cims-typeahead-input::placeholder {
+    color: #6e7681 !important;
+}
+[data-bs-theme="dark"] .cims-typeahead-wrap .cims-typeahead-input:focus {
+    border-color: var(--gb-dark-accent, #58a6ff) !important;
+    box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.25) !important;
+}
+[data-bs-theme="dark"] .cims-typeahead-wrap .input-group-text {
+    background-color: var(--gb-dark-bg, #0d1117) !important;
+    border-color: var(--gb-dark-border, #30363d) !important;
+    color: #8b949e !important;
+}
+[data-bs-theme="dark"] .cims-typeahead-wrap .cims-typeahead-clear {
+    background-color: var(--gb-dark-bg, #0d1117) !important;
+    border-color: var(--gb-dark-border, #30363d) !important;
+    color: #8b949e !important;
+}
+[data-bs-theme="dark"] .cims-typeahead-wrap .cims-typeahead-toggle {
+    background-color: var(--gb-dark-hover, #21262d) !important;
+    border-color: var(--gb-dark-border, #30363d) !important;
+    color: var(--gb-dark-text-main, #f0f6fc) !important;
+}
+[data-bs-theme="dark"] .cims-typeahead-wrap .cims-typeahead-toggle:hover {
+    background-color: #30363d !important;
+    color: #ffffff !important;
+}
+[data-bs-theme="dark"] .cims-typeahead-menu {
+    background: var(--gb-dark-surface, #161b22) !important;
+    border: 1px solid var(--gb-dark-border, #30363d) !important;
+    box-shadow: 0 16px 36px rgba(0,0,0,0.6) !important;
+}
+[data-bs-theme="dark"] .cims-typeahead-menu::-webkit-scrollbar {
+    width: 6px;
+}
+[data-bs-theme="dark"] .cims-typeahead-menu::-webkit-scrollbar-track {
+    background: var(--gb-dark-surface, #161b22);
+}
+[data-bs-theme="dark"] .cims-typeahead-menu::-webkit-scrollbar-thumb {
+    background: var(--gb-dark-border, #30363d);
+    border-radius: 4px;
+}
+[data-bs-theme="dark"] .cims-typeahead-menu::-webkit-scrollbar-thumb:hover {
+    background: #484f58;
+}
+[data-bs-theme="dark"] .cims-typeahead-item {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+    color: var(--gb-dark-text-main, #f0f6fc) !important;
+}
+[data-bs-theme="dark"] .cims-typeahead-item .item-title {
+    color: var(--gb-dark-text-main, #f0f6fc) !important;
+}
+[data-bs-theme="dark"] .cims-typeahead-item:hover,
+[data-bs-theme="dark"] .cims-typeahead-item:active,
+[data-bs-theme="dark"] .cims-typeahead-item.active {
+    background-color: var(--gb-dark-hover, #21262d) !important;
+}
+[data-bs-theme="dark"] .cims-typeahead-item:hover .item-title,
+[data-bs-theme="dark"] .cims-typeahead-item.active .item-title {
+    color: var(--gb-dark-accent, #58a6ff) !important;
+}
+[data-bs-theme="dark"] .cims-typeahead-item .badge.bg-primary-subtle {
+    background-color: rgba(56, 139, 253, 0.15) !important;
+    color: #58a6ff !important;
+    border-color: rgba(56, 139, 253, 0.3) !important;
+}
+[data-bs-theme="dark"] .cims-typeahead-item .badge.bg-light {
+    background-color: #21262d !important;
+    color: #8b949e !important;
+    border-color: #30363d !important;
+}
+[data-bs-theme="dark"] .cims-typeahead-item .badge.bg-success-subtle {
+    background-color: rgba(46, 160, 67, 0.15) !important;
+    color: #3fb950 !important;
+    border-color: rgba(46, 160, 67, 0.3) !important;
+}
+[data-bs-theme="dark"] .cims-typeahead-item .match-highlight {
+    background-color: rgba(234, 179, 8, 0.25) !important;
+    color: #facc15 !important;
+}
+[data-bs-theme="dark"] .cims-typeahead-empty {
+    color: var(--gb-dark-text-muted, #8b949e) !important;
+}
+
+/* Modal Form Material Rows & Cards */
+[data-bs-theme="dark"] .material-row {
+    background-color: var(--gb-dark-surface, #161b22) !important;
+    border-color: var(--gb-dark-border, #30363d) !important;
+}
+[data-bs-theme="dark"] .material-row .border-bottom,
+[data-bs-theme="dark"] .material-row .border-top {
+    border-color: var(--gb-dark-border, #30363d) !important;
+}
+[data-bs-theme="dark"] .material-row .row-index-badge {
+    background-color: var(--gb-dark-hover, #21262d) !important;
+    color: var(--gb-dark-text-main, #f0f6fc) !important;
+    border-color: var(--gb-dark-border, #30363d) !important;
+}
+[data-bs-theme="dark"] .material-row .item-unit-badge {
+    background-color: var(--gb-dark-hover, #21262d) !important;
+    color: var(--gb-dark-text-muted, #8b949e) !important;
+    border-color: var(--gb-dark-border, #30363d) !important;
+}
+[data-bs-theme="dark"] #materialsContainer,
+[data-bs-theme="dark"] #restockMaterialsContainer,
+[data-bs-theme="dark"] #editMaterialsContainer {
+    background-color: var(--gb-dark-bg, #0d1117) !important;
 }
 </style>
 <!-- ======================================================== -->
@@ -346,7 +463,7 @@ $units = $units ?? [];
                                                     $code = htmlspecialchars($item['item_code']);
                                                     $name = htmlspecialchars($item['item_name']);
                                                 ?>
-                                                    <option value="<?= $code ?>" data-unit="<?= $unit ?>" data-stock="<?= $stockFormatted ?>" data-category="<?= $category ?>" data-name="<?= $name ?>">
+                                                    <option value="<?= $code ?>" data-unit="<?= $unit ?>" data-stock="<?= $isRequestor ? '' : $stockFormatted ?>" data-category="<?= $category ?>" data-name="<?= $name ?>">
                                                         [<?= $code ?>] <?= $name ?><?= !empty($unit) ? ' (' . $unit . ')' : '' ?>
                                                     </option>
                                                 <?php endforeach; ?>
@@ -512,7 +629,7 @@ $units = $units ?? [];
             $code = htmlspecialchars($item['item_code']);
             $name = htmlspecialchars($item['item_name']);
         ?>
-            <option value="<?= $code ?>" data-unit="<?= $unit ?>" data-stock="<?= $stockFormatted ?>" data-category="<?= $category ?>" data-name="<?= $name ?>">
+            <option value="<?= $code ?>" data-unit="<?= $unit ?>" data-stock="<?= $isRequestor ? '' : $stockFormatted ?>" data-category="<?= $category ?>" data-name="<?= $name ?>">
                 [<?= $code ?>] <?= $name ?><?= !empty($unit) ? ' (' . $unit . ')' : '' ?>
             </option>
         <?php endforeach; ?>
