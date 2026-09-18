@@ -713,6 +713,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Save original button width & content to prevent UI layout shifts
         const originalWidth = submitBtn.offsetWidth;
         const originalContent = submitBtn.innerHTML;
+        submitBtn.dataset.originalContent = originalContent;
         if (originalWidth > 0) {
             submitBtn.style.minWidth = originalWidth + 'px';
         }
@@ -729,7 +730,113 @@ document.addEventListener('DOMContentLoaded', () => {
                 submitBtn.disabled = false;
                 submitBtn.classList.remove('disabled');
                 submitBtn.innerHTML = originalContent;
+                delete submitBtn.dataset.originalContent;
             }
         }, 15000);
     }, true);
+});
+
+/* ==========================================================
+ * UNIVERSAL MODAL LIFECYCLE, ACCESSIBILITY & STEPPERS
+ * Standards: CIMS Modal AJAX Handler Skill Section 3 & Quality Standards
+ * ========================================================== */
+document.addEventListener('DOMContentLoaded', () => {
+    // 1. Accessibility: Auto-focus first visible editable input on modal open
+    document.addEventListener('shown.bs.modal', (e) => {
+        const modalEl = e.target;
+        if (!modalEl) return;
+
+        // On mobile touchscreens (<768px), don't aggressively force virtual keyboard popup
+        // unless explicitly requested by autofocus or data-auto-focus attribute
+        const isMobileScreen = window.innerWidth <= 768;
+        let targetInput = null;
+
+        if (isMobileScreen) {
+            targetInput = modalEl.querySelector('[data-auto-focus="true"], [autofocus]');
+        } else {
+            targetInput = modalEl.querySelector('input:not([type="hidden"]):not([disabled]):not([readonly]), select:not([disabled]):not([readonly]), textarea:not([disabled]):not([readonly])');
+        }
+
+        if (targetInput) {
+            targetInput.focus({ preventScroll: false });
+        }
+    });
+
+    // 2. Clean up: Reset forms, validation error states, and preview states on close
+    document.addEventListener('hidden.bs.modal', (e) => {
+        const modalEl = e.target;
+        if (!modalEl) return;
+
+        // Skip modals marked to preserve data
+        if (modalEl.dataset.noReset === "true") return;
+
+        const forms = modalEl.querySelectorAll('form');
+        forms.forEach(form => {
+            if (form.dataset.noReset === "true") return;
+            form.reset();
+            form.classList.remove('was-validated');
+            form.querySelectorAll('.is-invalid, .is-valid').forEach(el => {
+                el.classList.remove('is-invalid', 'is-valid');
+            });
+            // Reset submitting lock state
+            delete form.dataset.submitting;
+            const submitBtn = form.querySelector('button[type="submit"], input[type="submit"]');
+            if (submitBtn && submitBtn.dataset.originalContent) {
+                submitBtn.disabled = false;
+                submitBtn.classList.remove('disabled');
+                submitBtn.innerHTML = submitBtn.dataset.originalContent;
+                delete submitBtn.dataset.originalContent;
+            }
+        });
+
+        // Clear dynamic preview containers and temporary feedback elements
+        modalEl.querySelectorAll('.preview-container, .modal-preview-box, .dynamic-preview-box').forEach(el => {
+            el.innerHTML = '';
+        });
+    });
+
+    // 3. Global Tactile Stepper Click Delegation (Quantity [-] [+] Buttons)
+    document.addEventListener('click', (e) => {
+        const minusBtn = e.target.closest('.qty-step-minus');
+        const plusBtn = e.target.closest('.qty-step-plus');
+        if (!minusBtn && !plusBtn) return;
+
+        e.preventDefault();
+        const stepper = (minusBtn || plusBtn).closest('.cims-qty-stepper');
+        if (!stepper) return;
+
+        const input = stepper.querySelector('.item-qty-input') || stepper.querySelector('input[type="number"]');
+        if (!input || input.disabled || input.readOnly) return;
+
+        const currentVal = parseFloat(input.value) || 0;
+        const minVal = input.min !== "" ? parseFloat(input.min) : 0;
+        const maxVal = input.max !== "" ? parseFloat(input.max) : Infinity;
+        const step = parseFloat(input.step) || 1;
+
+        if (minusBtn) {
+            let newVal = currentVal - step;
+            if (newVal < minVal) newVal = minVal;
+            input.value = newVal;
+        } else if (plusBtn) {
+            let newVal = currentVal + step;
+            if (newVal > maxVal) newVal = maxVal;
+            input.value = newVal;
+        }
+
+        // Dispatch input & change events for reactive recalculations (subtotals, badges, etc.)
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+
+    // 4. Universal Virtual Keyboard Awareness & Auto-Scroll into visible view on mobile
+    document.addEventListener('focusin', (e) => {
+        if (window.innerWidth <= 768 && e.target && e.target.matches('input, select, textarea, .cims-typeahead-input')) {
+            const modalBody = e.target.closest('.modal-dialog-scrollable .modal-body, .modal-fullscreen-sm-down .modal-body');
+            if (modalBody) {
+                setTimeout(() => {
+                    e.target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }, 300);
+            }
+        }
+    });
 });
