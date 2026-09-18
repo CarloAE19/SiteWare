@@ -1653,55 +1653,85 @@ body:has(.modal.show) #cims-chatbot-container {
 
 /* 1. Tactile Quantity Stepper Group */
 .cims-qty-stepper {
-    display: flex;
-    flex-wrap: nowrap;
-    align-items: stretch;
+    display: inline-flex !important;
+    flex-wrap: nowrap !important;
+    align-items: stretch !important;
+    border-radius: 8px !important;
+    overflow: hidden;
+    border: 1px solid #cbd5e1 !important;
+    background-color: #ffffff;
+    vertical-align: middle;
 }
 
 .cims-qty-stepper .qty-step-btn {
     min-width: 44px !important;
+    max-width: 44px !important;
+    width: 44px !important;
     min-height: 44px !important;
+    height: 44px !important;
     display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
     font-weight: 800 !important;
     font-size: 1rem !important;
-    border-color: #cbd5e1 !important;
+    border: none !important;
     background-color: #f8fafc !important;
     color: #334155 !important;
     padding: 0 !important;
+    margin: 0 !important;
     user-select: none !important;
     -webkit-user-select: none !important;
     touch-action: manipulation !important;
-    transition: background-color 0.15s ease, transform 0.1s ease !important;
+    transition: background-color 0.15s ease, transform 0.1s ease, color 0.15s ease !important;
+    border-radius: 0 !important;
+}
+
+.cims-qty-stepper .qty-step-btn:hover {
+    background-color: #e2e8f0 !important;
+    color: #0f172a !important;
 }
 
 .cims-qty-stepper .qty-step-btn:active {
-    background-color: #e2e8f0 !important;
-    transform: scale(0.94) !important;
+    background-color: #cbd5e1 !important;
+    transform: scale(0.92) !important;
 }
 
 .cims-qty-stepper .qty-step-minus {
-    border-top-left-radius: 6px !important;
-    border-bottom-left-radius: 6px !important;
-    border-right: none !important;
+    border-right: 1px solid #e2e8f0 !important;
 }
 
 .cims-qty-stepper .qty-step-plus {
-    border-left: none !important;
-    border-right: none !important;
+    border-left: 1px solid #e2e8f0 !important;
+}
+
+.cims-qty-stepper .qty-step-plus:not(:last-child) {
+    border-right: 1px solid #e2e8f0 !important;
 }
 
 .cims-qty-stepper .item-qty-input {
     text-align: center !important;
     font-weight: 800 !important;
     font-size: 16px !important;
-    min-width: 52px !important;
-    max-width: 85px !important;
-    padding: 6px 4px !important;
-    border-left: none !important;
-    border-right: none !important;
+    width: 62px !important;
+    min-width: 58px !important;
+    max-width: 78px !important;
+    height: 44px !important;
+    line-height: 44px !important;
+    padding: 0 6px !important;
+    border: none !important;
+    border-radius: 0 !important;
+    background-color: #ffffff !important;
+    box-shadow: none !important;
     -moz-appearance: textfield !important;
+    margin: 0 !important;
+    letter-spacing: 0.5px;
+}
+
+.cims-qty-stepper .item-qty-input:focus {
+    outline: none !important;
+    background-color: #f0fdf4 !important;
+    box-shadow: inset 0 0 0 2px rgba(25, 135, 84, 0.4) !important;
+    z-index: 2;
 }
 
 .cims-qty-stepper .item-qty-input::-webkit-outer-spin-button,
@@ -1711,27 +1741,65 @@ body:has(.modal.show) #cims-chatbot-container {
 }
 
 .cims-qty-stepper .item-unit-badge {
-    border-top-right-radius: 6px !important;
-    border-bottom-right-radius: 6px !important;
+    border-radius: 0 !important;
+    border: none !important;
+    border-left: 1px solid #e2e8f0 !important;
+    background-color: #f1f5f9 !important;
+    color: #475569 !important;
+    font-weight: 600 !important;
+    font-size: 0.85rem !important;
     min-width: 52px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 0 10px !important;
+    margin: 0 !important;
 }
 
 /* Dark Mode Theme for Steppers */
+[data-bs-theme="dark"] .cims-qty-stepper {
+    border-color: #30363d !important;
+    background-color: #0d1117 !important;
+}
+
 [data-bs-theme="dark"] .cims-qty-stepper .qty-step-btn {
     background-color: #21262d !important;
     border-color: #30363d !important;
     color: #f0f6fc !important;
 }
 
-[data-bs-theme="dark"] .cims-qty-stepper .qty-step-btn:active {
+[data-bs-theme="dark"] .cims-qty-stepper .qty-step-btn:hover {
     background-color: #30363d !important;
     color: #58a6ff !important;
 }
 
+[data-bs-theme="dark"] .cims-qty-stepper .qty-step-btn:active {
+    background-color: #3b444f !important;
+}
+
+[data-bs-theme="dark"] .cims-qty-stepper .qty-step-minus {
+    border-right-color: #30363d !important;
+}
+
+[data-bs-theme="dark"] .cims-qty-stepper .qty-step-plus {
+    border-left-color: #30363d !important;
+    border-right-color: #30363d !important;
+}
+
 [data-bs-theme="dark"] .cims-qty-stepper .item-qty-input {
     background-color: #0d1117 !important;
-    border-color: #30363d !important;
-    color: #58a6ff !important;
+    color: #3fb950 !important;
+}
+
+[data-bs-theme="dark"] .cims-qty-stepper .item-qty-input:focus {
+    background-color: #161b22 !important;
+    box-shadow: inset 0 0 0 2px rgba(63, 185, 80, 0.4) !important;
+}
+
+[data-bs-theme="dark"] .cims-qty-stepper .item-unit-badge {
+    background-color: #161b22 !important;
+    border-left-color: #30363d !important;
+    color: #8b949e !important;
 }
 
 /* 2. Virtual Keyboard Viewport Safe Buffer */
