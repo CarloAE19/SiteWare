@@ -722,7 +722,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div id="cimsUnlockErrorAlert" class="alert alert-danger py-2 px-3 mb-3 small text-start d-none border-0 shadow-sm" role="alert"></div>
 
                 <!-- Unlock Form -->
-                <form id="cimsIdleUnlockForm" autocomplete="off">
+                <form id="cimsIdleUnlockForm" class="no-spin" autocomplete="off">
                     <div class="mb-3">
                         <div class="input-group">
                             <span class="input-group-text bg-white border-end-0 text-muted"><i class="bi bi-key-fill"></i></span>
