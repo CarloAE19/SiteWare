@@ -480,9 +480,49 @@ window.rsGlobalClickListener = function(e) {
             window.updateDeleteButtons(parentContainer);
         }
     }
+
+    // Tactile Quantity Stepper (-) Button
+    if (e.target.closest('.qty-step-minus')) {
+        e.preventDefault();
+        const btn = e.target.closest('.qty-step-minus');
+        const input = btn.closest('.cims-qty-stepper')?.querySelector('.item-qty-input');
+        if (input) {
+            let val = parseFloat(input.value) || 1;
+            if (val > 1) {
+                input.value = (val - 1) < 1 ? 1 : (val - 1);
+                input.dispatchEvent(new Event('input', { bubbles: true }));
+                input.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+        }
+    }
+
+    // Tactile Quantity Stepper (+) Button
+    if (e.target.closest('.qty-step-plus')) {
+        e.preventDefault();
+        const btn = e.target.closest('.qty-step-plus');
+        const input = btn.closest('.cims-qty-stepper')?.querySelector('.item-qty-input');
+        if (input) {
+            let val = parseFloat(input.value) || 0;
+            input.value = val + 1;
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+    }
 };
 
 document.body.addEventListener('click', window.rsGlobalClickListener);
+
+// Virtual Keyboard Awareness & Auto-Scroll into visible view on mobile
+document.addEventListener('focusin', function(e) {
+    if (window.innerWidth <= 768 && e.target && e.target.matches('input, select, textarea, .cims-typeahead-input')) {
+        const modalBody = e.target.closest('.modal-dialog-scrollable .modal-body');
+        if (modalBody) {
+            setTimeout(() => {
+                e.target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }, 300);
+        }
+    }
+});
 
 // ==========================================================
 // CIMS SEARCHABLE TYPEAHEAD COMBOBOX ENGINE
@@ -758,9 +798,11 @@ window.appendExistingItemRow = function(container, isRestock = false) {
             </div>
             <div class="col-12 col-md-4">
                 <label class="form-label small fw-bold text-muted mb-1">Quantity <span class="text-danger">*</span></label>
-                <div class="input-group">
-                    <input type="number" class="form-control fw-bold text-center text-primary item-qty-input" name="quantities[]" placeholder="Qty" required min="1" step="any">
-                    <span class="input-group-text bg-light text-muted small fw-bold item-unit-badge" style="min-width: 55px; font-size: 0.72rem;">Unit</span>
+                <div class="input-group cims-qty-stepper shadow-sm">
+                    <button type="button" class="btn btn-outline-secondary qty-step-btn qty-step-minus" tabindex="-1" aria-label="Decrease quantity"><i class="bi bi-dash-lg"></i></button>
+                    <input type="number" class="form-control fw-bold text-center text-primary item-qty-input" name="quantities[]" placeholder="Qty" required min="1" step="any" inputmode="decimal" value="1">
+                    <button type="button" class="btn btn-outline-secondary qty-step-btn qty-step-plus" tabindex="-1" aria-label="Increase quantity"><i class="bi bi-plus-lg"></i></button>
+                    <span class="input-group-text bg-light text-muted small fw-bold item-unit-badge" style="min-width: 52px; font-size: 0.72rem;">Unit</span>
                 </div>
             </div>
             <div class="col-12 mt-2">
@@ -868,7 +910,11 @@ window.appendNewItemRow = function(container) {
             </div>
             <div class="col-6 col-sm-3 col-md-2">
                 <label class="form-label small fw-bold text-muted mb-1">Qty <span class="text-danger">*</span></label>
-                <input type="number" class="form-control form-control-sm fw-bold text-center text-primary" name="quantities[]" placeholder="Qty" required min="1" step="any">
+                <div class="input-group cims-qty-stepper shadow-sm">
+                    <button type="button" class="btn btn-outline-secondary qty-step-btn qty-step-minus" tabindex="-1" aria-label="Decrease quantity"><i class="bi bi-dash-lg"></i></button>
+                    <input type="number" class="form-control fw-bold text-center text-primary item-qty-input" name="quantities[]" placeholder="Qty" required min="1" step="any" inputmode="decimal" value="1">
+                    <button type="button" class="btn btn-outline-secondary qty-step-btn qty-step-plus" tabindex="-1" aria-label="Increase quantity"><i class="bi bi-plus-lg"></i></button>
+                </div>
             </div>
         </div>
         <div class="mt-2">
