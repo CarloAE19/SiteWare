@@ -284,7 +284,7 @@ $units = $units ?? [];
 
                 <h6 class="fw-bold text-uppercase small text-muted mb-2"><i class="bi bi-box-seam me-1 text-primary"></i>Requested Items</h6>
                 <div class="table-responsive table-container-custom mb-4 shadow-sm">
-                    <table class="table table-sm table-hover mb-0" style="min-width: 500px;">
+                    <table class="table table-sm table-hover mb-0" id="viewRsTable">
                         <thead class="table-light">
                             <tr id="viewRsTableHeadRow">
                                 <th class="text-center" style="width:110px;">Item Code</th>
