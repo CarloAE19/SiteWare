@@ -2,7 +2,7 @@
 <!-- MODAL: RELEASE MATERIALS WITHDRAWAL FORM               -->
 <!-- ======================================================== -->
 <div class="modal fade" id="withdrawModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable modal-fullscreen-sm-down">
         <div class="modal-content border-0 shadow">
             <div class="modal-header bg-brand text-white">
                 <h5 class="modal-title fw-bold"><i class="bi bi-box-arrow-right me-2"></i>Release Materials (RS Issue)</h5>
