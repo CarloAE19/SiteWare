@@ -25,53 +25,123 @@ document.addEventListener("DOMContentLoaded", () => {
         e.preventDefault();
         deferredPrompt = e;
         
+        // 1. Check permanent suppression ("Don't show again") or active session snooze
+        const isPermanentlyDismissed = localStorage.getItem('cims_pwa_dismissed') === 'true';
+        const isSessionDismissed = sessionStorage.getItem('cims_pwa_session_dismissed') === 'true';
+        const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+
+        if (isPermanentlyDismissed || isSessionDismissed || isStandalone) {
+            return;
+        }
+
+        // Avoid duplicate banners if one is already present in the DOM
         if (document.getElementById('pwa-install-banner')) return;
 
         const installBanner = document.createElement('div');
         installBanner.id = 'pwa-install-banner';
+        installBanner.setAttribute('role', 'dialog');
+        installBanner.setAttribute('aria-label', 'GB Inventory App Installation Notice');
         installBanner.className = 'position-fixed bottom-0 start-50 translate-middle-x w-100 p-3 shadow-lg bg-white border-top';
-        installBanner.style.maxWidth = '600px';
+        installBanner.style.maxWidth = '580px';
         installBanner.style.borderTopLeftRadius = '20px';
         installBanner.style.borderTopRightRadius = '20px';
         installBanner.style.zIndex = '99999';
-        installBanner.style.transition = 'transform 0.3s ease-out';
+        installBanner.style.transition = 'transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease';
         
         installBanner.innerHTML = `
-            <div class="d-flex align-items-center justify-content-between">
-                <div class="d-flex align-items-center text-start">
-                    <img src="assets/LogoGB.png" alt="Logo" width="45" height="45" class="me-3 rounded shadow-sm border">
-                    <div>
-                        <h6 class="mb-0 fw-bold text-dark" style="font-size: 1rem;">GB Inventory</h6>
-                        <small class="text-muted" style="font-size: 0.8rem;">Install app for fast, offline-ready access</small>
+            <div class="d-flex flex-column gap-2">
+                <!-- Top Row: App Info & Close Button -->
+                <div class="d-flex align-items-center justify-content-between">
+                    <div class="d-flex align-items-center text-start">
+                        <img src="assets/LogoGB.png" alt="GB Logo" width="42" height="42" class="me-3 rounded shadow-sm border flex-shrink-0" style="object-fit: cover;">
+                        <div>
+                            <h6 class="mb-0 fw-bold text-dark" style="font-size: 0.98rem; line-height: 1.25;">GB Inventory</h6>
+                            <small class="text-muted d-block" style="font-size: 0.8rem; line-height: 1.3;">Install app for fast, offline-ready access</small>
+                        </div>
                     </div>
+                    <button type="button" class="btn-close ms-2 p-2 flex-shrink-0" id="pwa-close-btn" aria-label="Close" style="cursor: pointer;"></button>
                 </div>
-                <div>
-                    <button class="btn btn-sm btn-light text-muted me-1 fw-bold" id="pwa-dismiss">Later</button>
-                    <button class="btn btn-sm btn-brand fw-bold px-3 shadow-sm" id="pwa-install-btn">Install</button>
+
+                <!-- Bottom Row: Don't show again Checkbox & Action Buttons -->
+                <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 pt-2 border-top">
+                    <div class="form-check d-flex align-items-center mb-0" style="min-height: 38px;">
+                        <input class="form-check-input me-2 mt-0" type="checkbox" id="pwa-dont-show" style="width: 1.15rem; height: 1.15rem; cursor: pointer;">
+                        <label class="form-check-label text-secondary user-select-none small mb-0" for="pwa-dont-show" style="cursor: pointer; font-size: 0.82rem;">
+                            Don't show again
+                        </label>
+                    </div>
+                    <div class="d-flex align-items-center gap-2 ms-auto">
+                        <button type="button" class="btn btn-sm btn-light text-muted border fw-semibold px-3" id="pwa-dismiss" style="min-height: 38px; min-width: 68px;">Later</button>
+                        <button type="button" class="btn btn-sm btn-brand fw-bold px-3 shadow-sm d-inline-flex align-items-center gap-1" id="pwa-install-btn" style="min-height: 38px; min-width: 82px;">
+                            <i class="bi bi-download" aria-hidden="true"></i> Install
+                        </button>
+                    </div>
                 </div>
             </div>
         `;
         document.body.appendChild(installBanner);
 
-        document.getElementById('pwa-install-btn').addEventListener('click', async () => {
-            installBanner.remove();
+        // Helper: Dismiss banner with animation and appropriate storage persistence
+        const dismissBanner = () => {
+            const banner = document.getElementById('pwa-install-banner');
+            if (!banner) return;
+
+            const dontShowChecked = document.getElementById('pwa-dont-show')?.checked;
+            if (dontShowChecked) {
+                // Permanently remember preference across all browser sessions and refreshes
+                localStorage.setItem('cims_pwa_dismissed', 'true');
+            } else {
+                // Snooze for the current browser session so F5 / Ctrl+F5 won't keep prompting
+                sessionStorage.setItem('cims_pwa_session_dismissed', 'true');
+            }
+
+            banner.style.transform = 'translate(-50%, 100%)';
+            banner.style.opacity = '0';
+            setTimeout(() => {
+                if (banner && banner.parentNode) {
+                    banner.remove();
+                }
+            }, 300);
+        };
+
+        // Install button action
+        document.getElementById('pwa-install-btn')?.addEventListener('click', async () => {
+            const banner = document.getElementById('pwa-install-banner');
+            if (banner) {
+                banner.style.transform = 'translate(-50%, 100%)';
+                banner.style.opacity = '0';
+                setTimeout(() => { if (banner.parentNode) banner.remove(); }, 300);
+            }
+
             if (deferredPrompt) {
-                deferredPrompt.prompt(); 
+                deferredPrompt.prompt();
                 const { outcome } = await deferredPrompt.userChoice;
+                if (outcome === 'accepted') {
+                    localStorage.setItem('cims_pwa_dismissed', 'true');
+                } else {
+                    sessionStorage.setItem('cims_pwa_session_dismissed', 'true');
+                }
                 deferredPrompt = null;
             }
         });
 
-        document.getElementById('pwa-dismiss').addEventListener('click', () => {
-            installBanner.style.transform = 'translateY(100%)'; 
-            setTimeout(() => installBanner.remove(), 300);
-        });
+        // Later button and close icon actions
+        document.getElementById('pwa-dismiss')?.addEventListener('click', dismissBanner);
+        document.getElementById('pwa-close-btn')?.addEventListener('click', dismissBanner);
     });
 
     window.addEventListener('appinstalled', () => {
+        localStorage.setItem('cims_pwa_dismissed', 'true');
         const banner = document.getElementById('pwa-install-banner');
-        if (banner) banner.remove();
+        if (banner && banner.parentNode) banner.remove();
     });
+
+    // Global reset helper for testing or settings integration
+    window.resetPwaInstallPrompt = function() {
+        localStorage.removeItem('cims_pwa_dismissed');
+        sessionStorage.removeItem('cims_pwa_session_dismissed');
+        console.log('[PWA] Install prompt dismissal preferences reset.');
+    };
 
     // Run initial offline UI check on DOM load
     updateOfflineUI();
