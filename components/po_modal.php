@@ -358,8 +358,8 @@ $approvedRS = $pdo->query("
                                     <th class="text-center" style="width: 75px;">Ordered</th>
                                     <th class="text-center" style="width: 75px;">Prior Recv</th>
                                     <th class="text-center" style="width: 80px;">Remaining</th>
-                                    <th class="text-center" style="width: 110px;">Receive Today</th>
-                                    <th class="text-center" style="width: 120px;">Unit Price (₱)</th>
+                                    <th class="text-center" style="min-width: 165px; width: 170px;">Receive Today</th>
+                                    <th class="text-center" style="min-width: 125px; width: 130px;">Unit Price (₱)</th>
                                     <th class="text-center" style="min-width: 200px;">Supplier Status / If Incomplete
                                     </th>
                                     <th class="text-end" style="width: 110px;">Batch Subtotal</th>
