@@ -28,7 +28,7 @@
 <!-- MODAL: ADD/EDIT INVENTORY ITEM -->
 <?php if (in_array($role, ['admin', 'warehouse'])): ?>
     <div class="modal fade" id="itemModal" tabindex="-1" aria-labelledby="modalTitle" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-fullscreen-sm-down">
             <div class="modal-content border-0 shadow-lg">
                 <div class="modal-header" style="background-color: var(--gb-dark); color: white;">
                     <h5 class="modal-title" id="modalTitle"><span style="color: var(--gb-yellow);">Add Item</span></h5>
