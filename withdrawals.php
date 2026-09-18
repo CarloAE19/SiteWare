@@ -166,7 +166,7 @@ include 'layout/header.php';
 <!-- MODAL: CAMERA SCANNER FOR APPROVED RS                    -->
 <!-- ======================================================== -->
 <div class="modal fade" id="rsScannerModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
-    <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-dialog modal-dialog-centered modal-fullscreen-sm-down">
         <div class="modal-content border-0 shadow-lg">
             <div class="modal-header bg-brand text-white">
                 <h5 class="modal-title fw-bold"><i class="bi bi-upc-scan me-2"></i>Scan Approved RS</h5>
@@ -183,7 +183,7 @@ include 'layout/header.php';
 
 <!-- Withdraw Details Modal -->
 <div class="modal fade" id="viewWdModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable modal-fullscreen-sm-down">
         <div class="modal-content border-0 shadow-lg">
             <div class="modal-header" style="background-color: var(--gb-dark); color: white;">
                 <h5 class="modal-title fw-bold"><i class="bi bi-list-check me-2" style="color: var(--gb-yellow);"></i>Withdrawal Details</h5>
