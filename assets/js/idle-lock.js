@@ -41,6 +41,34 @@
         let isLegitimateUnlocking = false;
         let lastPingTime = Date.now();
 
+        const UNLOCK_BTN_DEFAULT_HTML = '<i class="bi bi-unlock-fill me-2"></i> Unlock Screen';
+
+        function resetUnlockFormState() {
+            if (unlockForm) {
+                unlockForm.reset();
+                delete unlockForm.dataset.submitting;
+            }
+            if (unlockPasswordInput) {
+                unlockPasswordInput.value = '';
+                unlockPasswordInput.classList.remove('is-invalid');
+                unlockPasswordInput.type = 'password';
+            }
+            if (togglePwdBtn) {
+                togglePwdBtn.innerHTML = '<i class="bi bi-eye"></i>';
+            }
+            if (unlockSubmitBtn) {
+                unlockSubmitBtn.disabled = false;
+                unlockSubmitBtn.classList.remove('disabled');
+                unlockSubmitBtn.style.minWidth = '';
+                unlockSubmitBtn.innerHTML = UNLOCK_BTN_DEFAULT_HTML;
+                delete unlockSubmitBtn.dataset.originalContent;
+            }
+            if (unlockErrorAlert) {
+                unlockErrorAlert.classList.add('d-none');
+                unlockErrorAlert.textContent = '';
+            }
+        }
+
         // Initialize Bootstrap Modal with static backdrop
         if (lockModalEl && typeof bootstrap !== 'undefined') {
             bsLockModal = bootstrap.Modal.getOrCreateInstance(lockModalEl, {
@@ -49,13 +77,9 @@
             });
 
             lockModalEl.addEventListener('shown.bs.modal', () => {
+                resetUnlockFormState();
                 if (unlockPasswordInput) {
-                    unlockPasswordInput.value = '';
                     unlockPasswordInput.focus();
-                }
-                if (unlockErrorAlert) {
-                    unlockErrorAlert.classList.add('d-none');
-                    unlockErrorAlert.textContent = '';
                 }
             });
         }
@@ -175,7 +199,10 @@
         function triggerLockScreen() {
             if (isLocked) return;
             isLocked = true;
+            isLegitimateUnlocking = false;
             localStorage.setItem(STORAGE_KEY_LOCKED, '1');
+
+            resetUnlockFormState();
 
             // 1. Shield underlying content: Heavy blur + inerting
             document.body.classList.add('cims-body-locked');
@@ -344,11 +371,10 @@
                     return;
                 }
 
-                const originalBtnText = unlockSubmitBtn ? unlockSubmitBtn.innerHTML : 'Unlock';
-
                 // Prevent double submissions & show loading spinner
                 if (unlockSubmitBtn) {
                     unlockSubmitBtn.disabled = true;
+                    unlockSubmitBtn.classList.add('disabled');
                     unlockSubmitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> Verifying...';
                 }
                 if (unlockErrorAlert) {
@@ -364,15 +390,20 @@
                     formData.append('password', passwordVal);
                     formData.append('csrf_token', csrfToken);
 
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 10000);
+
                     const response = await fetch(basePath + '/process/process.php', {
                         method: 'POST',
                         body: formData,
+                        signal: controller.signal,
                         headers: {
                             'Content-Type': 'application/x-www-form-urlencoded',
                             'X-Requested-With': 'XMLHttpRequest',
                             'X-CSRF-Token': csrfToken
                         }
                     });
+                    clearTimeout(timeoutId);
 
                     const result = await response.json();
                     const isSuccess = (result.success === true || result.status === 'success');
@@ -388,12 +419,15 @@
                     }
                 } catch (err) {
                     console.error('Unlock AJAX Error:', err);
-                    showUnlockError('Verification error: ' + (err.message || 'Please check password and try again.'));
+                    const isAborted = err.name === 'AbortError';
+                    showUnlockError(isAborted ? 'Verification timed out. Please try again.' : ('Verification error: ' + (err.message || 'Please check password and try again.')));
                 } finally {
                     if (unlockSubmitBtn) {
                         unlockSubmitBtn.disabled = false;
                         unlockSubmitBtn.classList.remove('disabled');
-                        unlockSubmitBtn.innerHTML = originalBtnText;
+                        unlockSubmitBtn.style.minWidth = '';
+                        unlockSubmitBtn.innerHTML = UNLOCK_BTN_DEFAULT_HTML;
+                        delete unlockSubmitBtn.dataset.originalContent;
                     }
                     if (unlockForm) {
                         delete unlockForm.dataset.submitting;
@@ -447,12 +481,7 @@
                 if (backdrop) backdrop.remove();
             }
 
-            if (unlockForm) {
-                unlockForm.reset();
-            }
-            if (unlockErrorAlert) {
-                unlockErrorAlert.classList.add('d-none');
-            }
+            resetUnlockFormState();
 
             setTimeout(() => {
                 isLegitimateUnlocking = false;
