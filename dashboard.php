@@ -104,9 +104,16 @@ if ($role === 'requestor') {
     $totalPO = (int)$pdo->query("SELECT COUNT(*) FROM purchase_orders")->fetchColumn();
 }
 
-// Recent activity for all roles
+// Recent activity for all roles (Respects user cleared timestamp & RBAC)
+$clearedAt = null;
+if (!empty($_SESSION['user_id'])) {
+    $uStmt = $pdo->prepare("SELECT notifications_cleared_at FROM users WHERE id = ?");
+    $uStmt->execute([$_SESSION['user_id']]);
+    $clearedAt = $uStmt->fetchColumn();
+}
+
 if ($role === 'requestor') {
-    $recStmt = $pdo->prepare("
+    $sql = "
         SELECT id, title, message, created_at, COALESCE(is_read, 0) as is_read 
         FROM notifications 
         WHERE (target_user_id = ? OR target_role = 'requestor')
@@ -114,18 +121,32 @@ if ($role === 'requestor') {
           AND title NOT LIKE '%Purchase Order%'
           AND message NOT LIKE '%PO-%' 
           AND message NOT LIKE '%Purchase Order%'
-        ORDER BY created_at DESC LIMIT 12
-    ");
-    $recStmt->execute([$_SESSION['user_id']]);
+          AND title NOT LIKE '%Audit%'
+          AND message NOT LIKE '%Audit%'
+    ";
+    $params = [$_SESSION['user_id']];
+    if (!empty($clearedAt)) {
+        $sql .= " AND created_at > ?";
+        $params[] = $clearedAt;
+    }
+    $sql .= " ORDER BY created_at DESC LIMIT 12";
+    $recStmt = $pdo->prepare($sql);
+    $recStmt->execute($params);
     $recentActivity = $recStmt->fetchAll(PDO::FETCH_ASSOC);
 } else {
-    $recStmt = $pdo->prepare("
+    $sql = "
         SELECT id, title, message, created_at, COALESCE(is_read, 0) as is_read 
         FROM notifications 
-        WHERE target_user_id = ? OR target_role = ? OR target_role = 'all'
-        ORDER BY created_at DESC LIMIT 12
-    ");
-    $recStmt->execute([$_SESSION['user_id'], $role]);
+        WHERE (target_user_id = ? OR target_role = ? OR target_role = 'all')
+    ";
+    $params = [$_SESSION['user_id'], $role];
+    if (!empty($clearedAt)) {
+        $sql .= " AND created_at > ?";
+        $params[] = $clearedAt;
+    }
+    $sql .= " ORDER BY created_at DESC LIMIT 12";
+    $recStmt = $pdo->prepare($sql);
+    $recStmt->execute($params);
     $recentActivity = $recStmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
