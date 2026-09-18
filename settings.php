@@ -1478,7 +1478,7 @@ include 'layout/header.php';
 
 <!-- Category Modal -->
 <div class="modal fade" id="categoryModal" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-fullscreen-sm-down">
         <div class="modal-content border-0 shadow">
             <div class="modal-header bg-primary text-white">
                 <h5 class="modal-title fw-bold" id="categoryModalTitle">Add Category</h5>
@@ -1507,7 +1507,7 @@ include 'layout/header.php';
 
 <!-- Project Modal -->
 <div class="modal fade" id="projectModal" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-fullscreen-sm-down">
         <div class="modal-content border-0 shadow">
             <div class="modal-header bg-primary text-white">
                 <h5 class="modal-title fw-bold" id="projectModalTitle">Add Project</h5>
@@ -1571,7 +1571,7 @@ include 'layout/header.php';
 
 <!-- Project Details & Material History Modal -->
 <div class="modal fade" id="projectDetailsModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+    <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable modal-fullscreen-sm-down">
         <div class="modal-content border-0 shadow-lg">
             <div class="modal-header text-white" style="background-color: var(--gb-dark, #1e293b);">
                 <div class="d-flex align-items-center gap-2">
@@ -1765,7 +1765,7 @@ include 'layout/header.php';
 
 <!-- Sub-Modal: Project Requisition Document Preview -->
 <div class="modal fade" id="viewProjectRsModal" tabindex="-1" aria-hidden="true" style="z-index: 1065;">
-    <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+    <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable modal-fullscreen-sm-down">
         <div class="modal-content border-0 shadow-lg">
             <div class="modal-header text-white" style="background-color: var(--gb-dark, #1e293b);">
                 <h5 class="modal-title fw-bold"><i class="bi bi-file-earmark-text me-2 text-warning"></i>Requisition
@@ -1832,7 +1832,7 @@ include 'layout/header.php';
 
 <!-- Sub-Modal: Project Withdrawal Document Preview -->
 <div class="modal fade" id="viewProjectWdModal" tabindex="-1" aria-hidden="true" style="z-index: 1065;">
-    <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+    <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable modal-fullscreen-sm-down">
         <div class="modal-content border-0 shadow-lg">
             <div class="modal-header text-white" style="background-color: var(--gb-dark, #1e293b);">
                 <h5 class="modal-title fw-bold"><i class="bi bi-box-arrow-right me-2 text-success"></i>Material
