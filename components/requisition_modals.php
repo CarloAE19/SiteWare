@@ -471,9 +471,11 @@ $units = $units ?? [];
                                         </div>
                                         <div class="col-12 col-md-4">
                                             <label class="form-label small fw-bold text-muted mb-1">Quantity <span class="text-danger">*</span></label>
-                                            <div class="input-group">
-                                                <input type="number" class="form-control fw-bold text-center text-primary item-qty-input" name="quantities[]" placeholder="Qty" required min="1" step="any">
-                                                <span class="input-group-text bg-light text-muted small fw-bold item-unit-badge" style="min-width: 55px; font-size: 0.72rem;">Unit</span>
+                                            <div class="input-group cims-qty-stepper shadow-sm">
+                                                <button type="button" class="btn btn-outline-secondary qty-step-btn qty-step-minus" tabindex="-1" aria-label="Decrease quantity"><i class="bi bi-dash-lg"></i></button>
+                                                <input type="number" class="form-control fw-bold text-center text-primary item-qty-input" name="quantities[]" placeholder="Qty" required min="1" step="any" inputmode="decimal" value="1">
+                                                <button type="button" class="btn btn-outline-secondary qty-step-btn qty-step-plus" tabindex="-1" aria-label="Increase quantity"><i class="bi bi-plus-lg"></i></button>
+                                                <span class="input-group-text bg-light text-muted small fw-bold item-unit-badge" style="min-width: 52px; font-size: 0.72rem;">Unit</span>
                                             </div>
                                         </div>
                                         <div class="col-12 mt-2">
@@ -585,9 +587,11 @@ $units = $units ?? [];
                                         </div>
                                         <div class="col-12 col-md-4">
                                             <label class="form-label small fw-bold text-muted mb-1">Target Quantity <span class="text-danger">*</span></label>
-                                            <div class="input-group">
-                                                <input type="number" class="form-control fw-bold text-center text-primary item-qty-input" name="quantities[]" placeholder="Qty" required min="1" step="any">
-                                                <span class="input-group-text bg-light text-muted small fw-bold item-unit-badge" style="min-width: 55px; font-size: 0.72rem;">Unit</span>
+                                            <div class="input-group cims-qty-stepper shadow-sm">
+                                                <button type="button" class="btn btn-outline-secondary qty-step-btn qty-step-minus" tabindex="-1" aria-label="Decrease quantity"><i class="bi bi-dash-lg"></i></button>
+                                                <input type="number" class="form-control fw-bold text-center text-primary item-qty-input" name="quantities[]" placeholder="Qty" required min="1" step="any" inputmode="decimal" value="1">
+                                                <button type="button" class="btn btn-outline-secondary qty-step-btn qty-step-plus" tabindex="-1" aria-label="Increase quantity"><i class="bi bi-plus-lg"></i></button>
+                                                <span class="input-group-text bg-light text-muted small fw-bold item-unit-badge" style="min-width: 52px; font-size: 0.72rem;">Unit</span>
                                             </div>
                                         </div>
                                         <div class="col-12 mt-2">
