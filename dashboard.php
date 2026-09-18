@@ -344,8 +344,8 @@ include 'layout/header.php';
         </div>
         
         <div class="quick-actions-wrapper" id="quickActionsWrapper">
-            <!-- Floating Left Scroll Button (desktop only) -->
-            <button type="button" class="quick-nav-btn quick-nav-prev d-none d-md-flex" id="quickScrollPrev" aria-label="Scroll left">
+            <!-- Floating Left Scroll Button -->
+            <button type="button" class="quick-nav-btn quick-nav-prev d-none" id="quickScrollPrev" aria-label="Scroll left">
                 <i class="bi bi-chevron-left"></i>
             </button>
 
@@ -1441,6 +1441,7 @@ include 'layout/header.php';
             });
 
             // Initial check
+            updateNavButtons();
             setTimeout(updateNavButtons, 80);
         }
 
