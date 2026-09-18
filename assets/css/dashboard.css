@@ -622,9 +622,30 @@
     overflow-wrap: break-word;
 }
 
+/* Eliminate trailing margin on the last feed and timeline items across all screen sizes */
+.activity-card-item:last-child {
+    margin-bottom: 0 !important;
+}
+
+.timeline-item:last-child {
+    margin-bottom: 0 !important;
+    padding-bottom: 0 !important;
+    border-bottom: none !important;
+}
+
 /* ==========================================
-   MOBILE & MULTI-DEVICE RESPONSIVE
+   MULTI-DEVICE RESPONSIVE SPACING & ADAPTATION
    ========================================== */
+@media (min-width: 768px) {
+    .dashboard-container {
+        padding-bottom: 24px !important;
+    }
+
+    .app-footer {
+        padding: 16px 20px !important;
+    }
+}
+
 @media (max-width: 991.98px) {
     .quick-actions-track {
         gap: 10px;
@@ -632,9 +653,14 @@
 }
 
 @media (max-width: 767.98px) {
-    /* Bottom padding to prevent floating AI / Chatbot bubble from covering feed items */
+    /* Compact, balanced spacing below Recent Activity Feed to footer on mobile devices */
     .dashboard-container {
-        padding-bottom: 92px !important;
+        padding-bottom: 16px !important;
+    }
+
+    .app-footer {
+        padding-top: 14px !important;
+        padding-bottom: max(14px, calc(env(safe-area-inset-bottom, 0px) + 8px)) !important;
     }
 
     .dashboard-welcome {
