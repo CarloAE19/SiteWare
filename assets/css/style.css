@@ -250,6 +250,10 @@ html {
         /* Automatically shrinks all text, padding, and margins that use 'rem' units */
         font-size: 14px; 
     }
+    /* Prevent iOS Safari auto-zoom on field focus */
+    input, select, textarea, .form-control, .form-select {
+        font-size: 16px !important;
+    }
     h4, .h4 {
         font-size: 1.25rem !important;
     }
@@ -259,6 +263,12 @@ html {
     }
     .card-body {
         padding: 1rem !important;
+    }
+}
+
+@media (max-width: 360px) {
+    #content {
+        padding: 10px !important;
     }
 }
 
@@ -328,15 +338,23 @@ html {
 }
 
 /* ==========================================================
- * 📱 MOBILE NOTIFICATION DROPDOWN FIX
+ * 📱 MOBILE NOTIFICATION DROPDOWN FIX (All Screen Sizes 320px–576px)
  * ========================================================== */
 @media (max-width: 576px) {
-    /* Forces the dropdown to fit exactly inside the mobile screen */
+    /* Forces the dropdown to fit cleanly inside mobile screens without clipping */
     .notif-menu {
-        width: 90vw !important; /* 90% of the screen width */
-        max-width: 350px;
+        width: calc(100vw - 24px) !important;
+        max-width: 360px !important;
         position: absolute !important;
-        right: -50px !important; /* Centers it nicely under the bell */
+        right: -10px !important;
+        left: auto !important;
+    }
+}
+
+@media (max-width: 360px) {
+    .notif-menu {
+        width: calc(100vw - 16px) !important;
+        right: -6px !important;
         left: auto !important;
     }
 }
