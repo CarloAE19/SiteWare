@@ -46,6 +46,7 @@ document.addEventListener("DOMContentLoaded", () => {
         installBanner.style.borderTopLeftRadius = '20px';
         installBanner.style.borderTopRightRadius = '20px';
         installBanner.style.zIndex = '99999';
+        installBanner.style.paddingBottom = 'max(1rem, calc(env(safe-area-inset-bottom, 0px) + 0.5rem))';
         installBanner.style.transition = 'transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease';
         
         installBanner.innerHTML = `
