@@ -235,7 +235,7 @@ include 'layout/header.php';
 <!-- MODAL: ADD / EDIT PROJECT                                -->
 <!-- ======================================================== -->
 <div class="modal fade" id="projectModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-fullscreen-sm-down">
         <div class="modal-content border-0 shadow">
             <div class="modal-header bg-brand text-white">
                 <h5 class="modal-title fw-bold" id="projectModalTitle">Add New Project</h5>
@@ -294,7 +294,7 @@ include 'layout/header.php';
 <!-- MODAL: PROJECT DETAILS & JOBSITE MATERIAL HUB            -->
 <!-- ======================================================== -->
 <div class="modal fade" id="projectDetailsModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+    <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable modal-fullscreen-sm-down">
         <div class="modal-content border-0 shadow-lg">
             <div class="modal-header text-white" style="background-color: var(--gb-dark, #1e293b);">
                 <div class="d-flex align-items-center gap-2">
@@ -473,7 +473,7 @@ include 'layout/header.php';
 <!-- SUB-MODAL: REQUISITION DOCUMENT PREVIEW                  -->
 <!-- ======================================================== -->
 <div class="modal fade" id="viewProjectRsModal" tabindex="-1" aria-hidden="true" style="z-index: 1065;">
-    <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+    <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable modal-fullscreen-sm-down">
         <div class="modal-content border-0 shadow-lg">
             <div class="modal-header text-white" style="background-color: var(--gb-dark, #1e293b);">
                 <h5 class="modal-title fw-bold"><i class="bi bi-file-earmark-text me-2 text-warning"></i>Requisition Document Details</h5>
@@ -534,7 +534,7 @@ include 'layout/header.php';
 <!-- SUB-MODAL: WITHDRAWAL SLIP PREVIEW                       -->
 <!-- ======================================================== -->
 <div class="modal fade" id="viewProjectWdModal" tabindex="-1" aria-hidden="true" style="z-index: 1065;">
-    <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+    <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable modal-fullscreen-sm-down">
         <div class="modal-content border-0 shadow-lg">
             <div class="modal-header text-white" style="background-color: var(--gb-dark, #1e293b);">
                 <h5 class="modal-title fw-bold"><i class="bi bi-box-arrow-right me-2 text-success"></i>Material Withdrawal Slip</h5>
