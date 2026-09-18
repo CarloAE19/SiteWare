@@ -9,7 +9,7 @@ define('CIMS_ENTITY_MODALS_LOADED', true);
 <!-- MODAL: VIEW PURCHASE ORDER (PO) DETAILS                   -->
 <!-- ======================================================== -->
 <div class="modal fade" id="viewPoModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable modal-fullscreen-sm-down">
         <div class="modal-content border-0 shadow-lg">
             <div class="modal-header" style="background-color: var(--gb-dark); color: white;">
                 <h5 class="modal-title fw-bold"><i class="bi bi-file-earmark-spreadsheet me-2" style="color: var(--gb-yellow);"></i>Purchase Order Document</h5>
@@ -91,7 +91,7 @@ define('CIMS_ENTITY_MODALS_LOADED', true);
 <!-- MODAL: VIEW MATERIAL WITHDRAWAL DETAILS                   -->
 <!-- ======================================================== -->
 <div class="modal fade" id="viewWithdrawalModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable modal-fullscreen-sm-down">
         <div class="modal-content border-0 shadow-lg">
             <div class="modal-header" style="background-color: var(--gb-dark); color: white;">
                 <h5 class="modal-title fw-bold"><i class="bi bi-box-arrow-up-right me-2" style="color: var(--gb-yellow);"></i>Material Withdrawal Slip</h5>
@@ -166,7 +166,7 @@ define('CIMS_ENTITY_MODALS_LOADED', true);
 <!-- MODAL: VIEW INVENTORY ITEM QUICK DETAILS                  -->
 <!-- ======================================================== -->
 <div class="modal fade" id="viewItemQuickModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-fullscreen-sm-down">
         <div class="modal-content border-0 shadow-lg">
             <div class="modal-header" style="background-color: var(--gb-dark); color: white;">
                 <h5 class="modal-title fw-bold"><i class="bi bi-box-seam me-2" style="color: var(--gb-yellow);"></i>Inventory Item Profile</h5>
