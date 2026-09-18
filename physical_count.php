@@ -174,7 +174,7 @@ include 'layout/header.php';
 
 <!-- RECOUNT CONFIRMATION & REVIEW MODAL -->
 <div class="modal fade" id="confirmRecountModal" tabindex="-1" aria-labelledby="confirmRecountModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+    <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable modal-fullscreen-sm-down">
         <div class="modal-content border-0 shadow-lg">
             <div class="modal-header bg-dark text-white">
                 <h5 class="modal-title fw-bold" id="confirmRecountModalLabel">
