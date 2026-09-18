@@ -688,8 +688,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const form = e.target;
         if (!form || form.tagName !== 'FORM') return;
 
-        // Skip forms explicitly marked to bypass auto-spinners (if any)
-        if (form.classList.contains('no-spin')) return;
+        // Skip forms explicitly marked to bypass auto-spinners (or dedicated lock screen form)
+        if (form.id === 'cimsIdleUnlockForm' || form.classList.contains('no-spin')) return;
 
         // Find the submit button
         const submitBtn = form.querySelector('button[type="submit"], input[type="submit"]');
