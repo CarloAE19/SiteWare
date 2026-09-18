@@ -415,7 +415,7 @@ include 'layout/header.php';
         #receiveItemsTable tbody td {
             display: flex;
             justify-content: space-between;
-            align-items: flex-start;
+            align-items: center;
             text-align: right;
             padding: 10px 4px;
             border: none;
@@ -1162,11 +1162,14 @@ include 'layout/header.php';
         if (typeof window.stopReceiptCamera === 'function') {
             window.stopReceiptCamera();
         }
+        const tbody = document.getElementById('receiveItemsBody');
 
-        if (typeof window.cimsRenderTableSkeleton === 'function') {
-            window.cimsRenderTableSkeleton(tbody, 4, ['col-8', 'col-3', 'col-2', 'col-3', 'col-4', 'col-3', 'col-3', 'col-4']);
-        } else {
-            tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4"><div class="spinner-border text-success spinner-border-sm me-2"></div> Fetching Manifest...</td></tr>';
+        if (tbody) {
+            if (typeof window.cimsRenderTableSkeleton === 'function') {
+                window.cimsRenderTableSkeleton(tbody, 4, ['col-8', 'col-3', 'col-2', 'col-3', 'col-4', 'col-3', 'col-3', 'col-4']);
+            } else {
+                tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4"><div class="spinner-border text-success spinner-border-sm me-2"></div> Fetching Manifest...</td></tr>';
+            }
         }
 
         var myModalEl = document.getElementById('receiveModal');
@@ -1223,14 +1226,14 @@ include 'layout/header.php';
                         </td>
                         <td class="text-center align-middle" data-label="Receive Today">
                             ${isAlreadyCompleted ? `
-                                <input type="number" name="actual_qtys[]" class="form-control form-control-sm text-center bg-light text-muted actual-qty-input" 
-                                    value="0" readonly style="max-width: 90px; font-size: 0.95rem; height: 35px; margin: 0 auto;">
+                                <input type="number" name="actual_qtys[]" class="form-control text-center bg-light text-muted actual-qty-input" 
+                                    value="0" readonly style="max-width: 90px; font-size: 1rem; height: 44px; margin: 0 auto;">
                             ` : `
-                                <div class="cims-qty-stepper d-inline-flex justify-content-center align-items-stretch" style="min-width: 140px; margin: 0 auto;">
-                                    <button type="button" class="btn btn-outline-secondary qty-step-btn qty-step-minus" tabindex="-1" aria-label="Decrease quantity"><i class="bi bi-dash-lg"></i></button>
-                                    <input type="number" name="actual_qtys[]" class="form-control form-control-sm text-center fw-bold text-success border-success shadow-sm actual-qty-input item-qty-input" 
-                                        style="max-width: 65px; font-size: 1rem; height: 44px; margin: 0;" value="${defaultReceiveToday}" min="0" max="${remainingQty}" data-remaining="${remainingQty}" inputmode="numeric" onclick="this.select()" onfocus="this.select()" required>
-                                    <button type="button" class="btn btn-outline-secondary qty-step-btn qty-step-plus" tabindex="-1" aria-label="Increase quantity"><i class="bi bi-plus-lg"></i></button>
+                                <div class="cims-qty-stepper d-inline-flex justify-content-center align-items-stretch shadow-sm" style="min-width: 150px; margin: 0 auto;">
+                                    <button type="button" class="btn btn-light qty-step-btn qty-step-minus" tabindex="-1" aria-label="Decrease quantity"><i class="bi bi-dash-lg"></i></button>
+                                    <input type="number" name="actual_qtys[]" class="form-control text-center fw-bold text-success actual-qty-input item-qty-input" 
+                                        value="${defaultReceiveToday}" min="0" max="${remainingQty}" data-remaining="${remainingQty}" inputmode="numeric" onclick="this.select()" onfocus="this.select()" required>
+                                    <button type="button" class="btn btn-light qty-step-btn qty-step-plus" tabindex="-1" aria-label="Increase quantity"><i class="bi bi-plus-lg"></i></button>
                                 </div>
                             `}
                         </td>
