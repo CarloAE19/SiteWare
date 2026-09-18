@@ -1645,3 +1645,114 @@ body:has(.modal.show) #cims-chatbot-container {
         justify-content: center !important;
     }
 }
+
+/* ==========================================================
+ * TACTILE QUANTITY STEPPERS & VIRTUAL KEYBOARD ERGONOMICS
+ * Standards: CIMS Modal AJAX Handler Skill Section 4
+ * ========================================================== */
+
+/* 1. Tactile Quantity Stepper Group */
+.cims-qty-stepper {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: stretch;
+}
+
+.cims-qty-stepper .qty-step-btn {
+    min-width: 44px !important;
+    min-height: 44px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-weight: 800 !important;
+    font-size: 1rem !important;
+    border-color: #cbd5e1 !important;
+    background-color: #f8fafc !important;
+    color: #334155 !important;
+    padding: 0 !important;
+    user-select: none !important;
+    -webkit-user-select: none !important;
+    touch-action: manipulation !important;
+    transition: background-color 0.15s ease, transform 0.1s ease !important;
+}
+
+.cims-qty-stepper .qty-step-btn:active {
+    background-color: #e2e8f0 !important;
+    transform: scale(0.94) !important;
+}
+
+.cims-qty-stepper .qty-step-minus {
+    border-top-left-radius: 6px !important;
+    border-bottom-left-radius: 6px !important;
+    border-right: none !important;
+}
+
+.cims-qty-stepper .qty-step-plus {
+    border-left: none !important;
+    border-right: none !important;
+}
+
+.cims-qty-stepper .item-qty-input {
+    text-align: center !important;
+    font-weight: 800 !important;
+    font-size: 16px !important;
+    min-width: 52px !important;
+    max-width: 85px !important;
+    padding: 6px 4px !important;
+    border-left: none !important;
+    border-right: none !important;
+    -moz-appearance: textfield !important;
+}
+
+.cims-qty-stepper .item-qty-input::-webkit-outer-spin-button,
+.cims-qty-stepper .item-qty-input::-webkit-inner-spin-button {
+    -webkit-appearance: none !important;
+    margin: 0 !important;
+}
+
+.cims-qty-stepper .item-unit-badge {
+    border-top-right-radius: 6px !important;
+    border-bottom-right-radius: 6px !important;
+    min-width: 52px !important;
+}
+
+/* Dark Mode Theme for Steppers */
+[data-bs-theme="dark"] .cims-qty-stepper .qty-step-btn {
+    background-color: #21262d !important;
+    border-color: #30363d !important;
+    color: #f0f6fc !important;
+}
+
+[data-bs-theme="dark"] .cims-qty-stepper .qty-step-btn:active {
+    background-color: #30363d !important;
+    color: #58a6ff !important;
+}
+
+[data-bs-theme="dark"] .cims-qty-stepper .item-qty-input {
+    background-color: #0d1117 !important;
+    border-color: #30363d !important;
+    color: #58a6ff !important;
+}
+
+/* 2. Virtual Keyboard Viewport Safe Buffer */
+@media (max-width: 768px) {
+    .modal-dialog-scrollable .modal-body {
+        scroll-padding-bottom: 240px !important;
+    }
+
+    .material-row {
+        border-radius: 12px !important;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04) !important;
+        margin-bottom: 12px !important;
+    }
+
+    .material-row .remove-row {
+        min-height: 44px !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        padding: 8px 16px !important;
+        font-weight: 600 !important;
+        font-size: 0.88rem !important;
+    }
+}
