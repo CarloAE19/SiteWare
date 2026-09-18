@@ -104,20 +104,45 @@ $isScreenLockedSession = !$isFreshLogin && !empty($_SESSION['screen_locked']);
 $notifications = [];
 $unreadCount = 0;
 if (!defined('DB_OFFLINE') && isset($pdo) && $pdo !== null) {
+    $clearedAt = null;
+    if (!empty($currentUserId)) {
+        $uStmt = $pdo->prepare("SELECT notifications_cleared_at FROM users WHERE id = ?");
+        $uStmt->execute([$currentUserId]);
+        $clearedAt = $uStmt->fetchColumn();
+    }
+
     if ($currentUserRole === 'requestor') {
-        $notifStmt = $pdo->prepare("
+        $sql = "
             SELECT * FROM notifications 
             WHERE (target_user_id = ? OR target_role = 'requestor')
               AND title NOT LIKE '%PO%' 
               AND title NOT LIKE '%Purchase Order%'
               AND message NOT LIKE '%PO-%' 
               AND message NOT LIKE '%Purchase Order%'
-            ORDER BY created_at DESC LIMIT 10
-        ");
-        $notifStmt->execute([$currentUserId]);
+              AND title NOT LIKE '%Audit%'
+              AND message NOT LIKE '%Audit%'
+        ";
+        $params = [$currentUserId];
+        if (!empty($clearedAt)) {
+            $sql .= " AND created_at > ?";
+            $params[] = $clearedAt;
+        }
+        $sql .= " ORDER BY created_at DESC LIMIT 10";
+        $notifStmt = $pdo->prepare($sql);
+        $notifStmt->execute($params);
     } else {
-        $notifStmt = $pdo->prepare("SELECT * FROM notifications WHERE target_user_id = ? OR target_role = ? ORDER BY created_at DESC LIMIT 10");
-        $notifStmt->execute([$currentUserId, $currentUserRole]);
+        $sql = "
+            SELECT * FROM notifications 
+            WHERE (target_user_id = ? OR target_role = ? OR target_role = 'all')
+        ";
+        $params = [$currentUserId, $currentUserRole];
+        if (!empty($clearedAt)) {
+            $sql .= " AND created_at > ?";
+            $params[] = $clearedAt;
+        }
+        $sql .= " ORDER BY created_at DESC LIMIT 10";
+        $notifStmt = $pdo->prepare($sql);
+        $notifStmt->execute($params);
     }
     $notifications = $notifStmt->fetchAll(PDO::FETCH_ASSOC);
 }
@@ -579,16 +604,23 @@ foreach ($notifications as $n) {
                                             <i class="bi bi-bell-fill text-warning me-2 fs-5"></i>
                                             <div>
                                                 <h6 class="fw-bold mb-0 text-white">System Notifications</h6>
-                                                <small class="text-white-50" style="font-size: 0.72rem;">Requisitions,
-                                                    Audits & Alerts</small>
+                                                <small class="text-white-50" style="font-size: 0.72rem;">
+                                                    <?= ($currentUserRole === 'requestor') ? 'Requisitions & Material Status' : 'Requisitions, Audits & Alerts' ?>
+                                                </small>
                                             </div>
                                         </div>
-                                        <?php if ($unreadCount > 0): ?>
+                                        <div class="d-flex align-items-center gap-2">
                                             <button id="markAllNotifsBtn"
-                                                class="btn btn-sm btn-link text-white-50 text-decoration-none p-0 fw-bold"
-                                                onclick="markAllNotifsRead()" style="font-size: 0.75rem;"><i
-                                                    class="bi bi-check2-all me-1"></i>Mark read</button>
-                                        <?php endif; ?>
+                                                class="btn btn-sm btn-link text-white-50 text-decoration-none p-0 fw-semibold <?= ($unreadCount > 0) ? '' : 'd-none' ?>"
+                                                onclick="markAllNotifsRead()" style="font-size: 0.72rem;" title="Mark all as read">
+                                                <i class="bi bi-check2-all me-1"></i>Mark read
+                                            </button>
+                                            <button id="clearAllNotifsBtn"
+                                                class="btn btn-sm btn-link text-white-50 text-decoration-none p-0 fw-semibold <?= (count($notifications) > 0) ? '' : 'd-none' ?>"
+                                                onclick="clearAllNotifs()" style="font-size: 0.72rem;" title="Clear notification tray">
+                                                <i class="bi bi-trash3 me-1"></i>Clear all
+                                            </button>
+                                        </div>
                                     </div>
                                 </li>
                                 <div style="max-height: 360px; overflow-y: auto;" id="systemNotifsList">
@@ -665,13 +697,20 @@ foreach ($notifications as $n) {
                                                         </span>
                                                         <strong class="text-dark" style="font-size: 0.83rem;"><?= htmlspecialchars($notif['title']) ?></strong>
                                                     </div>
-                                                    <small class="badge bg-light text-secondary border text-nowrap ms-2" style="font-size: 0.68rem;"><?= time_elapsed_string($notif['created_at']) ?></small>
+                                                    <div class="d-flex align-items-center gap-1 ms-2">
+                                                        <small class="badge bg-light text-secondary border text-nowrap" style="font-size: 0.68rem;"><?= time_elapsed_string($notif['created_at']) ?></small>
+                                                        <button type="button" class="btn btn-sm btn-link text-muted p-0 text-decoration-none dismiss-notif-btn" 
+                                                            onclick="event.stopPropagation(); dismissSingleNotif(<?= (int)$notif['id'] ?>, this);" 
+                                                            title="Dismiss notification" style="line-height: 1; font-size: 0.75rem; min-width: 22px; min-height: 22px;">
+                                                            <i class="bi bi-x-lg"></i>
+                                                        </button>
+                                                    </div>
                                                 </div>
                                                 <p class="mb-1 text-secondary" style="font-size: 0.78rem; line-height: 1.4;">
                                                     <?= nl2br(htmlspecialchars($notif['message'])) ?>
                                                 </p>
                                                 <div class="d-flex align-items-center gap-2 mt-2 pt-1 border-top border-light">
-                                                    <?php if ($extractedPo): ?>
+                                                    <?php if ($extractedPo && $currentUserRole !== 'requestor'): ?>
                                                         <button type="button" class="btn btn-sm btn-outline-primary py-1 px-2 fw-bold text-nowrap" style="font-size: 0.72rem;"
                                                             onclick="event.stopPropagation(); markSingleNotifRead(<?= (int)$notif['id'] ?>, this); if (typeof openPoModalByNo === 'function') { openPoModalByNo('<?= htmlspecialchars($extractedPo, ENT_QUOTES) ?>'); } else { window.location.href='po?search=<?= urlencode($extractedPo) ?>'; }"
                                                             title="Preview <?= htmlspecialchars($extractedPo) ?>">
@@ -694,8 +733,9 @@ foreach ($notifications as $n) {
                                         <?php endforeach; ?>
                                     <?php else: ?>
                                         <li class="p-4 text-center text-muted small">
-                                            <i class="bi bi-bell-slash d-block fs-3 mb-2 opacity-50"></i>
-                                            No new system notifications.
+                                            <i class="bi bi-bell-slash d-block fs-2 mb-2 text-secondary opacity-75"></i>
+                                            <div class="fw-semibold text-secondary">All caught up!</div>
+                                            <small class="text-muted" style="font-size: 0.72rem;">No recent notifications.</small>
                                         </li>
                                     <?php endif; ?>
                                 </div>
