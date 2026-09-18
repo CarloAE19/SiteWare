@@ -1226,13 +1226,17 @@ include 'layout/header.php';
                                 <input type="number" name="actual_qtys[]" class="form-control form-control-sm text-center bg-light text-muted actual-qty-input" 
                                     value="0" readonly style="max-width: 90px; font-size: 0.95rem; height: 35px; margin: 0 auto;">
                             ` : `
-                                <input type="number" name="actual_qtys[]" class="form-control form-control-sm text-center fw-bold text-success border-success shadow-sm actual-qty-input" 
-                                    style="max-width: 90px; font-size: 1rem; height: 35px; margin: 0 auto;" value="${defaultReceiveToday}" min="0" max="${remainingQty}" data-remaining="${remainingQty}" onclick="this.select()" onfocus="this.select()" required>
+                                <div class="cims-qty-stepper d-inline-flex justify-content-center align-items-stretch" style="min-width: 140px; margin: 0 auto;">
+                                    <button type="button" class="btn btn-outline-secondary qty-step-btn qty-step-minus" tabindex="-1" aria-label="Decrease quantity"><i class="bi bi-dash-lg"></i></button>
+                                    <input type="number" name="actual_qtys[]" class="form-control form-control-sm text-center fw-bold text-success border-success shadow-sm actual-qty-input item-qty-input" 
+                                        style="max-width: 65px; font-size: 1rem; height: 44px; margin: 0;" value="${defaultReceiveToday}" min="0" max="${remainingQty}" data-remaining="${remainingQty}" inputmode="numeric" onclick="this.select()" onfocus="this.select()" required>
+                                    <button type="button" class="btn btn-outline-secondary qty-step-btn qty-step-plus" tabindex="-1" aria-label="Increase quantity"><i class="bi bi-plus-lg"></i></button>
+                                </div>
                             `}
                         </td>
                         <td class="text-center align-middle" data-label="Unit Price (₱)">
                             <input type="number" step="0.01" name="unit_prices[]" class="form-control form-control-sm text-center fw-bold text-primary border-primary shadow-sm unit-price-input" 
-                                style="max-width: 105px; font-size: 0.95rem; height: 35px; margin: 0 auto;" value="${initialPrice}" min="0" onclick="this.select()" onfocus="this.select()" required>
+                                style="max-width: 110px; font-size: 1rem; min-height: 44px; margin: 0 auto;" value="${initialPrice}" min="0" inputmode="decimal" onclick="this.select()" onfocus="this.select()" required>
                         </td>
                         <td class="text-center align-middle" data-label="Status / Remainder">
                             <div class="disposition-wrapper">
