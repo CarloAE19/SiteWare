@@ -21,6 +21,24 @@ function formatDateTime(date) {
     });
 }
 
+window.formatInteractiveEntities = function(html) {
+    if (!html) return '';
+    let text = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    text = text.replace(/(?:<button[^>]*>)?\b(PO-(?:\d{4,8}-\d+|\d+))\b(?:<\/button>)?/g, (fullMatch, match) => {
+        if (fullMatch.startsWith('<button')) return fullMatch;
+        return `<button type="button" class="btn btn-xs btn-outline-primary fw-bold text-nowrap py-0 px-2 shadow-none" style="font-size: 0.76rem; border-radius: 6px;" onclick="if(typeof openPoDetailsModal==='function'){openPoDetailsModal(null,'${match}')}else{window.location.href='po?highlight=${match}'}" title="View Purchase Order Details"><i class="bi bi-receipt me-1"></i>${match}</button>`;
+    });
+    text = text.replace(/(?:<button[^>]*>)?\b(RS-(?:\d{4}-\d+|\d+))\b(?:<\/button>)?/g, (fullMatch, match) => {
+        if (fullMatch.startsWith('<button')) return fullMatch;
+        return `<button type="button" class="btn btn-xs btn-outline-info fw-bold text-nowrap py-0 px-2 shadow-none" style="font-size: 0.76rem; border-radius: 6px;" onclick="if(typeof openRequisitionModal==='function'){openRequisitionModal(null,'${match}')}else{window.location.href='requisition?highlight=${match}'}" title="View Requisition Details"><i class="bi bi-file-earmark-text me-1"></i>${match}</button>`;
+    });
+    text = text.replace(/(?:<button[^>]*>)?\b(ITM-\d+)\b(?:<\/button>)?/g, (fullMatch, match) => {
+        if (fullMatch.startsWith('<button')) return fullMatch;
+        return `<button type="button" class="btn btn-xs btn-outline-success fw-bold text-nowrap py-0 px-2 shadow-none" style="font-size: 0.76rem; border-radius: 6px;" onclick="if(typeof openItemDetailsModal==='function'){openItemDetailsModal('${match}')}else{window.location.href='inventory?highlight=${match}'}" title="View Inventory Details"><i class="bi bi-box-seam me-1"></i>${match}</button>`;
+    });
+    return text;
+};
+
 document.addEventListener("DOMContentLoaded", () => {
     const aiOutput = document.getElementById('aiOutput');
     if (!aiOutput) return;
@@ -40,19 +58,22 @@ document.addEventListener("DOMContentLoaded", () => {
     const hasDbPrediction = aiOutput.querySelector('.bi-cpu') === null;
 
     if (!hasDbPrediction) {
-        // Fallback to localStorage if database had no prediction
-        const savedPrediction = localStorage.getItem('gb_ai_prediction');
-        const savedTime = localStorage.getItem('gb_ai_timestamp');
+        // Fallback to localStorage if database had no prediction (role-aware)
+        const roleKey = window.currentUserRole || 'admin';
+        const savedPrediction = localStorage.getItem('gb_ai_prediction_' + roleKey) || localStorage.getItem('gb_ai_prediction');
+        const savedTime = localStorage.getItem('gb_ai_timestamp_' + roleKey) || localStorage.getItem('gb_ai_timestamp');
         if (savedPrediction && savedTime) {
-            aiOutput.innerHTML = savedPrediction;
+            aiOutput.innerHTML = window.formatInteractiveEntities(savedPrediction);
             const date = new Date(parseInt(savedTime));
             if (updatedTextEl) {
                 updatedTextEl.innerText = "Last Updated: " + formatDateTime(date);
             }
         }
+    } else {
+        // Ensure interactive buttons on DB loaded content
+        aiOutput.innerHTML = window.formatInteractiveEntities(aiOutput.innerHTML);
     }
     
-    // We no longer trigger generateAIPrediction(false) on page load.
     startTimer();
 });
 
@@ -75,13 +96,17 @@ window.generateAIPrediction = async function(isManualClick) {
     loading.style.setProperty('display', 'flex', 'important');
     if (isManualClick && btn) { 
         btn.disabled = true; 
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Syncing...'; 
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Analyzing Operations...'; 
     }
 
     try {
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
         const response = await fetch('analytics.php?action=generate_ai_report', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' }
+            headers: { 
+                'Content-Type': 'application/json',
+                'X-CSRF-Token': csrfToken
+            }
         });
 
         const data = await response.json();
@@ -89,11 +114,14 @@ window.generateAIPrediction = async function(isManualClick) {
         
         if (response.ok && isSuccess) {
             let aiText = data.prediction;
-            // Clean up bold/markdown if any was returned by the LLM
-            aiText = aiText.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+            aiText = aiText.replace(/^```(?:html)?\s*/i, '').replace(/\s*```$/i, '');
+            aiText = window.formatInteractiveEntities(aiText);
 
             output.innerHTML = aiText;
+            const roleKey = window.currentUserRole || 'admin';
             try {
+                localStorage.setItem('gb_ai_prediction_' + roleKey, aiText);
+                localStorage.setItem('gb_ai_timestamp_' + roleKey, data.timestamp);
                 localStorage.setItem('gb_ai_prediction', aiText);
                 localStorage.setItem('gb_ai_timestamp', data.timestamp);
             } catch (e) {}
@@ -104,7 +132,7 @@ window.generateAIPrediction = async function(isManualClick) {
                 updatedTextEl.innerText = "Last Updated: " + formatDateTime(new Date(data.timestamp));
             }
         } else {
-            const errMessage = data.message || data.error || 'Failed to generate inventory prediction report.';
+            const errMessage = data.message || data.error || 'Failed to generate operational intelligence report.';
             output.innerHTML = `<div class='alert alert-danger border-0 shadow-sm d-flex align-items-center mb-0'><i class="bi bi-exclamation-triangle-fill fs-5 me-2 flex-shrink-0"></i><div><strong>AI Analysis Notice:</strong> ${errMessage}</div></div>`;
         }
     } catch (error) {
@@ -114,7 +142,7 @@ window.generateAIPrediction = async function(isManualClick) {
         loading.style.setProperty('display', 'none', 'important');
         if (isManualClick && btn) { 
             btn.disabled = false; 
-            btn.innerHTML = '<i class="bi bi-arrow-clockwise me-1"></i> Analyze Now'; 
+            btn.innerHTML = '<i class="bi bi-arrow-clockwise me-1"></i> Analyze Operations Now'; 
         }
         startTimer();
     }
