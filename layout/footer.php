@@ -314,6 +314,43 @@
         }
     }
 
+    /* Fullscreen / Expanded Mode Styles */
+    #cims-chatbot-panel.chatbot-fullscreen {
+        width: min(1080px, calc(100vw - 50px)) !important;
+        height: min(850px, calc(100vh - 60px)) !important;
+        max-width: calc(100vw - 50px) !important;
+        max-height: calc(100vh - 60px) !important;
+        bottom: 25px !important;
+        right: 25px !important;
+        border-radius: 20px !important;
+        z-index: 1090 !important;
+        box-shadow: 0 25px 60px rgba(0, 0, 0, 0.35) !important;
+    }
+
+    #cims-chatbot-panel.chatbot-fullscreen .chatbot-msg {
+        max-width: 75%;
+        font-size: 0.95rem;
+    }
+
+    #cims-chatbot-clear,
+    #cims-chatbot-expand {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        border-radius: 6px;
+        color: rgba(255, 255, 255, 0.7) !important;
+        transition: all 0.2s ease;
+    }
+
+    #cims-chatbot-clear:hover,
+    #cims-chatbot-expand:hover {
+        background-color: rgba(255, 255, 255, 0.15);
+        color: #ffffff !important;
+        transform: scale(1.1);
+    }
+
     @media (max-width: 576px) {
         #cims-chatbot-panel {
             bottom: 80px;
@@ -325,9 +362,40 @@
             max-height: calc(100dvh - 90px);
         }
 
+        #cims-chatbot-panel.chatbot-fullscreen {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            bottom: 0 !important;
+            width: 100vw !important;
+            height: 100dvh !important;
+            max-width: 100vw !important;
+            max-height: 100dvh !important;
+            border-radius: 0 !important;
+            border: none !important;
+            z-index: 1095 !important;
+        }
+
+        #cims-chatbot-panel.chatbot-fullscreen .card-header {
+            padding-top: max(0.9rem, env(safe-area-inset-top)) !important;
+            border-radius: 0 !important;
+        }
+
+        #cims-chatbot-panel.chatbot-fullscreen .card-footer {
+            padding-bottom: max(0.85rem, env(safe-area-inset-bottom)) !important;
+            border-radius: 0 !important;
+        }
+
         #cims-chatbot-container {
             bottom: 15px;
             right: 15px;
+        }
+
+        #cims-chatbot-clear,
+        #cims-chatbot-expand {
+            width: 40px;
+            height: 40px;
         }
 
         #cims-chatbot-input {
@@ -367,11 +435,14 @@
                         style="font-size: 0.6rem; background-color: #f1f3f5; color: #4f5d75; font-weight: 700; letter-spacing: 0.5px; padding: 0.3em 0.6em; display: inline-block;">BETA</span>
                 </div>
             </div>
-            <div class="d-flex align-items-center">
-                <button type="button" id="cims-chatbot-clear" class="btn btn-sm btn-link text-white-50 p-0 me-3 text-decoration-none" title="Clear Chat History">
+            <div class="d-flex align-items-center gap-1">
+                <button type="button" id="cims-chatbot-clear" class="btn btn-sm btn-link p-0 text-decoration-none" title="Clear Chat History" aria-label="Clear Chat History">
                     <i class="bi bi-trash3 fs-6"></i>
                 </button>
-                <button type="button" id="cims-chatbot-close" class="btn-close btn-close-white" aria-label="Close"></button>
+                <button type="button" id="cims-chatbot-expand" class="btn btn-sm btn-link p-0 text-decoration-none" title="Toggle Fullscreen / Expand Window" aria-label="Toggle Fullscreen">
+                    <i class="bi bi-arrows-fullscreen fs-6"></i>
+                </button>
+                <button type="button" id="cims-chatbot-close" class="btn-close btn-close-white ms-1" aria-label="Close"></button>
             </div>
         </div>
 
