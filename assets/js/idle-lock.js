@@ -40,6 +40,9 @@
         let isLocked = false;
         let isLegitimateUnlocking = false;
         let lastPingTime = Date.now();
+        let bodyObserver = null;
+        let modalObserver = null;
+        let isTampered = false;
 
         const UNLOCK_BTN_DEFAULT_HTML = '<i class="bi bi-unlock-fill me-2"></i> Unlock Screen';
 
@@ -160,6 +163,14 @@
          * Periodic Heartbeat Timer (runs every 1 second)
          */
         setInterval(() => {
+            if (isTampered) return;
+
+            // Continuous Integrity Check: verify security modal was not deleted from DOM at ANY time
+            if (!document.body.contains(lockModalEl) || !document.getElementById('cimsIdleLockModal')) {
+                triggerTamperAlert('Lock screen modal was deleted from DOM.');
+                return;
+            }
+
             const now = Date.now();
             const lastActive = parseInt(localStorage.getItem(STORAGE_KEY_ACTIVE) || now.toString(), 10);
             const idleElapsed = now - lastActive;
@@ -197,7 +208,14 @@
          * Tier 1: Soft Lock Screen Trigger
          */
         function triggerLockScreen() {
-            if (isLocked) return;
+            if (isLocked || isTampered) return;
+
+            // Pre-flight check: verify modal is present in DOM before locking
+            if (!document.body.contains(lockModalEl) || !document.getElementById('cimsIdleLockModal')) {
+                triggerTamperAlert('Lock screen modal is missing from DOM on lock attempt.');
+                return;
+            }
+
             isLocked = true;
             isLegitimateUnlocking = false;
             localStorage.setItem(STORAGE_KEY_LOCKED, '1');
@@ -235,9 +253,9 @@
         }
 
         /**
-         * Anti-Tamper Watchdog (MutationObserver & DevTools Guard)
-         * Detects if an attacker deletes modal elements, strips backdrop,
-         * or removes the inert attribute via Inspect Element.
+         * Anti-Tamper Watchdog (Dual MutationObserver & DevTools Guard)
+         * Detects if an attacker deletes modal elements (even before locking),
+         * strips backdrop, or removes the inert attribute via Inspect Element.
          */
         function initAntiTamperGuard() {
             if (!lockModalEl) return;
@@ -249,37 +267,66 @@
                 }
             });
 
-            const observer = new MutationObserver(() => {
-                if (!isLocked || isLegitimateUnlocking) return;
+            // 1. Body Observer: Detects deletion of #cimsIdleLockModal from body, or removal of shielding/inert
+            bodyObserver = new MutationObserver(() => {
+                if (isLegitimateUnlocking || isTampered) return;
 
-                // Check 1: Was modal element deleted from the DOM?
-                if (!document.body.contains(lockModalEl)) {
+                // Check 1: Was modal element deleted from the DOM? (Monitored ALWAYS, whether locked or active!)
+                if (!document.body.contains(lockModalEl) || !document.getElementById('cimsIdleLockModal')) {
                     triggerTamperAlert('Lock screen modal element was deleted from DOM.');
                     return;
                 }
 
-                // Check 2: Were security shielding classes removed from body?
-                if (!document.body.classList.contains('cims-body-locked')) {
-                    triggerTamperAlert('Body shielding protection was removed.');
-                    return;
-                }
+                // If currently locked, verify shielding classes & inert attributes
+                if (isLocked) {
+                    // Check 2: Were security shielding classes removed from body?
+                    if (!document.body.classList.contains('cims-body-locked')) {
+                        triggerTamperAlert('Body shielding protection was removed.');
+                        return;
+                    }
 
-                // Check 3: Was inert stripped from content wrapper?
-                const contentEl = document.getElementById('content');
-                if (contentEl && !contentEl.hasAttribute('inert')) {
-                    triggerTamperAlert('Content inert protection attribute was stripped.');
-                    return;
+                    // Check 3: Was inert stripped from content wrapper?
+                    const contentEl = document.getElementById('content');
+                    if (contentEl && !contentEl.hasAttribute('inert')) {
+                        triggerTamperAlert('Content inert protection attribute was stripped.');
+                        return;
+                    }
                 }
             });
 
-            observer.observe(document.body, {
+            bodyObserver.observe(document.body, {
                 childList: true,
                 attributes: true,
                 attributeFilter: ['class', 'inert']
             });
+
+            // 2. Modal Observer: Detects deletion of form or inputs inside the modal
+            modalObserver = new MutationObserver(() => {
+                if (isLegitimateUnlocking || isTampered) return;
+
+                const formEl = document.getElementById('cimsIdleUnlockForm');
+                const pwdEl = document.getElementById('cimsUnlockPassword');
+                const btnEl = document.getElementById('cimsUnlockSubmitBtn');
+
+                if (!formEl || !pwdEl || !btnEl) {
+                    triggerTamperAlert('Critical elements inside lock modal were deleted.');
+                    return;
+                }
+            });
+
+            modalObserver.observe(lockModalEl, {
+                childList: true,
+                subtree: true
+            });
         }
 
         function triggerTamperAlert(reason) {
+            if (isTampered) return;
+            isTampered = true;
+
+            if (bodyObserver) bodyObserver.disconnect();
+            if (modalObserver) modalObserver.disconnect();
+
             console.warn('Security Alert: Anti-tamper violation detected.', reason);
 
             // Wipe out view immediately so zero data can be inspected or extracted
@@ -288,8 +335,8 @@
                     <div style="font-size:3.5rem;margin-bottom:16px;color:#ef4444;">
                         <i class="bi bi-shield-slash-fill"></i>
                     </div>
-                    <h2 style="font-weight:700;margin-bottom:12px;">Security Tampering Detected</h2>
-                    <p style="color:#94a3b8;max-width:480px;line-height:1.6;margin-bottom:24px;">An unauthorized DOM modification was detected while your workstation was locked. To protect confidential company records, your session has been terminated.</p>
+                    <h2 style="font-weight:700;margin-bottom:12px;">Security Bypass Attempt Detected</h2>
+                    <p style="color:#94a3b8;max-width:480px;line-height:1.6;margin-bottom:24px;">An unauthorized attempt to bypass the security lock was detected. To protect confidential company records, your session has been terminated.</p>
                     <a href="${(window.cimsBasePath || '')}/logout?timeout=1" class="btn btn-primary px-4 py-2 fw-bold">Return to Login</a>
                 </div>
             `;
