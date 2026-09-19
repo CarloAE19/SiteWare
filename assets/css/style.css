@@ -163,7 +163,7 @@ body {
 .top-navbar {
     background: #fff;
     box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-    padding: 15px 25px;
+    padding: max(15px, calc(env(safe-area-inset-top, 0px) + 8px)) max(25px, calc(env(safe-area-inset-right, 0px) + 15px)) 15px max(25px, calc(env(safe-area-inset-left, 0px) + 15px));
     position: sticky;
     top: 0;
     z-index: 1000;
