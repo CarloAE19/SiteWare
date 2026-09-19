@@ -189,7 +189,7 @@ if (!$isRateLimited && !empty($ref)) {
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>SiteWare Security Trust Center | GB Inventory</title>
     <link rel="icon" type="image/png" href="assets/clearlogo.png">
     <!-- Bootstrap 5 CSS & Icons -->
@@ -212,6 +212,12 @@ if (!$isRateLimited && !empty($ref)) {
             background-color: var(--bg-canvas);
             color: #334155;
             min-height: 100vh;
+        }
+
+        .navbar {
+            padding-top: max(0.75rem, calc(env(safe-area-inset-top, 0px) + 0.5rem)) !important;
+            padding-left: max(1rem, calc(env(safe-area-inset-left, 0px) + 0.5rem)) !important;
+            padding-right: max(1rem, calc(env(safe-area-inset-right, 0px) + 0.5rem)) !important;
         }
 
         .cert-card {
