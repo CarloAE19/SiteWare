@@ -2,34 +2,70 @@
 ini_set('display_errors', 0);
 error_reporting(0);
 session_start();
-header('Content-Type: application/json');
+header('Content-Type: application/json; charset=utf-8');
 
+// 1. Authentication Check
 if (!isset($_SESSION['user_id'])) {
-    echo json_encode(['error' => 'Unauthorized session. Please log in.']);
+    http_response_code(401);
+    echo json_encode([
+        'success' => false,
+        'status' => 'error',
+        'message' => 'Unauthorized session. Please log in.',
+        'error' => 'Unauthorized session. Please log in.'
+    ]);
     exit;
 }
 
 require_once __DIR__ . '/../Connection/db.php';
 
-// Rate Limiting: Max 10 messages per 60 seconds per user
+// 2. CSRF Token Validation
+if (function_exists('getallheaders')) {
+    $requestHeaders = getallheaders();
+    $csrfToken = $requestHeaders['X-CSRF-Token'] ?? ($requestHeaders['x-csrf-token'] ?? '');
+    if (!empty($_SESSION['csrf_token']) && !empty($csrfToken) && !hash_equals($_SESSION['csrf_token'], $csrfToken)) {
+        http_response_code(403);
+        echo json_encode([
+            'success' => false,
+            'status' => 'error',
+            'message' => 'CSRF validation failed. Please refresh your page.',
+            'error' => 'CSRF validation failed. Please refresh your page.'
+        ]);
+        exit;
+    }
+}
+
+// 3. Rate Limiting: Max 10 messages per 60 seconds per user
 $aiRateLimit = check_rate_limit('ai_chat_user_' . $_SESSION['user_id'], 10, 60);
 if (!$aiRateLimit['allowed']) {
     http_response_code(429);
-    echo json_encode(['error' => "You are sending messages too quickly. Please wait {$aiRateLimit['retry_after']}s before sending another message."]);
+    $rateLimitMsg = "You are sending messages too quickly. Please wait {$aiRateLimit['retry_after']}s before sending another message.";
+    echo json_encode([
+        'success' => false,
+        'status' => 'error',
+        'message' => $rateLimitMsg,
+        'error' => $rateLimitMsg
+    ]);
     exit;
 }
 record_rate_limit_attempt('ai_chat_user_' . $_SESSION['user_id']);
 
-// Check if AI API key is defined
+// 4. Check if AI API Key is Defined
 if (!defined('AI_API_KEY') || empty(AI_API_KEY)) {
-    echo json_encode(['error' => 'AI API Key is not configured in the .env file.']);
+    http_response_code(500);
+    $configMsg = 'AI API Key is not configured in the .env file.';
+    echo json_encode([
+        'success' => false,
+        'status' => 'error',
+        'message' => $configMsg,
+        'error' => $configMsg
+    ]);
     exit;
 }
 
 $userRole = $_SESSION['user_role'] ?? 'requestor';
 $userName = $_SESSION['user_name'] ?? 'User';
 
-// 1. Gather Role-Based System Context from DB
+// 5. Gather Role-Based System Context from DB
 $dbData = [];
 
 try {
@@ -143,24 +179,41 @@ try {
             break;
     }
 } catch (PDOException $e) {
-    echo json_encode(['error' => 'Database error: ' . $e->getMessage()]);
+    http_response_code(500);
+    echo json_encode([
+        'success' => false,
+        'status' => 'error',
+        'message' => 'Database error: ' . $e->getMessage(),
+        'error' => 'Database error: ' . $e->getMessage()
+    ]);
     exit;
 }
 
-// 2. Read Request Parameters
+// 6. Read Request Parameters
 $inputJSON = file_get_contents('php://input');
 if (empty($inputJSON) && php_sapi_name() === 'cli') {
     $inputJSON = file_get_contents('php://stdin');
 }
-$input = json_decode($inputJSON, TRUE);
+$input = json_decode($inputJSON, true);
 $messages = $input['messages'] ?? []; // Entire chat history array from client
 
-if (empty($messages)) {
-    echo json_encode(['error' => 'No message history provided.']);
+if (empty($messages) || !is_array($messages)) {
+    http_response_code(400);
+    echo json_encode([
+        'success' => false,
+        'status' => 'error',
+        'message' => 'No message history provided.',
+        'error' => 'No message history provided.'
+    ]);
     exit;
 }
 
-// 3. Assemble Prompt & AI Model Payload
+// Sliding window: Retain last 10 messages for token efficiency and high speed
+if (count($messages) > 10) {
+    $messages = array_slice($messages, -10);
+}
+
+// 7. Assemble Prompt & AI Model Payload
 $systemRoleDescriptions = [
     'admin' => "You are the SiteWare System Admin Assistant. Your personality is highly professional, technical, and security-minded. Assist the user with system configuration, database structures, user counts, and general backend administration. Keep responses concise.",
     'management' => "You are the SiteWare Management Advisor. Your personality is strategic, cost-conscious, and data-driven. Assist the user with inventory analysis, high-level reporting trends, pending Requisition Slip (RS) approvals, and critical alerts. Help them make fast business decisions.",
@@ -182,26 +235,50 @@ $systemInstructionText = $roleDescription . "\n\n" .
     "2. If the user asks about specific items, numbers, or statuses, use the numbers from the context. If you don't know something or it's not in the context, say: 'I don't have that specific record in my real-time database sync, but I can help you with...' rather than inventing facts.\n" .
     "3. Keep answers clear, structured, and helpful. Use bullet points or numbered lists where appropriate.\n" .
     "4. Limit responses to a maximum of 150-200 words. Keep it conversational but concise.\n" .
-    "5. CRITICAL DIRECTIVE: You are strictly an inventory and logistics assistant. You must ONLY answer questions directly related to construction materials, stock levels, suppliers, withdrawals, purchase orders, requisitions, projects, and users. If the user's query is unrelated to inventory, logistics, or SiteWare data, you MUST refuse to answer by saying exactly: 'I am only programmed to assist with inventory, logistics, and SiteWare system data. Please ask an inventory-related question.' Do not engage in chit-chat, write code, or answer questions about general topics, AI technology, API integrations, or software development.\n" .
-    "6. LANGUAGE MATCHING & GRAMMAR: Respond in the same language or dialect (English, Tagalog, Cebuano/Bisaya, or Taglish) that the user used. Ensure your grammar, vocabulary, and sentence structures are natural, fluent, and grammatically correct for that specific language or dialect. Avoid awkward word-for-word translation mixtures (e.g., do not mix Tagalog grammatical pronouns/markers like 'anong' with Bisaya words to form unnatural phrases like 'anong tanan'; use proper Cebuano/Bisaya like 'Unsa ang tanan' or proper Tagalog like 'Ano ang lahat ng'). When using Bisaya, use 'ko' (I/me) instead of 'ka' (you) when referring to yourself.\n" .
+    "5. CRITICAL DIRECTIVE: You are strictly an inventory and logistics assistant for SiteWare. You must ONLY answer questions directly related to construction materials, stock levels, suppliers, withdrawals, purchase orders, requisitions, projects, and users. If the user's query is off-topic, gibberish, or casual chit-chat (e.g. 'waw', 'hi', 'what is the weather'), refuse politely using clean, natural grammar matching the user's language:\n" .
+    "   - For English queries: 'I am only programmed to assist with inventory, logistics, and SiteWare system data. Please ask an inventory-related question.'\n" .
+    "   - For Tagalog queries: 'Naka-program lamang ako para tumulong sa inventory, logistics, at SiteWare system data. Pakiusap magtanong ng tungkol sa inventory.'\n" .
+    "   - For Bisaya queries: 'Naka-program lang ko para motabang sa inventory, logistics, ug SiteWare system data. Palihug pangutana bahin sa inventory.'\n" .
+    "6. PERFECT DIALECT & GRAMMAR: Never mix Tagalog grammar markers ('ang', 'anong', 'pwedeng') with Bisaya vocabulary ('tanan', 'kaayo', 'unsa') into unnatural hybrid phrases (such as 'ang tanan ang tanan'). Keep Tagalog strictly proper Tagalog, Cebuano/Bisaya strictly proper Bisaya, and English strictly proper English.\n" .
     "7. INTERACTIVE ENTITY CODES: Whenever you mention or list any entity code (such as Requisition Slips **RS-2026-1960**, Purchase Orders **PO-20260805-123**, Material Withdrawals **WS-2026-001**, or Item Codes **ITM-4430**), simply write the code clearly in bold (e.g. **RS-2026-1960**, **ITM-4430**). DO NOT add extra text like '[View Details]' or '(link to modal)' after it, because the frontend automatically converts the entity code into an interactive clickable button that opens the details modal!";
 
-$apiKey = AI_API_KEY;
-$model = defined('AI_MODEL') ? AI_MODEL : 'meta/llama-3.1-8b-instruct';
+$apiKey = trim(AI_API_KEY);
+$model = defined('AI_MODEL') ? AI_MODEL : 'meta/llama-3.3-70b-instruct';
 
-// Detect provider
-$isNvidia = (strpos($apiKey, 'nvapi-') === 0) || defined('AI_MODEL');
+// Detect Provider from API Key format
+$isOpenAICompatible = false;
+$apiUrl = '';
+$headers = [];
+$payload = [];
 
-if ($isNvidia) {
-    // NVIDIA NIM API Endpoint (OpenAI Chat Completions format)
+if (strpos($apiKey, 'gsk_') === 0) {
+    // 1. Groq API (Ultra-fast active model)
+    $isOpenAICompatible = true;
+    $apiUrl = "https://api.groq.com/openai/v1/chat/completions";
+    $model = defined('AI_MODEL') && !empty(AI_MODEL) && strpos(AI_MODEL, 'nvidia/') === false ? AI_MODEL : 'groq/compound-mini';
+} elseif (strpos($apiKey, 'sk-or-') === 0) {
+    // 2. OpenRouter API
+    $isOpenAICompatible = true;
+    $apiUrl = "https://openrouter.ai/api/v1/chat/completions";
+    $model = defined('AI_MODEL') ? AI_MODEL : 'meta-llama/llama-3.3-70b-instruct:free';
+} elseif (strpos($apiKey, 'nvapi-') === 0) {
+    // 3. NVIDIA NIM API
+    $isOpenAICompatible = true;
     $apiUrl = "https://integrate.api.nvidia.com/v1/chat/completions";
+    $model = defined('AI_MODEL') ? AI_MODEL : 'nvidia/llama-3.1-nemotron-70b-instruct';
+} else {
+    // 4. Google Gemini API (Default fallback for AIzaSy... keys)
+    $isOpenAICompatible = false;
+    $apiUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" . $apiKey;
+}
 
-    $nvidiaMessages = [];
-    $nvidiaMessages[] = ['role' => 'system', 'content' => $systemInstructionText];
+if ($isOpenAICompatible) {
+    $formattedMessages = [];
+    $formattedMessages[] = ['role' => 'system', 'content' => $systemInstructionText];
 
     foreach ($messages as $msg) {
-        $role = $msg['role'] === 'user' ? 'user' : 'assistant';
-        $nvidiaMessages[] = [
+        $role = ($msg['role'] === 'user') ? 'user' : 'assistant';
+        $formattedMessages[] = [
             'role' => $role,
             'content' => $msg['text']
         ];
@@ -209,7 +286,7 @@ if ($isNvidia) {
 
     $payload = [
         'model' => $model,
-        'messages' => $nvidiaMessages,
+        'messages' => $formattedMessages,
         'temperature' => 0.2,
         'max_tokens' => 1024
     ];
@@ -219,12 +296,9 @@ if ($isNvidia) {
         'Authorization: Bearer ' . $apiKey
     ];
 } else {
-    // Google Gemini API generateContent
-    $apiUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" . $apiKey;
-
     $contents = [];
     foreach ($messages as $msg) {
-        $role = $msg['role'] === 'user' ? 'user' : 'model';
+        $role = ($msg['role'] === 'user') ? 'user' : 'model';
         $contents[] = [
             'role' => $role,
             'parts' => [
@@ -260,8 +334,8 @@ $options = [
         'timeout' => 30
     ],
     'ssl' => [
-        'verify_peer' => true,
-        'verify_peer_name' => true
+        'verify_peer' => false,
+        'verify_peer_name' => false
     ]
 ];
 
@@ -269,9 +343,14 @@ $context = stream_context_create($options);
 $response = @file_get_contents($apiUrl, false, $context);
 
 if ($response === false) {
-    $error_err = error_get_last();
-    $error_msg = isset($error_err['message']) ? $error_err['message'] : 'Unknown connection error';
-    echo json_encode(['error' => 'HTTP Request Failed: ' . $error_msg]);
+    http_response_code(503);
+    $connErrMsg = 'Connection Error: Unable to reach AI API endpoint. Please verify server internet connectivity.';
+    echo json_encode([
+        'success' => false,
+        'status' => 'error',
+        'message' => $connErrMsg,
+        'error' => $connErrMsg
+    ]);
     exit;
 }
 
@@ -288,22 +367,60 @@ if (isset($http_response_header) && is_array($http_response_header)) {
 $responseData = json_decode($response, true);
 
 if ($httpCode !== 200) {
-    $errorMessage = $responseData['error']['message'] ?? 'Unknown API error.';
-    echo json_encode(['error' => 'API Error (HTTP ' . $httpCode . '): ' . $errorMessage]);
+    http_response_code($httpCode >= 400 && $httpCode < 600 ? $httpCode : 500);
+    $errorMessage = $responseData['error']['message'] ?? ($responseData['detail'] ?? 'API Error encountered.');
+    
+    if ($httpCode === 404 || $httpCode === 401 || $httpCode === 403) {
+        $keyGuidance = "AI API Key Error (HTTP {$httpCode}): Your API key has expired, is unauthorized, or reached its free quota limit. Please generate a new key and update AI_API_KEY in your .env file.";
+        echo json_encode([
+            'success' => false,
+            'status' => 'error',
+            'message' => $keyGuidance,
+            'error' => $keyGuidance
+        ]);
+    } else {
+        $generalApiErr = "API Error (HTTP {$httpCode}): {$errorMessage}";
+        echo json_encode([
+            'success' => false,
+            'status' => 'error',
+            'message' => $generalApiErr,
+            'error' => $generalApiErr
+        ]);
+    }
     exit;
 }
 
-if ($isNvidia) {
+// Parse Response
+$replyText = '';
+if ($isOpenAICompatible) {
     if (isset($responseData['choices'][0]['message']['content'])) {
-        echo json_encode(['reply' => $responseData['choices'][0]['message']['content']]);
-    } else {
-        echo json_encode(['error' => 'Invalid response structure from Nvidia NIM API.', 'raw' => $responseData]);
+        $replyText = $responseData['choices'][0]['message']['content'];
     }
 } else {
     if (isset($responseData['candidates'][0]['content']['parts'][0]['text'])) {
-        echo json_encode(['reply' => $responseData['candidates'][0]['content']['parts'][0]['text']]);
-    } else {
-        echo json_encode(['error' => 'Invalid response structure from Gemini API.', 'raw' => $responseData]);
+        $replyText = $responseData['candidates'][0]['content']['parts'][0]['text'];
     }
+}
+
+if (!empty($replyText)) {
+    echo json_encode([
+        'success' => true,
+        'status' => 'success',
+        'message' => 'Response generated successfully.',
+        'data' => [
+            'reply' => $replyText
+        ],
+        'reply' => $replyText // Backwards compatibility with existing frontends
+    ]);
+} else {
+    http_response_code(502);
+    $parseErr = 'Invalid or empty response structure received from AI provider.';
+    echo json_encode([
+        'success' => false,
+        'status' => 'error',
+        'message' => $parseErr,
+        'error' => $parseErr,
+        'raw' => $responseData
+    ]);
 }
 exit;
