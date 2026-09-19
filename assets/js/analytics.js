@@ -85,30 +85,31 @@ window.generateAIPrediction = async function(isManualClick) {
         });
 
         const data = await response.json();
+        const isSuccess = (data.success === true || data.status === 'success') && data.prediction;
         
-        if (response.ok && data.status === 'success') {
+        if (response.ok && isSuccess) {
             let aiText = data.prediction;
             // Clean up bold/markdown if any was returned by the LLM
             aiText = aiText.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
 
             output.innerHTML = aiText;
-            localStorage.setItem('gb_ai_prediction', aiText);
-            localStorage.setItem('gb_ai_timestamp', data.timestamp);
+            try {
+                localStorage.setItem('gb_ai_prediction', aiText);
+                localStorage.setItem('gb_ai_timestamp', data.timestamp);
+            } catch (e) {}
             
             let updatedTextEl = document.getElementById('lastUpdatedText');
-            if (updatedTextEl) {
+            if (updatedTextEl && data.timestamp) {
                 updatedTextEl.setAttribute('data-timestamp', data.timestamp);
                 updatedTextEl.innerText = "Last Updated: " + formatDateTime(new Date(data.timestamp));
             }
-            if (updatedTextEl) updatedTextEl.innerText = "Last Updated: " + formatDateTime(new Date());
-        } else if (data.error) {
-            output.innerHTML = `<div class='alert alert-danger'><strong>AI API Error:</strong> ${data.error}</div>`;
         } else {
-            output.innerHTML = `<div class='alert alert-danger'><strong>AI API Error:</strong> Failed to fetch analysis details.</div>`;
+            const errMessage = data.message || data.error || 'Failed to generate inventory prediction report.';
+            output.innerHTML = `<div class='alert alert-danger border-0 shadow-sm d-flex align-items-center mb-0'><i class="bi bi-exclamation-triangle-fill fs-5 me-2 flex-shrink-0"></i><div><strong>AI Analysis Notice:</strong> ${errMessage}</div></div>`;
         }
     } catch (error) {
         console.error("AI Error:", error);
-        output.innerHTML = `<div class='alert alert-danger'><strong>Connection Error:</strong> Could not connect to backend AI module.</div>`;
+        output.innerHTML = `<div class='alert alert-danger border-0 shadow-sm d-flex align-items-center mb-0'><i class="bi bi-wifi-off fs-5 me-2 flex-shrink-0"></i><div><strong>Connection Error:</strong> Could not reach backend AI analytics service. Please verify your connection.</div></div>`;
     } finally {
         loading.style.setProperty('display', 'none', 'important');
         if (isManualClick && btn) { 
