@@ -11,83 +11,247 @@ if (!in_array($_SESSION['user_role'], ['admin', 'management', 'purchasing'])) {
 
 require_once 'Connection/db.php';
 
-// Fetch last saved AI prediction and timestamp
+// Determine logged-in user role
+$currentUserRole = strtolower($_SESSION['user_role'] ?? 'admin');
+
+// Fetch last saved AI prediction and timestamp (Role-tailored with global fallback)
 $lastPrediction = null;
 $lastTimestamp = null;
 try {
-    $stmt = $pdo->prepare("SELECT setting_value FROM system_settings WHERE setting_key = 'last_ai_prediction'");
-    $stmt->execute();
+    $stmt = $pdo->prepare("SELECT setting_value FROM system_settings WHERE setting_key = ?");
+    $stmt->execute(['last_ai_prediction_' . $currentUserRole]);
     $lastPrediction = $stmt->fetchColumn();
 
-    $stmt = $pdo->prepare("SELECT setting_value FROM system_settings WHERE setting_key = 'last_ai_timestamp'");
-    $stmt->execute();
+    if (!$lastPrediction) {
+        $stmt->execute(['last_ai_prediction']);
+        $lastPrediction = $stmt->fetchColumn();
+    }
+
+    $stmt = $pdo->prepare("SELECT setting_value FROM system_settings WHERE setting_key = ?");
+    $stmt->execute(['last_ai_timestamp_' . $currentUserRole]);
     $lastTimestamp = $stmt->fetchColumn();
+
+    if (!$lastTimestamp) {
+        $stmt->execute(['last_ai_timestamp']);
+        $lastTimestamp = $stmt->fetchColumn();
+    }
 } catch (Exception $e) {
     // Database connection or table issue
 }
 
-// Handle AJAX Generate Request (Proxy to NVIDIA NIM API)
+// Handle AJAX Generate Request
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['action']) && $_GET['action'] === 'generate_ai_report') {
     ini_set('display_errors', 0);
     error_reporting(0);
     header('Content-Type: application/json');
 
+    // 1. CSRF Token Validation (Quality Standards Rule 5)
+    $clientCsrf = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? ($_POST['csrf_token'] ?? '');
+    if (function_exists('validate_csrf_token')) {
+        if (!validate_csrf_token($clientCsrf)) {
+            http_response_code(403);
+            echo json_encode([
+                'success' => false,
+                'status' => 'error',
+                'message' => 'CSRF validation failed. Please refresh your page.'
+            ]);
+            exit;
+        }
+    }
+
     if (!defined('AI_API_KEY') || empty(AI_API_KEY) || AI_API_KEY === 'YOUR_NVIDIA_API_KEY') {
-        echo json_encode(['status' => 'error', 'message' => 'NVIDIA API Key is not configured in .env']);
+        echo json_encode(['status' => 'error', 'message' => 'AI API Key is not configured in .env']);
         exit;
     }
 
     try {
-        // 1. Fetch latest data to construct the payload
-        $query = "
+        // 1. Top Requestors (Users with most requests and pending/approved breakdown)
+        $topRequestors = $pdo->query("
+            SELECT u.name, u.role, 
+                   COUNT(r.id) as total_requests,
+                   SUM(CASE WHEN r.status = 'Pending Approval' THEN 1 ELSE 0 END) as pending_approval,
+                   SUM(CASE WHEN r.status = 'Approved' THEN 1 ELSE 0 END) as approved_count,
+                   SUM(CASE WHEN r.status = 'Released' THEN 1 ELSE 0 END) as released_count
+            FROM requisitions r
+            JOIN users u ON r.requestor_id = u.id
+            GROUP BY r.requestor_id, u.name, u.role
+            ORDER BY total_requests DESC
+            LIMIT 5
+        ")->fetchAll(PDO::FETCH_ASSOC);
+
+        // 2. Project Demand Draw (Top projects by requisition volume)
+        $projectDraw = $pdo->query("
+            SELECT project_name, COUNT(*) as req_count
+            FROM requisitions
+            GROUP BY project_name
+            ORDER BY req_count DESC
+            LIMIT 5
+        ")->fetchAll(PDO::FETCH_ASSOC);
+
+        // 3. Purchase Orders & Delivery Timeline (ETAs, Overdue days, Suppliers, Item Count, Spend)
+        $poPipeline = $pdo->query("
+            SELECT p.po_no, s.company_name as supplier, p.status, p.expected_delivery_date,
+                   DATEDIFF(p.expected_delivery_date, CURDATE()) as days_until_delivery,
+                   (SELECT COUNT(*) FROM po_items pi WHERE pi.po_id = p.id) as item_count,
+                   (SELECT COALESCE(SUM(pi.quantity * COALESCE(pi.unit_price, 0)), 0) FROM po_items pi WHERE pi.po_id = p.id) as total_amount
+            FROM purchase_orders p
+            LEFT JOIN suppliers s ON p.supplier_id = s.id
+            WHERE p.status NOT IN ('Delivered', 'Cancelled')
+            ORDER BY p.expected_delivery_date ASC
+            LIMIT 8
+        ")->fetchAll(PDO::FETCH_ASSOC);
+
+        // 4. Critical Stock & 30-Day Burn Rates
+        $criticalStock = $pdo->query("
             SELECT i.item_code, i.item_name, i.quantity as current_stock, i.unit,
-                COALESCE((SELECT SUM(wi.quantity) FROM withdrawal_items wi JOIN withdrawals w ON wi.withdrawal_id = w.id WHERE wi.item_code = i.item_code AND w.date_withdrawn >= DATE_SUB(NOW(), INTERVAL 30 DAY)), 0) as total_consumed
-            FROM inventory i ORDER BY current_stock ASC
-        ";
-        $consumptionData = $pdo->query($query)->fetchAll(PDO::FETCH_ASSOC);
+                   COALESCE((SELECT SUM(wi.quantity) FROM withdrawal_items wi JOIN withdrawals w ON wi.withdrawal_id = w.id WHERE wi.item_code = i.item_code AND w.date_withdrawn >= DATE_SUB(NOW(), INTERVAL 30 DAY)), 0) as used_30d
+            FROM inventory i
+            WHERE i.quantity < 20
+            ORDER BY i.quantity ASC
+            LIMIT 8
+        ")->fetchAll(PDO::FETCH_ASSOC);
 
-        $projQuery = "
-            SELECT wi.item_code, w.project_name, SUM(wi.quantity) as project_consumed
-            FROM withdrawal_items wi JOIN withdrawals w ON wi.withdrawal_id = w.id
-            WHERE w.date_withdrawn >= DATE_SUB(NOW(), INTERVAL 30 DAY) GROUP BY wi.item_code, w.project_name ORDER BY wi.item_code, project_consumed DESC
-        ";
-        $projData = $pdo->query($projQuery)->fetchAll(PDO::FETCH_ASSOC);
+        // Assemble 360 Operational Intelligence Payload
+        $payload360 = [
+            'analysis_date' => date('F d, Y'),
+            'top_requesting_personnel' => $topRequestors,
+            'top_project_demand' => $projectDraw,
+            'purchase_orders_and_deliveries' => $poPipeline,
+            'low_stock_and_consumption' => $criticalStock
+        ];
 
-        $projectBreakdown = [];
-        foreach ($projData as $row) {
-            $projectBreakdown[$row['item_code']][] = $row['project_name'] . " (" . $row['project_consumed'] . ")";
-        }
+        $roleFocusGuides = [
+            'purchasing' => "ROLE PERSPECTIVE: The logged-in user is a PURCHASING OFFICER. Prioritize procurement intelligence: supplier fulfillment reliability, upcoming & overdue PO deliveries, price spend totals, vendor contact coordination, and urgent reorder recommendations for critical stock.",
+            'management' => "ROLE PERSPECTIVE: The logged-in user is an EXECUTIVE MANAGEMENT LEADER. Prioritize executive decision-making: project cost draw, budget trends, team productivity, team requisition approval bottlenecks needing management sign-off, and strategic project risk mitigation.",
+            'admin' => "ROLE PERSPECTIVE: The logged-in user is the SYSTEM ADMINISTRATOR. Provide a balanced, end-to-end operational briefing covering all cross-department workflows: user request velocities, cross-site project draws, delivery discrepancy tracking, and complete system health."
+        ];
 
-        $aiPayload = [];
-        foreach ($consumptionData as $item) {
-            $dailyBurn = $item['total_consumed'] / 30;
-            if ($item['current_stock'] <= 0) {
-                $daysLeft = 0;
-            } elseif ($dailyBurn > 0) {
-                $daysLeft = floor($item['current_stock'] / $dailyBurn);
-            } else {
-                $daysLeft = 999;
-            }
-
-            $topProjects = isset($projectBreakdown[$item['item_code']]) ? implode(", ", $projectBreakdown[$item['item_code']]) : "No recent projects";
-
-            $aiPayload[] = [
-                'Item' => $item['item_name'],
-                'Unit' => $item['unit'],
-                'Current_Stock' => $item['current_stock'],
-                'Used_Last_30_Days' => $item['total_consumed'],
-                'Daily_Burn_Rate' => round($dailyBurn, 2),
-                'Est_Days_Left' => $daysLeft,
-                'Consuming_Projects' => $topProjects
-            ];
-        }
-        usort($aiPayload, fn($a, $b) => $a['Est_Days_Left'] <=> $b['Est_Days_Left']);
+        $roleGuide = $roleFocusGuides[$currentUserRole] ?? $roleFocusGuides['admin'];
 
         $today = date('F d, Y');
-        $systemPrompt = defined('AI_SYSTEM_PROMPT') ? AI_SYSTEM_PROMPT : '';
-        $systemPrompt = str_replace(['\n', '{TODAY}'], ["\n", $today], $systemPrompt);
+        $systemPrompt = "You are the CIMS 360° Operations & Supply Intelligence Suite.
+" . $roleGuide . "
+Analyze the live multi-dimensional dataset (Purchase Orders, Requisitions, Top User Requestors, Project Draw, and Inventory Stock).
+Generate an executive-grade operational briefing using the EXACT HTML/Bootstrap 5 structure shown below.
 
-        $userMessage = json_encode($aiPayload);
+MANDATORY TEMPLATE STRUCTURE:
+
+<!-- CARD 1: Executive Summary -->
+<div class=\"card mb-3 border-0 shadow-sm rounded-3 overflow-hidden\">
+  <div class=\"card-header text-white fw-bold py-2 px-3\" style=\"background: #0d6efd;\">
+    <i class=\"bi bi-bar-chart-fill me-2\"></i>Executive Operational Summary
+  </div>
+  <div class=\"card-body p-3 bg-white\">
+    <div class=\"mb-2\"><strong>Analysis Date:</strong> {$today}</div>
+    <p class=\"mb-0\">[Write 2-3 concise sentences synthesizing overall logistics status, active demand, and key risks tailored to the {$currentUserRole} role.]</p>
+  </div>
+</div>
+
+<!-- CARD 2: Procurement & Delivery Pipeline -->
+<div class=\"card mb-3 border-0 shadow-sm rounded-3 overflow-hidden\">
+  <div class=\"card-header text-white fw-bold py-2 px-3\" style=\"background: #0d6efd;\">
+    <i class=\"bi bi-truck me-2\"></i>Procurement &amp; Delivery Pipeline
+  </div>
+  <div class=\"card-body p-3 bg-white\">
+    <div class=\"table-responsive\">
+      <table class=\"table table-hover table-sm align-middle mb-2\" style=\"border-top: 2px solid #ffc107;\">
+        <thead class=\"table-light\">
+          <tr>
+            <th>PO No.</th>
+            <th>Supplier</th>
+            <th>Status</th>
+            <th>Expected Delivery</th>
+            <th>Timing</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- Generate a <tr> row for each PO in the dataset.
+               In the PO No. column, write the code in bold like **PO-xxxx**.
+               In the Timing column:
+               If days_until_delivery < 0: <span class=\"badge bg-danger\">Overdue X days</span>
+               If days_until_delivery == 0: <span class=\"badge bg-warning text-dark\">Due Today</span>
+               If days_until_delivery > 0: <span class=\"badge bg-success\">In X days</span> -->
+        </tbody>
+      </table>
+    </div>
+    <div class=\"d-flex gap-2 mt-2 flex-wrap\">
+      <span class=\"badge bg-success\">On-time: [count]</span>
+      <span class=\"badge bg-danger\">Overdue: [count]</span>
+      <span class=\"badge bg-warning text-dark\">Due Today: [count]</span>
+    </div>
+  </div>
+</div>
+
+<!-- CARD 3: Requisition Velocity & User Demand -->
+<div class=\"card mb-3 border-0 shadow-sm rounded-3 overflow-hidden\">
+  <div class=\"card-header text-white fw-bold py-2 px-3\" style=\"background: #0d6efd;\">
+    <i class=\"bi bi-people-fill me-2\"></i>Requisition Velocity &amp; User Demand
+  </div>
+  <div class=\"d-flex text-dark fw-bold text-center\" style=\"background: #00d2ff; font-size: 0.85rem;\">
+    <div class=\"w-50 py-2 border-end border-white\">Top Requesting Personnel</div>
+    <div class=\"w-50 py-2\">Top Project Demand</div>
+  </div>
+  <div class=\"card-body p-0 bg-white\">
+    <div class=\"row g-0\">
+      <div class=\"col-md-6 border-end\">
+        <div class=\"table-responsive\">
+          <table class=\"table table-hover table-sm align-middle mb-0\" style=\"border-top: 2px solid #ffc107;\">
+            <thead class=\"table-light\">
+              <tr>
+                <th>Name</th>
+                <th>Role</th>
+                <th>Total Req.</th>
+                <th>Pending</th>
+                <th>Approved</th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- Generate a <tr> for each top requestor.
+                   Pending: if > 0 <span class=\"badge bg-warning text-dark\">X</span> else <span class=\"badge bg-success\">0</span>
+                   Approved: <span class=\"badge bg-success\">X</span> -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class=\"col-md-6\">
+        <div class=\"table-responsive\">
+          <table class=\"table table-hover table-sm align-middle mb-0\" style=\"border-top: 2px solid #ffc107;\">
+            <thead class=\"table-light\">
+              <tr>
+                <th>Project</th>
+                <th class=\"text-end\">Req. Count</th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- Generate a <tr> for each top project.
+                   Req. Count: <span class=\"badge bg-primary\">X</span> -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- CARD 4: Strategic Action Items for Today -->
+<div class=\"card mb-3 border-0 shadow-sm rounded-3 overflow-hidden\">
+  <div class=\"card-header text-white fw-bold py-2 px-3\" style=\"background: #0d6efd;\">
+    <i class=\"bi bi-bullseye me-2\"></i>Strategic Action Items for Today
+  </div>
+  <div class=\"card-body p-3 bg-white\">
+    <ol class=\"mb-0 ps-3\">
+      <!-- 4-5 numbered actionable items tailored to {$currentUserRole}:
+           1. <strong>Admin / Purchasing / Warehouse / Project Management:</strong> Action details... -->
+    </ol>
+  </div>
+</div>
+
+CRITICAL RULES:
+- Output pure HTML matching this exact 4-card structure.
+- DO NOT wrap output in markdown code fences (no ```html).
+- Bold entity codes like **PO-xxxx**, **RS-xxxx**, and **ITM-xxxx**.";
+
+        $userMessage = json_encode($payload360, JSON_PRETTY_PRINT);
         $apiKey = trim(AI_API_KEY);
 
         // Multi-Provider Auto-Detection
@@ -125,7 +289,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['action']) && $_GET['ac
                     ['role' => 'user', 'content' => "Data: " . $userMessage]
                 ],
                 'temperature' => 0.2,
-                'max_tokens' => 2048
+                'max_tokens' => 2800
             ];
             $headers = [
                 "Content-Type: application/json",
@@ -141,7 +305,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['action']) && $_GET['ac
                 ],
                 'generationConfig' => [
                     'temperature' => 0.2,
-                    'maxOutputTokens' => 2048
+                    'maxOutputTokens' => 2800
                 ]
             ];
             $headers = [
@@ -211,12 +375,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['action']) && $_GET['ac
 
             $timestamp = time() * 1000; // milliseconds
 
-            // Save prediction to database
-            $stmt = $pdo->prepare("INSERT INTO system_settings (setting_key, setting_value) VALUES ('last_ai_prediction', ?) ON DUPLICATE KEY UPDATE setting_value = ?");
-            $stmt->execute([$aiText, $aiText]);
+            // Save prediction to database (Role-tailored and global fallback)
+            $stmt = $pdo->prepare("INSERT INTO system_settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = ?");
+            $stmt->execute(['last_ai_prediction_' . $currentUserRole, $aiText, $aiText]);
+            $stmt->execute(['last_ai_prediction', $aiText, $aiText]);
 
-            $stmt = $pdo->prepare("INSERT INTO system_settings (setting_key, setting_value) VALUES ('last_ai_timestamp', ?) ON DUPLICATE KEY UPDATE setting_value = ?");
-            $stmt->execute([$timestamp, $timestamp]);
+            $stmt = $pdo->prepare("INSERT INTO system_settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = ?");
+            $stmt->execute(['last_ai_timestamp_' . $currentUserRole, $timestamp, $timestamp]);
+            $stmt->execute(['last_ai_timestamp', $timestamp, $timestamp]);
 
             echo json_encode([
                 'success' => true,
@@ -497,7 +663,7 @@ include 'layout/header.php';
     <div class="card border-0 shadow-sm rounded-3" style="border-top: 5px solid var(--gb-blue) !important;">
         <div
             class="card-header bg-white fw-bold py-3 d-flex justify-content-between align-items-center border-bottom-0">
-            <span class="fs-5 text-dark"><i class="bi bi-stars text-warning me-2"></i>AI POWERED ANALYTICS</span>
+            <span class="fs-5 text-dark"><i class="bi bi-stars text-warning me-2"></i>AI Powered Analytics</span>
             <div class="d-flex align-items-center gap-3">
                 <small id="lastUpdatedText" class="text-muted fw-semibold" data-timestamp="<?= $lastTimestamp ?: '' ?>">
                     <?php if ($lastTimestamp): ?>
@@ -506,7 +672,7 @@ include 'layout/header.php';
                 </small>
                 <button class="btn btn-sm btn-brand fw-bold shadow-sm px-3" id="generateAiBtn"
                     onclick="generateAIPrediction(true)">
-                    <i class="bi bi-arrow-clockwise me-1"></i> Analyze Now
+                    <i class="bi bi-arrow-clockwise me-1"></i> Analyze Operations Now
                 </button>
             </div>
         </div>
@@ -515,20 +681,32 @@ include 'layout/header.php';
                 class="position-absolute w-100 h-100 top-0 start-0 bg-white bg-opacity-75 d-flex flex-column justify-content-center align-items-center"
                 style="display: none !important; z-index: 10;">
                 <div class="spinner-border text-primary mb-2" role="status"></div>
-                <small class="fw-bold text-primary blink-text">AI is calculating optimal restock dates...</small>
+                <small class="fw-bold text-primary blink-text">AI is synthesizing 360° operations: POs, user
+                    requisitions, delivery ETAs & stock velocity...</small>
             </div>
             <div id="aiOutput" class="p-3 rounded shadow-sm" style="font-size: 1rem; line-height: 1.7;">
                 <?php if ($lastPrediction): ?>
                     <?php
-                    $cleanPrediction = preg_replace('/background-color:\s*#fff(?:fff)?;?/i', '', $lastPrediction);
-                    $cleanPrediction = preg_replace('/background:\s*#fff(?:fff)?;?/i', '', $cleanPrediction);
-                    $cleanPrediction = preg_replace('/background-color:\s*white;?/i', '', $cleanPrediction);
-                    $cleanPrediction = preg_replace('/background:\s*white;?/i', '', $cleanPrediction);
+                    $cleanPrediction = $lastPrediction;
+                    $cleanPrediction = preg_replace('/\*\*(.*?)\*\*/', '<strong>$1</strong>', $cleanPrediction);
+                    $cleanPrediction = preg_replace_callback('/\b(PO-(?:\d{4,8}-\d+|\d+))\b/', function($m) {
+                        $code = htmlspecialchars($m[1], ENT_QUOTES, 'UTF-8');
+                        return '<button type="button" class="btn btn-xs btn-outline-primary fw-bold text-nowrap py-0 px-2 shadow-none" style="font-size: 0.76rem; border-radius: 6px;" onclick="if(typeof openPoDetailsModal===\'function\'){openPoDetailsModal(null,\''.$code.'\')}else{window.location.href=\'po?highlight='.$code.'\'}" title="View Purchase Order Details"><i class="bi bi-receipt me-1"></i>'.$code.'</button>';
+                    }, $cleanPrediction);
+                    $cleanPrediction = preg_replace_callback('/\b(RS-(?:\d{4}-\d+|\d+))\b/', function($m) {
+                        $code = htmlspecialchars($m[1], ENT_QUOTES, 'UTF-8');
+                        return '<button type="button" class="btn btn-xs btn-outline-info fw-bold text-nowrap py-0 px-2 shadow-none" style="font-size: 0.76rem; border-radius: 6px;" onclick="if(typeof openRequisitionModal===\'function\'){openRequisitionModal(null,\''.$code.'\')}else{window.location.href=\'requisition?highlight='.$code.'\'}" title="View Requisition Details"><i class="bi bi-file-earmark-text me-1"></i>'.$code.'</button>';
+                    }, $cleanPrediction);
+                    $cleanPrediction = preg_replace_callback('/\b(ITM-\d+)\b/', function($m) {
+                        $code = htmlspecialchars($m[1], ENT_QUOTES, 'UTF-8');
+                        return '<button type="button" class="btn btn-xs btn-outline-success fw-bold text-nowrap py-0 px-2 shadow-none" style="font-size: 0.76rem; border-radius: 6px;" onclick="if(typeof openItemDetailsModal===\'function\'){openItemDetailsModal(\''.$code.'\')}else{window.location.href=\'inventory?highlight='.$code.'\'}" title="View Inventory Details"><i class="bi bi-box-seam me-1"></i>'.$code.'</button>';
+                    }, $cleanPrediction);
                     ?>
                     <?= $cleanPrediction ?>
                 <?php else: ?>
-                    <div class="text-center text-muted py-4"><i class="bi bi-cpu fs-2 d-block mb-2"></i>Click "Analyze Now"
-                        to generate AI Restock Predictions.</div>
+                    <div class="text-center text-muted py-4"><i class="bi bi-cpu fs-2 d-block mb-2"></i>Click "Analyze
+                        Operations Now"
+                        to generate real-time 360° Operations Intelligence.</div>
                 <?php endif; ?>
             </div>
         </div>
@@ -543,6 +721,7 @@ include 'layout/header.php';
 
 <!-- PASS PHP DATA TO JAVASCRIPT EXTERNALLY -->
 <script>
+    window.currentUserRole = <?= json_encode($currentUserRole) ?>;
     window.aiPayload = <?= json_encode($aiPayload) ?>;
 
     window.chartData = {
