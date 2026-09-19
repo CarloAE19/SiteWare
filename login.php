@@ -184,14 +184,15 @@ $bg_scale = 1 + ($bg_blur * 0.006);
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Sign In — GB Inventory System</title>
     <meta name="description" content="GB Construction & Enterprise Smart Inventory & Logistics System — Secure Login">
 
     <!-- PWA -->
     <link rel="manifest" href="manifest.json">
-    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#0f172a">
     <link rel="apple-touch-icon" href="assets/LogoGB.png">
     <link rel="icon" type="image/png" href="assets/LogoGB.png">
 
