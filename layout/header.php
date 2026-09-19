@@ -178,6 +178,8 @@ foreach ($notifications as $n) {
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="GB Inventory">
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#161b22" media="(prefers-color-scheme: dark)">
     <link rel="apple-touch-icon" href="assets/LogoGB.png">
     <link rel="icon" type="image/png" href="assets/LogoGB.png">
     <?php if (function_exists('generate_csrf_token')): ?>
@@ -215,7 +217,10 @@ foreach ($notifications as $n) {
         }
 
         .top-navbar {
-            padding: 12px 20px !important;
+            padding-top: max(12px, calc(env(safe-area-inset-top, 0px) + 8px)) !important;
+            padding-bottom: 12px !important;
+            padding-left: max(20px, calc(env(safe-area-inset-left, 0px) + 15px)) !important;
+            padding-right: max(20px, calc(env(safe-area-inset-right, 0px) + 15px)) !important;
             background-color: #ffffff !important;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05) !important;
             border-bottom: 1px solid #e0e4e8;
@@ -267,8 +272,17 @@ foreach ($notifications as $n) {
                 top: 0;
                 left: 0;
                 height: 100vh;
+                height: 100dvh;
                 z-index: 1050;
                 margin-left: -275px;
+                padding-top: env(safe-area-inset-top, 0px);
+                padding-bottom: max(1rem, calc(env(safe-area-inset-bottom, 0px) + 0.5rem));
+            }
+
+            #sidebar .sidebar-header {
+                padding-top: max(20px, calc(env(safe-area-inset-top, 0px) + 14px)) !important;
+                padding-left: max(20px, calc(env(safe-area-inset-left, 0px) + 16px)) !important;
+                padding-right: max(20px, calc(env(safe-area-inset-right, 0px) + 16px)) !important;
             }
 
             #sidebar.active {
@@ -284,7 +298,10 @@ foreach ($notifications as $n) {
             }
 
             .top-navbar {
-                padding: 12px 15px !important;
+                padding-top: max(12px, calc(env(safe-area-inset-top, 0px) + 8px)) !important;
+                padding-bottom: 12px !important;
+                padding-left: max(15px, calc(env(safe-area-inset-left, 0px) + 12px)) !important;
+                padding-right: max(15px, calc(env(safe-area-inset-right, 0px) + 12px)) !important;
             }
         }
 
