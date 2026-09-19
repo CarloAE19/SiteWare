@@ -69,7 +69,7 @@
 @media (max-width: 768px) {
     .notif-menu {
         position: fixed !important;
-        top: 70px !important; /* Drops it just below the top navbar */
+        top: calc(env(safe-area-inset-top, 0px) + 68px) !important; /* Drops it cleanly below the top navbar */
         left: 5% !important;
         right: 5% !important;
         width: 90% !important;
@@ -1447,15 +1447,24 @@ body:has(.modal.show) #cims-chatbot-container {
     }
 }
 
-/* 3. Device Safe Area Insets (iPhone Home Indicator & Android Gestures) */
-@supports (padding-bottom: env(safe-area-inset-bottom)) {
+/* 3. Device Safe Area Insets (iPhone Notch, Dynamic Island, Home Indicator & Android Gestures) */
+@supports (padding-top: env(safe-area-inset-top)) or (padding-bottom: env(safe-area-inset-bottom)) {
+    .top-navbar {
+        padding-top: max(12px, calc(env(safe-area-inset-top, 0px) + 8px)) !important;
+        padding-left: max(15px, calc(env(safe-area-inset-left, 0px) + 12px)) !important;
+        padding-right: max(15px, calc(env(safe-area-inset-right, 0px) + 12px)) !important;
+    }
+
     #cims-chatbot-container {
         bottom: max(20px, calc(env(safe-area-inset-bottom, 0px) + 15px)) !important;
+        right: max(20px, calc(env(safe-area-inset-right, 0px) + 15px)) !important;
     }
     
     .modal-fullscreen-sm-down.show .modal-footer,
     .modal-fullscreen .modal-footer {
         padding-bottom: max(1rem, calc(env(safe-area-inset-bottom, 0px) + 0.5rem)) !important;
+        padding-left: max(1rem, calc(env(safe-area-inset-left, 0px) + 0.75rem)) !important;
+        padding-right: max(1rem, calc(env(safe-area-inset-right, 0px) + 0.75rem)) !important;
     }
 
     #pwa-install-banner {
@@ -1830,7 +1839,7 @@ body:has(.modal.show) #cims-chatbot-container {
  * Standards: CIMS Quality Standards Section 3 & Modal AJAX Handler Skill
  * ========================================================== */
 @media (max-width: 575.98px) {
-    /* Pinned sticky modal header with depth shadow */
+    /* Pinned sticky modal header with depth shadow and device safe-area insets */
     .modal-fullscreen-sm-down .modal-header,
     .modal-fullscreen .modal-header {
         position: sticky !important;
@@ -1838,6 +1847,9 @@ body:has(.modal.show) #cims-chatbot-container {
         z-index: 1055 !important;
         flex-shrink: 0 !important;
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05) !important;
+        padding-top: max(0.85rem, calc(env(safe-area-inset-top, 0px) + 0.65rem)) !important;
+        padding-left: max(1rem, calc(env(safe-area-inset-left, 0px) + 0.75rem)) !important;
+        padding-right: max(1rem, calc(env(safe-area-inset-right, 0px) + 0.75rem)) !important;
     }
 
     /* Pinned sticky modal footer with device safe-area insets */
@@ -1850,6 +1862,13 @@ body:has(.modal.show) #cims-chatbot-container {
         box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05) !important;
         padding-top: 0.75rem !important;
         padding-bottom: max(0.85rem, calc(env(safe-area-inset-bottom, 0px) + 0.5rem)) !important;
+        padding-left: max(1rem, calc(env(safe-area-inset-left, 0px) + 0.75rem)) !important;
+        padding-right: max(1rem, calc(env(safe-area-inset-right, 0px) + 0.75rem)) !important;
+    }
+
+    /* Margin buffer for standard non-fullscreen dialogs on mobile */
+    .modal.show:not(.modal-fullscreen) .modal-dialog:not(.modal-fullscreen-sm-down) {
+        margin-top: max(0.75rem, calc(env(safe-area-inset-top, 0px) + 0.5rem)) !important;
     }
 
     /* Opaque backgrounds for header/footer when sticky to prevent content bleed */
@@ -1924,4 +1943,17 @@ body:has(.modal.show) #cims-chatbot-container {
 [data-bs-theme="dark"] #receiveItemsTable tfoot tr {
     background: var(--gb-dark-surface, #161b22) !important;
     border-color: var(--gb-dark-border, #30363d) !important;
+}
+
+/* Universal Fullscreen Modal Safe Area Top Guard (e.g. Signature Pad #fullSigModal) */
+.modal-fullscreen .modal-header {
+    padding-top: max(0.85rem, calc(env(safe-area-inset-top, 0px) + 0.65rem)) !important;
+    padding-left: max(1rem, calc(env(safe-area-inset-left, 0px) + 0.75rem)) !important;
+    padding-right: max(1rem, calc(env(safe-area-inset-right, 0px) + 0.75rem)) !important;
+}
+
+/* SweetAlert2 Dialog Safe Area Protection */
+.swal2-container {
+    padding-top: max(1rem, calc(env(safe-area-inset-top, 0px) + 0.5rem)) !important;
+    padding-bottom: max(1rem, calc(env(safe-area-inset-bottom, 0px) + 0.5rem)) !important;
 }
