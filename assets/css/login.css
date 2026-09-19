@@ -43,11 +43,12 @@ body {
     display: flex;
     flex-direction: column;
     height: 100vh;
+    height: 100dvh;
     width: 100vw;
     justify-content: center;
     align-items: center;
     position: relative;
-    padding: 1.5rem;
+    padding: max(1.5rem, calc(env(safe-area-inset-top, 0px) + 1rem)) max(1.5rem, calc(env(safe-area-inset-right, 0px) + 1rem)) max(1.5rem, calc(env(safe-area-inset-bottom, 0px) + 1rem)) max(1.5rem, calc(env(safe-area-inset-left, 0px) + 1rem));
     overflow: hidden;
 }
 
