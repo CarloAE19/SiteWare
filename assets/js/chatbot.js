@@ -11,6 +11,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const panel = document.getElementById("cims-chatbot-panel");
     const closeBtn = document.getElementById("cims-chatbot-close");
     const clearBtn = document.getElementById("cims-chatbot-clear");
+    const expandBtn = document.getElementById("cims-chatbot-expand");
     const form = document.getElementById("cims-chatbot-form");
     const input = document.getElementById("cims-chatbot-input");
     const submitBtn = form ? form.querySelector("button[type='submit']") : null;
@@ -23,6 +24,35 @@ document.addEventListener("DOMContentLoaded", () => {
     // Determine user role and storage key for conversation persistence
     const userRole = (container && container.dataset.userRole) ? container.dataset.userRole.toLowerCase() : "requestor";
     const storageKey = `cims_chat_history_${userRole}`;
+    const fullscreenKey = `cims_chatbot_fullscreen`;
+
+    // Track and restore fullscreen state
+    let isFullscreen = false;
+    try {
+        isFullscreen = sessionStorage.getItem(fullscreenKey) === "true";
+    } catch (e) {}
+
+    function updateFullscreenUI() {
+        if (!panel) return;
+        if (isFullscreen) {
+            panel.classList.add("chatbot-fullscreen");
+            if (expandBtn) {
+                expandBtn.innerHTML = '<i class="bi bi-fullscreen-exit fs-6"></i>';
+                expandBtn.title = "Exit Fullscreen / Minimize Window";
+                expandBtn.setAttribute("aria-label", "Exit Fullscreen");
+            }
+        } else {
+            panel.classList.remove("chatbot-fullscreen");
+            if (expandBtn) {
+                expandBtn.innerHTML = '<i class="bi bi-arrows-fullscreen fs-6"></i>';
+                expandBtn.title = "Toggle Fullscreen / Expand Window";
+                expandBtn.setAttribute("aria-label", "Toggle Fullscreen");
+            }
+        }
+    }
+
+    // Apply stored fullscreen preference
+    updateFullscreenUI();
 
     // Get default initial greeting from DOM
     const initialGreetingEl = messagesContainer.querySelector(".chatbot-msg.assistant");
@@ -138,6 +168,33 @@ document.addEventListener("DOMContentLoaded", () => {
             scrollToBottom();
         });
     }
+
+    // Toggle Fullscreen / Window Expansion Action
+    if (expandBtn) {
+        expandBtn.addEventListener("click", () => {
+            isFullscreen = !isFullscreen;
+            try {
+                sessionStorage.setItem(fullscreenKey, isFullscreen ? "true" : "false");
+            } catch (e) {}
+            updateFullscreenUI();
+            scrollToBottom();
+            input.focus();
+        });
+    }
+
+    // Escape Key Handler for User Control & Freedom (HCI standard)
+    document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && panel && !panel.classList.contains("d-none")) {
+            if (isFullscreen) {
+                isFullscreen = false;
+                try {
+                    sessionStorage.setItem(fullscreenKey, "false");
+                } catch (err) {}
+                updateFullscreenUI();
+                e.preventDefault();
+            }
+        }
+    });
 
     // Handle Form Submit
     form.addEventListener("submit", (e) => {
