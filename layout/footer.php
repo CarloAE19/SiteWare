@@ -316,16 +316,27 @@
 
     @media (max-width: 576px) {
         #cims-chatbot-panel {
-            bottom: 85px;
-            right: 15px;
-            left: 15px;
-            width: calc(100vw - 30px);
-            height: 480px;
+            bottom: 80px;
+            right: 10px;
+            left: 10px;
+            width: calc(100vw - 20px);
+            max-width: 100vw;
+            height: min(480px, calc(100dvh - 100px));
+            max-height: calc(100dvh - 90px);
         }
 
         #cims-chatbot-container {
             bottom: 15px;
             right: 15px;
+        }
+
+        #cims-chatbot-input {
+            font-size: 16px !important; /* Prevents mobile browser auto-zoom on input focus */
+        }
+
+        .chatbot-chip {
+            min-height: 38px;
+            padding: 6px 14px;
         }
     }
 </style>
