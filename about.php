@@ -12,7 +12,7 @@ if ($is_logged_in) {
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>About The Medyas — GB Inventory System</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
@@ -34,7 +34,10 @@ if ($is_logged_in) {
             background-color: #ffffff;
             box-shadow: 0 2px 8px rgba(0,0,0,0.05);
             border-bottom: 1px solid #e0e4e8;
-            padding: 12px 20px;
+            padding-top: max(12px, calc(env(safe-area-inset-top, 0px) + 8px));
+            padding-bottom: 12px;
+            padding-left: max(20px, calc(env(safe-area-inset-left, 0px) + 15px));
+            padding-right: max(20px, calc(env(safe-area-inset-right, 0px) + 15px));
         }
     </style>
 </head>
