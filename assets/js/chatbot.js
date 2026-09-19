@@ -140,6 +140,21 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
+    /**
+     * Safely focus the chatbot input field without popping up the virtual
+     * software keyboard on mobile phones / touchscreens (HCI & Mobile Usability)
+     */
+    function safeFocusInput() {
+        const isTouchOrMobile = window.innerWidth < 768 || 
+            (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) ||
+            ('ontouchstart' in window) ||
+            (navigator.maxTouchPoints > 0 && window.innerWidth < 992);
+
+        if (!isTouchOrMobile && input && !input.disabled) {
+            input.focus();
+        }
+    }
+
     // Toggle Panel Visibility
     trigger.addEventListener("click", () => {
         panel.classList.toggle("d-none");
@@ -147,7 +162,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const badge = trigger.querySelector(".pulse-badge");
         if (badge) badge.remove();
         if (!panel.classList.contains("d-none")) {
-            input.focus();
+            safeFocusInput();
         }
     });
 
@@ -178,7 +193,7 @@ document.addEventListener("DOMContentLoaded", () => {
             } catch (e) {}
             updateFullscreenUI();
             scrollToBottom();
-            input.focus();
+            safeFocusInput();
         });
     }
 
@@ -298,7 +313,7 @@ document.addEventListener("DOMContentLoaded", () => {
             setControlsDisabled(false);
             scrollToBottom();
             if (!panel.classList.contains("d-none")) {
-                input.focus();
+                safeFocusInput();
             }
         }
     }
