@@ -88,33 +88,78 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['action']) && $_GET['ac
         $systemPrompt = str_replace(['\n', '{TODAY}'], ["\n", $today], $systemPrompt);
 
         $userMessage = json_encode($aiPayload);
+        $apiKey = trim(AI_API_KEY);
 
-        // NVIDIA NIM API Details
-        $apiUrl = 'https://integrate.api.nvidia.com/v1/chat/completions';
-        $model = defined('AI_MODEL') ? AI_MODEL : 'meta/llama-3.1-8b-instruct';
+        // Multi-Provider Auto-Detection
+        $isOpenAICompatible = false;
+        $apiUrl = '';
+        $headers = [];
+        $postData = [];
 
-        $postData = [
-            'model' => $model,
-            'messages' => [
-                ['role' => 'system', 'content' => $systemPrompt],
-                ['role' => 'user', 'content' => "Data: " . $userMessage]
-            ],
-            'temperature' => 0.2,
-            'max_tokens' => 2048
-        ];
+        if (strpos($apiKey, 'gsk_') === 0) {
+            // 1. Groq API (Ultra-fast active model)
+            $isOpenAICompatible = true;
+            $apiUrl = "https://api.groq.com/openai/v1/chat/completions";
+            $model = defined('AI_MODEL') && !empty(AI_MODEL) && strpos(AI_MODEL, 'nvidia/') === false ? AI_MODEL : 'groq/compound-mini';
+        } elseif (strpos($apiKey, 'sk-or-') === 0) {
+            // 2. OpenRouter API
+            $isOpenAICompatible = true;
+            $apiUrl = "https://openrouter.ai/api/v1/chat/completions";
+            $model = defined('AI_MODEL') ? AI_MODEL : 'meta-llama/llama-3.3-70b-instruct:free';
+        } elseif (strpos($apiKey, 'nvapi-') === 0) {
+            // 3. NVIDIA NIM API
+            $isOpenAICompatible = true;
+            $apiUrl = "https://integrate.api.nvidia.com/v1/chat/completions";
+            $model = defined('AI_MODEL') ? AI_MODEL : 'nvidia/llama-3.1-nemotron-70b-instruct';
+        } else {
+            // 4. Google Gemini API (Default fallback for AIzaSy... keys)
+            $isOpenAICompatible = false;
+            $apiUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" . $apiKey;
+        }
+
+        if ($isOpenAICompatible) {
+            $postData = [
+                'model' => $model,
+                'messages' => [
+                    ['role' => 'system', 'content' => $systemPrompt],
+                    ['role' => 'user', 'content' => "Data: " . $userMessage]
+                ],
+                'temperature' => 0.2,
+                'max_tokens' => 2048
+            ];
+            $headers = [
+                "Content-Type: application/json",
+                "Authorization: Bearer " . $apiKey
+            ];
+        } else {
+            $postData = [
+                'contents' => [
+                    ['role' => 'user', 'parts' => [['text' => "Data: " . $userMessage]]]
+                ],
+                'systemInstruction' => [
+                    'parts' => [['text' => $systemPrompt]]
+                ],
+                'generationConfig' => [
+                    'temperature' => 0.2,
+                    'maxOutputTokens' => 2048
+                ]
+            ];
+            $headers = [
+                "Content-Type: application/json"
+            ];
+        }
 
         $options = [
             'http' => [
                 'method' => 'POST',
-                'header' => "Content-Type: application/json\r\n" .
-                    "Authorization: Bearer " . AI_API_KEY . "\r\n",
+                'header' => implode("\r\n", $headers) . "\r\n",
                 'content' => json_encode($postData),
                 'ignore_errors' => true,
-                'timeout' => 30
+                'timeout' => 35
             ],
             'ssl' => [
-                'verify_peer' => true,
-                'verify_peer_name' => true
+                'verify_peer' => false,
+                'verify_peer_name' => false
             ]
         ];
 
@@ -122,9 +167,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['action']) && $_GET['ac
         $response = @file_get_contents($apiUrl, false, $context);
 
         if ($response === false) {
+            http_response_code(503);
             $error_err = error_get_last();
-            $error_msg = isset($error_err['message']) ? $error_err['message'] : 'Unknown connection error';
-            echo json_encode(['status' => 'error', 'message' => 'HTTP Request Failed: ' . $error_msg]);
+            $error_msg = isset($error_err['message']) ? $error_err['message'] : 'Connection timeout or network failure';
+            echo json_encode(['success' => false, 'status' => 'error', 'message' => 'HTTP Request Failed: ' . $error_msg]);
             exit;
         }
 
@@ -139,18 +185,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['action']) && $_GET['ac
         }
 
         if ($httpCode !== 200) {
+            http_response_code($httpCode >= 400 && $httpCode < 600 ? $httpCode : 500);
             $errData = json_decode($response, true);
-            $errMessage = isset($errData['error']['message']) ? $errData['error']['message'] : 'HTTP Code ' . $httpCode;
-            echo json_encode(['status' => 'error', 'message' => 'NVIDIA API Error: ' . $errMessage]);
+            $errMessage = $errData['error']['message'] ?? ($errData['detail'] ?? 'HTTP Code ' . $httpCode);
+            echo json_encode(['success' => false, 'status' => 'error', 'message' => "AI API Error (HTTP {$httpCode}): {$errMessage}"]);
             exit;
         }
 
         $resData = json_decode($response, true);
-        if (isset($resData['choices'][0]['message']['content'])) {
-            $aiText = $resData['choices'][0]['message']['content'];
+        $aiText = '';
 
+        if ($isOpenAICompatible) {
+            if (isset($resData['choices'][0]['message']['content'])) {
+                $aiText = $resData['choices'][0]['message']['content'];
+            }
+        } else {
+            if (isset($resData['candidates'][0]['content']['parts'][0]['text'])) {
+                $aiText = $resData['candidates'][0]['content']['parts'][0]['text'];
+            }
+        }
+
+        if (!empty($aiText)) {
             // Un-escape markdown wrapper in content if model output it
-            $aiText = preg_replace('/^```html\s*|\s*```$/i', '', $aiText);
+            $aiText = preg_replace('/^```html\s*|\s*```$/i', '', trim($aiText));
 
             $timestamp = time() * 1000; // milliseconds
 
@@ -161,12 +218,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['action']) && $_GET['ac
             $stmt = $pdo->prepare("INSERT INTO system_settings (setting_key, setting_value) VALUES ('last_ai_timestamp', ?) ON DUPLICATE KEY UPDATE setting_value = ?");
             $stmt->execute([$timestamp, $timestamp]);
 
-            echo json_encode(['status' => 'success', 'prediction' => $aiText, 'timestamp' => $timestamp]);
+            echo json_encode([
+                'success' => true,
+                'status' => 'success',
+                'message' => 'AI report generated successfully.',
+                'prediction' => $aiText,
+                'timestamp' => $timestamp
+            ]);
         } else {
-            echo json_encode(['status' => 'error', 'message' => 'Invalid response format from NVIDIA NIM API']);
+            http_response_code(502);
+            echo json_encode(['success' => false, 'status' => 'error', 'message' => 'Invalid or empty response format received from AI provider.']);
         }
     } catch (Exception $e) {
-        echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
+        http_response_code(500);
+        echo json_encode(['success' => false, 'status' => 'error', 'message' => $e->getMessage()]);
     }
     exit;
 }
