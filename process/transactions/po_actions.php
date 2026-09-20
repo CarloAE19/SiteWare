@@ -345,24 +345,7 @@ elseif ($action === 'create_po') {
         // Cryptographically Seal Purchase Order with RSA-2048 PKI Signature
         try {
             require_once __DIR__ . '/../../helpers/crypto_helper.php';
-            $signerUserId = $approved_by ?: $prepared_by;
-            $signerKeys = getOrCreateUserKeyPair($pdo, $signerUserId);
-            if ($signerKeys) {
-                $poHeaderData = [
-                    'po_no'       => $po_no,
-                    'rs_no'       => $rsApp['rs_no'] ?? '',
-                    'supplier_id' => $supplier_id,
-                    'prepared_by' => $prepared_by,
-                    'approved_by' => $approved_by,
-                    'created_at'  => date('Y-m-d H:i:s')
-                ];
-                $payload = buildCanonicalPoPayload($poHeaderData, $rsItems);
-                $signed = cryptographicallySignPayload($payload, $signerKeys['private']);
-                if ($signed) {
-                    $pdo->prepare("UPDATE purchase_orders SET crypto_signature = ?, document_hash = ?, signed_at = NOW() WHERE id = ?")
-                        ->execute([$signed['signature'], $signed['hash'], $po_id]);
-                }
-            }
+            signPurchaseOrder($pdo, $po_id);
         } catch (Exception $cryptoEx) {
             error_log("PO Crypto Signing Notice: " . $cryptoEx->getMessage());
         }
