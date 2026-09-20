@@ -48,32 +48,10 @@ $canonicalPayload = '';
 
 if (!$isRateLimited && !empty($ref)) {
     if ($type === 'po') {
-        // Fetch Purchase Order
-        $stmt = $pdo->prepare("
-            SELECT po.*, s.company_name, s.supplier_code, r.rs_no, 
-                   u1.name AS prepared_name, u1.role AS prepared_role, u1.public_key AS prepared_public_key,
-                   u2.name AS approved_name, u2.role AS approved_role, u2.public_key AS approved_public_key,
-                   u_rec.name AS received_by_name
-            FROM purchase_orders po
-            LEFT JOIN suppliers s ON po.supplier_id = s.id
-            LEFT JOIN requisitions r ON po.rs_id = r.id
-            LEFT JOIN users u1 ON po.prepared_by = u1.id
-            LEFT JOIN users u2 ON po.approved_by = u2.id
-            LEFT JOIN users u_rec ON po.received_by = u_rec.id
-            WHERE po.po_no = ? OR po.id = ?
-        ");
-        $stmt->execute([$ref, $ref]);
-        $document = $stmt->fetch(PDO::FETCH_ASSOC);
-
-        if ($document) {
-            $itemStmt = $pdo->prepare("
-                SELECT pi.*, i.item_name 
-                FROM po_items pi 
-                LEFT JOIN inventory i ON pi.item_code = i.item_code 
-                WHERE pi.po_id = ?
-            ");
-            $itemStmt->execute([$document['id']]);
-            $items = $itemStmt->fetchAll(PDO::FETCH_ASSOC);
+        $poData = getPurchaseOrderDetailsForCrypto($pdo, $ref);
+        if ($poData) {
+            $document = $poData['document'];
+            $items = $poData['items'];
 
             // Determine signer: approved_by takes precedence over prepared_by
             $signerUserId = $document['approved_by'] ?: $document['prepared_by'];
@@ -83,18 +61,12 @@ if (!$isRateLimited && !empty($ref)) {
 
             // Auto-sign if not signed yet (Self-healing backfill)
             if (empty($document['crypto_signature'])) {
-                $keys = getOrCreateUserKeyPair($pdo, $signerUserId);
-                if ($keys) {
-                    $publicKey = $keys['public'];
-                    $payload = buildCanonicalPoPayload($document, $items);
-                    $signed = cryptographicallySignPayload($payload, $keys['private']);
-                    if ($signed) {
-                        $upd = $pdo->prepare("UPDATE purchase_orders SET crypto_signature = ?, document_hash = ?, signed_at = NOW() WHERE id = ?");
-                        $upd->execute([$signed['signature'], $signed['hash'], $document['id']]);
-                        $document['crypto_signature'] = $signed['signature'];
-                        $document['document_hash'] = $signed['hash'];
-                        $document['signed_at'] = date('Y-m-d H:i:s');
-                    }
+                $signedRes = signPurchaseOrder($pdo, $document['id']);
+                if ($signedRes) {
+                    $document['crypto_signature'] = $signedRes['signature'];
+                    $document['document_hash'] = $signedRes['hash'];
+                    $document['signed_at'] = date('Y-m-d H:i:s');
+                    $publicKey = $signedRes['public_key'];
                 }
             }
 
@@ -119,25 +91,10 @@ if (!$isRateLimited && !empty($ref)) {
             $verificationStatus = 'NOT_FOUND';
         }
     } elseif ($type === 'wd') {
-        // Fetch Material Withdrawal
-        $stmt = $pdo->prepare("
-            SELECT w.*, u.name AS releaser_name, u.role AS releaser_role, u.public_key AS releaser_public_key, u.signature_path AS releaser_sig
-            FROM withdrawals w
-            LEFT JOIN users u ON w.released_by = u.id
-            WHERE w.withdrawal_no = ? OR w.id = ?
-        ");
-        $stmt->execute([$ref, $ref]);
-        $document = $stmt->fetch(PDO::FETCH_ASSOC);
-
-        if ($document) {
-            $itemStmt = $pdo->prepare("
-                SELECT wi.*, i.item_name, i.unit 
-                FROM withdrawal_items wi 
-                LEFT JOIN inventory i ON wi.item_code = i.item_code 
-                WHERE wi.withdrawal_id = ?
-            ");
-            $itemStmt->execute([$document['id']]);
-            $items = $itemStmt->fetchAll(PDO::FETCH_ASSOC);
+        $wdData = getWithdrawalDetailsForCrypto($pdo, $ref);
+        if ($wdData) {
+            $document = $wdData['document'];
+            $items = $wdData['items'];
 
             $signerUserId = $document['released_by'];
             $signerName = $document['releaser_name'] ?: 'Warehouse Officer';
@@ -146,18 +103,12 @@ if (!$isRateLimited && !empty($ref)) {
 
             // Auto-sign if not signed yet (Self-healing backfill)
             if (empty($document['crypto_signature'])) {
-                $keys = getOrCreateUserKeyPair($pdo, $signerUserId);
-                if ($keys) {
-                    $publicKey = $keys['public'];
-                    $payload = buildCanonicalWdPayload($document, $items);
-                    $signed = cryptographicallySignPayload($payload, $keys['private']);
-                    if ($signed) {
-                        $upd = $pdo->prepare("UPDATE withdrawals SET crypto_signature = ?, document_hash = ?, signed_at = NOW() WHERE id = ?");
-                        $upd->execute([$signed['signature'], $signed['hash'], $document['id']]);
-                        $document['crypto_signature'] = $signed['signature'];
-                        $document['document_hash'] = $signed['hash'];
-                        $document['signed_at'] = date('Y-m-d H:i:s');
-                    }
+                $signedRes = signWithdrawal($pdo, $document['id']);
+                if ($signedRes) {
+                    $document['crypto_signature'] = $signedRes['signature'];
+                    $document['document_hash'] = $signedRes['hash'];
+                    $document['signed_at'] = date('Y-m-d H:i:s');
+                    $publicKey = $signedRes['public_key'];
                 }
             }
 
@@ -346,7 +297,7 @@ if (!$isRateLimited && !empty($ref)) {
         <div class="container" style="max-width: 780px;">
             <a class="navbar-brand d-flex align-items-center gap-2 fw-bold text-dark py-1" href="verify">
                 <img src="assets/clearlogo.png" alt="GB Logo" height="30" class="d-inline-block">
-                <span class="fs-6">CIMS</span>
+                <span class="fs-6">SiteWare</span>
                 <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle fw-semibold ms-1"
                     style="font-size: 0.7rem;">Trust Center</span>
             </a>
@@ -374,7 +325,7 @@ if (!$isRateLimited && !empty($ref)) {
         <!-- Top Header Heading -->
         <div class="text-center mb-4">
             <h4 class="fw-bold text-dark mb-1 d-flex align-items-center justify-content-center gap-2">
-                <i class="bi bi-shield-lock-fill text-primary"></i> SiteWare Security Trust Center
+                <i class="bi bi-shield-lock-fill text-primary"></i> Security Trust Center
             </h4>
             <p class="text-muted small mb-0">Cryptographic PKI Document Authentication & Integrity Engine</p>
         </div>
@@ -386,13 +337,17 @@ if (!$isRateLimited && !empty($ref)) {
                     <i class="bi bi-shield-exclamation text-warning display-3 mb-3 d-block"></i>
                     <h5 class="fw-bold text-dark mb-2">Verification Rate Limit Exceeded</h5>
                     <p class="text-muted small mb-3">
-                        Too many verification requests were received from your network. To prevent automated scraping and system abuse, requests are temporarily throttled.
+                        Too many verification requests were received from your network. To prevent automated scraping and
+                        system abuse, requests are temporarily throttled.
                     </p>
-                    <div class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-3 py-2 mb-4 fs-6">
-                        Please wait <span id="rateLimitCountdown"><?= (int)$retryAfter ?></span> seconds before trying again.
+                    <div
+                        class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-3 py-2 mb-4 fs-6">
+                        Please wait <span id="rateLimitCountdown"><?= (int) $retryAfter ?></span> seconds before trying
+                        again.
                     </div>
                     <div>
-                        <button class="btn btn-outline-primary btn-sm px-4" onclick="location.reload();" style="min-height: 40px;">
+                        <button class="btn btn-outline-primary btn-sm px-4" onclick="location.reload();"
+                            style="min-height: 40px;">
                             <i class="bi bi-arrow-clockwise me-1"></i> Check Again
                         </button>
                     </div>
@@ -409,11 +364,13 @@ if (!$isRateLimited && !empty($ref)) {
                         The requested reference <code><?= htmlspecialchars($ref ?: 'EMPTY') ?></code> could not be found in
                         the system registry.
                     </p>
-                    <form action="verify" method="GET" class="d-flex flex-column flex-sm-row justify-content-center gap-2 max-w-sm mx-auto"
+                    <form action="verify" method="GET"
+                        class="d-flex flex-column flex-sm-row justify-content-center gap-2 max-w-sm mx-auto"
                         style="max-width: 440px;">
-                        <input type="text" name="ref" class="form-control"
-                            placeholder="Enter PO-XXXX or WD-XXXX..." style="min-height: 44px;" required>
-                        <button type="submit" class="btn btn-primary fw-bold px-4 d-inline-flex align-items-center justify-content-center gap-1"
+                        <input type="text" name="ref" class="form-control" placeholder="Enter PO-XXXX or WD-XXXX..."
+                            style="min-height: 44px;" required>
+                        <button type="submit"
+                            class="btn btn-primary fw-bold px-4 d-inline-flex align-items-center justify-content-center gap-1"
                             style="min-height: 44px;">
                             <i class="bi bi-search"></i> Verify
                         </button>
@@ -463,7 +420,8 @@ if (!$isRateLimited && !empty($ref)) {
                             <div class="fw-bold text-dark">
                                 <?= htmlspecialchars($document['rs_no'] ?? $document['project_name'] ?? 'N/A') ?>
                                 <?php if (!empty($document['company_name'])): ?>
-                                    <span class="text-muted fw-normal d-block" style="font-size: 0.75rem;">Supplier: <?= htmlspecialchars($document['company_name']) ?></span>
+                                    <span class="text-muted fw-normal d-block" style="font-size: 0.75rem;">Supplier:
+                                        <?= htmlspecialchars($document['company_name']) ?></span>
                                 <?php endif; ?>
                             </div>
                         </div>
@@ -475,7 +433,8 @@ if (!$isRateLimited && !empty($ref)) {
                             <div class="fw-bold text-dark">
                                 <?= date('F d, Y', strtotime($signedAt)) ?>
                                 <?php if ($type === 'po' && !empty($document['expected_delivery_date'])): ?>
-                                    <span class="text-primary fw-normal d-block" style="font-size: 0.75rem;">Target ETA: <?= date('F d, Y', strtotime($document['expected_delivery_date'])) ?></span>
+                                    <span class="text-primary fw-normal d-block" style="font-size: 0.75rem;">Target ETA:
+                                        <?= date('F d, Y', strtotime($document['expected_delivery_date'])) ?></span>
                                 <?php endif; ?>
                             </div>
                         </div>
@@ -483,19 +442,26 @@ if (!$isRateLimited && !empty($ref)) {
                         <?php if ($type === 'po'): ?>
                             <!-- Dual Signatories: Prepared By (Purchasing) & Approved By (Management) -->
                             <div class="col-sm-6">
-                                <label class="text-muted small fw-bold text-uppercase d-block mb-1">Prepared by (Purchasing)</label>
+                                <label class="text-muted small fw-bold text-uppercase d-block mb-1">Prepared by
+                                    (Purchasing)</label>
                                 <div class="fw-bold text-dark">
-                                    <i class="bi bi-person-check text-primary me-1"></i><?= htmlspecialchars($document['prepared_name'] ?: 'Purchasing Department') ?>
-                                    <span class="badge bg-secondary ms-1 fw-normal" style="font-size: 0.65rem;"><?= htmlspecialchars(strtoupper($document['prepared_role'] ?: 'Purchasing')) ?></span>
+                                    <i
+                                        class="bi bi-person-check text-primary me-1"></i><?= htmlspecialchars($document['prepared_name'] ?: 'Purchasing Department') ?>
+                                    <span class="badge bg-secondary ms-1 fw-normal"
+                                        style="font-size: 0.65rem;"><?= htmlspecialchars(strtoupper($document['prepared_role'] ?: 'Purchasing')) ?></span>
                                 </div>
                             </div>
 
                             <div class="col-sm-6">
-                                <label class="text-muted small fw-bold text-uppercase d-block mb-1">Approved by (Management)</label>
+                                <label class="text-muted small fw-bold text-uppercase d-block mb-1">Approved by
+                                    (Management)</label>
                                 <div class="fw-bold text-dark">
                                     <?php if (!empty($document['approved_name'])): ?>
-                                        <i class="bi bi-patch-check-fill text-success me-1"></i><?= htmlspecialchars($document['approved_name']) ?>
-                                        <span class="badge bg-success-subtle text-success border border-success-subtle ms-1 fw-semibold" style="font-size: 0.65rem;"><?= htmlspecialchars(strtoupper($document['approved_role'] ?: 'Management')) ?></span>
+                                        <i
+                                            class="bi bi-patch-check-fill text-success me-1"></i><?= htmlspecialchars($document['approved_name']) ?>
+                                        <span
+                                            class="badge bg-success-subtle text-success border border-success-subtle ms-1 fw-semibold"
+                                            style="font-size: 0.65rem;"><?= htmlspecialchars(strtoupper($document['approved_role'] ?: 'Management')) ?></span>
                                     <?php else: ?>
                                         <span class="text-muted fw-normal fst-italic">Management Authorization</span>
                                     <?php endif; ?>
@@ -504,24 +470,30 @@ if (!$isRateLimited && !empty($ref)) {
                         <?php else: ?>
                             <!-- Withdrawal Signatories: Releasing Warehouse Officer & Site Recipient -->
                             <div class="col-sm-6">
-                                <label class="text-muted small fw-bold text-uppercase d-block mb-1">Released by (Warehouse)</label>
+                                <label class="text-muted small fw-bold text-uppercase d-block mb-1">Released by
+                                    (Warehouse)</label>
                                 <div class="fw-bold text-dark">
-                                    <i class="bi bi-person-badge text-primary me-1"></i><?= htmlspecialchars($document['releaser_name'] ?: 'Warehouse Officer') ?>
-                                    <span class="badge bg-secondary ms-1 fw-normal" style="font-size: 0.65rem;"><?= htmlspecialchars(strtoupper($document['releaser_role'] ?: 'Warehouse')) ?></span>
+                                    <i
+                                        class="bi bi-person-badge text-primary me-1"></i><?= htmlspecialchars($document['releaser_name'] ?: 'Warehouse Officer') ?>
+                                    <span class="badge bg-secondary ms-1 fw-normal"
+                                        style="font-size: 0.65rem;"><?= htmlspecialchars(strtoupper($document['releaser_role'] ?: 'Warehouse')) ?></span>
                                 </div>
                             </div>
 
                             <div class="col-sm-6">
-                                <label class="text-muted small fw-bold text-uppercase d-block mb-1">Authorized Site Recipient</label>
+                                <label class="text-muted small fw-bold text-uppercase d-block mb-1">Authorized Site
+                                    Recipient</label>
                                 <div class="fw-bold text-dark">
-                                    <i class="bi bi-person-check text-success me-1"></i><?= htmlspecialchars($document['received_by'] ?: 'Authorized Recipient') ?>
+                                    <i
+                                        class="bi bi-person-check text-success me-1"></i><?= htmlspecialchars($document['received_by'] ?: 'Authorized Recipient') ?>
                                 </div>
                             </div>
                         <?php endif; ?>
 
                         <div class="col-sm-6">
                             <label class="text-muted small fw-bold text-uppercase d-block mb-1">Algorithm Standard</label>
-                            <div class="fw-bold text-dark"><i class="bi bi-cpu text-primary me-1"></i>RSA 2048-bit / SHA-256 PKCS#1</div>
+                            <div class="fw-bold text-dark"><i class="bi bi-cpu text-primary me-1"></i>RSA 2048-bit / SHA-256
+                                PKCS#1</div>
                         </div>
 
                         <!-- Physical Fulfillment & Custody Status -->
@@ -532,63 +504,76 @@ if (!$isRateLimited && !empty($ref)) {
                             <?php if ($type === 'po'): ?>
                                 <?php if ($document['status'] === 'Cancelled'): ?>
                                     <div>
-                                        <span class="badge bg-dark text-white border border-secondary px-2 py-1" style="font-size: 0.75rem;">
-                                             Voided / Cancelled Order
+                                        <span class="badge bg-dark text-white border border-secondary px-2 py-1"
+                                            style="font-size: 0.75rem;">
+                                            Voided / Cancelled Order
                                         </span>
                                     </div>
-                                    <small class="text-danger d-block mt-1 fw-semibold" style="font-size: 0.72rem;">Order voided by Authorized Officer &bull; Inventory intake revoked</small>
+                                    <small class="text-danger d-block mt-1 fw-semibold" style="font-size: 0.72rem;">Order voided by
+                                        Authorized Officer &bull; Inventory intake revoked</small>
                                 <?php elseif ($document['status'] === 'Delivered (Discrepancy)'): ?>
                                     <div>
                                         <span class="badge bg-warning text-dark border px-2 py-1" style="font-size: 0.75rem;">
-                                            <i class="bi bi-exclamation-triangle-fill text-dark me-1"></i> Delivered (Discrepancy Logged)
+                                            <i class="bi bi-exclamation-triangle-fill text-dark me-1"></i> Delivered (Discrepancy
+                                            Logged)
                                         </span>
                                     </div>
                                     <?php if (!empty($document['received_by_name'])): ?>
-                                        <small class="text-muted d-block mt-0.5" style="font-size: 0.72rem;">Intake by: <?= htmlspecialchars($document['received_by_name']) ?> &bull; Partial delivery / issue noted</small>
+                                        <small class="text-muted d-block mt-0.5" style="font-size: 0.72rem;">Intake by:
+                                            <?= htmlspecialchars($document['received_by_name']) ?> &bull; Partial delivery / issue
+                                            noted</small>
                                     <?php endif; ?>
                                 <?php elseif (in_array($document['status'], ['Partially Delivered', 'Partially Received'])): ?>
                                     <div>
                                         <span class="badge bg-warning text-dark border px-2 py-1" style="font-size: 0.75rem;">
-                                            <i class="bi bi-pie-chart-fill text-dark me-1"></i> Partially Delivered (Remaining Items to Follow)
+                                            <i class="bi bi-pie-chart-fill text-dark me-1"></i> Partially Delivered (Remaining Items
+                                            to Follow)
                                         </span>
                                     </div>
                                     <?php if (!empty($document['received_by_name'])): ?>
-                                        <small class="text-muted d-block mt-0.5" style="font-size: 0.72rem;">Intake by: <?= htmlspecialchars($document['received_by_name']) ?> &bull; Batch received into Master Inventory</small>
+                                        <small class="text-muted d-block mt-0.5" style="font-size: 0.72rem;">Intake by:
+                                            <?= htmlspecialchars($document['received_by_name']) ?> &bull; Batch received into Master
+                                            Inventory</small>
                                     <?php endif; ?>
                                 <?php elseif ($document['status'] === 'Delivered'): ?>
                                     <div class="fw-bold text-success d-flex align-items-center gap-1">
                                         <i class="bi bi-check-circle-fill"></i> Delivered & Received at Warehouse
                                     </div>
                                     <?php if (!empty($document['received_by_name'])): ?>
-                                        <small class="text-muted d-block" style="font-size: 0.72rem;">Intake by: <?= htmlspecialchars($document['received_by_name']) ?></small>
+                                        <small class="text-muted d-block" style="font-size: 0.72rem;">Intake by:
+                                            <?= htmlspecialchars($document['received_by_name']) ?></small>
                                     <?php endif; ?>
                                 <?php else: ?>
                                     <div>
-                                        <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-2 py-1" style="font-size: 0.75rem;">
+                                        <span
+                                            class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-2 py-1"
+                                            style="font-size: 0.75rem;">
                                             <i class="bi bi-truck me-1"></i> Awaiting Warehouse Receiving
                                         </span>
                                     </div>
-                                    <small class="text-muted d-block mt-1" style="font-size: 0.72rem;">Purchase order sealed &bull; Pending physical delivery intake</small>
+                                    <small class="text-muted d-block mt-1" style="font-size: 0.72rem;">Purchase order sealed &bull;
+                                        Pending physical delivery intake</small>
                                 <?php endif; ?>
                             <?php else: ?>
                                 <div class="fw-bold text-success d-flex align-items-center gap-1">
                                     <i class="bi bi-box-seam-fill"></i> Materials Released & Received on Site
                                 </div>
                                 <?php if (!empty($document['photo_proof_path'])): ?>
-                                    <small class="text-primary d-block mt-0.5" style="font-size: 0.72rem;"><i class="bi bi-camera-fill me-1"></i> Photo proof of custody recorded</small>
+                                    <small class="text-primary d-block mt-0.5" style="font-size: 0.72rem;"><i
+                                            class="bi bi-camera-fill me-1"></i> Photo proof of custody recorded</small>
                                 <?php endif; ?>
                             <?php endif; ?>
                         </div>
                     </div>
 
                     <!-- Items Verified Section (With Sealed Pricing for PO) -->
-                    <?php 
-                        $totalOrderValue = 0;
-                        if ($type === 'po') {
-                            foreach ($items as $it) {
-                                $totalOrderValue += (float)($it['quantity'] * ($it['unit_price'] ?? 0));
-                            }
+                    <?php
+                    $totalOrderValue = 0;
+                    if ($type === 'po') {
+                        foreach ($items as $it) {
+                            $totalOrderValue += (float) ($it['quantity'] * ($it['unit_price'] ?? 0));
                         }
+                    }
                     ?>
                     <div class="card border-0 bg-light rounded-3 p-3 mb-4">
                         <h6 class="fw-bold text-dark small text-uppercase mb-2">
@@ -611,10 +596,10 @@ if (!$isRateLimited && !empty($ref)) {
                                 </thead>
                                 <tbody>
                                     <?php foreach ($items as $it): ?>
-                                        <?php 
-                                            $qty = (float)($it['quantity'] ?? 0);
-                                            $price = (float)($it['unit_price'] ?? 0);
-                                            $subtotal = $qty * $price;
+                                        <?php
+                                        $qty = (float) ($it['quantity'] ?? 0);
+                                        $price = (float) ($it['unit_price'] ?? 0);
+                                        $subtotal = $qty * $price;
                                         ?>
                                         <tr>
                                             <td class="fw-semibold text-muted"><?= htmlspecialchars($it['item_code']) ?></td>
@@ -622,7 +607,8 @@ if (!$isRateLimited && !empty($ref)) {
                                                 <?= htmlspecialchars($it['item_name'] ?? $it['custom_item_name'] ?? $it['item_code']) ?>
                                             </td>
                                             <td class="text-center fw-bold text-primary">
-                                                <?= htmlspecialchars($it['quantity']) ?> <?= htmlspecialchars($it['unit'] ?? '') ?>
+                                                <?= htmlspecialchars($it['quantity']) ?>
+                                                <?= htmlspecialchars($it['unit'] ?? '') ?>
                                             </td>
                                             <?php if ($type === 'po'): ?>
                                                 <td class="text-end text-muted">
@@ -638,7 +624,8 @@ if (!$isRateLimited && !empty($ref)) {
                                 <?php if ($type === 'po'): ?>
                                     <tfoot class="border-top">
                                         <tr class="fw-bold">
-                                            <td colspan="4" class="text-end text-uppercase text-muted py-2" style="font-size: 0.8rem;">Total Sealed Value:</td>
+                                            <td colspan="4" class="text-end text-uppercase text-muted py-2"
+                                                style="font-size: 0.8rem;">Total Sealed Value:</td>
                                             <td class="text-end text-primary py-2" style="font-size: 0.95rem;">
                                                 ₱<?= number_format($totalOrderValue, 2) ?>
                                             </td>
@@ -652,24 +639,26 @@ if (!$isRateLimited && !empty($ref)) {
                     <!-- Logistics & Receiving Notes / Discrepancies if present -->
                     <?php if (!empty($document['delay_remarks'])): ?>
                         <?php
-                            $rawRemarks = trim($document['delay_remarks']);
-                            $parts = explode('[DELIVERY DISCREPANCY]:', $rawRemarks);
-                            $uniqueBlocks = [];
-                            foreach ($parts as $part) {
-                                $t = trim($part);
-                                if ($t && !in_array($t, $uniqueBlocks)) {
-                                    $uniqueBlocks[] = $t;
-                                }
+                        $rawRemarks = trim($document['delay_remarks']);
+                        $parts = explode('[DELIVERY DISCREPANCY]:', $rawRemarks);
+                        $uniqueBlocks = [];
+                        foreach ($parts as $part) {
+                            $t = trim($part);
+                            if ($t && !in_array($t, $uniqueBlocks)) {
+                                $uniqueBlocks[] = $t;
                             }
-                            $formattedRemarks = !empty($uniqueBlocks) 
-                                ? implode("\n\n", array_map(fn($b) => "[DELIVERY DISCREPANCY]:\n" . $b, $uniqueBlocks)) 
-                                : $rawRemarks;
+                        }
+                        $formattedRemarks = !empty($uniqueBlocks)
+                            ? implode("\n\n", array_map(fn($b) => "[DELIVERY DISCREPANCY]:\n" . $b, $uniqueBlocks))
+                            : $rawRemarks;
                         ?>
                         <div class="alert alert-warning border border-warning-subtle rounded-3 p-3 mb-4 shadow-sm">
                             <h6 class="fw-bold text-dark small text-uppercase mb-1 d-flex align-items-center gap-2">
-                                <i class="bi bi-exclamation-octagon-fill text-warning"></i> Logistics / Receiving Discrepancy Notes
+                                <i class="bi bi-exclamation-octagon-fill text-warning"></i> Logistics / Receiving Discrepancy
+                                Notes
                             </h6>
-                            <div class="font-monospace text-dark small bg-white p-2 rounded border mt-2" style="white-space: pre-wrap; font-size: 0.78rem; line-height: 1.4;">
+                            <div class="font-monospace text-dark small bg-white p-2 rounded border mt-2"
+                                style="white-space: pre-wrap; font-size: 0.78rem; line-height: 1.4;">
                                 <?= htmlspecialchars($formattedRemarks) ?>
                             </div>
                         </div>
@@ -682,13 +671,11 @@ if (!$isRateLimited && !empty($ref)) {
                         </label>
                         <div class="hash-code p-2 d-flex justify-content-between align-items-center flex-wrap gap-2">
                             <span class="text-break user-select-all"><?= htmlspecialchars($documentHash) ?></span>
-                            <button type="button" class="btn btn-sm btn-outline-primary py-1 px-3 d-inline-flex align-items-center gap-1 copy-hash-btn flex-shrink-0"
-                                id="copyHashBtn"
-                                data-hash="<?= htmlspecialchars($documentHash) ?>"
-                                onclick="copyDocumentHash(this)"
-                                aria-label="Copy SHA-256 Hash"
-                                title="Copy Hash to Clipboard"
-                                style="min-height: 38px;">
+                            <button type="button"
+                                class="btn btn-sm btn-outline-primary py-1 px-3 d-inline-flex align-items-center gap-1 copy-hash-btn flex-shrink-0"
+                                id="copyHashBtn" data-hash="<?= htmlspecialchars($documentHash) ?>"
+                                onclick="copyDocumentHash(this)" aria-label="Copy SHA-256 Hash"
+                                title="Copy Hash to Clipboard" style="min-height: 38px;">
                                 <i class="bi bi-copy"></i>
                                 <span class="copy-text">Copy</span>
                             </button>
