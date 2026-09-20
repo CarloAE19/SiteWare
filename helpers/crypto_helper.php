@@ -128,9 +128,18 @@ function buildCanonicalPoPayload($po, $items)
     $normalizedItems = [];
     if (is_array($items)) {
         foreach ($items as $item) {
+            $name = '';
+            if (!empty($item['custom_item_name'])) {
+                $name = (string) $item['custom_item_name'];
+            } elseif (!empty($item['item_name'])) {
+                $name = (string) $item['item_name'];
+            } elseif (!empty($item['new_item_name'])) {
+                $name = (string) $item['new_item_name'];
+            }
+
             $normalizedItems[] = [
                 'code' => (string) ($item['item_code'] ?? ''),
-                'name' => (string) ($item['item_name'] ?? $item['custom_item_name'] ?? ''),
+                'name' => $name,
                 'qty' => (float) ($item['quantity'] ?? 0),
                 'price' => (float) ($item['unit_price'] ?? 0)
             ];
@@ -145,7 +154,7 @@ function buildCanonicalPoPayload($po, $items)
         'doc_type' => 'PURCHASE_ORDER',
         'po_no' => (string) ($po['po_no'] ?? ''),
         'rs_no' => (string) ($po['rs_no'] ?? ''),
-        'supplier' => (string) ($po['company_name'] ?? $po['supplier_id'] ?? ''),
+        'supplier' => (string) (!empty($po['company_name']) ? $po['company_name'] : ($po['supplier_id'] ?? '')),
         'prepared_by' => (int) ($po['prepared_by'] ?? 0),
         'approved_by' => (int) ($po['approved_by'] ?? 0),
         'created_at' => (string) ($po['created_at'] ?? ''),
@@ -235,3 +244,198 @@ function cryptographicallyVerifyPayload($payload, $signatureBase64, $publicKeyPe
     $result = openssl_verify($payload, $binarySignature, $publicKeyPem, OPENSSL_ALGO_SHA256);
     return ($result === 1);
 }
+
+/**
+ * Retrieves full Purchase Order document header and items deterministically formatted for crypto signing/verification.
+ * 
+ * @param PDO $pdo
+ * @param string|int $poIdOrNo
+ * @return array ['document' => array, 'items' => array]|null
+ */
+function getPurchaseOrderDetailsForCrypto($pdo, $poIdOrNo)
+{
+    if (!$pdo || empty($poIdOrNo)) return null;
+
+    $stmt = $pdo->prepare("
+        SELECT po.*, s.company_name, s.supplier_code, r.rs_no, 
+               u1.name AS prepared_name, u1.role AS prepared_role, u1.public_key AS prepared_public_key,
+               u2.name AS approved_name, u2.role AS approved_role, u2.public_key AS approved_public_key,
+               u_rec.name AS received_by_name
+        FROM purchase_orders po
+        LEFT JOIN suppliers s ON po.supplier_id = s.id
+        LEFT JOIN requisitions r ON po.rs_id = r.id
+        LEFT JOIN users u1 ON po.prepared_by = u1.id
+        LEFT JOIN users u2 ON po.approved_by = u2.id
+        LEFT JOIN users u_rec ON po.received_by = u_rec.id
+        WHERE po.po_no = ? OR po.id = ?
+    ");
+    $stmt->execute([$poIdOrNo, $poIdOrNo]);
+    $document = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$document) return null;
+
+    $itemStmt = $pdo->prepare("
+        SELECT pi.*, i.item_name 
+        FROM po_items pi 
+        LEFT JOIN inventory i ON pi.item_code = i.item_code 
+        WHERE pi.po_id = ?
+    ");
+    $itemStmt->execute([$document['id']]);
+    $items = $itemStmt->fetchAll(PDO::FETCH_ASSOC);
+
+    return [
+        'document' => $document,
+        'items' => $items
+    ];
+}
+
+/**
+ * Retrieves full Material Withdrawal document header and items deterministically formatted for crypto signing/verification.
+ * 
+ * @param PDO $pdo
+ * @param string|int $wdIdOrNo
+ * @return array ['document' => array, 'items' => array]|null
+ */
+function getWithdrawalDetailsForCrypto($pdo, $wdIdOrNo)
+{
+    if (!$pdo || empty($wdIdOrNo)) return null;
+
+    $stmt = $pdo->prepare("
+        SELECT w.*, u.name AS releaser_name, u.role AS releaser_role, u.public_key AS releaser_public_key, u.signature_path AS releaser_sig
+        FROM withdrawals w
+        LEFT JOIN users u ON w.released_by = u.id
+        WHERE w.withdrawal_no = ? OR w.id = ?
+    ");
+    $stmt->execute([$wdIdOrNo, $wdIdOrNo]);
+    $document = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$document) return null;
+
+    $itemStmt = $pdo->prepare("
+        SELECT wi.*, COALESCE(i.item_name, '') AS item_name, COALESCE(i.unit, '') AS unit 
+        FROM withdrawal_items wi 
+        LEFT JOIN inventory i ON wi.item_code = i.item_code 
+        WHERE wi.withdrawal_id = ?
+    ");
+    $itemStmt->execute([$document['id']]);
+    $items = $itemStmt->fetchAll(PDO::FETCH_ASSOC);
+
+    return [
+        'document' => $document,
+        'items' => $items
+    ];
+}
+
+/**
+ * Cryptographically seals a Purchase Order with RSA-2048 PKI Signature and SHA-256 hash.
+ * 
+ * @param PDO $pdo
+ * @param string|int $poIdOrNo
+ * @return array|null
+ */
+function signPurchaseOrder($pdo, $poIdOrNo)
+{
+    $data = getPurchaseOrderDetailsForCrypto($pdo, $poIdOrNo);
+    if (!$data) return null;
+
+    $document = $data['document'];
+    $items = $data['items'];
+
+    // Determine signer: approved_by takes precedence over prepared_by
+    $signerUserId = $document['approved_by'] ?: $document['prepared_by'];
+    if (!$signerUserId) {
+        // Fallback to prepared_by if approved_by is 0/null
+        $signerUserId = $document['prepared_by'] ?: 1;
+    }
+
+    $keys = getOrCreateUserKeyPair($pdo, $signerUserId);
+    if (!$keys || empty($keys['private'])) return null;
+
+    $canonicalPayload = buildCanonicalPoPayload($document, $items);
+    $signed = cryptographicallySignPayload($canonicalPayload, $keys['private']);
+    if ($signed) {
+        $upd = $pdo->prepare("UPDATE purchase_orders SET crypto_signature = ?, document_hash = ?, signed_at = NOW() WHERE id = ?");
+        $upd->execute([$signed['signature'], $signed['hash'], $document['id']]);
+
+        return [
+            'signature' => $signed['signature'],
+            'hash' => $signed['hash'],
+            'public_key' => $keys['public'],
+            'canonical_payload' => $canonicalPayload
+        ];
+    }
+
+    return null;
+}
+
+/**
+ * Cryptographically seals a Material Withdrawal with RSA-2048 PKI Signature and SHA-256 hash.
+ * 
+ * @param PDO $pdo
+ * @param string|int $wdIdOrNo
+ * @return array|null
+ */
+function signWithdrawal($pdo, $wdIdOrNo)
+{
+    $data = getWithdrawalDetailsForCrypto($pdo, $wdIdOrNo);
+    if (!$data) return null;
+
+    $document = $data['document'];
+    $items = $data['items'];
+
+    $signerUserId = $document['released_by'] ?: 1;
+    $keys = getOrCreateUserKeyPair($pdo, $signerUserId);
+    if (!$keys || empty($keys['private'])) return null;
+
+    $canonicalPayload = buildCanonicalWdPayload($document, $items);
+    $signed = cryptographicallySignPayload($canonicalPayload, $keys['private']);
+    if ($signed) {
+        $upd = $pdo->prepare("UPDATE withdrawals SET crypto_signature = ?, document_hash = ?, signed_at = NOW() WHERE id = ?");
+        $upd->execute([$signed['signature'], $signed['hash'], $document['id']]);
+
+        return [
+            'signature' => $signed['signature'],
+            'hash' => $signed['hash'],
+            'public_key' => $keys['public'],
+            'canonical_payload' => $canonicalPayload
+        ];
+    }
+
+    return null;
+}
+
+/**
+ * Re-seals all existing Purchase Orders and Material Withdrawals to ensure 100% cryptographic integrity.
+ * 
+ * @param PDO $pdo
+ * @return array ['pos' => int, 'withdrawals' => int]
+ */
+function reSealAllExistingDocuments($pdo)
+{
+    $poCount = 0;
+    $wdCount = 0;
+
+    // Reseal POs
+    $poStmt = $pdo->query("SELECT id FROM purchase_orders ORDER BY id ASC");
+    $pos = $poStmt->fetchAll(PDO::FETCH_ASSOC);
+    foreach ($pos as $po) {
+        if (signPurchaseOrder($pdo, $po['id'])) {
+            $poCount++;
+        }
+    }
+
+    // Reseal Withdrawals
+    $wdStmt = $pdo->query("SELECT id FROM withdrawals ORDER BY id ASC");
+    $wds = $wdStmt->fetchAll(PDO::FETCH_ASSOC);
+    foreach ($wds as $wd) {
+        if (signWithdrawal($pdo, $wd['id'])) {
+            $wdCount++;
+        }
+    }
+
+    return [
+        'pos' => $poCount,
+        'withdrawals' => $wdCount
+    ];
+}
+
