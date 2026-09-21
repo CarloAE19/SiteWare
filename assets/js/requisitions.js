@@ -1102,7 +1102,13 @@ function initializeRequisitionsPage() {
 
     btnGroup.append(prevBtn, pageIndicator, nextBtn);
     paginationWrapper.append(infoText, btnGroup);
-    table.parentElement.appendChild(paginationWrapper);
+
+    const mobileCardsContainer = document.getElementById('rsMobileCards');
+    if (mobileCardsContainer) {
+        mobileCardsContainer.after(paginationWrapper);
+    } else {
+        table.parentElement.appendChild(paginationWrapper);
+    }
 
     function updatePagination() {
         const totalPages = Math.ceil(filteredRows.length / rowsPerPage) || 1;
@@ -1120,6 +1126,25 @@ function initializeRequisitionsPage() {
             row.classList.remove('d-none', 'rs-row-hidden');
             row.style.removeProperty('display');
         });
+
+        // Synchronize Mobile Cards
+        const allCards = Array.from(document.querySelectorAll('#rsMobileCards .rs-card'));
+        allCards.forEach(card => {
+            card.classList.add('d-none');
+            card.style.display = 'none';
+        });
+        const visibleRsNos = new Set(rowsToShow.map(r => r.getAttribute('data-rs-no')));
+        allCards.forEach(card => {
+            if (visibleRsNos.has(card.getAttribute('data-rs-no'))) {
+                card.classList.remove('d-none');
+                card.style.display = '';
+            }
+        });
+
+        const noResultsRsMobile = document.getElementById('noResultsRsMobile');
+        if (noResultsRsMobile) {
+            noResultsRsMobile.style.display = (filteredRows.length === 0) ? '' : 'none';
+        }
 
         const tbody = table.querySelector('tbody');
         let emptyRow = tbody ? tbody.querySelector('.rs-empty-row') : null;
