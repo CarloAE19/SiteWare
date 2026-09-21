@@ -524,7 +524,13 @@ function initWithdrawalsPage() {
 
     btnGroup.append(prev, indicator, next);
     wrapper.append(info, btnGroup);
-    table.parentElement.appendChild(wrapper);
+
+    const mobileCardsContainer = document.getElementById('wdMobileCards');
+    if (mobileCardsContainer) {
+        mobileCardsContainer.after(wrapper);
+    } else {
+        table.parentElement.appendChild(wrapper);
+    }
 
     function updatePagination() {
         const totalPages = Math.ceil(filteredRows.length / rowsPerPage) || 1;
@@ -536,6 +542,21 @@ function initWithdrawalsPage() {
         allRows.forEach(row => row.style.display = 'none');
         const rowsToShow = filteredRows.slice(start, end);
         rowsToShow.forEach(row => row.style.display = '');
+
+        // Synchronize Mobile Cards
+        const allCards = Array.from(document.querySelectorAll('#wdMobileCards .wd-card'));
+        allCards.forEach(card => card.style.display = 'none');
+        const visibleWdNos = new Set(rowsToShow.map(r => r.querySelector('.wd-slip')?.textContent.trim()));
+        allCards.forEach(card => {
+            if (visibleWdNos.has(card.getAttribute('data-wd-no'))) {
+                card.style.display = '';
+            }
+        });
+
+        const noResultsWdMobile = document.getElementById('noResultsWdMobile');
+        if (noResultsWdMobile) {
+            noResultsWdMobile.style.display = (filteredRows.length === 0) ? '' : 'none';
+        }
 
         const showingEnd = Math.min(end, filteredRows.length);
         const showingStart = filteredRows.length > 0 ? start + 1 : 0;
@@ -559,6 +580,11 @@ function initWithdrawalsPage() {
 
         if (filteredRows.length === 0) {
             allRows.forEach(row => row.style.display = 'none');
+            const allCards = Array.from(document.querySelectorAll('#wdMobileCards .wd-card'));
+            allCards.forEach(card => card.style.display = 'none');
+            const noResultsWdMobile = document.getElementById('noResultsWdMobile');
+            if (noResultsWdMobile) noResultsWdMobile.style.display = '';
+
             if (!noDataRow && tbody) {
                 noDataRow = document.createElement('tr');
                 noDataRow.className = 'no-data-alert-row';
@@ -570,6 +596,8 @@ function initWithdrawalsPage() {
             return;
         } else {
             if (noDataRow) noDataRow.style.display = 'none';
+            const noResultsWdMobile = document.getElementById('noResultsWdMobile');
+            if (noResultsWdMobile) noResultsWdMobile.style.display = 'none';
             wrapper.style.display = 'flex';
         }
 
