@@ -1766,7 +1766,7 @@ include 'layout/header.php';
         retakeBtn.classList.remove('d-none');
     };
 
-    document.addEventListener('DOMContentLoaded', function () {
+    window.initPoReceiveModalLifecycle = function () {
         const receiveModalEl = document.getElementById('receiveModal');
         const receiveForm = document.getElementById('receiveForm');
 
@@ -1982,7 +1982,14 @@ include 'layout/header.php';
                 }
             });
         }
-    });
+    };
+
+    // Immediate execution for SPA compatibility
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', window.initPoReceiveModalLifecycle);
+    } else {
+        window.initPoReceiveModalLifecycle();
+    }
 
     // ==========================================
     // VIRTUAL PO DOCUMENT & PRINT LOGIC
