@@ -184,7 +184,8 @@ $bg_scale = 1 + ($bg_blur * 0.006);
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Sign In — GB Inventory System</title>
     <meta name="description" content="GB Construction & Enterprise Smart Inventory & Logistics System — Secure Login">
 
@@ -329,7 +330,7 @@ $bg_scale = 1 + ($bg_blur * 0.006);
                     <i class="bi bi-android2" style="color:#3DDC84;"></i>
                     <i class="bi bi-apple" style="color:#555;"></i>
                     <i class="bi bi-windows" style="color:#0078D7;"></i>
-                    Install GB Inventory App
+                    Install SiteWare App
                 </button>
 
                 <button type="submit" class="btn-signin" id="signInBtn" <?= (defined('DB_OFFLINE') || $error === 'Special characters not allowed in username' || $is_locked_out) ? 'disabled' : '' ?>>
