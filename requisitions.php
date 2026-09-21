@@ -903,7 +903,24 @@ include 'layout/header.php';
                         <?php endforeach; ?>
                     <?php else: ?>
                         <tr>
-                            <td colspan="7" class="text-center py-5 text-muted"><i class="bi bi-folder-x fs-1 d-block mb-2"></i>No Requisition Slips found.</td>
+                            <td colspan="7" class="text-center py-5 text-muted">
+                                <div class="py-4">
+                                    <div class="rounded-circle bg-light border d-inline-flex p-3 mb-3 shadow-sm">
+                                        <i class="bi bi-folder2-open text-secondary opacity-50 fs-2"></i>
+                                    </div>
+                                    <h6 class="fw-bold text-dark mb-1">No Requisition Slips Found</h6>
+                                    <p class="small text-muted mb-3" style="max-width: 380px; margin: 0 auto;">No requisition records are currently logged in the system.</p>
+                                    <?php if ($role === 'requestor'): ?>
+                                        <button type="button" class="btn btn-brand btn-sm fw-bold px-3 shadow-sm" data-bs-toggle="modal" data-bs-target="#rsModal">
+                                            <i class="bi bi-plus-circle me-1"></i>Create Requisition Slip
+                                        </button>
+                                    <?php elseif (in_array($role, ['warehouse', 'admin', 'management'])): ?>
+                                        <button type="button" class="btn btn-brand btn-sm fw-bold px-3 shadow-sm" data-bs-toggle="modal" data-bs-target="#restockModal">
+                                            <i class="bi bi-arrow-repeat me-1"></i>Request Restock
+                                        </button>
+                                    <?php endif; ?>
+                                </div>
+                            </td>
                         </tr>
                     <?php endif; ?>
                 </tbody>
