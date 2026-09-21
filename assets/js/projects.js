@@ -94,13 +94,30 @@ window.filterProjectsTable = function (filter, btnEl) {
         }
     }
 
+    // Filter mobile cards if on phone viewport
+    const mobileCards = document.querySelectorAll('#projectsMobileCards .project-mobile-card');
+    if (mobileCards.length > 0) {
+        mobileCards.forEach(card => {
+            const status = (card.getAttribute('data-status') || '').toLowerCase();
+            if (currentProjectFilter === 'all' || status === currentProjectFilter) {
+                card.style.display = '';
+            } else {
+                card.style.display = 'none';
+            }
+        });
+    }
+
     initProjectPagination();
 };
 
 if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", initProjectPagination);
+    document.addEventListener("DOMContentLoaded", () => {
+        initProjectPagination();
+        window.filterProjectsTable(currentProjectFilter);
+    });
 } else {
     initProjectPagination();
+    window.filterProjectsTable(currentProjectFilter);
 }
 
 window.generateAutoProjectCode = function () {
