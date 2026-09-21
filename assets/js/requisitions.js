@@ -1069,8 +1069,14 @@ function initializeRequisitionsPage() {
     const allRows = Array.from(table ? table.querySelectorAll('tbody .rs-row') : []);
     let filteredRows = [...allRows];
 
+    // Clean up any stale pagination if allRows is 0
+    if (allRows.length === 0 && table) {
+        const stalePagination = table.parentElement.querySelector('.pagination-wrapper');
+        if (stalePagination) stalePagination.remove();
+    }
+
     // --- SEARCH & PAGINATION LOGIC ---
-    if (table && !table.parentElement.querySelector('.pagination-wrapper')) {
+    if (table && allRows.length > 0 && !table.parentElement.querySelector('.pagination-wrapper')) {
         const rowsPerPage = 10;
         let currentPage = 1;
 
@@ -1165,6 +1171,7 @@ function initializeRequisitionsPage() {
     const activeBadge = document.getElementById('activeRsFilterBadge');
 
     window.filterRsTable = function() {
+        if (allRows.length === 0) return;
         const term = searchInput ? searchInput.value.toLowerCase().trim() : '';
         const requestorVal = requestorSelect ? requestorSelect.value : 'all';
         const projectVal = projectSelect ? projectSelect.value : 'all';
