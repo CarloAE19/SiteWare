@@ -14,13 +14,13 @@
                     <div class="mb-3">
                         <div class="d-flex justify-content-between align-items-center mb-1">
                             <label class="form-label fw-bold mb-0">Unit / Material Name</label>
-                            <button type="button" id="btnAiUnitSuggest" class="btn btn-sm btn-outline-primary border-0 py-0 px-2 fw-semibold" style="font-size: 0.8rem;" onclick="fetchAiSiteWareUnitSuggestion()">
+                            <button type="button" id="btnAiUnitSuggest" class="btn btn-sm btn-outline-primary border-0 py-1 px-2 fw-semibold d-inline-flex align-items-center" style="font-size: 0.8rem; min-height: 36px;" onclick="fetchAiSiteWareUnitSuggestion()">
                                 <i class="bi bi-robot me-1"></i>AI SiteWare Assistant
                             </button>
                         </div>
                         <div class="input-group">
                             <input type="text" class="form-control" name="unit_name" id="unitName" placeholder="e.g. Cubic Meters, Portland Cement, 16mm Rebar" required>
-                            <button type="button" class="btn btn-outline-primary" id="btnAiUnitIcon" onclick="fetchAiSiteWareUnitSuggestion()" title="Analyze with AI SiteWare Assistant">
+                            <button type="button" class="btn btn-outline-primary d-flex align-items-center justify-content-center" id="btnAiUnitIcon" onclick="fetchAiSiteWareUnitSuggestion()" title="Analyze with AI SiteWare Assistant" style="min-width: 44px; min-height: 44px;">
                                 <i class="bi bi-stars"></i>
                             </button>
                         </div>
@@ -49,9 +49,9 @@
                         </div>
                     </div>
                 </div>
-                <div class="modal-footer justify-content-between">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-brand fw-bold shadow-sm" id="unitSubmitBtn"><i class="bi bi-save me-1"></i> Save Unit</button>
+                <div class="modal-footer d-flex flex-column-reverse flex-sm-row justify-content-sm-between gap-2">
+                    <button type="button" class="btn btn-secondary fw-bold" data-bs-dismiss="modal" style="min-height: 44px;">Cancel</button>
+                    <button type="submit" class="btn btn-brand fw-bold shadow-sm px-4" id="unitSubmitBtn" style="min-height: 44px;"><i class="bi bi-save me-1"></i> Save Unit</button>
                 </div>
             </form>
         </div>
