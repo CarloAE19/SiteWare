@@ -1,7 +1,7 @@
 {
-  "name": "GB",
-  "short_name": "GB",
-  "description": "Materials and Inventory Management for GB Construction",
+  "name": "SiteWare",
+  "short_name": "SiteWare",
+  "description": "Systemized Inventory for Construction Warehouse Management",
   "start_url": "/CIMS/",
   "display": "standalone",
   "background_color": "#ffffff",
