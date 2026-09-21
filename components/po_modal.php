@@ -1365,12 +1365,13 @@ $approvedRS = $pdo->query("
     };
 
     // ==========================================================
-    // MODAL LIFECYCLE MANAGEMENT & DOUBLE-SUBMISSION LOCKING
+    // MODAL LIFECYCLE MANAGEMENT & DOUBLE-SUBMISSION LOCKING (SPA-SAFE)
     // ==========================================================
-    document.addEventListener('DOMContentLoaded', function () {
+    window.initPoModalLifecycle = function () {
         // 1. Create PO Form (AJAX & Double-Submit Guard per cims-modal-ajax-handler)
         const createPoForm = document.getElementById('createPoForm');
-        if (createPoForm) {
+        if (createPoForm && !createPoForm.dataset.boundAjax) {
+            createPoForm.dataset.boundAjax = 'true';
             createPoForm.addEventListener('submit', async function (e) {
                 e.preventDefault();
 
@@ -1404,7 +1405,10 @@ $approvedRS = $pdo->query("
                 try {
                     const formData = new FormData(this);
                     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || this.querySelector('[name="csrf_token"]')?.value || '';
-                    const headers = { 'X-Requested-With': 'XMLHttpRequest' };
+                    const headers = { 
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Accept': 'application/json'
+                    };
                     if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
 
                     const response = await (window.cimsFetchWithTimeout || fetch)('process/process.php', {
@@ -1462,7 +1466,8 @@ $approvedRS = $pdo->query("
 
         // 2. Log Delay Form (AJAX & Double-Submit Guard per cims-modal-ajax-handler)
         const delayForm = document.getElementById('delayForm');
-        if (delayForm) {
+        if (delayForm && !delayForm.dataset.boundAjax) {
+            delayForm.dataset.boundAjax = 'true';
             delayForm.addEventListener('submit', async function (e) {
                 e.preventDefault();
 
@@ -1482,7 +1487,10 @@ $approvedRS = $pdo->query("
                 try {
                     const formData = new FormData(this);
                     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || this.querySelector('[name="csrf_token"]')?.value || '';
-                    const headers = { 'X-Requested-With': 'XMLHttpRequest' };
+                    const headers = { 
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Accept': 'application/json'
+                    };
                     if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
 
                     const response = await (window.cimsFetchWithTimeout || fetch)('process/process.php', {
@@ -1542,7 +1550,8 @@ $approvedRS = $pdo->query("
 
         // Modal Lifecycle Event Listeners (Autofocus & Form Cleanup)
         const poModal = document.getElementById('poModal');
-        if (poModal) {
+        if (poModal && !poModal.dataset.boundLifecycle) {
+            poModal.dataset.boundLifecycle = 'true';
             poModal.addEventListener('shown.bs.modal', function () {
                 const rsSelect = document.getElementById('poRsSelect');
                 if (rsSelect) rsSelect.focus();
@@ -1564,7 +1573,8 @@ $approvedRS = $pdo->query("
         }
 
         const editEtaModal = document.getElementById('editEtaModal');
-        if (editEtaModal) {
+        if (editEtaModal && !editEtaModal.dataset.boundLifecycle) {
+            editEtaModal.dataset.boundLifecycle = 'true';
             editEtaModal.addEventListener('shown.bs.modal', function () {
                 const dateInput = document.getElementById('editEtaInputDate');
                 if (dateInput) dateInput.focus();
@@ -1579,7 +1589,8 @@ $approvedRS = $pdo->query("
         }
 
         const delayModal = document.getElementById('delayModal');
-        if (delayModal) {
+        if (delayModal && !delayModal.dataset.boundLifecycle) {
+            delayModal.dataset.boundLifecycle = 'true';
             delayModal.addEventListener('shown.bs.modal', function () {
                 const sel = this.querySelector('select[name="delay_type"]');
                 if (sel) sel.focus();
@@ -1599,7 +1610,8 @@ $approvedRS = $pdo->query("
         }
 
         const receiveModal = document.getElementById('receiveModal');
-        if (receiveModal) {
+        if (receiveModal && !receiveModal.dataset.boundLifecycle) {
+            receiveModal.dataset.boundLifecycle = 'true';
             receiveModal.addEventListener('hidden.bs.modal', function () {
                 if (typeof stopReceiptCamera === 'function') stopReceiptCamera();
                 const submitBtn = document.getElementById('confirmReceiveBtn');
@@ -1611,7 +1623,8 @@ $approvedRS = $pdo->query("
         }
 
         const viberModal = document.getElementById('viberPreviewModal');
-        if (viberModal) {
+        if (viberModal && !viberModal.dataset.boundLifecycle) {
+            viberModal.dataset.boundLifecycle = 'true';
             viberModal.addEventListener('shown.bs.modal', function () {
                 const phoneInput = document.getElementById('viberPhone');
                 if (phoneInput && !phoneInput.value) phoneInput.focus();
@@ -1626,7 +1639,8 @@ $approvedRS = $pdo->query("
         }
 
         const cancelPoModal = document.getElementById('cancelPoModal');
-        if (cancelPoModal) {
+        if (cancelPoModal && !cancelPoModal.dataset.boundLifecycle) {
+            cancelPoModal.dataset.boundLifecycle = 'true';
             cancelPoModal.addEventListener('shown.bs.modal', function () {
                 const reasonSelect = document.getElementById('cancelPoReason');
                 if (reasonSelect) reasonSelect.focus();
@@ -1639,5 +1653,12 @@ $approvedRS = $pdo->query("
                 }
             });
         }
-    });
+    };
+
+    // Immediate execution for SPA compatibility
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', window.initPoModalLifecycle);
+    } else {
+        window.initPoModalLifecycle();
+    }
 </script>
