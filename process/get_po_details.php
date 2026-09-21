@@ -47,16 +47,7 @@ try {
     $appBy = $po['approved_by_name'];
 
     if (empty($appBy)) {
-        $mgrStmt = $pdo->query("SELECT name, signature_path FROM users WHERE role IN ('management', 'admin') ORDER BY role DESC LIMIT 1");
-        $mgr = $mgrStmt->fetch(PDO::FETCH_ASSOC);
-        if ($mgr) {
-            $appBy = $mgr['name'];
-            if (empty($appSig)) {
-                $appSig = $mgr['signature_path'];
-            }
-        } else {
-            $appBy = 'Management / Approver';
-        }
+        $appBy = 'Management Authorization';
     }
 
     // 2. Fetch items for this PO
