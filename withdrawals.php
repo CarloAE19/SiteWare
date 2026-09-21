@@ -120,7 +120,7 @@ include 'layout/header.php';
             </div>
         </div>
 
-        <div class="table-responsive border rounded shadow-sm">
+        <div class="d-none d-md-block table-responsive border rounded shadow-sm bg-white">
             <table class="table table-hover align-middle mb-0 text-nowrap" id="withdrawalsTable">
                 <thead class="table-dark">
                     <tr>
@@ -158,6 +158,81 @@ include 'layout/header.php';
                     <?php endif; ?>
                 </tbody>
             </table>
+        </div>
+
+        <!-- Mobile Cards View (< 768px) -->
+        <div id="wdMobileCards" class="d-block d-md-none mb-3">
+            <?php if(count($withdrawals) > 0): ?>
+                <?php foreach ($withdrawals as $wd): ?>
+                    <?php 
+                    $currentItemsJson = htmlspecialchars(json_encode($wdItemsGrouped[$wd['id']] ?? []), ENT_QUOTES, 'UTF-8');
+                    $itemCount = count($wdItemsGrouped[$wd['id']] ?? []);
+                    ?>
+                    <div class="cims-mobile-card wd-card" data-wd-no="<?= htmlspecialchars($wd['withdrawal_no']) ?>">
+                        <!-- Top Row: Icon + Slip No & Released By + Status Pill -->
+                        <div class="d-flex align-items-start justify-content-between gap-2 mb-2">
+                            <div class="d-flex align-items-center gap-2 overflow-hidden" style="max-width: 70%;">
+                                <div class="rounded-circle bg-danger-subtle p-2 d-flex align-items-center justify-content-center flex-shrink-0" style="width: 40px; height: 40px;">
+                                    <i class="bi bi-box-arrow-up-right text-danger fs-5"></i>
+                                </div>
+                                <div class="text-truncate">
+                                    <a href="javascript:void(0)" class="fw-bold text-danger text-decoration-none wd-slip text-truncate d-inline-flex align-items-center gap-1"
+                                        title="Click to view details for <?= htmlspecialchars($wd['withdrawal_no']) ?>"
+                                        onclick="viewWdDetails('<?= $wd['withdrawal_no'] ?>', '<?= addslashes($wd['project_name']) ?>', '<?= addslashes($wd['remarks'] ?? '') ?>', '<?= $currentItemsJson ?>', '<?= addslashes($wd['releaser_name'] ?? '') ?>', '<?= addslashes($wd['requestor_name'] ?? 'N/A') ?>', '<?= addslashes($wd['received_by'] ?? 'N/A') ?>', '<?= addslashes($wd['signature_path'] ?? '') ?>', '<?= addslashes($wd['photo_proof_path'] ?? '') ?>', '<?= addslashes($wd['releaser_signature_path'] ?? '') ?>')">
+                                        <span class="fs-6"><?= htmlspecialchars($wd['withdrawal_no']) ?></span>
+                                        <i class="bi bi-box-arrow-up-right text-muted" style="font-size: 0.70rem;"></i>
+                                    </a>
+                                    <div class="text-secondary fw-semibold text-truncate small" style="font-size: 0.78rem;">
+                                        <i class="bi bi-person me-1 text-muted"></i><?= htmlspecialchars($wd['releaser_name']) ?>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="text-end flex-shrink-0">
+                                <span class="badge bg-success-subtle text-success border border-success px-2 py-1 shadow-sm fw-bold" style="font-size: 0.68rem;">
+                                    <i class="bi bi-check2-circle me-1"></i>RELEASED
+                                </span>
+                                <div class="text-muted small mt-1" style="font-size: 0.70rem;">
+                                    <span class="badge bg-light text-dark border"><?= $itemCount ?> <?= $itemCount === 1 ? 'item' : 'items' ?></span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Middle Row: Project Assigned (Left) + Timestamp (Right) -->
+                        <div class="d-flex align-items-center justify-content-between text-muted small mb-3 border-top border-bottom py-2" style="font-size: 0.78rem;">
+                            <div class="overflow-hidden me-2">
+                                <span class="fw-bold text-dark text-truncate d-inline-block align-middle wd-project" style="max-width: 170px;" title="<?= htmlspecialchars($wd['project_name']) ?>">
+                                    <i class="bi bi-geo-alt me-1 text-primary"></i><?= htmlspecialchars($wd['project_name']) ?>
+                                </span>
+                            </div>
+                            <div class="text-end flex-shrink-0 text-muted" style="font-size: 0.70rem;">
+                                <i class="bi bi-calendar3 me-1"></i><?= date('M d, Y h:i A', strtotime($wd['date_withdrawn'])) ?>
+                            </div>
+                        </div>
+
+                        <!-- Bottom Action Row: >= 44px Touch Targets -->
+                        <div class="row g-2 cims-mobile-actions">
+                            <div class="col-12">
+                                <button type="button" class="btn btn-outline-secondary w-100 fw-bold shadow-sm"
+                                    title="View Withdrawal Details & Audit Trail"
+                                    onclick="viewWdDetails('<?= $wd['withdrawal_no'] ?>', '<?= addslashes($wd['project_name']) ?>', '<?= addslashes($wd['remarks'] ?? '') ?>', '<?= $currentItemsJson ?>', '<?= addslashes($wd['releaser_name'] ?? '') ?>', '<?= addslashes($wd['requestor_name'] ?? 'N/A') ?>', '<?= addslashes($wd['received_by'] ?? 'N/A') ?>', '<?= addslashes($wd['signature_path'] ?? '') ?>', '<?= addslashes($wd['photo_proof_path'] ?? '') ?>', '<?= addslashes($wd['releaser_signature_path'] ?? '') ?>')">
+                                    <i class="bi bi-qr-code-scan me-1"></i> View Trail & Signatures
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+                <div id="noResultsWdMobile" class="text-center py-5 text-muted border rounded-3 bg-light p-3" style="display: none;">
+                    <i class="bi bi-search fs-1 d-block mb-2 text-secondary opacity-50"></i>
+                    <h6 class="fw-bold mb-1">No matching withdrawals found</h6>
+                    <p class="small text-muted mb-0">Try searching for a different slip number or project name.</p>
+                </div>
+            <?php else: ?>
+                <div class="text-center py-5 text-muted border rounded-3 bg-light p-3">
+                    <i class="bi bi-folder-x fs-1 d-block mb-2 text-secondary opacity-50"></i>
+                    <h6 class="fw-bold mb-1">No material withdrawals recorded yet</h6>
+                    <p class="small text-muted mb-0">Withdrawal transactions logged in the system will appear here.</p>
+                </div>
+            <?php endif; ?>
         </div>
     </div>
 </div>
