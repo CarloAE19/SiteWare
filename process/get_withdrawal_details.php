@@ -34,16 +34,7 @@ try {
         exit;
     }
 
-    if (empty($withdrawal['releaser_signature_path'])) {
-        $whStmt = $pdo->query("SELECT signature_path, name FROM users WHERE role IN ('warehouse', 'admin') AND signature_path IS NOT NULL AND signature_path != '' ORDER BY role ASC LIMIT 1");
-        $whUser = $whStmt->fetch(PDO::FETCH_ASSOC);
-        if ($whUser) {
-            $withdrawal['releaser_signature_path'] = $whUser['signature_path'];
-            if (empty($withdrawal['releaser_name']) || $withdrawal['releaser_name'] === 'Warehouse Officer') {
-                $withdrawal['releaser_name'] = $whUser['name'];
-            }
-        }
-    }
+
 
     // 2. Fetch items for this Withdrawal
     $itemsStmt = $pdo->prepare("
