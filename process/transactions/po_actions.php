@@ -221,21 +221,8 @@ elseif ($action === 'fetch_po_details') {
         $appSig = $checkSig($po['approved_user_sig'] ?? '');
     }
 
-    if (empty($po['approved_by_name']) || empty($appSig)) {
-        $mgrStmt = $pdo->query("SELECT name, signature_path FROM users WHERE role IN ('management', 'admin') AND signature_path IS NOT NULL AND signature_path != '' ORDER BY (role='management') DESC, id ASC LIMIT 1");
-        $mgr = $mgrStmt->fetch(PDO::FETCH_ASSOC);
-        if ($mgr) {
-            if (empty($po['approved_by_name'])) {
-                $po['approved_by_name'] = $mgr['name'];
-            }
-            if (empty($appSig)) {
-                $appSig = $checkSig($mgr['signature_path'] ?? '');
-            }
-        } else {
-            if (empty($po['approved_by_name'])) {
-                $po['approved_by_name'] = 'Management Authorization';
-            }
-        }
+    if (empty($po['approved_by_name'])) {
+        $po['approved_by_name'] = 'Management Authorization';
     }
     $po['approved_signature'] = $appSig;
 
