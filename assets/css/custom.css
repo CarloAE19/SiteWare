@@ -1957,3 +1957,66 @@ body:has(.modal.show) #cims-chatbot-container {
     padding-top: max(1rem, calc(env(safe-area-inset-top, 0px) + 0.5rem)) !important;
     padding-bottom: max(1rem, calc(env(safe-area-inset-bottom, 0px) + 0.5rem)) !important;
 }
+
+/* ==========================================================
+ * CIMS UNIVERSAL MOBILE CARD DESIGN SYSTEM & TOUCH POLISH
+ * Matches the enterprise layout from settings.php across all modules
+ * ========================================================== */
+.cims-mobile-card {
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 16px;
+    margin-bottom: 12px;
+    background: #ffffff;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    word-break: break-word;
+}
+
+[data-bs-theme="dark"] .cims-mobile-card {
+    background: #1e293b;
+    border-color: #334155;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+.cims-mobile-card:active {
+    transform: scale(0.99);
+}
+
+.cims-mobile-actions .btn {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.85rem;
+    font-weight: 600;
+    border-radius: 8px;
+    padding: 8px 10px;
+    white-space: nowrap !important;
+}
+
+.cims-mobile-actions .dropdown-menu {
+    border-radius: 10px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+    z-index: 1060;
+}
+
+.cims-mobile-actions .dropdown-item {
+    min-height: 42px;
+    display: flex;
+    align-items: center;
+}
+
+@media (max-width: 767.98px) {
+    /* Prevent iOS Safari automatic zoom-in when focusing form fields */
+    input.form-control,
+    select.form-select,
+    textarea.form-control {
+        font-size: 16px !important;
+    }
+
+    /* Standardize touch hit target on modal footers across mobile */
+    .modal-footer .btn {
+        min-height: 44px;
+    }
+}
