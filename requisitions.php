@@ -77,102 +77,6 @@ include 'layout/header.php';
 ?>
 
 <style>
-    @media (max-width: 767.98px) {
-
-        /* FIXED: Added .rs-table-wrapper class so this CSS DOES NOT break the Modal's table! */
-        .rs-table-wrapper {
-            overflow-x: hidden !important;
-            border: none !important;
-            box-shadow: none !important;
-            background: transparent !important;
-            padding: 0 !important;
-        }
-
-        #rsTable {
-            display: block !important;
-            width: 100% !important;
-            white-space: normal !important;
-            background: transparent !important;
-            border: none !important;
-        }
-
-        #rsTable thead {
-            display: none !important;
-        }
-
-        #rsTable tbody {
-            display: block !important;
-            width: 100% !important;
-        }
-
-        #rsTable tbody tr {
-            display: flex !important;
-            flex-direction: column !important;
-            border: 1px solid #e0e4e8;
-            border-radius: 12px;
-            margin-bottom: 1rem;
-            background: #fff;
-            padding: 14px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-            overflow: hidden;
-        }
-
-        #rsTable tbody tr.d-none,
-        #rsTable tbody tr.rs-row-hidden,
-        #rsTable tbody tr[style*="display: none"],
-        #rsTable tbody tr[style*="display:none"] {
-            display: none !important;
-        }
-
-        #rsTable tbody td {
-            display: flex !important;
-            justify-content: space-between;
-            align-items: center;
-            text-align: right;
-            padding: 10px 4px;
-            border: none !important;
-            border-bottom: 1px dashed #e9ecef !important;
-            white-space: normal !important;
-            word-break: break-word;
-            width: 100% !important;
-            box-sizing: border-box;
-        }
-
-        #rsTable tbody td.d-none {
-            display: none !important;
-        }
-
-        /* Actions footer row */
-        #rsTable tbody td:last-child {
-            border-bottom: none !important;
-            justify-content: center !important;
-            gap: 8px;
-            padding-top: 14px;
-            margin-top: 4px;
-            flex-wrap: wrap;
-        }
-
-        /* Fix inline forms in the actions td */
-        #rsTable tbody td:last-child form.d-inline {
-            display: inline !important;
-        }
-
-        #rsTable tbody td::before {
-            content: attr(data-label);
-            font-weight: 700;
-            font-size: 0.75rem;
-            color: #6c757d;
-            text-transform: uppercase;
-            text-align: left;
-            padding-right: 15px;
-            flex-shrink: 0;
-        }
-
-        #rsTable tbody td:last-child::before {
-            display: none;
-        }
-    }
-    
     /* Touch-friendly details dropdown styles for PWA */
     summary {
         list-style: none;
@@ -771,8 +675,8 @@ include 'layout/header.php';
             </div>
         </div>
 
-        <!-- FIXED: Added rs-table-wrapper class here -->
-        <div class="table-responsive rs-table-wrapper border rounded shadow-sm mt-3 bg-white">
+        <!-- Desktop Table View (>= 768px) -->
+        <div class="d-none d-md-block table-responsive rs-table-wrapper border rounded shadow-sm mt-3 bg-white">
             <table class="table table-hover align-middle mb-0 text-nowrap" id="rsTable">
                 <thead class="table-dark">
                     <tr>
@@ -925,6 +829,222 @@ include 'layout/header.php';
                     <?php endif; ?>
                 </tbody>
             </table>
+        </div>
+
+        <!-- Mobile Cards View (< 768px) -->
+        <div id="rsMobileCards" class="d-block d-md-none mb-3">
+            <?php if (count($requisitions) > 0): ?>
+                <?php foreach ($requisitions as $rs): ?>
+                    <?php
+                    $urgencyClass = 'bg-secondary';
+                    if ($rs['urgency'] == 'High') $urgencyClass = 'bg-warning text-dark';
+                    if ($rs['urgency'] == 'Urgent') $urgencyClass = 'bg-danger';
+
+                    $statusClass = 'bg-secondary';
+                    if ($rs['status'] == 'Pending Approval') $statusClass = 'bg-warning text-dark';
+                    if ($rs['status'] == 'Approved') $statusClass = 'bg-success';
+                    if ($rs['status'] == 'Partially Approved') $statusClass = 'bg-warning text-dark';
+                    if ($rs['status'] == 'Staged (Ready for Pickup)') $statusClass = 'bg-info text-dark';
+                    if ($rs['status'] == 'Rejected') $statusClass = 'bg-danger';
+                    if ($rs['status'] == 'PO Created') $statusClass = 'bg-info text-dark';
+                    if ($rs['status'] == 'Released') $statusClass = 'bg-success';
+
+                    $cleanProject = str_replace(["\r", "\n"], ["\\r", "\\n"], addslashes($rs['project_name']));
+                    $cleanRemarks = str_replace(["\r", "\n"], ["\\r", "\\n"], addslashes($rs['remarks']));
+                    $cleanRequestor = addslashes($rs['requestor_name']);
+                    $itemsB64 = base64_encode(json_encode($rsItemsGrouped[$rs['id']] ?? []));
+                    $formattedDateLog = date('M d, Y g:i A', strtotime($rs['created_at'])) . ' (' . time_elapsed_string($rs['created_at']) . ')';
+                    $isRestock = (($rs['type'] ?? 'project') === 'restock' || $rs['project_name'] === 'Warehouse Restock');
+                    $isOwnRequest = ((int)$rs['requestor_id'] === (int)$userId);
+                    $canEdit = ($isOwnRequest || in_array($role, ['admin', 'management'])) && in_array($rs['status'], ['Pending Approval', 'Rejected']);
+                    $canApprove = in_array($role, ['management', 'admin']) && $rs['status'] === 'Pending Approval';
+                    $canStage = in_array($role, ['warehouse', 'admin']) && $rs['status'] === 'Approved' && !$isRestock;
+                    $canPo = ($role === 'purchasing' && $rs['status'] === 'Approved');
+                    ?>
+                    <div class="cims-mobile-card rs-card"
+                        data-rs-no="<?= htmlspecialchars($rs['rs_no']) ?>"
+                        data-requestor-id="<?= htmlspecialchars($rs['requestor_id'] ?? '') ?>"
+                        data-requestor-name="<?= htmlspecialchars($rs['requestor_name'] ?? '') ?>"
+                        data-project="<?= htmlspecialchars($isRestock ? 'Warehouse Restock' : $rs['project_name']) ?>"
+                        data-type="<?= htmlspecialchars($rs['type'] ?? 'project') ?>"
+                        data-status="<?= htmlspecialchars($rs['status']) ?>"
+                        data-urgency="<?= htmlspecialchars($rs['urgency']) ?>"
+                        data-created-date="<?= date('Y-m-d', strtotime($rs['created_at'])) ?>">
+                        
+                        <!-- Top Row: Icon + RS Number & Requestor + Urgency/Status Badges -->
+                        <div class="d-flex align-items-start justify-content-between gap-2 mb-2">
+                            <div class="d-flex align-items-center gap-2 overflow-hidden" style="max-width: 65%;">
+                                <div class="rounded-circle <?= $isRestock ? 'bg-warning-subtle' : 'bg-primary-subtle' ?> p-2 d-flex align-items-center justify-content-center flex-shrink-0" style="width: 40px; height: 40px;">
+                                    <i class="bi <?= $isRestock ? 'bi-box-seam text-warning' : 'bi-file-earmark-text text-primary' ?> fs-5"></i>
+                                </div>
+                                <div class="text-truncate">
+                                    <a href="javascript:void(0)" class="fw-bold text-dark text-decoration-none rs-no text-truncate d-inline-flex align-items-center gap-1"
+                                        title="Click to view details for <?= htmlspecialchars($rs['rs_no']) ?>"
+                                        onclick="viewRsDetails('<?= $rs['rs_no'] ?>', '<?= $cleanProject ?>', '<?= $cleanRemarks ?>', '<?= $rs['status'] ?>', '<?= $cleanRequestor ?>', '<?= $formattedDateLog ?>', '<?= $itemsB64 ?>', '<?= $rs['type'] ?? 'project' ?>')">
+                                        <span class="fs-6"><?= htmlspecialchars($rs['rs_no']) ?></span>
+                                        <i class="bi bi-box-arrow-up-right text-muted" style="font-size: 0.70rem;"></i>
+                                    </a>
+                                    <div class="text-secondary fw-semibold text-truncate rs-requestor" style="font-size: 0.78rem;">
+                                        <i class="bi bi-person me-1 text-muted"></i><?= htmlspecialchars($rs['requestor_name']) ?>
+                                        <?php if ($isOwnRequest): ?>
+                                            <span class="badge bg-primary px-1.5 py-0.5 shadow-sm ms-1" style="font-size: 0.65rem;">You</span>
+                                        <?php endif; ?>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="text-end flex-shrink-0">
+                                <span class="badge <?= $statusClass ?> px-2 py-1.5 shadow-sm text-uppercase fw-bold" style="font-size: 0.68rem;">
+                                    <?= htmlspecialchars($rs['status']) ?>
+                                </span>
+                                <?php if ($rs['urgency'] !== 'Normal'): ?>
+                                    <div class="mt-1">
+                                        <span class="badge <?= $urgencyClass ?> shadow-sm px-1.5 py-0.5 fw-semibold" style="font-size: 0.65rem;">
+                                            <i class="bi bi-speedometer2 me-1"></i><?= htmlspecialchars($rs['urgency']) ?>
+                                        </span>
+                                    </div>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+
+                        <!-- Middle Row: Project / Restock (Left) + Date Log (Right) -->
+                        <div class="d-flex align-items-center justify-content-between text-muted small mb-3 border-top border-bottom py-2" style="font-size: 0.78rem;">
+                            <div class="overflow-hidden me-2">
+                                <?php if ($isRestock): ?>
+                                    <span class="badge bg-warning text-dark shadow-sm px-2 py-1"><i class="bi bi-box-seam me-1"></i> Warehouse Restock</span>
+                                <?php else: ?>
+                                    <span class="fw-bold text-secondary text-truncate d-inline-block align-middle" style="max-width: 160px;" title="<?= htmlspecialchars($rs['project_name']) ?>">
+                                        <i class="bi bi-geo-alt me-1 text-muted"></i><?= htmlspecialchars($rs['project_name']) ?>
+                                    </span>
+                                <?php endif; ?>
+                            </div>
+                            <div class="text-end flex-shrink-0 text-muted" style="font-size: 0.70rem;">
+                                <div><i class="bi bi-calendar3 me-1"></i><?= date('M d, Y', strtotime($rs['created_at'])) ?></div>
+                                <div class="text-secondary opacity-75 mt-0.5"><?= time_elapsed_string($rs['created_at']) ?></div>
+                            </div>
+                        </div>
+
+                        <!-- Bottom Action Row: >= 44px Touch Targets -->
+                        <div class="row g-2 cims-mobile-actions">
+                            <?php if ($canApprove): ?>
+                                <!-- Approver / Admin Layout: View (col-4) + Review (col-6) + More Options (col-2) -->
+                                <div class="col-4">
+                                    <button type="button" class="btn btn-outline-primary w-100 fw-bold" title="View Details"
+                                        onclick="viewRsDetails('<?= $rs['rs_no'] ?>', '<?= $cleanProject ?>', '<?= $cleanRemarks ?>', '<?= $rs['status'] ?>', '<?= $cleanRequestor ?>', '<?= $formattedDateLog ?>', '<?= $itemsB64 ?>', '<?= $rs['type'] ?? 'project' ?>')">
+                                        <i class="bi bi-file-earmark-text me-1"></i> View
+                                    </button>
+                                </div>
+                                <div class="col-6">
+                                    <button type="button" class="btn btn-success w-100 fw-bold shadow-sm"
+                                        onclick="openApproveItemsModal(<?= $rs['id'] ?>, '<?= $rs['rs_no'] ?>', '<?= $itemsB64 ?>')">
+                                        <i class="bi bi-check2-square me-1"></i> Review
+                                    </button>
+                                </div>
+                                <div class="col-2">
+                                    <div class="dropdown w-100">
+                                        <button type="button" class="btn btn-outline-secondary w-100 fw-bold px-0"
+                                            data-bs-toggle="dropdown" aria-expanded="false" title="More Actions">
+                                            <i class="bi bi-three-dots-vertical"></i>
+                                        </button>
+                                        <ul class="dropdown-menu dropdown-menu-end shadow border-0 py-2" style="font-size: 0.85rem; min-width: 200px; border-radius: 10px; z-index: 1060;">
+                                            <li class="dropdown-header text-uppercase text-muted fw-bold py-1 px-3" style="font-size: 0.68rem; letter-spacing: 0.5px;">
+                                                <i class="bi bi-gear me-1"></i> RS Options
+                                            </li>
+                                            <?php if ($canEdit): ?>
+                                                <li>
+                                                    <button type="button" class="dropdown-item py-2 px-3 d-flex align-items-center gap-2 text-dark"
+                                                        onclick="openEditRsModal(<?= $rs['id'] ?>, '<?= $rs['rs_no'] ?>', '<?= $cleanProject ?>', '<?= $rs['urgency'] ?>', '<?= $cleanRemarks ?>', '<?= $itemsB64 ?>', '<?= $rs['type'] ?? 'project' ?>')">
+                                                        <i class="bi bi-pencil-square text-warning fs-6" style="width: 18px;"></i>
+                                                        <span>Edit Requisition</span>
+                                                    </button>
+                                                </li>
+                                            <?php endif; ?>
+                                            <li>
+                                                <button type="button" class="dropdown-item py-2 px-3 d-flex align-items-center gap-2 text-danger"
+                                                    onclick="openRejectModal(<?= $rs['id'] ?>, '<?= $rs['rs_no'] ?>')">
+                                                    <i class="bi bi-x-circle text-danger fs-6" style="width: 18px;"></i>
+                                                    <span>Reject Requisition</span>
+                                                </button>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            <?php elseif ($canEdit): ?>
+                                <div class="col-6">
+                                    <button type="button" class="btn btn-outline-primary w-100 fw-bold" title="View Details"
+                                        onclick="viewRsDetails('<?= $rs['rs_no'] ?>', '<?= $cleanProject ?>', '<?= $cleanRemarks ?>', '<?= $rs['status'] ?>', '<?= $cleanRequestor ?>', '<?= $formattedDateLog ?>', '<?= $itemsB64 ?>', '<?= $rs['type'] ?? 'project' ?>')">
+                                        <i class="bi bi-file-earmark-text me-1"></i> View
+                                    </button>
+                                </div>
+                                <div class="col-6">
+                                    <button type="button" class="btn btn-outline-warning text-dark w-100 fw-bold"
+                                        onclick="openEditRsModal(<?= $rs['id'] ?>, '<?= $rs['rs_no'] ?>', '<?= $cleanProject ?>', '<?= $rs['urgency'] ?>', '<?= $cleanRemarks ?>', '<?= $itemsB64 ?>', '<?= $rs['type'] ?? 'project' ?>')">
+                                        <i class="bi bi-pencil-square me-1"></i> <?= $rs['status'] === 'Rejected' ? 'Resubmit' : 'Edit' ?>
+                                    </button>
+                                </div>
+                            <?php elseif ($canStage): ?>
+                                <div class="col-6">
+                                    <button type="button" class="btn btn-outline-primary w-100 fw-bold" title="View Details"
+                                        onclick="viewRsDetails('<?= $rs['rs_no'] ?>', '<?= $cleanProject ?>', '<?= $cleanRemarks ?>', '<?= $rs['status'] ?>', '<?= $cleanRequestor ?>', '<?= $formattedDateLog ?>', '<?= $itemsB64 ?>', '<?= $rs['type'] ?? 'project' ?>')">
+                                        <i class="bi bi-file-earmark-text me-1"></i> View
+                                    </button>
+                                </div>
+                                <div class="col-6">
+                                    <form method="POST" action="process/process.php" class="stage-rs-form w-100" data-rs-no="<?= htmlspecialchars($rs['rs_no']) ?>" data-rs-id="<?= $rs['id'] ?>">
+                                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+                                        <input type="hidden" name="action" value="stage_rs_materials">
+                                        <input type="hidden" name="rs_id" value="<?= $rs['id'] ?>">
+                                        <button type="submit" class="btn btn-outline-info w-100 fw-bold shadow-sm">
+                                            <i class="bi bi-box-seam me-1"></i> Stage
+                                        </button>
+                                    </form>
+                                </div>
+                            <?php elseif ($canPo): ?>
+                                <div class="col-6">
+                                    <button type="button" class="btn btn-outline-primary w-100 fw-bold" title="View Details"
+                                        onclick="viewRsDetails('<?= $rs['rs_no'] ?>', '<?= $cleanProject ?>', '<?= $cleanRemarks ?>', '<?= $rs['status'] ?>', '<?= $cleanRequestor ?>', '<?= $formattedDateLog ?>', '<?= $itemsB64 ?>', '<?= $rs['type'] ?? 'project' ?>')">
+                                        <i class="bi bi-file-earmark-text me-1"></i> View
+                                    </button>
+                                </div>
+                                <div class="col-6">
+                                    <button type="button" class="btn btn-outline-primary w-100 fw-bold shadow-sm" title="Generate Purchase Order">
+                                        <i class="bi bi-file-earmark-plus me-1"></i> Create PO
+                                    </button>
+                                </div>
+                            <?php else: ?>
+                                <div class="col-12">
+                                    <button type="button" class="btn btn-outline-primary w-100 fw-bold" title="View Details"
+                                        onclick="viewRsDetails('<?= $rs['rs_no'] ?>', '<?= $cleanProject ?>', '<?= $cleanRemarks ?>', '<?= $rs['status'] ?>', '<?= $cleanRequestor ?>', '<?= $formattedDateLog ?>', '<?= $itemsB64 ?>', '<?= $rs['type'] ?? 'project' ?>')">
+                                        <i class="bi bi-file-earmark-text me-1"></i> View Details
+                                    </button>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+                <div id="noResultsRsMobile" class="text-center py-5 text-muted border rounded-3 bg-light p-3" style="display: none;">
+                    <i class="bi bi-search fs-1 d-block mb-2 text-secondary opacity-50"></i>
+                    <h6 class="fw-bold mb-1">No requisitions found</h6>
+                    <p class="small text-muted mb-2">No records match your active filter or search keyword.</p>
+                    <button type="button" class="btn btn-sm btn-outline-primary fw-bold px-3" onclick="window.resetAllRsFilters()">
+                        <i class="bi bi-arrow-counterclockwise me-1"></i> Reset Filters
+                    </button>
+                </div>
+            <?php else: ?>
+                <div class="text-center py-5 text-muted border rounded-3 bg-light p-3">
+                    <i class="bi bi-folder2-open fs-1 d-block mb-2 text-secondary opacity-50"></i>
+                    <h6 class="fw-bold mb-1">No Requisition Slips Found</h6>
+                    <p class="small text-muted mb-3">No requisition records are currently logged in the system.</p>
+                    <?php if ($role === 'requestor'): ?>
+                        <button type="button" class="btn btn-brand btn-sm fw-bold px-3 shadow-sm" data-bs-toggle="modal" data-bs-target="#rsModal">
+                            <i class="bi bi-plus-circle me-1"></i>Create Requisition Slip
+                        </button>
+                    <?php elseif (in_array($role, ['warehouse', 'admin', 'management'])): ?>
+                        <button type="button" class="btn btn-brand btn-sm fw-bold px-3 shadow-sm" data-bs-toggle="modal" data-bs-target="#restockModal">
+                            <i class="bi bi-arrow-repeat me-1"></i>Request Restock
+                        </button>
+                    <?php endif; ?>
+                </div>
+            <?php endif; ?>
         </div>
     </div>
 </div>
