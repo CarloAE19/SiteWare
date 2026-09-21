@@ -48,19 +48,20 @@
                         <label class="form-label fw-bold">Password</label>
                         <div class="input-group">
                             <input type="password" class="form-control border-end-0" name="password" id="userPassword">
-                            <button class="btn border border-start-0 bg-white shadow-none" type="button"
-                                onclick="toggleUserPass()">
+                            <button class="btn border border-start-0 bg-white shadow-none d-flex align-items-center justify-content-center" type="button"
+                                onclick="toggleUserPass()" style="min-width: 44px; min-height: 44px;" aria-label="Toggle password visibility">
                                 <i class="bi bi-eye-slash text-muted" id="toggleUserIcon"></i>
                             </button>
                         </div>
                         <small id="passwordHelp" class="text-muted d-block mt-1" style="font-size: 0.75rem;"></small>
                     </div>
                 </div>
-                <div class="modal-footer justify-content-between bg-white border-top-0">
+                <div class="modal-footer d-flex flex-column-reverse flex-sm-row justify-content-sm-between gap-2 bg-white border-top-0">
                     <button type="button" class="btn btn-light text-muted fw-bold px-4"
-                        data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-brand shadow-sm fw-bold px-4" id="userSubmitBtn"><i
-                            class="bi bi-save me-1"></i> Save User</button>
+                        data-bs-dismiss="modal" style="min-height: 44px;">Cancel</button>
+                    <button type="submit" class="btn btn-brand shadow-sm fw-bold px-4" id="userSubmitBtn" style="min-height: 44px;">
+                        <i class="bi bi-save me-1"></i> Save User
+                    </button>
                 </div>
             </form>
         </div>
