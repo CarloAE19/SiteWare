@@ -165,6 +165,66 @@ include 'layout/header.php';
         color: #ffffff !important;
     }
 
+    .settings-nav-pills {
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+    }
+
+    .settings-nav-pills::-webkit-scrollbar {
+        display: none;
+    }
+
+    /* Universal Mobile Cards & Touch Targets across all Settings Tabs */
+    .settings-mobile-card,
+    .backup-mobile-card {
+        border: 1px solid #e2e8f0;
+        border-radius: 14px;
+        padding: 16px;
+        margin-bottom: 12px;
+        background: #ffffff;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    [data-bs-theme="dark"] .settings-mobile-card,
+    [data-bs-theme="dark"] .backup-mobile-card {
+        background: #1e293b;
+        border-color: #334155;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+    }
+
+    .settings-mobile-card:active,
+    .backup-mobile-card:active {
+        transform: scale(0.99);
+    }
+
+    .settings-mobile-actions .btn,
+    .backup-mobile-actions .btn {
+        min-height: 44px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.85rem;
+        font-weight: 600;
+        border-radius: 8px;
+    }
+
+    .settings-action-header-btns .btn,
+    .backup-action-header-btns .btn {
+        min-height: 46px;
+        border-radius: 10px;
+    }
+
+    .settings-blur-preset {
+        min-height: 40px;
+        min-width: 48px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+    }
+
     @media (max-width: 767.98px) {
         .settings-nav-pills {
             flex-wrap: nowrap;
@@ -177,40 +237,36 @@ include 'layout/header.php';
             flex-shrink: 0;
         }
 
-        /* Mobile Touch & Multi-Device Optimizations for SiteWare Backup & Recovery */
-        .backup-mobile-card {
-            border: 1px solid #e2e8f0;
-            border-radius: 14px;
-            padding: 16px;
-            margin-bottom: 12px;
-            background: #ffffff;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-            transition: transform 0.15s ease, box-shadow 0.15s ease;
-        }
-
-        [data-bs-theme="dark"] .backup-mobile-card {
-            background: #1e293b;
-            border-color: #334155;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
-        }
-
-        .backup-mobile-actions .btn {
+        .settings-nav-pills .nav-link {
             min-height: 44px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 0.82rem;
-            font-weight: 600;
-            border-radius: 8px;
+            padding: 0.6rem 1rem;
         }
 
-        .backup-action-header-btns .btn {
-            min-height: 46px;
-            border-radius: 10px;
+        /* Prevent iOS Safari auto-zoom on form inputs */
+        input.form-control,
+        select.form-select,
+        textarea.form-control {
+            font-size: 16px !important;
         }
 
-        .backup-mobile-card:active {
-            transform: scale(0.99);
+        /* Touch-friendly modal footers */
+        .modal-footer .btn {
+            min-height: 44px;
+        }
+    }
+
+    /* Ultra-compact displays (320px - 360px e.g. iPhone SE, Foldable Cover) */
+    @media (max-width: 375px) {
+        #settingsLoginPreviewWrap {
+            height: 280px !important;
+        }
+
+        #settingsLoginPreviewWrap .login-replica-card {
+            transform: scale(0.42) !important;
+        }
+
+        .settings-header-card h3 {
+            font-size: 1.35rem;
         }
     }
 </style>
@@ -319,7 +375,8 @@ include 'layout/header.php';
                     </div>
                 </div>
 
-                <div class="table-responsive border rounded shadow-sm">
+                <!-- Desktop Table View (>= 768px) -->
+                <div class="d-none d-md-block table-responsive border rounded shadow-sm">
                     <table class="table table-hover align-middle mb-0 text-nowrap" id="usersTable">
                         <thead class="table-dark">
                             <tr>
@@ -398,6 +455,87 @@ include 'layout/header.php';
                         </tbody>
                     </table>
                 </div>
+
+                <!-- Mobile Cards View (< 768px) -->
+                <div id="usersMobileCards" class="d-block d-md-none mb-3">
+                    <?php if (empty($users)): ?>
+                        <div class="text-center py-5 text-muted border rounded-3 bg-light p-3">
+                            <i class="bi bi-people fs-1 d-block mb-2 text-secondary opacity-50"></i>
+                            <h6 class="fw-bold mb-1">No users found</h6>
+                            <button class="btn btn-brand fw-bold px-3 shadow-sm mt-2 w-100" data-bs-toggle="modal" data-bs-target="#userModal" onclick="openAddUserModal()">
+                                <i class="bi bi-person-plus me-1"></i> Add New User
+                            </button>
+                        </div>
+                    <?php else: ?>
+                        <?php foreach ($users as $user):
+                            $status = strtolower($user['status'] ?? 'active');
+                            $isActive = ($status === 'active');
+                        ?>
+                            <div class="settings-mobile-card">
+                                <div class="d-flex align-items-start justify-content-between gap-2 mb-2">
+                                    <div class="d-flex align-items-center gap-2 overflow-hidden" style="max-width: 68%;">
+                                        <i class="bi bi-person-circle fs-3 flex-shrink-0 <?= $isActive ? 'text-primary' : 'text-danger' ?>"></i>
+                                        <div class="text-truncate">
+                                            <div class="fw-bold text-dark text-truncate small"><?= htmlspecialchars($user['name']) ?></div>
+                                            <div class="text-primary fw-semibold" style="font-size: 0.78rem;">
+                                                @<?= htmlspecialchars($user['username']) ?>
+                                                <span class="text-muted ms-1">#<?= str_pad($user['id'], 4, '0', STR_PAD_LEFT) ?></span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <span class="badge <?= $roleDisplay[$user['role']]['class'] ?? 'bg-secondary' ?> px-2 py-1 fw-bold flex-shrink-0" style="font-size: 0.68rem;">
+                                        <?= mb_strtoupper($roleDisplay[$user['role']]['label'] ?? 'UNKNOWN') ?>
+                                    </span>
+                                </div>
+                                <div class="d-flex align-items-center justify-content-between text-muted small mb-3 border-bottom pb-2" style="font-size: 0.78rem;">
+                                    <div>
+                                        <?php if ($isActive): ?>
+                                            <span class="badge bg-success-subtle text-success border border-success fw-bold px-2 py-1"><i class="bi bi-check-circle me-1"></i>Active</span>
+                                        <?php else: ?>
+                                            <span class="badge bg-danger-subtle text-danger border border-danger fw-bold px-2 py-1"><i class="bi bi-slash-circle me-1"></i>Inactive</span>
+                                        <?php endif; ?>
+                                    </div>
+                                    <div class="text-muted">
+                                        <i class="bi bi-calendar3 me-1"></i><?= !empty($user['created_at']) ? date('M d, Y', strtotime($user['created_at'])) : 'Account' ?>
+                                    </div>
+                                </div>
+                                <div class="row g-2 settings-mobile-actions">
+                                    <div class="col-6">
+                                        <button type="button" class="btn btn-outline-primary w-100 fw-bold"
+                                            data-bs-toggle="modal" data-bs-target="#userModal"
+                                            onclick="openEditUserModal(<?= $user['id'] ?>, '<?= htmlspecialchars(addslashes($user['name'])) ?>', '<?= htmlspecialchars(addslashes($user['username'])) ?>', '<?= htmlspecialchars($user['role']) ?>', '<?= htmlspecialchars($status) ?>')">
+                                            <i class="bi bi-pencil-square me-1"></i> Edit
+                                        </button>
+                                    </div>
+                                    <div class="col-6">
+                                        <?php if ($user['id'] !== $_SESSION['user_id']): ?>
+                                            <form method="POST" action="process/process.php" class="w-100"
+                                                onsubmit="return confirm('Are you sure you want to <?= $isActive ? 'deactivate' : 'activate' ?> <?= htmlspecialchars(addslashes($user['name'])) ?>?');">
+                                                <input type="hidden" name="action" value="toggle_user_status">
+                                                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(generate_csrf_token()) ?>">
+                                                <input type="hidden" name="user_id" value="<?= $user['id'] ?>">
+                                                <input type="hidden" name="return_tab" value="users">
+                                                <?php if ($isActive): ?>
+                                                    <button type="submit" class="btn btn-outline-warning text-dark w-100 fw-bold" title="Deactivate User">
+                                                        <i class="bi bi-person-x me-1"></i> Deactivate
+                                                    </button>
+                                                <?php else: ?>
+                                                    <button type="submit" class="btn btn-outline-success w-100 fw-bold" title="Activate User">
+                                                        <i class="bi bi-person-check me-1"></i> Activate
+                                                    </button>
+                                                <?php endif; ?>
+                                            </form>
+                                        <?php else: ?>
+                                            <button type="button" class="btn btn-light border text-muted w-100 fw-bold disabled" title="Current Active Session">
+                                                <i class="bi bi-person-check-fill text-success me-1"></i> You
+                                            </button>
+                                        <?php endif; ?>
+                                    </div>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </div>
             </div>
         </div>
 
@@ -422,7 +560,8 @@ include 'layout/header.php';
                     </div>
                 </div>
 
-                <div class="table-responsive border rounded shadow-sm">
+                <!-- Desktop Table View (>= 768px) -->
+                <div class="d-none d-md-block table-responsive border rounded shadow-sm">
                     <table class="table table-hover align-middle mb-0 text-nowrap" id="categoriesTable">
                         <thead class="table-dark">
                             <tr>
@@ -462,6 +601,50 @@ include 'layout/header.php';
                         </tbody>
                     </table>
                 </div>
+
+                <!-- Mobile Cards View (< 768px) -->
+                <div id="categoriesMobileCards" class="d-block d-md-none mb-3">
+                    <?php if (empty($categories)): ?>
+                        <div class="text-center py-5 text-muted border rounded-3 bg-light p-3">
+                            <i class="bi bi-tags fs-1 d-block mb-2 text-secondary opacity-50"></i>
+                            <h6 class="fw-bold mb-1">No categories found</h6>
+                            <button class="btn btn-brand fw-bold px-3 shadow-sm mt-2 w-100" data-bs-toggle="modal" data-bs-target="#categoryModal" onclick="openAddCategoryModal()">
+                                <i class="bi bi-plus-lg me-1"></i> Add Category
+                            </button>
+                        </div>
+                    <?php else: ?>
+                        <?php foreach ($categories as $cat): ?>
+                            <div class="settings-mobile-card">
+                                <div class="d-flex align-items-center justify-content-between gap-2 mb-3">
+                                    <div class="d-flex align-items-center gap-2 overflow-hidden">
+                                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle fw-bold px-2 py-1 font-monospace">#<?= $cat['id'] ?></span>
+                                        <span class="fw-bold text-dark fs-6 text-truncate"><?= htmlspecialchars($cat['category_name']) ?></span>
+                                    </div>
+                                    <i class="bi bi-tag-fill text-primary opacity-50 fs-5"></i>
+                                </div>
+                                <div class="row g-2 settings-mobile-actions">
+                                    <div class="col-6">
+                                        <button type="button" class="btn btn-outline-primary w-100 fw-bold"
+                                            onclick="openEditCategoryModal(<?= $cat['id'] ?>, '<?= addslashes(htmlspecialchars($cat['category_name'])) ?>')">
+                                            <i class="bi bi-pencil-square me-1"></i> Edit
+                                        </button>
+                                    </div>
+                                    <div class="col-6">
+                                        <form method="POST" action="process/process.php" class="w-100"
+                                            onsubmit="return confirm('Delete category \'<?= addslashes(htmlspecialchars($cat['category_name'])) ?>\'?');">
+                                            <input type="hidden" name="action" value="delete_category">
+                                            <input type="hidden" name="category_id" value="<?= $cat['id'] ?>">
+                                            <input type="hidden" name="return_tab" value="categories">
+                                            <button type="submit" class="btn btn-outline-danger w-100 fw-bold">
+                                                <i class="bi bi-trash3 me-1"></i> Delete
+                                            </button>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </div>
             </div>
         </div>
 
@@ -485,7 +668,8 @@ include 'layout/header.php';
                     </div>
                 </div>
 
-                <div class="table-responsive border rounded shadow-sm">
+                <!-- Desktop Table View (>= 768px) -->
+                <div class="d-none d-md-block table-responsive border rounded shadow-sm">
                     <table class="table table-hover align-middle mb-0 text-nowrap" id="unitsTable">
                         <thead class="table-dark">
                             <tr>
@@ -558,6 +742,79 @@ include 'layout/header.php';
                         </tbody>
                     </table>
                 </div>
+
+                <!-- Mobile Cards View (< 768px) -->
+                <div id="unitsMobileCards" class="d-block d-md-none mb-3">
+                    <?php if (empty($unitsList)): ?>
+                        <div class="text-center py-5 text-muted border rounded-3 bg-light p-3">
+                            <i class="bi bi-rulers fs-1 d-block mb-2 text-secondary opacity-50"></i>
+                            <h6 class="fw-bold mb-1">No measurement units found</h6>
+                            <button class="btn btn-brand fw-bold px-3 shadow-sm mt-2 w-100" data-bs-toggle="modal" data-bs-target="#unitModal" onclick="openAddUnitModal()">
+                                <i class="bi bi-plus-circle me-1"></i> Add New Unit
+                            </button>
+                        </div>
+                    <?php else: ?>
+                        <?php foreach ($unitsList as $u):
+                            $itemCount = (int) ($u['item_count'] ?? 0);
+                        ?>
+                            <div class="settings-mobile-card">
+                                <div class="d-flex align-items-start justify-content-between gap-2 mb-2">
+                                    <div class="overflow-hidden" style="max-width: 70%;">
+                                        <div class="fw-bold text-dark fs-6 text-truncate"><?= htmlspecialchars($u['unit_name']) ?></div>
+                                        <div class="text-muted small font-monospace">#<?= str_pad($u['id'], 3, '0', STR_PAD_LEFT) ?></div>
+                                    </div>
+                                    <span class="badge bg-secondary px-3 py-2 fw-bold font-monospace flex-shrink-0" style="font-size: 0.8rem;">
+                                        <?= htmlspecialchars($u['abbreviation']) ?>
+                                    </span>
+                                </div>
+                                <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap mb-3 border-top pt-2">
+                                    <div>
+                                        <span class="badge bg-warning text-dark px-2 py-1 shadow-sm" style="font-size: 0.75rem;">
+                                            <i class="bi bi-exclamation-triangle me-1"></i>Alert: ≤ <?= (int) $u['reorder_level'] ?> <?= htmlspecialchars($u['abbreviation']) ?>
+                                        </span>
+                                    </div>
+                                    <div>
+                                        <?php if ($itemCount > 0): ?>
+                                            <a href="index?search=<?= urlencode($u['unit_name']) ?>"
+                                                class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1 text-decoration-none shadow-sm"
+                                                title="View <?= $itemCount ?> item(s) in Inventory">
+                                                <i class="bi bi-boxes me-1"></i><?= $itemCount ?> item<?= $itemCount > 1 ? 's' : '' ?>
+                                            </a>
+                                        <?php else: ?>
+                                            <span class="badge bg-light text-muted border px-2 py-1" style="font-size: 0.72rem;">0 items</span>
+                                        <?php endif; ?>
+                                    </div>
+                                </div>
+                                <div class="row g-2 settings-mobile-actions">
+                                    <div class="col-6">
+                                        <button type="button" class="btn btn-outline-primary w-100 fw-bold"
+                                            onclick="openEditUnitModal(<?= $u['id'] ?>, '<?= addslashes(htmlspecialchars($u['unit_name'])) ?>', '<?= addslashes(htmlspecialchars($u['abbreviation'])) ?>', <?= (int) $u['reorder_level'] ?>)">
+                                            <i class="bi bi-pencil-square me-1"></i> Edit
+                                        </button>
+                                    </div>
+                                    <div class="col-6">
+                                        <?php if ($itemCount > 0): ?>
+                                            <button type="button" class="btn btn-outline-secondary w-100 fw-bold disabled"
+                                                title="Cannot delete: In use by <?= $itemCount ?> inventory item(s)">
+                                                <i class="bi bi-trash3 me-1"></i> In Use
+                                            </button>
+                                        <?php else: ?>
+                                            <form method="POST" action="process/process.php" class="w-100"
+                                                onsubmit="return confirm('Are you sure you want to delete unit \'<?= addslashes(htmlspecialchars($u['unit_name'])) ?>\'?');">
+                                                <input type="hidden" name="action" value="delete_unit">
+                                                <input type="hidden" name="unit_id" value="<?= $u['id'] ?>">
+                                                <input type="hidden" name="return_tab" value="units">
+                                                <button type="submit" class="btn btn-outline-danger w-100 fw-bold" title="Delete Unit">
+                                                    <i class="bi bi-trash3 me-1"></i> Delete
+                                                </button>
+                                            </form>
+                                        <?php endif; ?>
+                                    </div>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </div>
             </div>
         </div>
 
@@ -600,7 +857,8 @@ include 'layout/header.php';
                     </button>
                 </div>
 
-                <div class="table-responsive border rounded shadow-sm">
+                <!-- Desktop Table View (>= 768px) -->
+                <div class="d-none d-md-block table-responsive border rounded shadow-sm">
                     <table class="table table-hover align-middle mb-0 text-nowrap" id="projectsTable">
                         <thead class="table-dark">
                             <tr>
@@ -719,6 +977,120 @@ include 'layout/header.php';
                         </tbody>
                     </table>
                 </div>
+
+                <!-- Mobile Cards View (< 768px) -->
+                <div id="projectsMobileCards" class="d-block d-md-none mb-3">
+                    <?php if (empty($projects)): ?>
+                        <div class="text-center py-5 text-muted border rounded-3 bg-light p-3">
+                            <i class="bi bi-briefcase fs-1 d-block mb-2 text-secondary opacity-50"></i>
+                            <h6 class="fw-bold mb-1">No projects found</h6>
+                            <button class="btn btn-brand fw-bold px-3 shadow-sm mt-2 w-100" data-bs-toggle="modal" data-bs-target="#projectModal" onclick="openAddProjectModal()">
+                                <i class="bi bi-plus-lg me-1"></i> New Project
+                            </button>
+                        </div>
+                    <?php else: ?>
+                        <?php foreach ($projects as $proj):
+                            $rsCount = (int) ($proj['rs_count'] ?? 0);
+                            $wsCount = (int) ($proj['ws_count'] ?? 0);
+                            $totalUsage = $rsCount + $wsCount;
+                        ?>
+                            <div class="settings-mobile-card project-mobile-card" data-status="<?= htmlspecialchars($proj['status'] ?? 'active') ?>">
+                                <div class="d-flex align-items-start justify-content-between gap-2 mb-2">
+                                    <div class="overflow-hidden" style="max-width: 68%;">
+                                        <span class="badge bg-dark font-monospace px-2 py-1 mb-1" style="font-size: 0.7rem;">
+                                            <?= htmlspecialchars($proj['project_code'] ?? '#' . $proj['id']) ?>
+                                        </span>
+                                        <div class="fw-bold text-primary fs-6 text-truncate"><?= htmlspecialchars($proj['project_name']) ?></div>
+                                    </div>
+                                    <form method="POST" action="process/process.php" class="d-inline"
+                                        onsubmit="return confirm('Toggle status of project \'<?= addslashes(htmlspecialchars($proj['project_name'])) ?>\' to <?= $proj['status'] === 'active' ? 'Inactive' : 'Active' ?>?');">
+                                        <input type="hidden" name="action" value="toggle_project_status">
+                                        <input type="hidden" name="project_id" value="<?= $proj['id'] ?>">
+                                        <input type="hidden" name="return_tab" value="projects">
+                                        <?php if ($proj['status'] === 'active'): ?>
+                                            <button type="submit" class="btn btn-sm btn-success rounded-pill px-3 py-1 shadow-sm fw-bold" style="font-size: 0.72rem;" title="Active — Click to deactivate">
+                                                <i class="bi bi-check-circle-fill me-1"></i>Active
+                                            </button>
+                                        <?php else: ?>
+                                            <button type="submit" class="btn btn-sm btn-outline-secondary rounded-pill px-3 py-1 shadow-sm fw-bold" style="font-size: 0.72rem;" title="Inactive — Click to activate">
+                                                <i class="bi bi-pause-circle me-1"></i>Inactive
+                                            </button>
+                                        <?php endif; ?>
+                                    </form>
+                                </div>
+
+                                <?php if (!empty($proj['address'])): ?>
+                                    <div class="text-dark small fw-semibold mb-1 text-truncate">
+                                        <i class="bi bi-geo-alt me-1 text-danger"></i><?= htmlspecialchars($proj['address']) ?>
+                                    </div>
+                                <?php endif; ?>
+
+                                <?php if (!empty($proj['description'])): ?>
+                                    <div class="text-muted small mb-2 text-truncate" style="font-size: 0.78rem;">
+                                        <?= htmlspecialchars($proj['description']) ?>
+                                    </div>
+                                <?php endif; ?>
+
+                                <div class="d-flex align-items-center justify-content-between gap-2 border-top pt-2 mb-3">
+                                    <small class="text-muted fw-bold">Linked Activity:</small>
+                                    <div class="d-flex flex-wrap gap-1">
+                                        <?php if ($rsCount > 0): ?>
+                                            <a href="requisitions?search=<?= urlencode($proj['project_name']) ?>"
+                                                class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1 text-decoration-none shadow-sm"
+                                                title="View <?= $rsCount ?> Material Requisition(s)">
+                                                <i class="bi bi-file-earmark-text me-1"></i><?= $rsCount ?> RS
+                                            </a>
+                                        <?php endif; ?>
+                                        <?php if ($wsCount > 0): ?>
+                                            <a href="withdrawals?search=<?= urlencode($proj['project_name']) ?>"
+                                                class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1 text-decoration-none shadow-sm"
+                                                title="View <?= $wsCount ?> Withdrawal Slip(s)">
+                                                <i class="bi bi-box-arrow-right me-1"></i><?= $wsCount ?> WS
+                                            </a>
+                                        <?php endif; ?>
+                                        <?php if ($totalUsage === 0): ?>
+                                            <span class="badge bg-light text-muted border px-2 py-1" style="font-size: 0.72rem;">0 records</span>
+                                        <?php endif; ?>
+                                    </div>
+                                </div>
+
+                                <div class="row g-2 settings-mobile-actions">
+                                    <div class="col-4">
+                                        <button type="button" class="btn btn-outline-info w-100 fw-bold"
+                                            onclick="openProjectDetailsModal(<?= $proj['id'] ?>)"
+                                            title="View Project Details">
+                                            <i class="bi bi-eye me-1"></i> Details
+                                        </button>
+                                    </div>
+                                    <div class="col-4">
+                                        <button type="button" class="btn btn-outline-primary w-100 fw-bold"
+                                            onclick="openEditProjectModal(<?= $proj['id'] ?>, '<?= addslashes(htmlspecialchars($proj['project_code'] ?? '')) ?>', '<?= addslashes(htmlspecialchars($proj['project_name'])) ?>', '<?= addslashes(htmlspecialchars($proj['address'] ?? '')) ?>', '<?= addslashes(htmlspecialchars($proj['description'] ?? '')) ?>', '<?= $proj['status'] ?>')">
+                                            <i class="bi bi-pencil-square me-1"></i> Edit
+                                        </button>
+                                    </div>
+                                    <div class="col-4">
+                                        <?php if ($totalUsage > 0): ?>
+                                            <button type="button" class="btn btn-outline-secondary w-100 fw-bold disabled"
+                                                title="Cannot delete: Linked to <?= $rsCount ?> RS and <?= $wsCount ?> WS">
+                                                <i class="bi bi-trash3 me-1"></i> Delete
+                                            </button>
+                                        <?php else: ?>
+                                            <form method="POST" action="process/process.php" class="w-100"
+                                                onsubmit="return confirm('Are you sure you want to delete project \'<?= addslashes(htmlspecialchars($proj['project_name'])) ?>\'?');">
+                                                <input type="hidden" name="action" value="delete_project">
+                                                <input type="hidden" name="project_id" value="<?= $proj['id'] ?>">
+                                                <input type="hidden" name="return_tab" value="projects">
+                                                <button type="submit" class="btn btn-outline-danger w-100 fw-bold" title="Delete Project">
+                                                    <i class="bi bi-trash3 me-1"></i> Delete
+                                                </button>
+                                            </form>
+                                        <?php endif; ?>
+                                    </div>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </div>
             </div>
         </div>
 
@@ -773,7 +1145,7 @@ include 'layout/header.php';
                         padding-bottom: 18px;
                     ">
                         <!-- Login card — full real size, then CSS-scaled down -->
-                        <div style="
+                        <div class="login-replica-card" style="
                             transform: scale(0.52);
                             transform-origin: center center;
                             background: #ffffff;
@@ -1484,21 +1856,23 @@ include 'layout/header.php';
                 <h5 class="modal-title fw-bold" id="categoryModalTitle">Add Category</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-            <form method="POST" action="process/process.php">
-                <div class="modal-body p-4">
+            <form method="POST" action="process/process.php" id="categoryModalForm">
+                <div class="modal-body p-3 p-md-4">
                     <input type="hidden" name="action" id="categoryFormAction" value="add_category">
                     <input type="hidden" name="category_id" id="categoryId">
                     <input type="hidden" name="return_tab" value="categories">
 
                     <div class="mb-3">
-                        <label class="form-label fw-bold">Category Name <span class="text-danger">*</span></label>
+                        <label class="form-label fw-bold" for="categoryName">Category Name <span class="text-danger">*</span></label>
                         <input type="text" class="form-control form-control-lg fw-bold" name="category_name"
                             id="categoryName" placeholder="e.g. Electrical Supplies" required>
                     </div>
                 </div>
-                <div class="modal-footer bg-light">
-                    <button type="button" class="btn btn-secondary fw-bold" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-brand fw-bold px-4">Save Category</button>
+                <div class="modal-footer bg-light d-flex flex-column-reverse flex-sm-row justify-content-sm-between gap-2">
+                    <button type="button" class="btn btn-secondary fw-bold" data-bs-dismiss="modal" style="min-height: 44px;">Cancel</button>
+                    <button type="submit" class="btn btn-brand fw-bold px-4" id="categorySubmitBtn" style="min-height: 44px;">
+                        <i class="bi bi-save me-1"></i> Save Category
+                    </button>
                 </div>
             </form>
         </div>
@@ -1513,20 +1887,20 @@ include 'layout/header.php';
                 <h5 class="modal-title fw-bold" id="projectModalTitle">Add Project</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-            <form method="POST" action="process/process.php">
-                <div class="modal-body p-4">
+            <form method="POST" action="process/process.php" id="projectModalForm">
+                <div class="modal-body p-3 p-md-4">
                     <input type="hidden" name="action" id="projectFormAction" value="add_project">
                     <input type="hidden" name="project_id" id="projectId">
                     <input type="hidden" name="return_tab" value="projects">
 
                     <div class="mb-3">
-                        <label class="form-label fw-bold">Project ID <small class="text-muted fw-normal">(Optional -
+                        <label class="form-label fw-bold" for="projectCode">Project ID <small class="text-muted fw-normal">(Optional -
                                 leave blank to auto-generate)</small></label>
                         <div class="input-group">
                             <input type="text" class="form-control form-control-lg fw-bold" name="project_code"
                                 id="projectCode" placeholder="e.g. 20JE0010 or PRJ-2026-001">
-                            <button type="button" class="btn btn-outline-primary fw-bold px-3"
-                                onclick="generateAutoProjectCode()" title="Auto-Generate Project ID">
+                            <button type="button" class="btn btn-outline-primary fw-bold px-3 d-flex align-items-center"
+                                onclick="generateAutoProjectCode()" title="Auto-Generate Project ID" style="min-height: 44px;">
                                 <i class="bi bi-magic me-1"></i>Auto
                             </button>
                         </div>
@@ -1535,34 +1909,36 @@ include 'layout/header.php';
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label fw-bold">Project Name <span class="text-danger">*</span></label>
+                        <label class="form-label fw-bold" for="projectName">Project Name <span class="text-danger">*</span></label>
                         <input type="text" class="form-control form-control-lg fw-bold" name="project_name"
                             id="projectName" placeholder="e.g. Phase 1 Building" required>
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label fw-bold">Location / Address</label>
+                        <label class="form-label fw-bold" for="projectAddress">Location / Address</label>
                         <input type="text" class="form-control" name="address" id="projectAddress"
                             placeholder="e.g. Brgy. San Jose, Malaybalay City, Bukidnon">
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label fw-bold">Description</label>
+                        <label class="form-label fw-bold" for="projectDesc">Description</label>
                         <textarea class="form-control" name="description" id="projectDesc" rows="3"
                             placeholder="Additional details..."></textarea>
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label fw-bold">Status</label>
+                        <label class="form-label fw-bold" for="projectStatus">Status</label>
                         <select class="form-select" name="status" id="projectStatus" required>
                             <option value="active">Active</option>
                             <option value="inactive">Inactive</option>
                         </select>
                     </div>
                 </div>
-                <div class="modal-footer bg-light">
-                    <button type="button" class="btn btn-secondary fw-bold" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-brand fw-bold px-4">Save Project</button>
+                <div class="modal-footer bg-light d-flex flex-column-reverse flex-sm-row justify-content-sm-between gap-2">
+                    <button type="button" class="btn btn-secondary fw-bold" data-bs-dismiss="modal" style="min-height: 44px;">Cancel</button>
+                    <button type="submit" class="btn btn-brand fw-bold px-4" id="projectSubmitBtn" style="min-height: 44px;">
+                        <i class="bi bi-save me-1"></i> Save Project
+                    </button>
                 </div>
             </form>
         </div>
@@ -1819,12 +2195,11 @@ include 'layout/header.php';
                         style="min-height: 50px;">No remarks provided.</p>
                 </div>
             </div>
-            <div class="modal-footer d-flex justify-content-between bg-white border-top-0">
-                <a href="#" id="projRsDocFullPageLink" target="_blank" class="btn btn-outline-primary fw-bold">
+            <div class="modal-footer d-flex flex-column-reverse flex-sm-row justify-content-sm-between gap-2 bg-white border-top-0">
+                <button type="button" class="btn btn-secondary fw-bold px-4" data-bs-dismiss="modal" style="min-height: 44px;">Back to Project</button>
+                <a href="#" id="projRsDocFullPageLink" target="_blank" class="btn btn-outline-primary fw-bold d-inline-flex align-items-center justify-content-center" style="min-height: 44px;">
                     <i class="bi bi-box-arrow-up-right me-1"></i> Open in Requisitions Tab
                 </a>
-                <button type="button" class="btn btn-secondary fw-bold px-4" data-bs-dismiss="modal">Back to
-                    Project</button>
             </div>
         </div>
     </div>
@@ -1870,7 +2245,7 @@ include 'layout/header.php';
                 <!-- Proof & Signature Section -->
                 <div class="card border-0 shadow-sm mb-3 bg-white" id="projWdDocProofCard">
                     <div class="card-header bg-light fw-bold text-muted small text-uppercase">Verification & Release
-                        Proof</div>
+                    Proof</div>
                     <div class="card-body p-3">
                         <div class="row g-3">
                             <div class="col-md-6" id="projWdDocSigWrapper">
@@ -1899,12 +2274,11 @@ include 'layout/header.php';
                         remarks.</p>
                 </div>
             </div>
-            <div class="modal-footer d-flex justify-content-between bg-white border-top-0">
-                <a href="#" id="projWdDocFullPageLink" target="_blank" class="btn btn-outline-success fw-bold">
+            <div class="modal-footer d-flex flex-column-reverse flex-sm-row justify-content-sm-between gap-2 bg-white border-top-0">
+                <button type="button" class="btn btn-secondary fw-bold px-4" data-bs-dismiss="modal" style="min-height: 44px;">Back to Project</button>
+                <a href="#" id="projWdDocFullPageLink" target="_blank" class="btn btn-outline-success fw-bold d-inline-flex align-items-center justify-content-center" style="min-height: 44px;">
                     <i class="bi bi-box-arrow-up-right me-1"></i> Open in Withdrawals Tab
                 </a>
-                <button type="button" class="btn btn-secondary fw-bold px-4" data-bs-dismiss="modal">Back to
-                    Project</button>
             </div>
         </div>
     </div>
@@ -1940,6 +2314,79 @@ include 'layout/header.php';
         document.getElementById('categoryName').value = name;
         new bootstrap.Modal(document.getElementById('categoryModal')).show();
     };
+
+    // Category & Project Modal Lifecycles (CIMS Modal AJAX Handler Standards)
+    document.addEventListener('DOMContentLoaded', () => {
+        // Category Modal
+        const catModalEl = document.getElementById('categoryModal');
+        const catForm = document.getElementById('categoryModalForm');
+        if (catModalEl) {
+            catModalEl.addEventListener('shown.bs.modal', () => {
+                const nameInput = document.getElementById('categoryName');
+                if (nameInput) nameInput.focus();
+            });
+            catModalEl.addEventListener('hidden.bs.modal', () => {
+                if (catForm) {
+                    catForm.reset();
+                    catForm.classList.remove('was-validated');
+                }
+                const btn = document.getElementById('categorySubmitBtn');
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="bi bi-save me-1"></i> Save Category';
+                }
+            });
+        }
+        if (catForm) {
+            catForm.addEventListener('submit', (e) => {
+                if (!catForm.checkValidity()) {
+                    catForm.reportValidity();
+                    e.preventDefault();
+                    return;
+                }
+                const btn = document.getElementById('categorySubmitBtn');
+                if (btn) {
+                    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Saving...';
+                    setTimeout(() => { btn.disabled = true; }, 0);
+                }
+            });
+        }
+
+        // Project Modal
+        const projModalEl = document.getElementById('projectModal');
+        const projForm = document.getElementById('projectModalForm');
+        if (projModalEl) {
+            projModalEl.addEventListener('shown.bs.modal', () => {
+                const nameInput = document.getElementById('projectName');
+                if (nameInput) nameInput.focus();
+            });
+            projModalEl.addEventListener('hidden.bs.modal', () => {
+                if (projForm) {
+                    projForm.reset();
+                    projForm.classList.remove('was-validated');
+                }
+                const btn = document.getElementById('projectSubmitBtn');
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="bi bi-save me-1"></i> Save Project';
+                }
+            });
+        }
+        if (projForm) {
+            projForm.addEventListener('submit', (e) => {
+                if (!projForm.checkValidity()) {
+                    projForm.reportValidity();
+                    e.preventDefault();
+                    return;
+                }
+                const btn = document.getElementById('projectSubmitBtn');
+                if (btn) {
+                    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Saving...';
+                    setTimeout(() => { btn.disabled = true; }, 0);
+                }
+            });
+        }
+    });
 
     // General Settings: Real-time Live Preview & Blur Slider
     (function () {
