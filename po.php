@@ -97,6 +97,7 @@ include 'layout/header.php';
             box-shadow: none !important;
             background: transparent !important;
         }
+    }
 
     /* ==========================================
        Virtual Purchase Order Document (PC & Mobile Adaptive)
@@ -327,69 +328,6 @@ include 'layout/header.php';
         padding: 10px 14px;
         box-shadow: 0 1px 2px rgba(0,0,0,0.03);
     }
-
-        #poTable {
-            display: block;
-            width: 100%;
-            background: transparent !important;
-        }
-
-        #poTable thead {
-            display: none;
-        }
-
-        #poTable tbody {
-            display: block;
-            width: 100%;
-        }
-
-        #poTable tbody tr {
-            display: flex;
-            flex-direction: column;
-            border: 1px solid #e0e4e8;
-            border-radius: 12px;
-            margin-bottom: 1rem;
-            background: #fff;
-            padding: 12px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.02);
-        }
-
-        #poTable tbody td {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            text-align: right;
-            padding: 10px 4px;
-            border: none;
-            border-bottom: 1px dashed #e9ecef;
-            white-space: normal !important;
-            word-break: break-word;
-        }
-
-        /* Center the Actions button at the bottom of the card */
-        #poTable tbody td:last-child {
-            border-bottom: none;
-            justify-content: center !important;
-            gap: 8px;
-            padding-top: 16px;
-            margin-top: 4px;
-            flex-wrap: wrap;
-        }
-
-        #poTable tbody td::before {
-            content: attr(data-label);
-            font-weight: 700;
-            font-size: 0.75rem;
-            color: #6c757d;
-            text-transform: uppercase;
-            text-align: left;
-            padding-right: 15px;
-            flex-shrink: 0;
-        }
-
-        #poTable tbody td:last-child::before {
-            display: none;
-        }
 
         /* Receive Modal Table Mobile Stack */
         #receiveItemsTable {
@@ -703,7 +641,7 @@ include 'layout/header.php';
             </div>
         </div>
 
-        <div class="table-responsive border rounded shadow-sm bg-white po-main-table-wrap">
+        <div class="d-none d-md-block table-responsive border rounded shadow-sm bg-white po-main-table-wrap">
             <table class="table table-hover align-middle mb-0 text-nowrap" id="poTable">
                 <thead class="table-dark">
                     <tr>
@@ -1070,6 +1008,283 @@ include 'layout/header.php';
                     <?php endif; ?>
                 </tbody>
             </table>
+        </div>
+
+        <!-- Mobile Cards View (< 768px) -->
+        <div id="poMobileCards" class="d-block d-md-none mb-3">
+            <?php if (count($pos) > 0): ?>
+                <?php foreach ($pos as $po): ?>
+                    <?php
+                    $displayStatus = $po['status'] ?? 'Generated';
+                    if ($displayStatus === 'SMS Sent') {
+                        $displayStatus = 'Viber Order Sent';
+                    }
+                    if ($displayStatus === 'Partially Received') {
+                        $displayStatus = 'Partially Delivered';
+                    }
+                    $statusClass = 'bg-secondary';
+                    if ($displayStatus === 'Generated')
+                        $statusClass = 'bg-info text-dark';
+                    if ($displayStatus === 'Viber Order Sent')
+                        $statusClass = 'bg-viber text-white';
+                    if ($displayStatus === 'Out for Delivery')
+                        $statusClass = 'bg-primary text-white shadow-sm';
+                    if ($displayStatus === 'Pending Delivery')
+                        $statusClass = 'bg-warning text-dark';
+                    if (strpos($displayStatus, 'Delayed') !== false)
+                        $statusClass = 'bg-danger';
+                    if ($displayStatus === 'Partially Delivered' || $displayStatus === 'Partially Received')
+                        $statusClass = 'bg-warning text-dark border border-warning shadow-sm';
+                    if ($displayStatus === 'Delivered')
+                        $statusClass = 'bg-success';
+                    if ($displayStatus === 'Delivered (Discrepancy)')
+                        $statusClass = 'bg-warning text-dark';
+                    if ($displayStatus === 'Cancelled')
+                        $statusClass = 'bg-dark text-white border border-secondary shadow-sm';
+
+                    // Compute ETA Badges & Urgency Filter Attribute
+                    $etaBadge = '<span class="text-muted small">Not Set</span>';
+                    $etaDateStr = $po['expected_delivery_date'] ?? null;
+                    $etaUrgencyVal = 'unset';
+
+                    if (in_array($po['status'], ['Delivered', 'Delivered (Discrepancy)'])) {
+                        $etaUrgencyVal = 'delivered';
+                    } elseif ($po['status'] === 'Cancelled') {
+                        $etaUrgencyVal = 'cancelled';
+                    }
+
+                    if ($po['status'] === 'Cancelled') {
+                        $etaBadge = '<span class="badge bg-secondary text-white-50 shadow-sm"><i class="bi bi-slash-circle me-1"></i>Voided</span>';
+                    } elseif ($etaDateStr) {
+                        $formattedEta = date('M d, Y', strtotime($etaDateStr));
+                        if (in_array($po['status'], ['Delivered', 'Delivered (Discrepancy)'])) {
+                            $etaBadge = '<span class="badge bg-light text-muted border shadow-sm"><i class="bi bi-check2-circle me-1 text-success"></i>' . $formattedEta . '</span>';
+                        } else {
+                            $todayTs = strtotime(date('Y-m-d'));
+                            $etaTs = strtotime($etaDateStr);
+                            $daysDiff = (int) (($etaTs - $todayTs) / 86400);
+
+                            if ($daysDiff == 0) {
+                                $etaBadge = '<span class="badge bg-warning text-dark shadow-sm"><i class="bi bi-truck-flatbed me-1"></i>Today</span>';
+                                $etaUrgencyVal = 'today';
+                            } elseif ($daysDiff < 0) {
+                                $overdueDays = abs($daysDiff);
+                                $etaBadge = '<span class="badge bg-danger shadow-sm"><i class="bi bi-exclamation-triangle-fill me-1"></i>Overdue (' . $overdueDays . 'd)</span>';
+                                $etaUrgencyVal = 'overdue';
+                            } else {
+                                $etaBadge = '<span class="badge bg-success shadow-sm"><i class="bi bi-calendar-check me-1"></i>In ' . $daysDiff . 'd</span>';
+                                $etaUrgencyVal = 'upcoming';
+                            }
+                        }
+                    }
+
+                    $receiptFile = !empty($po['proof_of_receipt']) ? basename($po['proof_of_receipt']) : '';
+                    $secureReceiptUrl = $receiptFile ? ('secure-image?type=receipts&file=' . urlencode($receiptFile)) : '';
+                    $canManageLogistics = in_array($role, ['admin', 'purchasing']) && !in_array($po['status'], ['Delivered', 'Delivered (Discrepancy)', 'Cancelled']);
+                    $canReceive = in_array($role, ['admin', 'warehouse', 'purchasing']) && !in_array($po['status'], ['Delivered', 'Delivered (Discrepancy)', 'Cancelled']);
+
+                    $terms = $po['payment_terms'] ?? 'Credit (30 Days Net)';
+                    $isCredit = stripos($terms, 'Credit') !== false || stripos($terms, 'Account') !== false;
+                    $termBadgeClass = $isCredit ? 'bg-primary-subtle text-primary border-primary-subtle' : 'bg-success-subtle text-success border-success-subtle';
+                    $termIcon = $isCredit ? 'bi-credit-card' : 'bi-cash-stack';
+                    ?>
+                    <div class="cims-mobile-card po-card"
+                        data-prepared-by="<?= htmlspecialchars($po['prepared_by'] ?? '') ?>"
+                        data-supplier-id="<?= htmlspecialchars($po['supplier_id'] ?? '') ?>"
+                        data-created-date="<?= !empty($po['created_at']) ? date('Y-m-d', strtotime($po['created_at'])) : '' ?>"
+                        data-status="<?= htmlspecialchars($po['status'] ?? 'Generated') ?>"
+                        data-project="<?= htmlspecialchars($po['project_name'] ?? 'Warehouse Restock') ?>"
+                        data-eta-urgency="<?= $etaUrgencyVal ?>">
+                        
+                        <!-- Top Row: Icon + PO Number & Supplier + Status Pill -->
+                        <div class="d-flex align-items-start justify-content-between gap-2 mb-2">
+                            <div class="d-flex align-items-center gap-2 overflow-hidden" style="max-width: 68%;">
+                                <div class="rounded-circle bg-primary-subtle p-2 d-flex align-items-center justify-content-center flex-shrink-0" style="width: 40px; height: 40px;">
+                                    <i class="bi bi-file-earmark-text text-primary fs-5"></i>
+                                </div>
+                                <div class="text-truncate">
+                                    <a href="javascript:void(0)" class="fw-bold text-dark text-decoration-none po-no text-truncate d-inline-flex align-items-center gap-1"
+                                        title="Click to view details for <?= htmlspecialchars($po['po_no']) ?>"
+                                        onclick="openPoPrintModal(<?= $po['id'] ?>)">
+                                        <span class="fs-6"><?= htmlspecialchars($po['po_no']) ?></span>
+                                        <i class="bi bi-box-arrow-up-right text-muted" style="font-size: 0.70rem;"></i>
+                                    </a>
+                                    <div class="text-primary fw-semibold text-truncate po-supplier" style="font-size: 0.78rem;">
+                                        <i class="bi bi-building me-1 text-muted"></i><?= htmlspecialchars($po['company_name']) ?>
+                                    </div>
+                                    <div class="mt-0.5">
+                                        <span class="badge <?= $termBadgeClass ?> border px-2 py-0.5 fw-semibold" style="font-size: 0.65rem;">
+                                            <i class="bi <?= $termIcon ?> me-1"></i><?= htmlspecialchars($terms) ?>
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="text-end flex-shrink-0">
+                                <span class="badge <?= $statusClass ?> px-2 py-1.5 shadow-sm text-uppercase fw-bold" style="font-size: 0.68rem;" id="mobile_status_<?= $po['id'] ?>">
+                                    <?php if ($displayStatus === 'Out for Delivery'): ?>
+                                        <i class="bi bi-truck me-1"></i>
+                                    <?php endif; ?>
+                                    <?= htmlspecialchars($displayStatus) ?>
+                                </span>
+                                <?php if ($po['status'] === 'Delayed (Weather)'): ?>
+                                    <small class="d-block text-danger mt-1 fw-bold text-end" style="font-size: 0.70rem;">
+                                        <i class="bi bi-exclamation-triangle-fill me-1"></i>Delayed
+                                    </small>
+                                <?php elseif ($po['status'] === 'Cancelled'): ?>
+                                    <small class="d-block text-muted mt-1 fw-bold text-end" style="font-size: 0.70rem;">
+                                        <i class="bi bi-slash-circle me-1 text-danger"></i>Voided
+                                    </small>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+
+                        <!-- Middle Metadata Row: Linked RS/Project (Left) + ETA/Date (Right) -->
+                        <div class="d-flex align-items-center justify-content-between text-muted small mb-3 border-top border-bottom py-2" style="font-size: 0.78rem;">
+                            <div class="overflow-hidden me-2">
+                                <span class="badge bg-light text-dark border me-1 shadow-sm"><?= htmlspecialchars($po['rs_no']) ?></span>
+                                <span class="fw-bold text-secondary text-truncate d-inline-block align-middle" style="max-width: 140px;" title="<?= htmlspecialchars($po['project_name']) ?>">
+                                    <?= htmlspecialchars($po['project_name']) ?>
+                                </span>
+                            </div>
+                            <div class="text-end flex-shrink-0">
+                                <div><?= $etaBadge ?></div>
+                                <div class="text-muted mt-1" style="font-size: 0.70rem;">
+                                    <i class="bi bi-calendar3 me-1"></i><?= !empty($po['created_at']) ? date('M d, Y', strtotime($po['created_at'])) : 'N/A' ?>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Bottom Action Row: >= 44px Touch Targets -->
+                        <div class="row g-2 cims-mobile-actions">
+                            <div class="col-4">
+                                <button type="button" class="btn btn-outline-primary w-100 fw-bold"
+                                    title="View Details" onclick="openPoPrintModal(<?= $po['id'] ?>)">
+                                    <i class="bi bi-eye me-1"></i> View
+                                </button>
+                            </div>
+                            <div class="col-6">
+                                <?php if ($canReceive && in_array($po['status'], ['Generated', 'Viber Order Sent'])): ?>
+                                    <button type="button" class="btn btn-primary w-100 fw-bold shadow-sm"
+                                        title="Mark as Out for Delivery"
+                                        onclick="markPoOutForDelivery(<?= $po['id'] ?>, '<?= htmlspecialchars($po['po_no'], ENT_QUOTES) ?>')">
+                                        <i class="bi bi-truck me-1"></i> In Transit
+                                    </button>
+                                <?php elseif ($canReceive && in_array($po['status'], ['Out for Delivery', 'Pending Delivery'])): ?>
+                                    <button type="button" class="btn btn-success w-100 fw-bold shadow-sm"
+                                        title="Receive Order"
+                                        onclick="openReceiveModal(<?= $po['id'] ?>, '<?= $po['po_no'] ?>')">
+                                        <i class="bi bi-box-arrow-in-down me-1"></i> Receive
+                                    </button>
+                                <?php elseif (in_array($role, ['admin', 'management', 'purchasing', 'warehouse']) && in_array($po['status'], ['Delivered (Discrepancy)', 'Partially Delivered', 'Partially Received'])):
+                                    $isPartial = in_array($po['status'], ['Partially Delivered', 'Partially Received']);
+                                    $btnClass = $isPartial ? 'btn-outline-warning text-dark' : 'btn-danger';
+                                    $btnIcon = $isPartial ? 'bi-clock-history' : 'bi-search';
+                                    $btnText = $isPartial ? 'Deliv. Log' : 'Issue Log';
+                                    ?>
+                                    <button type="button" class="btn <?= $btnClass ?> w-100 fw-bold shadow-sm"
+                                        data-pono="<?= htmlspecialchars($po['po_no']) ?>"
+                                        data-poid="<?= (int)$po['id'] ?>"
+                                        data-status="<?= htmlspecialchars($po['status']) ?>"
+                                        data-remarks="<?= htmlspecialchars($po['delay_remarks'] ?? 'No delivery remarks logged yet.') ?>"
+                                        data-proof="<?= htmlspecialchars($secureReceiptUrl) ?>" 
+                                        onclick="viewDiscrepancy(this)">
+                                        <i class="bi <?= $btnIcon ?> me-1"></i> <?= $btnText ?>
+                                    </button>
+                                <?php elseif ($po['status'] === 'Cancelled'): ?>
+                                    <button type="button" class="btn btn-outline-dark w-100 fw-bold shadow-sm"
+                                        data-pono="<?= htmlspecialchars($po['po_no']) ?>"
+                                        data-poid="<?= (int)$po['id'] ?>"
+                                        data-status="<?= htmlspecialchars($po['status']) ?>"
+                                        data-remarks="<?= htmlspecialchars($po['delay_remarks'] ?? 'No cancellation remarks recorded.') ?>"
+                                        data-proof="" 
+                                        onclick="viewDiscrepancy(this)">
+                                        <i class="bi bi-file-earmark-medical me-1"></i> Audit Log
+                                    </button>
+                                <?php else: ?>
+                                    <button type="button" class="btn btn-outline-secondary w-100 fw-bold shadow-sm"
+                                        onclick="directPrintPo(<?= $po['id'] ?>)">
+                                        <i class="bi bi-printer me-1"></i> Print
+                                    </button>
+                                <?php endif; ?>
+                            </div>
+                            <div class="col-2">
+                                <div class="dropdown w-100">
+                                    <button type="button" class="btn btn-outline-secondary w-100 fw-bold px-0"
+                                        data-bs-toggle="dropdown" aria-expanded="false" title="More Actions">
+                                        <i class="bi bi-three-dots-vertical"></i>
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-end shadow border-0 py-2" style="font-size: 0.85rem; min-width: 215px;">
+                                        <li class="dropdown-header text-uppercase text-muted fw-bold py-1 px-3" style="font-size: 0.68rem; letter-spacing: 0.5px;">
+                                            <i class="bi bi-gear me-1"></i> Order Options
+                                        </li>
+                                        <li>
+                                            <button type="button" class="dropdown-item py-2 px-3 d-flex align-items-center gap-2"
+                                                onclick="openPoPrintModal(<?= $po['id'] ?>)">
+                                                <i class="bi bi-eye text-primary fs-6" style="width: 18px;"></i>
+                                                <span>View PO Details</span>
+                                            </button>
+                                        </li>
+                                        <li>
+                                            <button type="button" class="dropdown-item py-2 px-3 d-flex align-items-center gap-2"
+                                                onclick="directPrintPo(<?= $po['id'] ?>)">
+                                                <i class="bi bi-printer text-secondary fs-6" style="width: 18px;"></i>
+                                                <span>Print PO Manifest</span>
+                                            </button>
+                                        </li>
+                                        <?php if ($canReceive): ?>
+                                            <li><hr class="dropdown-divider my-1"></li>
+                                            <li>
+                                                <button type="button" class="dropdown-item py-2 px-3 d-flex align-items-center gap-2"
+                                                    onclick="openReceiveModal(<?= $po['id'] ?>, '<?= $po['po_no'] ?>')">
+                                                    <i class="bi bi-box-arrow-in-down text-success fs-6" style="width: 18px;"></i>
+                                                    <span>Receive Materials</span>
+                                                </button>
+                                            </li>
+                                        <?php endif; ?>
+                                        <?php if ($canManageLogistics): ?>
+                                            <li><hr class="dropdown-divider my-1"></li>
+                                            <li>
+                                                <button type="button" class="dropdown-item py-2 px-3 d-flex align-items-center gap-2"
+                                                    onclick="openEditEtaModal(<?= $po['id'] ?>, '<?= $po['po_no'] ?>', '<?= $po['expected_delivery_date'] ?? '' ?>')">
+                                                    <i class="bi bi-calendar-event text-info fs-6" style="width: 18px;"></i>
+                                                    <span>Update ETA</span>
+                                                </button>
+                                            </li>
+                                            <li>
+                                                <button type="button" class="dropdown-item py-2 px-3 d-flex align-items-center gap-2"
+                                                    onclick="openDelayModal(<?= $po['id'] ?>, '<?= $po['po_no'] ?>')">
+                                                    <i class="bi bi-exclamation-triangle text-warning fs-6" style="width: 18px;"></i>
+                                                    <span>Log Delay / Issue</span>
+                                                </button>
+                                            </li>
+                                            <li>
+                                                <button type="button" class="dropdown-item py-2 px-3 d-flex align-items-center gap-2 text-danger"
+                                                    onclick="openCancelPoModal(<?= $po['id'] ?>, '<?= $po['po_no'] ?>')">
+                                                    <i class="bi bi-x-circle text-danger fs-6" style="width: 18px;"></i>
+                                                    <span>Cancel Purchase Order</span>
+                                                </button>
+                                            </li>
+                                        <?php endif; ?>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+                <div id="noResultsPoMobile" class="text-center py-5 text-muted border rounded-3 bg-light p-3" style="display: none;">
+                    <i class="bi bi-search fs-1 d-block mb-2 text-secondary opacity-50"></i>
+                    <h6 class="fw-bold mb-1">No Purchase Orders match your filter criteria</h6>
+                    <button type="button" class="btn btn-outline-primary btn-sm fw-bold px-3 mt-2" onclick="window.resetAllPoFilters()">
+                        <i class="bi bi-arrow-counterclockwise me-1"></i> Reset Filters
+                    </button>
+                </div>
+            <?php else: ?>
+                <div class="text-center py-5 text-muted border rounded-3 bg-light p-3">
+                    <i class="bi bi-folder-x fs-1 d-block mb-2 text-secondary opacity-50"></i>
+                    <h6 class="fw-bold mb-1">No Purchase Orders found</h6>
+                    <p class="small text-muted mb-0">No purchase order records are currently logged in the system.</p>
+                </div>
+            <?php endif; ?>
         </div>
     </div>
 </div>
@@ -2693,17 +2908,19 @@ include 'layout/header.php';
         const dateVal = dateInput ? dateInput.value : '';
 
         let visibleCount = 0;
+        let mobileVisibleCount = 0;
         const currentUserId = '<?= (string) $_SESSION['user_id'] ?>';
 
-        document.querySelectorAll('.po-row').forEach(row => {
-            const no = (row.querySelector('.po-no')?.textContent || '').toLowerCase();
-            const sup = (row.querySelector('.po-supplier')?.textContent || '').toLowerCase();
-            const rowCreator = row.getAttribute('data-prepared-by') || '';
-            const rowSupplier = row.getAttribute('data-supplier-id') || '';
-            const rowDate = row.getAttribute('data-created-date') || '';
-            const rowStatus = row.getAttribute('data-status') || '';
-            const rowProject = row.getAttribute('data-project') || '';
-            const rowUrgency = row.getAttribute('data-eta-urgency') || '';
+        // Check helper function for each row/card element
+        const checkItemMatches = (el) => {
+            const no = (el.querySelector('.po-no')?.textContent || '').toLowerCase();
+            const sup = (el.querySelector('.po-supplier')?.textContent || '').toLowerCase();
+            const rowCreator = el.getAttribute('data-prepared-by') || '';
+            const rowSupplier = el.getAttribute('data-supplier-id') || '';
+            const rowDate = el.getAttribute('data-created-date') || '';
+            const rowStatus = el.getAttribute('data-status') || '';
+            const rowProject = el.getAttribute('data-project') || '';
+            const rowUrgency = el.getAttribute('data-eta-urgency') || '';
 
             const matchesSearch = !searchTerm || no.includes(searchTerm) || sup.includes(searchTerm);
 
@@ -2737,11 +2954,26 @@ include 'layout/header.php';
             const matchesUrgency = (urgencyVal === 'all') || (rowUrgency === urgencyVal);
             const matchesDate = !dateVal || (rowDate === dateVal);
 
-            if (matchesSearch && matchesTileStatus && matchesCreator && matchesSupplier && matchesProject && matchesStatus && matchesUrgency && matchesDate) {
+            return matchesSearch && matchesTileStatus && matchesCreator && matchesSupplier && matchesProject && matchesStatus && matchesUrgency && matchesDate;
+        };
+
+        // Filter Desktop Table Rows
+        document.querySelectorAll('.po-row').forEach(row => {
+            if (checkItemMatches(row)) {
                 row.style.display = '';
                 visibleCount++;
             } else {
                 row.style.display = 'none';
+            }
+        });
+
+        // Filter Mobile Cards
+        document.querySelectorAll('#poMobileCards .po-card').forEach(card => {
+            if (checkItemMatches(card)) {
+                card.style.display = '';
+                mobileVisibleCount++;
+            } else {
+                card.style.display = 'none';
             }
         });
 
@@ -2768,6 +3000,11 @@ include 'layout/header.php';
         const noResultsRow = document.getElementById('noResultsPoRow');
         if (noResultsRow) {
             noResultsRow.style.display = (visibleCount === 0) ? '' : 'none';
+        }
+
+        const noResultsMobile = document.getElementById('noResultsPoMobile');
+        if (noResultsMobile) {
+            noResultsMobile.style.display = (mobileVisibleCount === 0) ? '' : 'none';
         }
     };
 
