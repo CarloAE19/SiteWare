@@ -104,55 +104,138 @@ include 'layout/header.php';
                 </div>
             </div>
 
-            <div class="table-responsive bg-white border rounded shadow-sm">
-                <table class="table table-hover align-middle mb-0 text-nowrap" id="historyTable">
-                    <thead class="table-dark">
-                        <tr>
-                            <th class="py-3 px-3">Audit Month</th>
-                            <th class="py-3">Conducted By</th>
-                            <th class="py-3">Date Completed</th>
-                            <th class="py-3">Discrepancies</th>
-                            <th class="text-center py-3">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php if(count($audits) > 0): ?>
-                            <?php foreach ($audits as $audit): ?>
-                                <tr>
-                                    <td class="fw-bold text-primary px-3" data-label="Audit Month"><?= htmlspecialchars($audit['audit_month']) ?></td>
-                                    
-                                    <td data-label="Conducted By">
-                                        <span class="d-inline-flex align-items-center text-dark fw-bold">
-                                            <i class="bi bi-person-badge me-2 text-muted"></i><?= htmlspecialchars($audit['auditor_name'] ?? 'Staff') ?>
-                                        </span>
-                                    </td>
-                                    
-                                    <td class="text-muted fw-bold small" data-label="Date Completed"><?= date('M d, Y h:i A', strtotime($audit['created_at'])) ?></td>
-                                    <td data-label="Discrepancies">
-                                        <?php if((int)$audit['total_discrepancy_items'] > 0): ?>
-                                            <span class="badge bg-danger shadow-sm px-3 py-2 text-uppercase"><i class="bi bi-exclamation-triangle-fill me-1"></i><?= $audit['total_discrepancy_items'] ?> Items Adjusted</span>
-                                        <?php else: ?>
-                                            <span class="badge bg-success shadow-sm px-3 py-2 text-uppercase"><i class="bi bi-check-circle-fill me-1"></i>Match</span>
-                                        <?php endif; ?>
-                                    </td>
-                                    <td class="text-center" data-label="Actions">
-                                        <?php $itemsJson = htmlspecialchars(json_encode($groupedAuditItems[$audit['id']] ?? []), ENT_QUOTES, 'UTF-8'); ?>
-                                        <button type="button" class="btn btn-sm btn-outline-secondary fw-bold shadow-sm btn-view-audit" 
-                                                data-month="<?= htmlspecialchars($audit['audit_month'], ENT_QUOTES, 'UTF-8') ?>"
-                                                data-remarks="<?= htmlspecialchars($audit['remarks'] ?? '', ENT_QUOTES, 'UTF-8') ?>"
-                                                data-items="<?= $itemsJson ?>"
-                                                onclick="viewAuditDetailsFromBtn(this)">
-                                            <i class="bi bi-eye me-1"></i> View Trail
-                                        </button>
-                                    </td>
-                                </tr>
-                            <?php endforeach; ?>
-                        <?php else: ?>
-                            <tr><td colspan="5" class="text-center py-5 text-muted"><i class="bi bi-folder-x fs-1 d-block mb-2"></i>No audit history found.</td></tr>
-                        <?php endif; ?>
-                    </tbody>
-                </table>
+            <!-- DESKTOP AUDIT TABLE -->
+            <div class="d-none d-md-block">
+                <div class="table-responsive bg-white border rounded shadow-sm">
+                    <table class="table table-hover align-middle mb-0 text-nowrap" id="historyTable">
+                        <thead class="table-dark">
+                            <tr>
+                                <th class="py-3 px-3">Audit Month</th>
+                                <th class="py-3">Conducted By</th>
+                                <th class="py-3">Date Completed</th>
+                                <th class="py-3">Discrepancies</th>
+                                <th class="text-center py-3">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php if(count($audits) > 0): ?>
+                                <?php foreach ($audits as $audit): ?>
+                                    <tr>
+                                        <td class="fw-bold text-primary px-3" data-label="Audit Month"><?= htmlspecialchars($audit['audit_month']) ?></td>
+                                        
+                                        <td data-label="Conducted By">
+                                            <span class="d-inline-flex align-items-center text-dark fw-bold">
+                                                <i class="bi bi-person-badge me-2 text-muted"></i><?= htmlspecialchars($audit['auditor_name'] ?? 'Staff') ?>
+                                            </span>
+                                        </td>
+                                        
+                                        <td class="text-muted fw-bold small" data-label="Date Completed"><?= date('M d, Y h:i A', strtotime($audit['created_at'])) ?></td>
+                                        <td data-label="Discrepancies">
+                                            <?php if((int)$audit['total_discrepancy_items'] > 0): ?>
+                                                <span class="badge bg-danger shadow-sm px-3 py-2 text-uppercase"><i class="bi bi-exclamation-triangle-fill me-1"></i><?= $audit['total_discrepancy_items'] ?> Items Adjusted</span>
+                                            <?php else: ?>
+                                                <span class="badge bg-success shadow-sm px-3 py-2 text-uppercase"><i class="bi bi-check-circle-fill me-1"></i>Match</span>
+                                            <?php endif; ?>
+                                        </td>
+                                        <td class="text-center" data-label="Actions">
+                                            <?php $itemsJson = htmlspecialchars(json_encode($groupedAuditItems[$audit['id']] ?? []), ENT_QUOTES, 'UTF-8'); ?>
+                                            <button type="button" class="btn btn-sm btn-outline-secondary fw-bold shadow-sm btn-view-audit" 
+                                                    data-month="<?= htmlspecialchars($audit['audit_month'], ENT_QUOTES, 'UTF-8') ?>"
+                                                    data-remarks="<?= htmlspecialchars($audit['remarks'] ?? '', ENT_QUOTES, 'UTF-8') ?>"
+                                                    data-items="<?= $itemsJson ?>"
+                                                    onclick="viewAuditDetailsFromBtn(this)">
+                                                <i class="bi bi-eye me-1"></i> View Trail
+                                            </button>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            <?php else: ?>
+                                <tr><td colspan="5" class="text-center py-5 text-muted"><i class="bi bi-folder-x fs-1 d-block mb-2"></i>No audit history found.</td></tr>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
+                </div>
             </div>
+            <!-- END DESKTOP AUDIT TABLE -->
+
+            <!-- MOBILE AUDIT CARDS -->
+            <div class="d-block d-md-none" id="auditMobileCards" role="region" aria-label="Audit Trail Cards">
+                <?php if(count($audits) > 0): ?>
+                    <?php foreach ($audits as $audit): ?>
+                        <?php
+                        $hasDiscrepancy = ((int)$audit['total_discrepancy_items'] > 0);
+                        $itemsJson = htmlspecialchars(json_encode($groupedAuditItems[$audit['id']] ?? []), ENT_QUOTES, 'UTF-8');
+                        $searchString = strtolower(($audit['audit_month'] ?? '') . ' ' . ($audit['auditor_name'] ?? '') . ' ' . ($audit['remarks'] ?? ''));
+                        ?>
+                        <div class="cims-mobile-card shadow-sm mb-3 position-relative" data-search="<?= htmlspecialchars($searchString) ?>">
+                            <!-- Card Header: Audit Month & Discrepancy Status -->
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <div style="flex: 1 1 auto; min-width: 0;">
+                                    <div class="text-muted small mb-0.5" style="font-size: 0.72rem; text-transform: uppercase; font-weight: 700; letter-spacing: 0.4px;">
+                                        <i class="bi bi-calendar-event me-1 text-primary"></i>Audit Period
+                                    </div>
+                                    <h6 class="fw-bold text-dark mb-0 text-break" style="line-height: 1.35; font-size: 1.05rem;">
+                                        <?= htmlspecialchars($audit['audit_month']) ?>
+                                    </h6>
+                                </div>
+                                <div class="flex-shrink-0 ms-2 text-end">
+                                    <?php if ($hasDiscrepancy): ?>
+                                        <span class="badge bg-danger shadow-sm px-2.5 py-1.5" style="font-size: 0.72rem;">
+                                            <i class="bi bi-exclamation-triangle-fill me-1"></i><?= (int)$audit['total_discrepancy_items'] ?> Adjusted
+                                        </span>
+                                    <?php else: ?>
+                                        <span class="badge bg-success shadow-sm px-2.5 py-1.5" style="font-size: 0.72rem;">
+                                            <i class="bi bi-check-circle-fill me-1"></i>100% Match
+                                        </span>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+
+                            <!-- Metadata Surface -->
+                            <div class="bg-light border rounded-2 p-2.5 mb-2.5 small">
+                                <div class="d-flex justify-content-between align-items-center mb-1 pb-1 border-bottom">
+                                    <span class="text-muted" style="font-size: 0.72rem; font-weight: 600;">
+                                        <i class="bi bi-person-badge me-1 text-secondary"></i>Auditor
+                                    </span>
+                                    <span class="fw-bold text-dark"><?= htmlspecialchars($audit['auditor_name'] ?? 'Staff') ?></span>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span class="text-muted" style="font-size: 0.72rem; font-weight: 600;">
+                                        <i class="bi bi-clock-history me-1 text-secondary"></i>Date Logged
+                                    </span>
+                                    <span class="text-dark fw-bold" style="font-size: 0.75rem;"><?= date('M d, Y h:i A', strtotime($audit['created_at'])) ?></span>
+                                </div>
+                            </div>
+
+                            <!-- Action Button (Touch-safe >= 44px) -->
+                            <div class="cims-mobile-actions">
+                                <button type="button" class="btn btn-outline-primary w-100 fw-bold shadow-sm btn-view-audit d-flex align-items-center justify-content-center"
+                                        data-month="<?= htmlspecialchars($audit['audit_month'], ENT_QUOTES, 'UTF-8') ?>"
+                                        data-remarks="<?= htmlspecialchars($audit['remarks'] ?? '', ENT_QUOTES, 'UTF-8') ?>"
+                                        data-items="<?= $itemsJson ?>"
+                                        onclick="viewAuditDetailsFromBtn(this)">
+                                    <i class="bi bi-eye me-2"></i> View Audit Trail Details
+                                </button>
+                            </div>
+                        </div>
+                    <?php endforeach; ?>
+                    <div id="auditMobileEmpty" class="text-center py-5 text-muted bg-white rounded-3 border shadow-sm d-none">
+                        <i class="bi bi-search fs-1 d-block mb-2 text-secondary"></i>
+                        <h6 class="fw-bold mb-1">No Matching Audits</h6>
+                        <p class="small mb-0">Try searching for a different month or auditor name.</p>
+                    </div>
+                <?php else: ?>
+                    <div class="text-center py-5 text-muted bg-white rounded-3 border shadow-sm">
+                        <i class="bi bi-folder-x fs-1 d-block mb-2 text-secondary"></i>
+                        <h6 class="fw-bold mb-1">No Audit History Found</h6>
+                        <p class="small mb-0">No weekly audit logs have been recorded yet.</p>
+                    </div>
+                <?php endif; ?>
+            </div>
+            <!-- END MOBILE AUDIT CARDS -->
+
+            <!-- SHARED PAGINATION CONTAINER -->
+            <div id="historyPaginationWrapper" class="mt-2"></div>
         </div>
     </div>
 </div>
