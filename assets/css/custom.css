@@ -1971,6 +1971,7 @@ body:has(.modal.show) #cims-chatbot-container {
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
     transition: transform 0.15s ease, box-shadow 0.15s ease;
     word-break: break-word;
+    overflow: hidden;
 }
 
 [data-bs-theme="dark"] .cims-mobile-card {
