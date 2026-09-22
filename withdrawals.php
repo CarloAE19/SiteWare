@@ -143,7 +143,7 @@ include 'layout/header.php';
                                     <span><i class="bi bi-person me-1 text-muted"></i><?= htmlspecialchars($wd['releaser_name']) ?></span>
                                 </td>
                                 
-                                <td class="text-muted small fw-bold" data-label="Date & Time"><?= date('M d, Y h:i A', strtotime($wd['date_withdrawn'])) ?></td>
+                                <td class="text-muted small fw-bold" data-label="Date & Time" data-sort-value="<?= !empty($wd['date_withdrawn']) ? strtotime($wd['date_withdrawn']) : 0 ?>"><?= date('M d, Y h:i A', strtotime($wd['date_withdrawn'])) ?></td>
                                 
                                 <td class="text-center" data-label="Actions">
                                     <?php $currentItemsJson = htmlspecialchars(json_encode($wdItemsGrouped[$wd['id']] ?? []), ENT_QUOTES, 'UTF-8'); ?>
