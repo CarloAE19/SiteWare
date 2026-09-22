@@ -84,10 +84,16 @@ window.viewWdDetails = function (wdNo, project, remarks, itemsJson, releaser = '
         const items = JSON.parse(itemsJson);
         items.forEach(item => {
             tbody.innerHTML += `
-                <tr>
-                    <td class="text-muted small align-middle">${item.item_code}</td>
-                    <td class="fw-bold align-middle">${item.item_name}</td>
-                    <td class="text-danger fw-bold text-end align-middle">-${item.quantity} ${item.unit}</td>
+                <tr class="wd-item-row">
+                    <td class="text-center align-middle wd-td-code"><span class="item-code-badge">${item.item_code}</span></td>
+                    <td class="text-start align-middle wd-td-name"><div class="fw-bold text-dark item-title">${item.item_name}</div></td>
+                    <td class="text-center align-middle wd-td-qty">
+                        <span class="wd-metric-mobile-label d-md-none">Qty Released</span>
+                        <div class="d-inline-flex align-items-center gap-1">
+                            <span class="text-danger fw-bold fs-6">-${item.quantity}</span>
+                            <small class="text-muted text-uppercase fw-semibold" style="font-size: 0.68rem;">${item.unit}</small>
+                        </div>
+                    </td>
                 </tr>`;
         });
     } catch (e) { tbody.innerHTML = `<tr><td colspan="3" class="text-center text-muted py-3">Error loading items.</td></tr>`; }
