@@ -1979,6 +1979,15 @@ body:has(.modal.show) #cims-chatbot-container {
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
 }
 
+[data-bs-theme="dark"] .cims-mobile-card .bg-light {
+    background-color: rgba(255, 255, 255, 0.05) !important;
+    border-color: #334155 !important;
+}
+
+[data-bs-theme="dark"] .cims-mobile-card .text-dark {
+    color: #f1f5f9 !important;
+}
+
 .cims-mobile-card:active {
     transform: scale(0.99);
 }
