@@ -736,7 +736,7 @@ include 'layout/header.php';
                                     </a>
                                 </td>
 
-                                <td data-label="Date & Time Created">
+                                <td data-label="Date & Time Created" data-sort-value="<?= !empty($po['created_at']) ? strtotime($po['created_at']) : 0 ?>">
                                     <span class="d-block text-dark fw-semibold small">
                                         <i
                                             class="bi bi-calendar3 me-1 text-muted"></i><?= !empty($po['created_at']) ? date('M d, Y', strtotime($po['created_at'])) : 'N/A' ?>
@@ -789,7 +789,7 @@ include 'layout/header.php';
                                     <?php if ($po['status'] === 'Delayed (Weather)'): ?>
                                         <small class="d-block text-danger mt-2 fw-bold"
                                             style="font-size: 0.75rem; white-space: normal;"><i
-                                                class="bi bi-exclamation-triangle-fill me-1"></i><?= htmlspecialchars($po['delay_remarks']) ?></small>
+                                                 class="bi bi-exclamation-triangle-fill me-1"></i><?= htmlspecialchars($po['delay_remarks']) ?></small>
                                     <?php elseif ($po['status'] === 'Cancelled'): ?>
                                         <small class="d-block text-muted mt-1 fw-bold"
                                             style="font-size: 0.72rem; white-space: normal;"><i
@@ -797,7 +797,7 @@ include 'layout/header.php';
                                     <?php endif; ?>
                                 </td>
 
-                                <td data-label="Warehouse ETA">
+                                <td data-label="Warehouse ETA" data-sort-value="<?= !empty($po['expected_delivery_date']) ? strtotime($po['expected_delivery_date']) : 0 ?>">
                                     <div class="d-flex align-items-center gap-1">
                                         <?= $etaBadge ?>
                                         <?php if (in_array($role, ['admin', 'purchasing']) && $po['status'] !== 'Cancelled'): ?>
