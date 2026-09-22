@@ -45,6 +45,7 @@
 <script src="assets/js/inventory.js?v=<?= time() ?>"></script>
 <script src="assets/js/idle-lock.js?v=<?= time() ?>"></script>
 <script src="assets/js/image-compressor.js?v=<?= time() ?>"></script>
+<script src="assets/js/table-sort.js?v=<?= time() ?>"></script>
 
 <!-- Notification Scripts -->
 <script src="assets/js/notifications.js"></script>
