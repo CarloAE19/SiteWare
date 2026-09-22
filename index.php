@@ -343,7 +343,7 @@ include 'layout/header.php';
             </div>
         </div>
 
-        <div class="table-responsive inventory-table-wrapper border rounded shadow-sm bg-white">
+        <div class="d-none d-md-block table-responsive inventory-table-wrapper border rounded shadow-sm bg-white">
             <table class="table table-hover align-middle mb-0 text-nowrap" id="inventoryTable">
                 <thead class="table-dark">
                     <tr>
@@ -423,6 +423,128 @@ include 'layout/header.php';
                     <?php endif; ?>
                 </tbody>
             </table>
+        </div>
+
+        <!-- Mobile Phone Cards Container (<768px) -->
+        <div class="d-block d-md-none pb-5 mb-4" id="inventoryMobileCards" role="region" aria-label="Mobile Inventory List">
+            <?php if (count($items) > 0): ?>
+                <?php foreach ($items as $item): ?>
+                    <?php
+                    $qty = (int) $item['quantity'];
+                    $reorderLevel = (int) $item['reorder_level'];
+                    if ($qty <= 0) {
+                        $statusText = 'Out of Stock';
+                        $statusClass = 'bg-danger';
+                        $statusIcon = 'bi-x-circle-fill';
+                    } elseif ($qty <= $reorderLevel) {
+                        $statusText = 'Low Stock';
+                        $statusClass = 'bg-warning text-dark';
+                        $statusIcon = 'bi-exclamation-triangle-fill';
+                    } else {
+                        $statusText = 'In Stock';
+                        $statusClass = 'bg-success';
+                        $statusIcon = 'bi-check-circle-fill';
+                    }
+                    $unitPrice = (float) ($item['unit_price'] ?? 0);
+                    ?>
+                    <div class="card cims-mobile-card mb-3 shadow-sm border inv-card" 
+                         id="inventory_card_<?= (int) $item['id'] ?>"
+                         data-item-code="<?= htmlspecialchars($item['item_code']) ?>"
+                         data-item-name="<?= htmlspecialchars($item['item_name']) ?>"
+                         data-category="<?= htmlspecialchars($item['category']) ?>"
+                         data-status="<?= $statusText ?>">
+                        <div class="card-body p-3">
+                            <!-- Card Header: Title, Item Code & Status Badge -->
+                            <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+                                <div class="min-w-0">
+                                    <div class="d-flex align-items-center gap-1.5 mb-1">
+                                        <i class="bi bi-box-seam text-primary" aria-hidden="true"></i>
+                                        <h6 class="fw-bold mb-0 text-truncate text-dark"><?= htmlspecialchars($item['item_name']) ?></h6>
+                                    </div>
+                                    <div class="d-flex flex-wrap align-items-center gap-1.5">
+                                        <span class="badge bg-light text-secondary border font-monospace small px-2 py-1">
+                                            <i class="bi bi-upc-scan me-1 text-muted" aria-hidden="true"></i><?= htmlspecialchars($item['item_code']) ?>
+                                        </span>
+                                        <?php if ($unitPrice > 0): ?>
+                                            <span class="badge bg-light text-muted border small px-2 py-1">
+                                                <i class="bi bi-tag-fill me-1 text-primary opacity-75" aria-hidden="true"></i>₱<?= number_format($unitPrice, 2) ?>
+                                            </span>
+                                        <?php endif; ?>
+                                    </div>
+                                </div>
+                                <span class="badge <?= $statusClass ?> shadow-sm px-2.5 py-1.5 flex-shrink-0 d-inline-flex align-items-center gap-1"
+                                      id="mobile_status_<?= htmlspecialchars($item['item_code']) ?>">
+                                    <i class="bi <?= $statusIcon ?>" aria-hidden="true"></i>
+                                    <span><?= $statusText ?></span>
+                                </span>
+                            </div>
+
+                            <!-- Card Middle: Category, Stock Qty & Unit -->
+                            <div class="p-2.5 rounded bg-light border d-flex justify-content-between align-items-center mb-3">
+                                <div>
+                                    <span class="text-muted small d-block mb-0.5">Category</span>
+                                    <span class="badge bg-secondary"><?= htmlspecialchars($item['category']) ?></span>
+                                </div>
+                                <div class="text-end">
+                                    <span class="text-muted small d-block mb-0.5">On-Hand Stock</span>
+                                    <span class="fw-bold fs-6 <?= $qty <= 0 ? 'text-danger' : 'text-dark' ?>"
+                                          id="mobile_qty_<?= htmlspecialchars($item['item_code']) ?>"><?= $qty ?></span>
+                                    <span class="text-muted small ms-1"><?= htmlspecialchars($item['unit']) ?></span>
+                                </div>
+                            </div>
+
+                            <!-- Card Footer: Touch-Friendly Action Buttons (>=44px) -->
+                            <?php if (in_array($role, ['admin', 'warehouse'])): ?>
+                                <div class="row g-2 cims-mobile-actions">
+                                    <?php if ($role === 'admin'): ?>
+                                        <div class="col-4">
+                                            <button type="button" class="btn btn-sm btn-outline-secondary w-100 shadow-sm d-flex align-items-center justify-content-center gap-1"
+                                                    title="Print QR Label"
+                                                    aria-label="Print QR Label for <?= htmlspecialchars($item['item_name']) ?>"
+                                                    onclick="showItemQR('<?= $item['item_code'] ?>', '<?= addslashes($item['item_name']) ?>')">
+                                                <i class="bi bi-qr-code" aria-hidden="true"></i>
+                                                <span>QR</span>
+                                            </button>
+                                        </div>
+                                        <div class="col-6">
+                                            <button type="button" class="btn btn-sm btn-outline-primary w-100 shadow-sm d-flex align-items-center justify-content-center gap-1"
+                                                    title="Edit Material" 
+                                                    aria-label="Edit Material <?= htmlspecialchars($item['item_name']) ?>"
+                                                    data-bs-toggle="modal" data-bs-target="#itemModal"
+                                                    onclick="openEditModal(<?= $item['id'] ?>, '<?= htmlspecialchars(addslashes($item['item_code'])) ?>', '<?= htmlspecialchars(addslashes($item['item_name'])) ?>', '<?= htmlspecialchars(addslashes($item['category'])) ?>', <?= $qty ?>, '<?= htmlspecialchars(addslashes($item['unit'])) ?>', <?= $unitPrice ?>, '<?= $statusText ?>')">
+                                                <i class="bi bi-pencil-square" aria-hidden="true"></i>
+                                                <span>Edit</span>
+                                            </button>
+                                        </div>
+                                        <div class="col-2">
+                                            <button type="button" class="btn btn-sm btn-outline-danger w-100 shadow-sm d-flex align-items-center justify-content-center"
+                                                    title="Delete Material"
+                                                    aria-label="Delete Material: <?= htmlspecialchars($item['item_name']) ?>"
+                                                    onclick="deleteInventoryItem(<?= (int) $item['id'] ?>, '<?= htmlspecialchars(addslashes($item['item_code']), ENT_QUOTES, 'UTF-8') ?>', '<?= htmlspecialchars(addslashes($item['item_name']), ENT_QUOTES, 'UTF-8') ?>')">
+                                                <i class="bi bi-trash3" aria-hidden="true"></i>
+                                            </button>
+                                        </div>
+                                    <?php else: /* warehouse role */ ?>
+                                        <div class="col-12">
+                                            <button type="button" class="btn btn-sm btn-outline-secondary w-100 shadow-sm d-flex align-items-center justify-content-center gap-2"
+                                                    title="Print QR Label"
+                                                    aria-label="Print QR Label for <?= htmlspecialchars($item['item_name']) ?>"
+                                                    onclick="showItemQR('<?= $item['item_code'] ?>', '<?= addslashes($item['item_name']) ?>')">
+                                                <i class="bi bi-qr-code" aria-hidden="true"></i>
+                                                <span>Print QR Label</span>
+                                            </button>
+                                        </div>
+                                    <?php endif; ?>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+            <?php endif; ?>
+            <div id="noResultsInvMobile" class="alert alert-light text-center py-4 border shadow-sm my-2 text-muted" style="display: none;">
+                <i class="bi bi-folder-x fs-2 d-block mb-1 text-secondary" aria-hidden="true"></i>
+                No matching items found.
+            </div>
         </div>
     </div>
 </div>
