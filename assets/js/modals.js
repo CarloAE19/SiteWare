@@ -394,18 +394,47 @@ window.openRsModalByNo = async function(rsNo) {
                         pendingDisplay = `<span class="text-muted small">None</span>`;
                     }
 
+                    // --- Per-item status badge ---
+                    const iStatus = item.item_status || rs.status || 'Pending';
+                    const statusBadgeMap = { 'Pending': 'bg-warning text-dark', 'Approved': 'bg-success', 'Rejected': 'bg-danger', 'PO Created': 'bg-info text-dark', 'Staged (Ready for Pickup)': 'bg-info text-dark', 'Released': 'bg-success' };
+                    const statusIconMap  = { 'Pending': 'bi-hourglass-split', 'Approved': 'bi-check-circle-fill', 'Rejected': 'bi-x-circle-fill', 'PO Created': 'bi-cart-check-fill', 'Staged (Ready for Pickup)': 'bi-box-seam', 'Released': 'bi-check2-all' };
+                    const sBadgeClass = statusBadgeMap[iStatus] || 'bg-secondary';
+                    const sIcon       = statusIconMap[iStatus]  || 'bi-question';
+                    const itemStatusHtml = `<span class="badge ${sBadgeClass} shadow-sm px-2.5 py-1.5"><i class="bi ${sIcon} me-1"></i>${iStatus}</span>`;
+
+                    let notesAndRemarksHtml = '';
+                    if (item.item_notes) {
+                        notesAndRemarksHtml += `<div class="text-muted small mt-1"><i class="bi bi-chat-left-text me-1 text-primary"></i>${item.item_notes}</div>`;
+                    }
+                    if (item.item_remarks) {
+                        notesAndRemarksHtml += `<div class="d-flex justify-content-center justify-content-md-start mt-1"><div class="item-remark-pill"><i class="bi bi-info-circle-fill me-1"></i><span>${item.item_remarks}</span></div></div>`;
+                    }
+
                     tbody.innerHTML += `
-                        <tr>
-                            <td class="fw-bold text-primary">${item.item_code}</td>
-                            <td class="fw-bold text-dark">${itemName}</td>
-                            <td class="text-center fw-bold fs-6">${reqQty} ${unit}</td>
-                            <td class="text-center">${stockDisplay}</td>
-                            <td class="text-center">${pendingDisplay}</td>
+                        <tr class="rs-item-row">
+                            <td class="text-center align-middle rs-td-code"><span class="item-code-badge">${item.item_code}</span></td>
+                            <td class="text-center text-md-start align-middle rs-td-name"><div class="fw-bold text-dark item-title">${itemName}</div>${notesAndRemarksHtml}</td>
+                            <td class="text-center align-middle rs-td-qty">
+                                <span class="rs-metric-mobile-label d-md-none">Requested Qty</span>
+                                <div class="d-inline-flex align-items-center gap-1">
+                                    <span class="fw-bold text-dark fs-6">${reqQty}</span>
+                                    <small class="text-muted text-uppercase fw-semibold" style="font-size: 0.68rem;">${unit}</small>
+                                </div>
+                            </td>
+                            <td class="text-center align-middle d-print-none rs-td-status">${itemStatusHtml}</td>
+                            <td class="text-center align-middle d-print-none rs-td-stock">
+                                <span class="rs-metric-mobile-label d-md-none">Stock</span>
+                                ${stockDisplay}
+                            </td>
+                            <td class="text-center align-middle d-print-none rs-td-pending">
+                                <span class="rs-metric-mobile-label d-md-none">Pending</span>
+                                ${pendingDisplay}
+                            </td>
                         </tr>
                     `;
                 });
             } else {
-                tbody.innerHTML = `<tr><td colspan="5" class="text-center py-4 text-muted">No items found in this requisition.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-muted">No items found in this requisition.</td></tr>`;
             }
         }
 
@@ -505,12 +534,24 @@ window.openPoModalByNo = async function(poNo) {
                     const priceFormatted = '₱' + Number(item.unit_price || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                     const totalFormatted = '₱' + Number(item.total_price || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                     tbody.innerHTML += `
-                        <tr>
-                            <td class="fw-bold text-primary">${item.item_code}</td>
-                            <td class="fw-bold text-dark">${item.item_name}</td>
-                            <td class="text-center fw-bold fs-6">${item.quantity} ${item.unit}</td>
-                            <td class="text-end fw-semibold">${priceFormatted}</td>
-                            <td class="text-end fw-bold text-success">${totalFormatted}</td>
+                        <tr class="po-item-row">
+                            <td class="text-center align-middle po-td-code"><span class="item-code-badge">${item.item_code}</span></td>
+                            <td class="text-start align-middle po-td-name"><div class="fw-bold text-dark item-title">${item.item_name}</div></td>
+                            <td class="text-center align-middle po-td-qty">
+                                <span class="po-metric-mobile-label d-md-none">Quantity</span>
+                                <div class="d-inline-flex align-items-center gap-1">
+                                    <span class="fw-bold text-dark fs-6">${item.quantity}</span>
+                                    <small class="text-muted text-uppercase fw-semibold" style="font-size: 0.68rem;">${item.unit}</small>
+                                </div>
+                            </td>
+                            <td class="text-end align-middle po-td-price">
+                                <span class="po-metric-mobile-label d-md-none">Unit Price</span>
+                                <span class="fw-semibold">${priceFormatted}</span>
+                            </td>
+                            <td class="text-end align-middle po-td-total">
+                                <span class="po-metric-mobile-label d-md-none">Subtotal</span>
+                                <span class="fw-bold text-success">${totalFormatted}</span>
+                            </td>
                         </tr>
                     `;
                 });
@@ -593,10 +634,16 @@ window.openWithdrawalModalByNo = async function(withdrawalNo) {
             if (items.length > 0) {
                 items.forEach(item => {
                     tbody.innerHTML += `
-                        <tr>
-                            <td class="fw-bold text-primary">${item.item_code}</td>
-                            <td class="fw-bold text-dark">${item.item_name}</td>
-                            <td class="text-center fw-bold fs-6">${item.quantity} ${item.unit}</td>
+                        <tr class="wd-item-row">
+                            <td class="text-center align-middle wd-td-code"><span class="item-code-badge">${item.item_code}</span></td>
+                            <td class="text-start align-middle wd-td-name"><div class="fw-bold text-dark item-title">${item.item_name}</div></td>
+                            <td class="text-center align-middle wd-td-qty">
+                                <span class="wd-metric-mobile-label d-md-none">Quantity Issued</span>
+                                <div class="d-inline-flex align-items-center gap-1">
+                                    <span class="fw-bold text-dark fs-6">${item.quantity}</span>
+                                    <small class="text-muted text-uppercase fw-semibold" style="font-size: 0.68rem;">${item.unit}</small>
+                                </div>
+                            </td>
                         </tr>
                     `;
                 });
