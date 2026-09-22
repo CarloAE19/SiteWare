@@ -867,7 +867,7 @@ include 'layout/header.php';
                                     </div>
                                 </td>
 
-                                <td class="col-date" data-label="Date Log">
+                                <td class="col-date" data-label="Date Log" data-sort-value="<?= !empty($rs['created_at']) ? strtotime($rs['created_at']) : 0 ?>">
                                     <span class="d-block text-dark fw-semibold small">
                                         <i class="bi bi-calendar3 me-1 text-muted"></i><?= date('M d, Y', strtotime($rs['created_at'])) ?>
                                     </span>
