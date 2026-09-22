@@ -409,7 +409,151 @@ include 'layout/header.php';
             border-top: 1px dashed #e2e8f0;
             width: 100%;
         }
-        #viewRsModal .modal-footer,
+
+        /* View RS Modal Table Mobile Card Transformation */
+        #viewRsModal .table-container-custom {
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            overflow: visible !important;
+            margin-bottom: 1rem !important;
+        }
+        #viewRsModal #viewRsTable {
+            display: block !important;
+            width: 100% !important;
+            background: transparent !important;
+            border: none !important;
+        }
+        #viewRsModal #viewRsTable thead {
+            display: none !important;
+        }
+        #viewRsModal #viewRsTable tbody {
+            display: block !important;
+            width: 100% !important;
+        }
+        #viewRsModal #viewRsTable tbody tr.rs-item-row {
+            display: grid !important;
+            grid-template-columns: 1fr 1fr !important;
+            column-gap: 10px !important;
+            row-gap: 8px !important;
+            background: #ffffff !important;
+            border: 1px solid #e2e8f0 !important;
+            border-radius: 12px !important;
+            padding: 0.85rem !important;
+            margin-bottom: 0.75rem !important;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04) !important;
+        }
+        #viewRsModal #viewRsTable tbody tr.rs-item-row td {
+            padding: 0 !important;
+            border: none !important;
+            background: transparent !important;
+        }
+        /* Row 1: Item Code on Left, Item Status on Right */
+        #viewRsModal #viewRsTable tbody tr.rs-item-row td.rs-td-code {
+            grid-row: 1 !important;
+            grid-column: 1 / 2 !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: flex-start !important;
+        }
+        #viewRsModal #viewRsTable tbody tr.rs-item-row td.rs-td-status {
+            grid-row: 1 !important;
+            grid-column: 2 / 3 !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: flex-end !important;
+        }
+        /* Row 2: Item Name & Remarks (Full Width) */
+        #viewRsModal #viewRsTable tbody tr.rs-item-row td.rs-td-name {
+            grid-row: 2 !important;
+            grid-column: 1 / -1 !important;
+            display: block !important;
+            padding: 6px 0 !important;
+            border-top: 1px dashed #e2e8f0 !important;
+            border-bottom: 1px dashed #e2e8f0 !important;
+            text-align: left !important;
+        }
+        #viewRsModal #viewRsTable tbody tr.rs-item-row td.rs-td-name .item-title {
+            font-size: 0.95rem !important;
+            line-height: 1.35 !important;
+            color: #0f172a !important;
+            word-break: break-word !important;
+        }
+        /* Row 3: Requested Qty on Left, Stock on Right */
+        #viewRsModal #viewRsTable tbody tr.rs-item-row td.rs-td-qty {
+            grid-row: 3 !important;
+            grid-column: 1 / 2 !important;
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: center !important;
+            justify-content: center !important;
+            background: #f8fafc !important;
+            border: 1px solid #e2e8f0 !important;
+            border-radius: 8px !important;
+            padding: 6px 8px !important;
+            min-height: 48px;
+        }
+        #viewRsModal #viewRsTable tbody tr.rs-item-row.is-requestor-row td.rs-td-qty {
+            grid-row: 3 !important;
+            grid-column: 1 / -1 !important;
+            flex-direction: row !important;
+            justify-content: space-between !important;
+            padding: 8px 12px !important;
+        }
+        #viewRsModal #viewRsTable tbody tr.rs-item-row td.rs-td-stock {
+            grid-row: 3 !important;
+            grid-column: 2 / 3 !important;
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: center !important;
+            justify-content: center !important;
+            background: #f8fafc !important;
+            border: 1px solid #e2e8f0 !important;
+            border-radius: 8px !important;
+            padding: 6px 8px !important;
+            min-height: 48px;
+        }
+        /* Row 4: Pending Demand (Full Width) */
+        #viewRsModal #viewRsTable tbody tr.rs-item-row td.rs-td-pending {
+            grid-row: 4 !important;
+            grid-column: 1 / -1 !important;
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: center !important;
+            justify-content: center !important;
+            background: #f8fafc !important;
+            border: 1px solid #e2e8f0 !important;
+            border-radius: 8px !important;
+            padding: 6px 8px !important;
+        }
+        #viewRsModal #viewRsTable tbody tr:not(.rs-item-row) {
+            display: block !important;
+            width: 100% !important;
+            background: #ffffff !important;
+            border-radius: 12px !important;
+            padding: 1rem !important;
+            border: 1px solid #e2e8f0 !important;
+        }
+        #viewRsModal #viewRsTable tbody tr:not(.rs-item-row) td {
+            display: block !important;
+            width: 100% !important;
+            padding: 0 !important;
+            border: none !important;
+        }
+        #viewRsModal .rs-metric-mobile-label {
+            font-size: 0.65rem !important;
+            font-weight: 800 !important;
+            text-transform: uppercase !important;
+            color: #64748b !important;
+            letter-spacing: 0.5px !important;
+            margin-bottom: 2px !important;
+        }
+
+        #viewRsModal .modal-footer {
+            flex-direction: column !important;
+            gap: 8px !important;
+            padding: 0.85rem 1rem !important;
+        }
         #rsModal .modal-footer,
         #restockModal .modal-footer,
         #editRsModal .modal-footer,
@@ -419,12 +563,14 @@ include 'layout/header.php';
             padding: 0.85rem 1rem !important;
         }
         #viewRsModal .modal-footer button,
+        #viewRsModal .modal-footer a,
         #rsModal .modal-footer button,
         #restockModal .modal-footer button,
         #editRsModal .modal-footer button,
         #approveItemsModal .modal-footer button,
         #approveItemsModal .modal-footer > div {
             width: 100% !important;
+            min-height: 44px !important;
             margin: 0 !important;
             justify-content: center !important;
         }
