@@ -104,8 +104,8 @@ include 'layout/header.php';
             </div>
         </div>
 
-        <!-- Projects Table -->
-        <div class="table-responsive border rounded shadow-sm">
+        <!-- Projects Table (Desktop >= 768px) -->
+        <div class="d-none d-md-block table-responsive border rounded shadow-sm">
             <table class="table table-hover align-middle mb-0 text-nowrap" id="projectsTable">
                 <thead class="table-dark">
                     <tr>
@@ -227,6 +227,161 @@ include 'layout/header.php';
                     <?php endif; ?>
                 </tbody>
             </table>
+        </div>
+
+        <!-- Mobile Phone Cards Container (<768px) -->
+        <div class="d-block d-md-none pb-5 mb-4" id="projectsMobileCards" role="region" aria-label="Projects Mobile List">
+            <?php if (count($projects) > 0): ?>
+                <?php foreach ($projects as $proj): ?>
+                    <?php 
+                        $rsCount = (int)($proj['rs_count'] ?? 0);
+                        $wsCount = (int)($proj['ws_count'] ?? 0);
+                        $totalUsage = $rsCount + $wsCount;
+                        $isActive = ($proj['status'] ?? 'active') === 'active';
+                        $statusClass = $isActive ? 'bg-success' : 'bg-secondary';
+                        $statusIcon = $isActive ? 'bi-check-circle-fill' : 'bi-pause-circle-fill';
+                        $statusText = $isActive ? 'Active' : 'Inactive';
+                        $projCode = $proj['project_code'] ?? ('#' . $proj['id']);
+                    ?>
+                    <div class="card cims-mobile-card mb-3 shadow-sm border project-mobile-card" 
+                         id="project_card_<?= (int)$proj['id'] ?>"
+                         data-status="<?= $isActive ? 'active' : 'inactive' ?>"
+                         data-project-code="<?= htmlspecialchars($projCode) ?>"
+                         data-project-name="<?= htmlspecialchars($proj['project_name']) ?>">
+                        <div class="card-body p-3">
+                            <!-- Card Header: Title & Status Badge (Clean & Non-overlapping) -->
+                            <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+                                <div style="min-width: 0; flex: 1 1 auto;">
+                                    <div class="d-flex align-items-start" style="min-width: 0;">
+                                        <i class="bi bi-briefcase text-primary me-2 mt-0.5 flex-shrink-0" aria-hidden="true"></i>
+                                        <h6 class="fw-bold mb-0 text-dark text-break" style="font-size: 0.95rem; line-height: 1.35;"><?= htmlspecialchars($proj['project_name']) ?></h6>
+                                    </div>
+                                    <div class="d-flex flex-wrap align-items-center gap-2 mt-1.5 ps-3.5">
+                                        <span class="badge bg-light text-secondary border font-monospace small px-2 py-0.5">
+                                            #<?= htmlspecialchars(ltrim($projCode, '#')) ?>
+                                        </span>
+                                        <?php if (!empty($proj['address'])): ?>
+                                            <span class="text-muted small text-break">
+                                                <i class="bi bi-geo-alt text-danger me-1" aria-hidden="true"></i><?= htmlspecialchars($proj['address']) ?>
+                                            </span>
+                                        <?php endif; ?>
+                                    </div>
+                                </div>
+                                <div class="flex-shrink-0 ms-2">
+                                    <span class="badge <?= $statusClass ?> shadow-xs px-2.5 py-1.5 d-inline-flex align-items-center gap-1"
+                                          id="mobile_proj_status_<?= (int)$proj['id'] ?>" style="font-size: 0.75rem; white-space: nowrap;">
+                                        <i class="bi <?= $statusIcon ?> me-0.5" aria-hidden="true"></i>
+                                        <span><?= $statusText ?></span>
+                                    </span>
+                                </div>
+                            </div>
+
+                            <!-- Description (if any) -->
+                            <?php if (!empty($proj['description'])): ?>
+                                <p class="text-muted small mb-2" style="display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.4;">
+                                    <?= htmlspecialchars($proj['description']) ?>
+                                </p>
+                            <?php endif; ?>
+
+                            <!-- Middle Surface: Linked Transactions & Status Action (Clean & Balanced) -->
+                            <div class="p-2.5 rounded bg-light border d-flex justify-content-between align-items-center mb-3">
+                                <div class="min-w-0">
+                                    <span class="text-muted small d-block mb-1">Linked Transactions</span>
+                                    <div class="d-flex flex-wrap gap-1.5 align-items-center">
+                                        <?php if ($rsCount > 0): ?>
+                                            <a href="requisitions?search=<?= urlencode($proj['project_name']) ?>" class="badge bg-primary-subtle text-primary border border-primary-subtle px-2.5 py-1 text-decoration-none shadow-xs" title="View <?= $rsCount ?> Material Requisition(s)">
+                                                <i class="bi bi-file-earmark-text me-1" aria-hidden="true"></i><?= $rsCount ?> RS
+                                            </a>
+                                        <?php endif; ?>
+                                        <?php if ($wsCount > 0): ?>
+                                            <a href="withdrawals?search=<?= urlencode($proj['project_name']) ?>" class="badge bg-success-subtle text-success border border-success-subtle px-2.5 py-1 text-decoration-none shadow-xs" title="View <?= $wsCount ?> Withdrawal Slip(s)">
+                                                <i class="bi bi-box-arrow-right me-1" aria-hidden="true"></i><?= $wsCount ?> WS
+                                            </a>
+                                        <?php endif; ?>
+                                        <?php if ($totalUsage === 0): ?>
+                                            <span class="badge bg-white text-muted border px-2 py-1">0 records</span>
+                                        <?php endif; ?>
+                                    </div>
+                                </div>
+                                <?php if (in_array($role, ['admin', 'management'])): ?>
+                                    <div class="text-end flex-shrink-0 ms-2">
+                                        <form method="POST" action="process/process.php" class="d-inline m-0 p-0"
+                                            onsubmit="return confirm('Toggle status of project \'<?= addslashes(htmlspecialchars($proj['project_name'])) ?>\' to <?= $isActive ? 'Inactive' : 'Active' ?>?');">
+                                            <input type="hidden" name="action" value="toggle_project_status">
+                                            <input type="hidden" name="project_id" value="<?= $proj['id'] ?>">
+                                            <input type="hidden" name="return_to" value="projects">
+                                            <button type="submit" class="btn btn-sm btn-white bg-white border px-2.5 py-1 shadow-xs fw-semibold" style="font-size: 0.78rem;" title="Click to toggle status">
+                                                <i class="bi <?= $isActive ? 'bi-pause-circle text-warning' : 'bi-play-circle text-success' ?> me-1" aria-hidden="true"></i><?= $isActive ? 'Set Inactive' : 'Set Active' ?>
+                                            </button>
+                                        </form>
+                                    </div>
+                                <?php endif; ?>
+                            </div>
+
+                            <!-- Card Footer: Touch Actions (>=44px) -->
+                            <div class="row g-2 cims-mobile-actions">
+                                <?php if (in_array($role, ['admin', 'management'])): ?>
+                                    <div class="<?= $role === 'admin' ? 'col-5' : 'col-6' ?>">
+                                        <button type="button" class="btn btn-sm btn-outline-info w-100 shadow-sm d-flex align-items-center justify-content-center gap-1"
+                                                onclick="openProjectDetailsModal(<?= $proj['id'] ?>)"
+                                                title="View Project Details"
+                                                aria-label="View Project Details for <?= htmlspecialchars($proj['project_name']) ?>">
+                                            <i class="bi bi-eye me-1" aria-hidden="true"></i>
+                                            <span>Details</span>
+                                        </button>
+                                    </div>
+                                    <div class="<?= $role === 'admin' ? 'col-5' : 'col-6' ?>">
+                                        <button type="button" class="btn btn-sm btn-outline-primary w-100 shadow-sm d-flex align-items-center justify-content-center gap-1"
+                                                onclick="openEditProjectModal(<?= $proj['id'] ?>, '<?= addslashes(htmlspecialchars($proj['project_code'] ?? '')) ?>', '<?= addslashes(htmlspecialchars($proj['project_name'])) ?>', '<?= addslashes(htmlspecialchars($proj['address'] ?? '')) ?>', '<?= addslashes(htmlspecialchars($proj['description'] ?? '')) ?>', '<?= $proj['status'] ?>')"
+                                                title="Edit Project"
+                                                aria-label="Edit Project <?= htmlspecialchars($proj['project_name']) ?>">
+                                            <i class="bi bi-pencil-square me-1" aria-hidden="true"></i>
+                                            <span>Edit</span>
+                                        </button>
+                                    </div>
+                                    <?php if ($role === 'admin'): ?>
+                                        <div class="col-2">
+                                            <?php if ($totalUsage > 0): ?>
+                                                <button type="button" class="btn btn-sm btn-outline-secondary w-100 shadow-sm d-flex align-items-center justify-content-center disabled"
+                                                        title="Cannot delete: Linked to <?= $rsCount ?> RS and <?= $wsCount ?> WS"
+                                                        aria-label="Delete disabled: Project is linked to activity">
+                                                    <i class="bi bi-trash3" aria-hidden="true"></i>
+                                                </button>
+                                            <?php else: ?>
+                                                <form method="POST" action="process/process.php" class="w-100 m-0"
+                                                    onsubmit="return confirm('Are you sure you want to delete project \'<?= addslashes(htmlspecialchars($proj['project_name'])) ?>\'?');">
+                                                    <input type="hidden" name="action" value="delete_project">
+                                                    <input type="hidden" name="project_id" value="<?= $proj['id'] ?>">
+                                                    <input type="hidden" name="return_to" value="projects">
+                                                    <button type="submit" class="btn btn-sm btn-outline-danger w-100 shadow-sm d-flex align-items-center justify-content-center"
+                                                            title="Delete Project"
+                                                            aria-label="Delete Project <?= htmlspecialchars($proj['project_name']) ?>">
+                                                        <i class="bi bi-trash3" aria-hidden="true"></i>
+                                                    </button>
+                                                </form>
+                                            <?php endif; ?>
+                                        </div>
+                                    <?php endif; ?>
+                                <?php else: /* Purchasing */ ?>
+                                    <div class="col-12">
+                                        <button type="button" class="btn btn-sm btn-outline-info w-100 shadow-sm d-flex align-items-center justify-content-center gap-2"
+                                                onclick="openProjectDetailsModal(<?= $proj['id'] ?>)"
+                                                title="View Project Details"
+                                                aria-label="View Project Details for <?= htmlspecialchars($proj['project_name']) ?>">
+                                            <i class="bi bi-eye me-1.5" aria-hidden="true"></i>
+                                            <span>View Project Details</span>
+                                        </button>
+                                    </div>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+            <?php endif; ?>
+            <div id="noResultsProjMobile" class="alert alert-light text-center py-4 border shadow-sm my-2 text-muted" style="display: none;">
+                <i class="bi bi-briefcase fs-2 d-block mb-1 text-secondary" aria-hidden="true"></i>
+                No matching projects found.
+            </div>
         </div>
     </div>
 </div>
@@ -609,11 +764,32 @@ include 'layout/header.php';
 window.searchProjectsTable = function (term) {
     term = (term || '').toLowerCase().trim();
     const rows = document.querySelectorAll('#projectsTable tbody tr');
+    let visibleRowsCount = 0;
     rows.forEach(row => {
         if (row.querySelector('td[colspan]')) return;
         const text = row.textContent.toLowerCase();
-        row.style.display = text.includes(term) ? '' : 'none';
+        const matches = text.includes(term);
+        row.style.display = matches ? '' : 'none';
+        if (matches) visibleRowsCount++;
     });
+
+    const mobileCards = document.querySelectorAll('#projectsMobileCards .project-mobile-card');
+    let visibleCardsCount = 0;
+    mobileCards.forEach(card => {
+        const text = card.textContent.toLowerCase();
+        const matches = text.includes(term);
+        card.style.display = matches ? '' : 'none';
+        if (matches) visibleCardsCount++;
+    });
+
+    const noResultsMobile = document.getElementById('noResultsProjMobile');
+    if (noResultsMobile) {
+        noResultsMobile.style.display = (mobileCards.length > 0 && visibleCardsCount === 0) ? 'block' : 'none';
+    }
+
+    if (typeof initProjectPagination === 'function') {
+        initProjectPagination();
+    }
 };
 </script>
 
