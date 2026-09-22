@@ -177,19 +177,28 @@ window.viewRsDetails = function(rsNo, project, remarks, status, requestor, date,
                     pendingDisplay = `<span class="text-muted small fw-bold">-</span>`;
                 }
                 
-                const statusCol = `<td class="text-center align-middle d-print-none">${itemStatusHtml}</td>`;
+                const statusCol = `<td class="text-center align-middle d-print-none rs-td-status">${itemStatusHtml}</td>`;
                 const stockCols = isRequestor ? '' : `
-                    <td class="text-center align-middle d-print-none">${stockDisplay}</td>
-                    <td class="text-center align-middle d-print-none">${pendingDisplay}</td>
+                    <td class="text-center align-middle d-print-none rs-td-stock">
+                        <span class="rs-metric-mobile-label d-md-none">Stock</span>
+                        ${stockDisplay}
+                    </td>
+                    <td class="text-center align-middle d-print-none rs-td-pending">
+                        <span class="rs-metric-mobile-label d-md-none">Pending</span>
+                        ${pendingDisplay}
+                    </td>
                 `;
 
                 tbody.innerHTML += `
-                    <tr>
-                        <td class="text-center align-middle"><span class="item-code-badge">${item.item_code}</span></td>
-                        <td class="text-center align-middle"><div class="fw-bold text-dark">${itemName}</div>${notesAndRemarksHtml}</td>
-                        <td class="text-center align-middle">
-                            <div class="fw-bold text-dark fs-6">${reqQty}</div>
-                            <small class="text-muted text-uppercase fw-semibold" style="font-size: 0.68rem;">${unit}</small>
+                    <tr class="rs-item-row ${isRequestor ? 'is-requestor-row' : ''}">
+                        <td class="text-center align-middle rs-td-code"><span class="item-code-badge">${item.item_code}</span></td>
+                        <td class="text-center text-md-start align-middle rs-td-name"><div class="fw-bold text-dark item-title">${itemName}</div>${notesAndRemarksHtml}</td>
+                        <td class="text-center align-middle rs-td-qty">
+                            <span class="rs-metric-mobile-label d-md-none">Requested Qty</span>
+                            <div class="d-inline-flex align-items-center gap-1">
+                                <span class="fw-bold text-dark fs-6">${reqQty}</span>
+                                <small class="text-muted text-uppercase fw-semibold" style="font-size: 0.68rem;">${unit}</small>
+                            </div>
                         </td>
                         ${statusCol}
                         ${stockCols}
