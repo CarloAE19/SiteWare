@@ -1098,10 +1098,10 @@ include 'layout/header.php';
                             recBadgeClass = 'text-warning fw-bold';
                         }
 
-                        rowsHtml += '<tr>';
+                        rowsHtml += '<tr class="sup-po-item-row">';
                         rowsHtml += '<td data-label="Item">';
-                        rowsHtml += '<div class="fw-bold text-dark">' + escapeHtmlSupplier(it.item_name) + '</div>';
-                        rowsHtml += '<small class="text-muted font-monospace">' + escapeHtmlSupplier(it.item_code) + ' • ' + escapeHtmlSupplier(it.unit || 'pcs') + '</small>';
+                        rowsHtml += '<div class="fw-bold text-dark item-title">' + escapeHtmlSupplier(it.item_name) + '</div>';
+                        rowsHtml += '<small class="text-muted font-monospace"><span class="item-code-badge">' + escapeHtmlSupplier(it.item_code) + '</span> • ' + escapeHtmlSupplier(it.unit || 'pcs') + '</small>';
                         rowsHtml += '</td>';
                         rowsHtml += '<td class="text-center fw-bold" data-label="Ordered">' + ordQty + '</td>';
                         rowsHtml += '<td class="text-center ' + recBadgeClass + '" data-label="Received">' + recQty + '</td>';
