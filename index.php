@@ -382,7 +382,7 @@ include 'layout/header.php';
                                         class="badge bg-secondary shadow-sm"><?= htmlspecialchars($item['category']) ?></span>
                                 </td>
 
-                                <td data-label="Qty & Unit">
+                                <td data-label="Qty & Unit" data-sort-value="<?= $qty ?>">
                                     <div>
                                         <span class="fw-bold fs-5 <?= $qty <= 0 ? 'text-danger' : 'text-dark' ?>"
                                             id="qty_<?= htmlspecialchars($item['item_code']) ?>"><?= $qty ?></span>
