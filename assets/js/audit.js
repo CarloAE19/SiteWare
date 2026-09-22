@@ -54,7 +54,14 @@ window.initAuditPagination = function() {
 
         paginationWrapper.appendChild(infoText);
         paginationWrapper.appendChild(btnGroup);
-        table.parentElement.appendChild(paginationWrapper);
+
+        const historyPaginationHost = document.getElementById('historyPaginationWrapper');
+        if (tableId === 'historyTable' && historyPaginationHost) {
+            historyPaginationHost.innerHTML = '';
+            historyPaginationHost.appendChild(paginationWrapper);
+        } else {
+            table.parentElement.appendChild(paginationWrapper);
+        }
 
         function showPage(page) {
             if (isViewAll || isSearching) return;
@@ -65,6 +72,13 @@ window.initAuditPagination = function() {
             rows.forEach((row, index) => {
                 row.style.display = (index >= start && index < end) ? '' : 'none';
             });
+
+            if (tableId === 'historyTable') {
+                const cards = Array.from(document.querySelectorAll('#auditMobileCards .cims-mobile-card'));
+                cards.forEach((card, index) => {
+                    card.style.display = (index >= start && index < end) ? '' : 'none';
+                });
+            }
 
             infoText.innerHTML = `Showing <b>${start + 1}</b> to <b>${Math.min(end, rows.length)}</b> of <b>${rows.length}</b> entries`;
             pageIndicator.innerText = `Page ${currentPage} / ${totalPages()}`;
@@ -154,6 +168,9 @@ window.initAuditPagination = function() {
                     const query = this.value.trim().toLowerCase();
                     if (clearBtn) clearBtn.classList.toggle('d-none', query.length === 0);
 
+                    const cards = Array.from(document.querySelectorAll('#auditMobileCards .cims-mobile-card'));
+                    const emptyCardNotice = document.getElementById('auditMobileEmpty');
+
                     if (query.length > 0) {
                         isSearching = true;
                         paginationWrapper.style.display = 'none';
@@ -161,8 +178,21 @@ window.initAuditPagination = function() {
                             const text = row.innerText.toLowerCase();
                             row.style.display = text.includes(query) ? '' : 'none';
                         });
+
+                        let visibleCards = 0;
+                        cards.forEach(card => {
+                            const text = (card.getAttribute('data-search') || card.innerText).toLowerCase();
+                            const match = text.includes(query);
+                            card.style.display = match ? '' : 'none';
+                            if (match) visibleCards++;
+                        });
+
+                        if (emptyCardNotice) {
+                            emptyCardNotice.classList.toggle('d-none', visibleCards > 0);
+                        }
                     } else {
                         isSearching = false;
+                        if (emptyCardNotice) emptyCardNotice.classList.add('d-none');
                         showPage(currentPage);
                     }
                 });
@@ -172,6 +202,8 @@ window.initAuditPagination = function() {
                         searchInput.value = '';
                         clearBtn.classList.add('d-none');
                         isSearching = false;
+                        const emptyCardNotice = document.getElementById('auditMobileEmpty');
+                        if (emptyCardNotice) emptyCardNotice.classList.add('d-none');
                         showPage(currentPage);
                         searchInput.focus();
                     });
