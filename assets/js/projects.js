@@ -434,11 +434,17 @@ window.openProjectRsDoc = function (index) {
     if (tbody) {
         if (rs.items && rs.items.length > 0) {
             tbody.innerHTML = rs.items.map(it => `
-                <tr>
-                    <td class="font-monospace fw-bold text-muted small">${escapeHtml(it.item_code)}</td>
-                    <td class="fw-semibold text-dark">${escapeHtml(it.item_name)}</td>
-                    <td class="text-center font-monospace fw-bold">${it.quantity} ${escapeHtml(it.unit)}</td>
-                    <td class="text-center"><span class="badge bg-light text-dark border">${escapeHtml(it.item_status || 'Pending')}</span></td>
+                <tr class="rs-item-row">
+                    <td class="text-center align-middle rs-td-code"><span class="item-code-badge">${escapeHtml(it.item_code)}</span></td>
+                    <td class="text-start align-middle rs-td-name"><div class="fw-bold text-dark item-title">${escapeHtml(it.item_name)}</div></td>
+                    <td class="text-center align-middle rs-td-qty">
+                        <span class="rs-metric-mobile-label d-md-none">Qty</span>
+                        <div class="d-inline-flex align-items-center gap-1">
+                            <span class="fw-bold text-dark fs-6">${it.quantity}</span>
+                            <small class="text-muted text-uppercase fw-semibold" style="font-size: 0.68rem;">${escapeHtml(it.unit)}</small>
+                        </div>
+                    </td>
+                    <td class="text-center align-middle rs-td-status"><span class="badge bg-light text-dark border">${escapeHtml(it.item_status || 'Pending')}</span></td>
                 </tr>
             `).join('');
         } else {
@@ -505,10 +511,16 @@ window.openProjectWdDoc = function (index) {
     if (tbody) {
         if (ws.items && ws.items.length > 0) {
             tbody.innerHTML = ws.items.map(it => `
-                <tr>
-                    <td class="font-monospace fw-bold text-muted small">${escapeHtml(it.item_code)}</td>
-                    <td class="fw-semibold text-dark">${escapeHtml(it.item_name)}</td>
-                    <td class="text-center font-monospace fw-bold text-success">${it.quantity} ${escapeHtml(it.unit)}</td>
+                <tr class="wd-item-row">
+                    <td class="text-center align-middle wd-td-code"><span class="item-code-badge">${escapeHtml(it.item_code)}</span></td>
+                    <td class="text-start align-middle wd-td-name"><div class="fw-bold text-dark item-title">${escapeHtml(it.item_name)}</div></td>
+                    <td class="text-center align-middle wd-td-qty">
+                        <span class="wd-metric-mobile-label d-md-none">Dispatched</span>
+                        <div class="d-inline-flex align-items-center gap-1">
+                            <span class="fw-bold text-success fs-6">${it.quantity}</span>
+                            <small class="text-muted text-uppercase fw-semibold" style="font-size: 0.68rem;">${escapeHtml(it.unit)}</small>
+                        </div>
+                    </td>
                 </tr>
             `).join('');
         } else {
