@@ -30,6 +30,17 @@ $stmt = $pdo->query("
 ");
 $suppliers = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+// Calculate status counts for live filtering
+$activeCount = 0;
+$inactiveCount = 0;
+foreach ($suppliers as $s) {
+    if (($s['status'] ?? '') === 'Active') {
+        $activeCount++;
+    } else {
+        $inactiveCount++;
+    }
+}
+
 // Helper: compute the composite score for a supplier row
 function calcPerformanceScore(array $sup): ?float
 {
@@ -44,80 +55,6 @@ function calcPerformanceScore(array $sup): ?float
 include 'layout/header.php';
 ?>
 
-<!-- Mobile Card Table CSS for Suppliers -->
-<style>
-    @media (max-width: 767.98px) {
-        .table-responsive {
-            overflow-x: hidden !important;
-            border: none !important;
-            box-shadow: none !important;
-            background: transparent !important;
-        }
-
-        #suppliersTable {
-            display: block;
-            width: 100%;
-            background: transparent !important;
-        }
-
-        #suppliersTable thead {
-            display: none;
-        }
-
-        #suppliersTable tbody {
-            display: block;
-            width: 100%;
-        }
-
-        #suppliersTable tbody tr {
-            display: flex;
-            flex-direction: column;
-            border: 1px solid #e0e4e8;
-            border-radius: 12px;
-            margin-bottom: 1rem;
-            background: #fff;
-            padding: 12px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.02);
-        }
-
-        #suppliersTable tbody td {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            text-align: right;
-            padding: 10px 4px;
-            border: none;
-            border-bottom: 1px dashed #e9ecef;
-            white-space: normal !important;
-            word-break: break-word;
-        }
-
-        /* Center the Actions button at the bottom of the card */
-        #suppliersTable tbody td:last-child {
-            border-bottom: none;
-            justify-content: center !important;
-            gap: 10px;
-            padding-top: 16px;
-            margin-top: 4px;
-        }
-
-        #suppliersTable tbody td::before {
-            content: attr(data-label);
-            font-weight: 700;
-            font-size: 0.75rem;
-            color: #6c757d;
-            text-transform: uppercase;
-            text-align: left;
-            padding-right: 15px;
-            flex-shrink: 0;
-        }
-
-        #suppliersTable tbody td:last-child::before {
-            display: none;
-        }
-    }
-</style>
-
 <div class="container-fluid px-3 px-md-4 py-4">
     <?php if (isset($_SESSION['message'])): ?>
         <div class="alert alert-<?= $_SESSION['msg_type'] ?> alert-dismissible fade show shadow-sm" role="alert">
@@ -127,15 +64,16 @@ include 'layout/header.php';
         <?php unset($_SESSION['message'], $_SESSION['msg_type']); ?>
     <?php endif; ?>
 
-    <div class="card border-0 shadow-sm p-3 p-md-4 bg-white">
+    <div class="card border-0 shadow-sm p-3 p-md-4 bg-white rounded-3">
         <div class="row align-items-center mb-4 g-3">
             <div class="col-12 col-md-8 text-center text-md-start">
                 <h4 class="mb-0 fw-bold text-dark"><i class="bi bi-buildings me-2 text-primary"></i>Suppliers</h4>
+                <p class="text-muted small mb-0 mt-1">Vendor partners, contact persons, Viber logistics lines, and delivery reliability metrics.</p>
             </div>
 
             <?php if (in_array($role, ['admin', 'purchasing'])): ?>
                 <div class="col-12 col-md-4 text-md-end">
-                    <button class="btn btn-brand shadow-sm w-100 w-md-auto fw-bold px-4" data-bs-toggle="modal"
+                    <button class="btn btn-brand shadow-sm w-100 w-md-auto fw-bold px-4 py-2" data-bs-toggle="modal"
                         data-bs-target="#supplierModal" onclick="openAddSupplierModal()">
                         <i class="bi bi-plus-lg me-1"></i> Add New Supplier
                     </button>
@@ -143,9 +81,36 @@ include 'layout/header.php';
             <?php endif; ?>
         </div>
 
-        <div class="table-responsive border rounded shadow-sm">
-            <table class="table table-hover align-middle mb-0 text-nowrap" id="suppliersTable">
-                <thead class="table-dark">
+        <!-- Action & Filter Bar -->
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-stretch align-items-md-center gap-3 mb-4">
+            <!-- Filter Pills -->
+            <div class="d-flex flex-wrap gap-2">
+                <button type="button" class="btn btn-sm btn-dark rounded-pill px-3 supplier-filter-btn active" data-filter="all" onclick="filterSuppliersTable('all', this)">
+                    All Suppliers <span class="badge bg-secondary ms-1" id="badgeAllSuppliers"><?= count($suppliers) ?></span>
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-success rounded-pill px-3 supplier-filter-btn" data-filter="active" onclick="filterSuppliersTable('active', this)">
+                    Active <span class="badge bg-success ms-1" id="badgeActiveSuppliers"><?= $activeCount ?></span>
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-danger rounded-pill px-3 supplier-filter-btn" data-filter="inactive" onclick="filterSuppliersTable('inactive', this)">
+                    Inactive <span class="badge bg-danger ms-1" id="badgeInactiveSuppliers"><?= $inactiveCount ?></span>
+                </button>
+            </div>
+
+            <!-- Search Input -->
+            <div class="input-group shadow-sm" style="max-width: 340px;">
+                <span class="input-group-text bg-white border-end-0 text-muted"><i class="bi bi-search"></i></span>
+                <input type="text" id="supplierSearchInput" class="form-control border-start-0 ps-0 bg-white fw-bold" placeholder="Search supplier, contact, code...">
+                <button type="button" class="btn btn-outline-secondary border-start-0 bg-white text-muted d-none" id="clearSupplierSearch" title="Clear search">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- DESKTOP DATA TABLE -->
+        <div class="d-none d-md-block">
+            <div class="table-responsive border rounded shadow-sm">
+                <table class="table table-hover align-middle mb-0 text-nowrap" id="suppliersTable">
+                    <thead class="table-dark">
                     <tr>
                         <th class="py-3">Supplier Code</th>
                         <th class="py-3">Company Name</th>
@@ -200,7 +165,7 @@ include 'layout/header.php';
                             }
                         }
                         ?>
-                        <tr id="supplier-row-<?= $sup['id'] ?>" class="supplier-row">
+                        <tr id="supplier-row-<?= $sup['id'] ?>" class="supplier-row" data-status="<?= strtolower($sup['status'] ?? 'active') ?>">
                             <td class="text-muted fw-bold" data-label="Supplier Code">
                                 <?= htmlspecialchars($sup['supplier_code']) ?>
                             </td>
@@ -306,6 +271,194 @@ include 'layout/header.php';
                 </tbody>
             </table>
         </div>
+    </div>
+    <!-- END DESKTOP DATA TABLE -->
+
+    <!-- MOBILE DIRECTORY CARDS (d-block d-md-none) -->
+    <div class="d-block d-md-none pb-5 mb-4" id="suppliersMobileCards" role="region" aria-label="Suppliers Directory Cards">
+        <?php if (empty($suppliers)): ?>
+            <div class="text-center py-5 text-muted bg-light rounded-3 border">
+                <i class="bi bi-buildings fs-1 d-block mb-2 text-secondary"></i>
+                <h6 class="fw-bold mb-1">No Suppliers Found</h6>
+                <p class="small mb-0">No supplier records have been added to the system yet.</p>
+            </div>
+        <?php else: ?>
+            <?php foreach ($suppliers as $sup): ?>
+                <?php
+                $score = calcPerformanceScore($sup);
+                if ($score === null) {
+                    $barColor = 'bg-secondary';
+                    $tierLabel = 'New Supplier';
+                    $tierBadge = 'bg-secondary';
+                    $scoreText = '—';
+                } elseif ($score >= 90) {
+                    $barColor = 'bg-success';
+                    $tierLabel = 'Excellent';
+                    $tierBadge = 'bg-success';
+                    $scoreText = $score . '%';
+                } elseif ($score >= 70) {
+                    $barColor = 'bg-warning';
+                    $tierLabel = 'Average';
+                    $tierBadge = 'bg-warning text-dark';
+                    $scoreText = $score . '%';
+                } else {
+                    $barColor = 'bg-danger';
+                    $tierLabel = 'Poor';
+                    $tierBadge = 'bg-danger';
+                    $scoreText = $score . '%';
+                }
+
+                $supEtaBadge = '<span class="text-muted small">No Active Shipments</span>';
+                if (!empty($sup['next_eta'])) {
+                    $nextEtaTs = strtotime($sup['next_eta']);
+                    $todayTs = strtotime(date('Y-m-d'));
+                    $daysDiff = (int) (($nextEtaTs - $todayTs) / 86400);
+
+                    if ($daysDiff == 0) {
+                        $supEtaBadge = '<span class="badge bg-warning text-dark shadow-sm"><i class="bi bi-truck-flatbed me-1"></i>Arriving TODAY</span>';
+                    } elseif ($daysDiff < 0) {
+                        $supEtaBadge = '<span class="badge bg-danger shadow-sm"><i class="bi bi-exclamation-triangle-fill me-1"></i>Overdue (' . abs($daysDiff) . 'd)</span>';
+                    } else {
+                        $supEtaBadge = '<span class="badge bg-success shadow-sm"><i class="bi bi-calendar-check me-1"></i>' . date('M d, Y', $nextEtaTs) . ' (in ' . $daysDiff . 'd)</span>';
+                    }
+                }
+
+                $viberTarget = normalizeViberPhone($sup['contact_number'] ?? '');
+                $searchString = strtolower(($sup['supplier_code'] ?? '') . ' ' . ($sup['company_name'] ?? '') . ' ' . ($sup['contact_person'] ?? '') . ' ' . ($sup['email'] ?? '') . ' ' . ($sup['contact_number'] ?? ''));
+                ?>
+                <div class="cims-mobile-card shadow-sm mb-3 position-relative" id="supplier-card-<?= $sup['id'] ?>" data-status="<?= strtolower($sup['status'] ?? 'active') ?>" data-search="<?= htmlspecialchars($searchString) ?>">
+                    <!-- Card Header: Code, Name & Status -->
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <div style="flex: 1 1 auto; min-width: 0;">
+                            <div class="text-muted small mb-0.5" style="font-size: 0.72rem; text-transform: uppercase; font-weight: 700; letter-spacing: 0.4px;">
+                                <i class="bi bi-hash text-primary me-0.5"></i><?= htmlspecialchars($sup['supplier_code']) ?>
+                                <?php if (!empty($sup['address'])): ?>
+                                    <span class="text-muted ms-1 fw-normal text-truncate d-inline-block align-bottom" style="max-width: 180px;" title="<?= htmlspecialchars($sup['address']) ?>">
+                                        <i class="bi bi-geo-alt me-0.5 text-danger"></i><?= htmlspecialchars($sup['address']) ?>
+                                    </span>
+                                <?php endif; ?>
+                            </div>
+                            <h6 class="fw-bold text-dark mb-0 text-break" style="line-height: 1.35; font-size: 1.05rem;">
+                                <i class="bi bi-building me-1.5 text-primary"></i><?= htmlspecialchars($sup['company_name']) ?>
+                            </h6>
+                        </div>
+                        <div class="flex-shrink-0 ms-2 text-end">
+                            <?php if (($sup['status'] ?? '') === 'Active'): ?>
+                                <span class="badge bg-success shadow-sm px-2.5 py-1.5" style="font-size: 0.72rem;">
+                                    <i class="bi bi-check-circle-fill me-1"></i>ACTIVE
+                                </span>
+                            <?php else: ?>
+                                <span class="badge bg-danger shadow-sm px-2.5 py-1.5" style="font-size: 0.72rem;">
+                                    <i class="bi bi-x-circle-fill me-1"></i>INACTIVE
+                                </span>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+
+                    <!-- Metadata Surface (Exact Audit.php Key-Value Layout) -->
+                    <div class="bg-light border rounded-2 p-2.5 mb-2.5 small">
+                        <!-- Contact Person -->
+                        <div class="d-flex justify-content-between align-items-center mb-1 pb-1 border-bottom">
+                            <span class="text-muted" style="font-size: 0.72rem; font-weight: 600;">
+                                <i class="bi bi-person me-1 text-secondary"></i>Contact Person
+                            </span>
+                            <span class="fw-bold text-dark"><?= htmlspecialchars($sup['contact_person'] ?: 'None Specified') ?></span>
+                        </div>
+
+                        <!-- Contact Number -->
+                        <div class="d-flex justify-content-between align-items-center mb-1 pb-1 border-bottom">
+                            <span class="text-muted" style="font-size: 0.72rem; font-weight: 600;">
+                                <i class="bi bi-telephone me-1 text-secondary"></i>Contact Number
+                            </span>
+                            <div class="d-inline-flex align-items-center gap-1.5">
+                                <?php if (!empty($sup['contact_number'])): ?>
+                                    <a href="tel:<?= htmlspecialchars($sup['contact_number']) ?>" class="text-decoration-none fw-bold text-primary">
+                                        <?= htmlspecialchars($sup['contact_number']) ?>
+                                    </a>
+                                    <?php if ($viberTarget): ?>
+                                        <a href="viber://chat?number=<?= urlencode($viberTarget) ?>" class="badge text-white text-decoration-none px-2 py-0.5" style="background-color: #7360f2; font-size: 0.68rem; border-radius: 4px; display: inline-flex; align-items: center;" title="Chat via Viber">
+                                            <i class="fa-brands fa-viber me-1"></i>Viber
+                                        </a>
+                                    <?php endif; ?>
+                                <?php else: ?>
+                                    <span class="text-muted">None</span>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+
+                        <!-- Email Address -->
+                        <?php if (!empty($sup['email'])): ?>
+                            <div class="d-flex justify-content-between align-items-center mb-1 pb-1 border-bottom">
+                                <span class="text-muted" style="font-size: 0.72rem; font-weight: 600;">
+                                    <i class="bi bi-envelope me-1 text-secondary"></i>Email Address
+                                </span>
+                                <a href="mailto:<?= htmlspecialchars($sup['email']) ?>" class="text-decoration-none text-muted text-truncate" style="max-width: 190px;">
+                                    <?= htmlspecialchars($sup['email']) ?>
+                                </a>
+                            </div>
+                        <?php endif; ?>
+
+                        <!-- Next Supply ETA -->
+                        <div class="d-flex justify-content-between align-items-center mb-1 pb-1 border-bottom">
+                            <span class="text-muted" style="font-size: 0.72rem; font-weight: 600;">
+                                <i class="bi bi-truck me-1 text-secondary"></i>Next Supply ETA
+                            </span>
+                            <div><?= $supEtaBadge ?></div>
+                        </div>
+
+                        <!-- Performance -->
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="text-muted" style="font-size: 0.72rem; font-weight: 600;">
+                                <i class="bi bi-speedometer2 me-1 text-secondary"></i>Performance
+                            </span>
+                            <div class="d-inline-flex align-items-center gap-1.5">
+                                <span class="badge <?= $tierBadge ?> shadow-xs px-2 py-0.5" style="font-size: 0.68rem;"><?= $tierLabel ?></span>
+                                <span class="fw-bold text-dark" style="font-size: 0.82rem;"><?= $scoreText ?></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Action Footer (Touch-safe >= 44px) -->
+                    <div class="cims-mobile-actions d-flex gap-2">
+                        <?php if ((int)$sup['total_po'] > 0): ?>
+                            <button type="button" class="btn btn-outline-primary flex-fill fw-bold shadow-sm"
+                                onclick="viewSupplierHistory(<?= $sup['id'] ?>)">
+                                <i class="bi bi-clipboard2-data me-1.5"></i> View Delivery History
+                            </button>
+                        <?php else: ?>
+                            <button type="button" class="btn btn-light border text-muted flex-fill fw-bold" disabled>
+                                <i class="bi bi-clipboard2-data me-1.5"></i> No History
+                            </button>
+                        <?php endif; ?>
+
+                        <?php if (in_array($role, ['admin', 'purchasing'])): ?>
+                            <button type="button" class="btn btn-outline-secondary px-3 fw-bold shadow-sm"
+                                data-bs-toggle="modal"
+                                data-bs-target="#supplierModal"
+                                onclick="openEditSupplierModal(<?= $sup['id'] ?>, <?= htmlspecialchars(json_encode($sup['supplier_code'] ?? '')) ?>, <?= htmlspecialchars(json_encode($sup['company_name'] ?? '')) ?>, <?= htmlspecialchars(json_encode($sup['contact_person'] ?? '')) ?>, <?= htmlspecialchars(json_encode($sup['contact_number'] ?? '')) ?>, <?= htmlspecialchars(json_encode($sup['email'] ?? '')) ?>, <?= htmlspecialchars(json_encode($sup['address'] ?? '')) ?>, <?= htmlspecialchars(json_encode($sup['status'] ?? '')) ?>)"
+                                aria-label="Edit Supplier <?= htmlspecialchars($sup['company_name']) ?>"
+                                title="Edit Supplier">
+                                <i class="bi bi-pencil-square me-1"></i> Edit
+                            </button>
+
+                            <button type="button" class="btn btn-outline-danger px-3 fw-bold shadow-sm"
+                                onclick="deleteSupplier(<?= $sup['id'] ?>, <?= htmlspecialchars(json_encode($sup['company_name'] ?? 'Supplier')) ?>, this)"
+                                aria-label="Delete Supplier <?= htmlspecialchars($sup['company_name']) ?>"
+                                title="Delete Supplier">
+                                <i class="bi bi-trash3"></i>
+                            </button>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            <?php endforeach; ?>
+            <div id="suppliersMobileEmpty" class="text-center py-5 text-muted bg-light rounded-3 border d-none">
+                <i class="bi bi-search fs-1 d-block mb-2 text-secondary"></i>
+                <h6 class="fw-bold mb-1">No Matching Suppliers</h6>
+                <p class="small mb-0">Try adjusting your search query or status filter.</p>
+            </div>
+        <?php endif; ?>
+    </div>
+    <!-- END MOBILE DIRECTORY CARDS -->
     </div>
 </div>
 
@@ -1082,25 +1235,35 @@ include 'layout/header.php';
                     });
                 }
 
-                // Smoothly fade out and remove the row
+                // Smoothly fade out and remove both the row and the mobile card
                 var row = document.getElementById('supplier-row-' + supplierId);
+                var card = document.getElementById('supplier-card-' + supplierId);
+
                 if (row) {
                     row.style.transition = 'all 0.35s ease-out';
                     row.style.opacity = '0';
                     row.style.transform = 'scale(0.95)';
-                    setTimeout(function () {
-                        row.remove();
-                        var remaining = document.querySelectorAll('#suppliersTable tbody tr.supplier-row');
-                        if (remaining.length === 0) {
-                            var tbody = document.querySelector('#suppliersTable tbody');
-                            if (tbody) {
-                                tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">No suppliers found.</td></tr>';
-                            }
-                        }
-                    }, 350);
-                } else {
-                    window.location.reload();
+                    setTimeout(function () { row.remove(); }, 350);
                 }
+                if (card) {
+                    card.style.transition = 'all 0.35s ease-out';
+                    card.style.opacity = '0';
+                    card.style.transform = 'scale(0.95)';
+                    setTimeout(function () { card.remove(); }, 350);
+                }
+
+                setTimeout(function () {
+                    var remainingRows = document.querySelectorAll('#suppliersTable tbody tr.supplier-row');
+                    if (remainingRows.length === 0) {
+                        var tbody = document.querySelector('#suppliersTable tbody');
+                        if (tbody) {
+                            tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">No suppliers found.</td></tr>';
+                        }
+                    }
+                    if (typeof applySupplierFilters === 'function') {
+                        applySupplierFilters();
+                    }
+                }, 400);
             } else {
                 throw new Error(data.message || 'Failed to delete supplier.');
             }
@@ -1122,6 +1285,110 @@ include 'layout/header.php';
             }
         }
     };
+
+    // Live search & status filtering for suppliers
+    window.currentSupplierFilter = 'all';
+
+    window.filterSuppliersTable = function(status, btnEl) {
+        document.querySelectorAll('.supplier-filter-btn').forEach(function(b) {
+            b.classList.remove('active', 'btn-dark', 'btn-success', 'btn-danger');
+            var filter = b.getAttribute('data-filter');
+            if (filter === 'active') {
+                b.className = 'btn btn-sm btn-outline-success rounded-pill px-3 supplier-filter-btn';
+            } else if (filter === 'inactive') {
+                b.className = 'btn btn-sm btn-outline-danger rounded-pill px-3 supplier-filter-btn';
+            } else {
+                b.className = 'btn btn-sm btn-outline-dark rounded-pill px-3 supplier-filter-btn';
+            }
+        });
+
+        if (btnEl) {
+            btnEl.classList.add('active');
+            if (status === 'active') {
+                btnEl.className = 'btn btn-sm btn-success rounded-pill px-3 supplier-filter-btn active';
+            } else if (status === 'inactive') {
+                btnEl.className = 'btn btn-sm btn-danger rounded-pill px-3 supplier-filter-btn active';
+            } else {
+                btnEl.className = 'btn btn-sm btn-dark rounded-pill px-3 supplier-filter-btn active';
+            }
+        }
+
+        window.currentSupplierFilter = status;
+        applySupplierFilters();
+    };
+
+    window.applySupplierFilters = function() {
+        var searchInput = document.getElementById('supplierSearchInput');
+        var searchVal = (searchInput ? searchInput.value : '').trim().toLowerCase();
+        var filterVal = window.currentSupplierFilter || 'all';
+
+        // Filter Desktop Rows
+        var rows = document.querySelectorAll('#suppliersTable tbody tr.supplier-row');
+        var visibleDesktop = 0;
+        rows.forEach(function(row) {
+            var rowStatus = (row.getAttribute('data-status') || '').toLowerCase();
+            var rowText = (row.textContent || '').toLowerCase();
+
+            var matchesFilter = (filterVal === 'all' || rowStatus === filterVal);
+            var matchesSearch = (!searchVal || rowText.indexOf(searchVal) !== -1);
+
+            if (matchesFilter && matchesSearch) {
+                row.style.display = '';
+                visibleDesktop++;
+            } else {
+                row.style.display = 'none';
+            }
+        });
+
+        // Filter Mobile Cards
+        var cards = document.querySelectorAll('#suppliersMobileCards .cims-mobile-card');
+        var visibleMobile = 0;
+        cards.forEach(function(card) {
+            var cardStatus = (card.getAttribute('data-status') || '').toLowerCase();
+            var cardSearch = (card.getAttribute('data-search') || card.textContent || '').toLowerCase();
+
+            var matchesFilter = (filterVal === 'all' || cardStatus === filterVal);
+            var matchesSearch = (!searchVal || cardSearch.indexOf(searchVal) !== -1);
+
+            if (matchesFilter && matchesSearch) {
+                card.style.display = '';
+                visibleMobile++;
+            } else {
+                card.style.display = 'none';
+            }
+        });
+
+        var emptyMobile = document.getElementById('suppliersMobileEmpty');
+        if (emptyMobile) {
+            emptyMobile.classList.toggle('d-none', visibleMobile > 0);
+        }
+    };
+
+    // Initialize search listeners
+    document.addEventListener('DOMContentLoaded', function() {
+        var searchInput = document.getElementById('supplierSearchInput');
+        var clearBtn = document.getElementById('clearSupplierSearch');
+
+        if (searchInput) {
+            searchInput.addEventListener('input', function() {
+                if (clearBtn) {
+                    clearBtn.classList.toggle('d-none', !this.value.trim());
+                }
+                applySupplierFilters();
+            });
+        }
+
+        if (clearBtn) {
+            clearBtn.addEventListener('click', function() {
+                if (searchInput) {
+                    searchInput.value = '';
+                    searchInput.focus();
+                }
+                clearBtn.classList.add('d-none');
+                applySupplierFilters();
+            });
+        }
+    });
 </script>
 
 <?php include 'layout/footer.php'; ?>
