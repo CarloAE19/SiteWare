@@ -22,6 +22,8 @@ document.addEventListener("DOMContentLoaded", () => {
             liveData.forEach(item => {
                 let qtyEl = document.getElementById('qty_' + item.item_code);
                 let statusEl = document.getElementById('status_' + item.item_code);
+                let mobileQtyEl = document.getElementById('mobile_qty_' + item.item_code);
+                let mobileStatusEl = document.getElementById('mobile_status_' + item.item_code);
                 
                 if (qtyEl && parseInt(qtyEl.innerText) !== parseInt(item.quantity)) {
                     qtyEl.innerText = item.quantity;
@@ -33,6 +35,29 @@ document.addEventListener("DOMContentLoaded", () => {
                         if(item.status === 'Out of Stock') statusEl.className = 'badge bg-danger';
                         else if(item.status === 'Low Stock') statusEl.className = 'badge bg-warning text-dark';
                         else statusEl.className = 'badge bg-success';
+                    }
+                }
+
+                if (mobileQtyEl && parseInt(mobileQtyEl.innerText) !== parseInt(item.quantity)) {
+                    mobileQtyEl.innerText = item.quantity;
+                    mobileQtyEl.className = 'fw-bold fs-6 text-primary';
+                    setTimeout(() => { 
+                        mobileQtyEl.className = 'fw-bold fs-6 ' + (parseInt(item.quantity) <= 0 ? 'text-danger' : 'text-dark'); 
+                    }, 2000);
+
+                    if (mobileStatusEl) {
+                        let iconHtml = '';
+                        if (item.status === 'Out of Stock') {
+                            mobileStatusEl.className = 'badge bg-danger shadow-sm px-2.5 py-1.5 flex-shrink-0 d-inline-flex align-items-center gap-1';
+                            iconHtml = '<i class="bi bi-x-circle-fill" aria-hidden="true"></i>';
+                        } else if (item.status === 'Low Stock') {
+                            mobileStatusEl.className = 'badge bg-warning text-dark shadow-sm px-2.5 py-1.5 flex-shrink-0 d-inline-flex align-items-center gap-1';
+                            iconHtml = '<i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>';
+                        } else {
+                            mobileStatusEl.className = 'badge bg-success shadow-sm px-2.5 py-1.5 flex-shrink-0 d-inline-flex align-items-center gap-1';
+                            iconHtml = '<i class="bi bi-check-circle-fill" aria-hidden="true"></i>';
+                        }
+                        mobileStatusEl.innerHTML = `${iconHtml}<span>${item.status}</span>`;
                     }
                 }
             });
@@ -116,17 +141,26 @@ function initInventoryPagination() {
 
     const tbody = table.querySelector('tbody');
     const allRows = Array.from(tbody.querySelectorAll('tr.item-row'));
+    const mobileCardsContainer = document.getElementById('inventoryMobileCards');
+    const allCards = mobileCardsContainer ? Array.from(mobileCardsContainer.querySelectorAll('.inv-card')) : [];
     
-    if (allRows.length === 0) return;
+    if (allRows.length === 0 && allCards.length === 0) return;
 
     const activeRows = allRows.filter(row => {
         return searchQuery === '' || row.innerText.toLowerCase().includes(searchQuery);
     });
 
+    const activeCards = allCards.filter(card => {
+        return searchQuery === '' || card.innerText.toLowerCase().includes(searchQuery);
+    });
+
     allRows.forEach(row => row.style.display = 'none');
+    allCards.forEach(card => card.style.display = 'none');
 
     let noDataRow = tbody.querySelector('.no-data-alert-row');
-    if (activeRows.length === 0) {
+    const mobileNoResults = document.getElementById('noResultsInvMobile');
+
+    if (activeRows.length === 0 && activeCards.length === 0) {
         if (!noDataRow) {
             noDataRow = document.createElement('tr');
             noDataRow.className = 'no-data-alert-row';
@@ -134,23 +168,28 @@ function initInventoryPagination() {
             tbody.appendChild(noDataRow);
         }
         noDataRow.style.display = '';
-        const pw = table.parentElement.querySelector('.pagination-wrapper');
+        if (mobileNoResults) mobileNoResults.style.display = 'block';
+
+        const pw = document.getElementById('inventoryPaginationWrapper') || document.querySelector('.inventory-pagination-wrapper');
         if (pw) pw.style.display = 'none';
         return;
     } else {
         if (noDataRow) noDataRow.style.display = 'none';
+        if (mobileNoResults) mobileNoResults.style.display = 'none';
     }
 
     const rowsPerPage = 10;
     let currentPage = window.currentInvPage || 1; 
-    const totalPages = Math.ceil(activeRows.length / rowsPerPage);
+    const totalCount = Math.max(activeRows.length, activeCards.length);
+    const totalPages = Math.ceil(totalCount / rowsPerPage) || 1;
     if (currentPage > totalPages) currentPage = 1; 
     window.currentInvPage = currentPage;
 
-    let paginationWrapper = table.parentElement.querySelector('.pagination-wrapper');
+    let paginationWrapper = document.getElementById('inventoryPaginationWrapper');
     if (!paginationWrapper) {
         paginationWrapper = document.createElement('div');
-        paginationWrapper.className = 'd-flex flex-column flex-md-row justify-content-between align-items-center p-3 bg-white border-top pagination-wrapper gap-3';
+        paginationWrapper.id = 'inventoryPaginationWrapper';
+        paginationWrapper.className = 'd-flex flex-column flex-md-row justify-content-between align-items-center p-3 bg-white border rounded shadow-sm inventory-pagination-wrapper gap-3 mt-3';
         
         paginationWrapper.innerHTML = `
             <span class="text-muted small fw-bold" id="pageInfoText"></span>
@@ -160,19 +199,24 @@ function initInventoryPagination() {
                 <button class="btn btn-sm btn-outline-primary fw-bold px-3" id="nextPageBtn">Next <i class="bi bi-chevron-right ms-1"></i></button>
             </div>
         `;
-        table.parentElement.appendChild(paginationWrapper);
+        if (mobileCardsContainer) {
+            mobileCardsContainer.after(paginationWrapper);
+        } else {
+            table.parentElement.appendChild(paginationWrapper);
+        }
 
         document.getElementById('prevPageBtn').addEventListener('click', () => { 
             if (window.currentInvPage > 1) { window.currentInvPage--; showPage(); }
         });
         document.getElementById('nextPageBtn').addEventListener('click', () => { 
-            if (window.currentInvPage < Math.ceil(activeRows.length / rowsPerPage)) { window.currentInvPage++; showPage(); }
+            if (window.currentInvPage < Math.ceil(totalCount / rowsPerPage)) { window.currentInvPage++; showPage(); }
         });
     }
     paginationWrapper.style.display = 'flex';
 
     function showPage() {
-        activeRows.forEach(row => row.style.display = 'none'); 
+        allRows.forEach(row => row.style.display = 'none'); 
+        allCards.forEach(card => card.style.display = 'none');
 
         const start = (window.currentInvPage - 1) * rowsPerPage;
         const end = start + rowsPerPage;
@@ -180,12 +224,19 @@ function initInventoryPagination() {
         for (let i = start; i < end && i < activeRows.length; i++) {
             activeRows[i].style.display = ''; 
         }
+        for (let i = start; i < end && i < activeCards.length; i++) {
+            activeCards[i].style.display = 'block'; 
+        }
 
-        document.getElementById('pageInfoText').innerHTML = `Showing <b>${start + 1}</b> to <b>${Math.min(end, activeRows.length)}</b> of <b>${activeRows.length}</b> entries`;
-        document.getElementById('pageIndicatorBtn').innerText = `Page ${window.currentInvPage} / ${totalPages}`;
-        
-        document.getElementById('prevPageBtn').disabled = window.currentInvPage === 1;
-        document.getElementById('nextPageBtn').disabled = window.currentInvPage === totalPages;
+        const infoText = document.getElementById('pageInfoText');
+        const indicatorBtn = document.getElementById('pageIndicatorBtn');
+        const prevBtn = document.getElementById('prevPageBtn');
+        const nextBtn = document.getElementById('nextPageBtn');
+
+        if (infoText) infoText.innerHTML = `Showing <b>${start + 1}</b> to <b>${Math.min(end, totalCount)}</b> of <b>${totalCount}</b> entries`;
+        if (indicatorBtn) indicatorBtn.innerText = `Page ${window.currentInvPage} / ${totalPages}`;
+        if (prevBtn) prevBtn.disabled = window.currentInvPage === 1;
+        if (nextBtn) nextBtn.disabled = window.currentInvPage === totalPages;
     }
 
     showPage();
@@ -352,17 +403,24 @@ window.deleteInventoryItem = function(id, itemCode, itemName) {
 
                 // Smooth row transition & DOM removal
                 const row = document.getElementById('inventory_row_' + id);
+                const card = document.getElementById('inventory_card_' + id);
                 if (row) {
                     row.style.transition = 'all 0.35s ease';
                     row.style.opacity = '0';
                     row.style.transform = 'scale(0.95)';
-                    setTimeout(() => {
-                        row.remove();
-                        if (typeof initInventoryPagination === 'function') {
-                            initInventoryPagination();
-                        }
-                    }, 350);
+                    setTimeout(() => { row.remove(); }, 350);
                 }
+                if (card) {
+                    card.style.transition = 'all 0.35s ease';
+                    card.style.opacity = '0';
+                    card.style.transform = 'scale(0.95)';
+                    setTimeout(() => { card.remove(); }, 350);
+                }
+                setTimeout(() => {
+                    if (typeof initInventoryPagination === 'function') {
+                        initInventoryPagination();
+                    }
+                }, 360);
             } else {
                 throw new Error(result.message || 'Failed to delete material.');
             }
