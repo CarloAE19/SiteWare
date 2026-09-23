@@ -2612,4 +2612,221 @@ table:not(.table-dark) thead .cims-sort-icon.active-sort {
         padding-bottom: 0.75rem !important;
     }
 }
+
+/* ==========================================================
+ * CIMS UNIVERSAL AUTO-DISMISS ALERT TOAST WITH COUNTDOWN
+ * ========================================================== */
+.alert.alert-dismissible {
+    position: relative;
+    overflow: hidden;
+    padding-right: 56px !important;
+    border-radius: 12px !important;
+    transition: opacity 0.35s ease, transform 0.35s ease, margin 0.35s ease, padding 0.35s ease, max-height 0.35s ease;
+}
+
+.alert.alert-dismissible .btn-close {
+    position: absolute !important;
+    top: 50% !important;
+    right: 8px !important;
+    transform: translateY(-50%) !important;
+    margin: 0 !important;
+    min-width: 44px !important;
+    min-height: 44px !important;
+    padding: 12px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    opacity: 0.65 !important;
+    z-index: 5 !important;
+}
+
+.alert.alert-dismissible .btn-close:hover,
+.alert.alert-dismissible .btn-close:focus {
+    opacity: 1 !important;
+}
+
+.alert.alert-dismissible .alert-content-wrapper {
+    min-height: 24px;
+}
+
+.alert.alert-dismissible .alert-icon {
+    font-size: 1.25rem !important;
+    line-height: 1;
+    margin-right: 0.5rem;
+}
+
+.alert-success .alert-icon { color: #16a34a !important; }
+.alert-warning .alert-icon { color: #d97706 !important; }
+.alert-danger .alert-icon { color: #dc2626 !important; }
+.alert-info .alert-icon { color: #0284c7 !important; }
+
+.alert.alert-dismissible .alert-text-body {
+    font-size: 0.9rem;
+    line-height: 1.45;
+    word-break: break-word;
+    font-weight: 500;
+}
+
+/* Mobile Floating Toast Mode (Phone Screen Responsive) */
+@media (max-width: 768px) {
+    .alert.alert-dismissible:not(.modal *) {
+        position: fixed !important;
+        top: 14px !important;
+        top: max(14px, calc(env(safe-area-inset-top, 0px) + 10px)) !important;
+        left: 12px !important;
+        right: 12px !important;
+        margin: 0 auto !important;
+        max-width: calc(100vw - 24px) !important;
+        width: auto !important;
+        z-index: 99999 !important;
+        border-radius: 14px !important;
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.22), 0 3px 10px rgba(0, 0, 0, 0.08) !important;
+        backdrop-filter: blur(12px) !important;
+        -webkit-backdrop-filter: blur(12px) !important;
+        padding: 12px 52px 14px 16px !important;
+    }
+
+    .alert.alert-dismissible:not(.modal *).show {
+        animation: mobileAlertSlideDown 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
+    }
+
+    .alert.alert-dismissible:not(.modal *).fade:not(.show) {
+        opacity: 0 !important;
+        transform: translate3d(0, -22px, 0) scale(0.96) !important;
+        transition: opacity 0.22s ease, transform 0.22s ease !important;
+    }
+}
+
+@keyframes mobileAlertSlideDown {
+    from {
+        opacity: 0;
+        transform: translate3d(0, -24px, 0) scale(0.96);
+    }
+    to {
+        opacity: 1;
+        transform: translate3d(0, 0, 0) scale(1);
+    }
+}
+
+.alert.alert-dismissible.fade:not(.show) {
+    opacity: 0;
+    transform: translateY(-8px);
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    max-height: 0;
+    pointer-events: none;
+}
+
+.alert-timer-progress {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    height: 3.5px;
+    width: 100%;
+    background-color: rgba(0, 0, 0, 0.12);
+    pointer-events: none;
+}
+
+.alert-timer-progress-bar {
+    height: 100%;
+    width: 100%;
+    background-color: currentColor;
+    opacity: 0.75;
+    transform-origin: left center;
+    animation: alertTimerCountdown linear forwards;
+}
+
+.alert-dismissible.is-paused .alert-timer-progress-bar {
+    animation-play-state: paused !important;
+}
+
+.alert-success .alert-timer-progress-bar {
+    background-color: #198754;
+    opacity: 0.85;
+}
+
+.alert-warning .alert-timer-progress-bar {
+    background-color: #d97706;
+    opacity: 0.9;
+}
+
+.alert-danger .alert-timer-progress-bar {
+    background-color: #dc3545;
+    opacity: 0.85;
+}
+
+.alert-info .alert-timer-progress-bar {
+    background-color: #0284c7;
+    opacity: 0.85;
+}
+
+.alert-primary .alert-timer-progress-bar {
+    background-color: #2563eb;
+    opacity: 0.85;
+}
+
+/* Dark Mode Alert Polish */
+[data-bs-theme="dark"] .alert-success {
+    background-color: rgba(22, 101, 52, 0.35) !important;
+    border-color: rgba(74, 222, 128, 0.35) !important;
+    color: #86efac !important;
+}
+
+[data-bs-theme="dark"] .alert-warning {
+    background-color: rgba(180, 83, 9, 0.35) !important;
+    border-color: rgba(251, 191, 36, 0.35) !important;
+    color: #fde68a !important;
+}
+
+[data-bs-theme="dark"] .alert-danger {
+    background-color: rgba(185, 28, 28, 0.35) !important;
+    border-color: rgba(248, 113, 113, 0.35) !important;
+    color: #fca5a5 !important;
+}
+
+[data-bs-theme="dark"] .alert-info {
+    background-color: rgba(3, 105, 161, 0.35) !important;
+    border-color: rgba(56, 189, 248, 0.35) !important;
+    color: #7dd3fc !important;
+}
+
+[data-bs-theme="dark"] .alert-success .alert-icon { color: #4ade80 !important; }
+[data-bs-theme="dark"] .alert-warning .alert-icon { color: #fbbf24 !important; }
+[data-bs-theme="dark"] .alert-danger .alert-icon { color: #f87171 !important; }
+[data-bs-theme="dark"] .alert-info .alert-icon { color: #38bdf8 !important; }
+
+[data-bs-theme="dark"] .alert-timer-progress {
+    background-color: rgba(255, 255, 255, 0.15);
+}
+
+[data-bs-theme="dark"] .alert-success .alert-timer-progress-bar {
+    background-color: #3fb950;
+    box-shadow: 0 0 8px rgba(63, 185, 80, 0.6);
+}
+
+[data-bs-theme="dark"] .alert-warning .alert-timer-progress-bar {
+    background-color: #f59e0b;
+    box-shadow: 0 0 8px rgba(245, 158, 11, 0.6);
+}
+
+[data-bs-theme="dark"] .alert-danger .alert-timer-progress-bar {
+    background-color: #f87171;
+    box-shadow: 0 0 8px rgba(248, 113, 113, 0.6);
+}
+
+[data-bs-theme="dark"] .alert-info .alert-timer-progress-bar {
+    background-color: #38bdf8;
+    box-shadow: 0 0 8px rgba(56, 189, 248, 0.6);
+}
+
+@keyframes alertTimerCountdown {
+    from {
+        transform: scaleX(1);
+    }
+    to {
+        transform: scaleX(0);
+    }
+}
 
