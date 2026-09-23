@@ -680,6 +680,70 @@ include 'layout/header.php';
                     </div>
 
                     <div class="d-flex flex-wrap gap-2 rs-btn-group">
+                        <!-- Mobile / Quick Sort Dropdown -->
+                        <div class="dropdown cims-mobile-sort-wrap" id="rsSortDropdownWrap">
+                            <button class="btn btn-outline-secondary btn-sm fw-bold shadow-sm d-flex align-items-center gap-1 dropdown-toggle"
+                                type="button" id="rsSortDropdownBtn" data-bs-toggle="dropdown" aria-expanded="false" title="Sort records" style="min-height: 38px;">
+                                <i class="bi bi-arrow-down-up text-primary"></i>
+                                <span>Sort</span>
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end shadow-lg border-0 rounded-3 p-2 cims-mobile-sort-menu" aria-labelledby="rsSortDropdownBtn" style="min-width: 230px; z-index: 1055;">
+                                <li class="dropdown-header text-uppercase fw-bold text-muted small pb-1">Sort Options</li>
+                                <li>
+                                    <a class="dropdown-item py-2 rounded-2 d-flex align-items-center justify-content-between active" href="javascript:void(0)" 
+                                       onclick="CimsTableSorter.sortMobileCards('#rsMobileCards', 'date', 'desc', this); CimsTableSorter.sortDesktopByHeader('#rsTable', 3, 'desc');">
+                                        <span class="d-flex align-items-center gap-2"><i class="bi bi-calendar-event text-primary"></i>Date: Newest First</span>
+                                        <i class="bi bi-check2 text-primary sort-check"></i>
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item py-2 rounded-2 d-flex align-items-center justify-content-between" href="javascript:void(0)" 
+                                       onclick="CimsTableSorter.sortMobileCards('#rsMobileCards', 'date', 'asc', this); CimsTableSorter.sortDesktopByHeader('#rsTable', 3, 'asc');">
+                                        <span class="d-flex align-items-center gap-2"><i class="bi bi-calendar-event text-secondary"></i>Date: Oldest First</span>
+                                        <i class="bi bi-check2 text-primary sort-check d-none"></i>
+                                    </a>
+                                </li>
+                                <li><hr class="dropdown-divider my-1"></li>
+                                <li>
+                                    <a class="dropdown-item py-2 rounded-2 d-flex align-items-center justify-content-between" href="javascript:void(0)" 
+                                       onclick="CimsTableSorter.sortMobileCards('#rsMobileCards', 'project', 'asc', this); CimsTableSorter.sortDesktopByHeader('#rsTable', 1, 'asc');">
+                                        <span class="d-flex align-items-center gap-2"><i class="bi bi-sort-alpha-down text-info"></i>Project: A → Z</span>
+                                        <i class="bi bi-check2 text-primary sort-check d-none"></i>
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item py-2 rounded-2 d-flex align-items-center justify-content-between" href="javascript:void(0)" 
+                                       onclick="CimsTableSorter.sortMobileCards('#rsMobileCards', 'project', 'desc', this); CimsTableSorter.sortDesktopByHeader('#rsTable', 1, 'desc');">
+                                        <span class="d-flex align-items-center gap-2"><i class="bi bi-sort-alpha-up text-info"></i>Project: Z → A</span>
+                                        <i class="bi bi-check2 text-primary sort-check d-none"></i>
+                                    </a>
+                                </li>
+                                <li><hr class="dropdown-divider my-1"></li>
+                                <li>
+                                    <a class="dropdown-item py-2 rounded-2 d-flex align-items-center justify-content-between" href="javascript:void(0)" 
+                                       onclick="CimsTableSorter.sortMobileCards('#rsMobileCards', 'code', 'desc', this); CimsTableSorter.sortDesktopByHeader('#rsTable', 0, 'desc');">
+                                        <span class="d-flex align-items-center gap-2"><i class="bi bi-sort-numeric-down-alt text-success"></i>RS No: High to Low</span>
+                                        <i class="bi bi-check2 text-primary sort-check d-none"></i>
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item py-2 rounded-2 d-flex align-items-center justify-content-between" href="javascript:void(0)" 
+                                       onclick="CimsTableSorter.sortMobileCards('#rsMobileCards', 'code', 'asc', this); CimsTableSorter.sortDesktopByHeader('#rsTable', 0, 'asc');">
+                                        <span class="d-flex align-items-center gap-2"><i class="bi bi-sort-numeric-down text-success"></i>RS No: Low to High</span>
+                                        <i class="bi bi-check2 text-primary sort-check d-none"></i>
+                                    </a>
+                                </li>
+                                <li><hr class="dropdown-divider my-1"></li>
+                                <li>
+                                    <a class="dropdown-item py-2 rounded-2 d-flex align-items-center justify-content-between text-danger" href="javascript:void(0)" 
+                                       onclick="CimsTableSorter.sortMobileCards('#rsMobileCards', 'reset', 'none', this); CimsTableSorter.sortDesktopByHeader('#rsTable', -1, 'none');">
+                                        <span class="d-flex align-items-center gap-2"><i class="bi bi-arrow-counterclockwise"></i>Reset Default</span>
+                                        <i class="bi bi-check2 text-primary sort-check d-none"></i>
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
+
                         <!-- Advanced Filter Toggle Button (Same as PO) -->
                         <button class="btn btn-outline-secondary btn-sm fw-bold shadow-sm d-flex align-items-center gap-1"
                             type="button" data-bs-toggle="collapse" data-bs-target="#rsFilterCollapse" aria-expanded="false"
@@ -1015,7 +1079,8 @@ include 'layout/header.php';
                         data-type="<?= htmlspecialchars($rs['type'] ?? 'project') ?>"
                         data-status="<?= htmlspecialchars($rs['status']) ?>"
                         data-urgency="<?= htmlspecialchars($rs['urgency']) ?>"
-                        data-created-date="<?= date('Y-m-d', strtotime($rs['created_at'])) ?>">
+                        data-created-date="<?= date('Y-m-d', strtotime($rs['created_at'])) ?>"
+                        data-created-timestamp="<?= strtotime($rs['created_at']) ?>">
                         
                         <!-- Top Row: Icon + RS Number & Requestor + Urgency/Status Badges -->
                         <div class="d-flex align-items-start justify-content-between gap-2 mb-2">
