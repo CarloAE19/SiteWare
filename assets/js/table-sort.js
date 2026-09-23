@@ -465,10 +465,173 @@
     }
 
     /**
-     * Hook triggered after sorting to maintain integration with active filters.
+     * Sorts mobile cards container by a specific field and direction.
+     */
+    function sortMobileCards(containerSelector, sortField, sortDirection, clickedItem) {
+        const container = typeof containerSelector === 'string' ? document.querySelector(containerSelector) : containerSelector;
+        if (!container) return;
+
+        // Visual update on dropdown item if provided
+        if (clickedItem) {
+            const menu = clickedItem.closest('.dropdown-menu');
+            if (menu) {
+                menu.querySelectorAll('.dropdown-item').forEach(item => {
+                    item.classList.remove('active');
+                    const check = item.querySelector('.sort-check');
+                    if (check) check.classList.add('d-none');
+                });
+                clickedItem.classList.add('active');
+                const check = clickedItem.querySelector('.sort-check');
+                if (check) check.classList.remove('d-none');
+            }
+        }
+
+        const cards = Array.from(container.children).filter(el => 
+            el.classList.contains('cims-mobile-card') || el.classList.contains('po-card') || el.classList.contains('rs-card') || el.classList.contains('card')
+        );
+
+        if (cards.length <= 1) return;
+
+        // Snapshot original order index on cards
+        cards.forEach((card, idx) => {
+            if (!card.dataset.cimsOrigCardIndex) {
+                card.dataset.cimsOrigCardIndex = String(idx);
+            }
+        });
+
+        if (sortDirection === 'none' || sortField === 'reset') {
+            cards.sort((a, b) => {
+                const idxA = parseInt(a.dataset.cimsOrigCardIndex || '0', 10);
+                const idxB = parseInt(b.dataset.cimsOrigCardIndex || '0', 10);
+                return idxA - idxB;
+            });
+        } else {
+            cards.sort((cardA, cardB) => {
+                let valA = '';
+                let valB = '';
+                let isDate = false;
+                let isNum = false;
+
+                if (sortField === 'date') {
+                    isDate = true;
+                    valA = cardA.dataset.createdTimestamp || cardA.dataset.createdDate || '';
+                    valB = cardB.dataset.createdTimestamp || cardB.dataset.createdDate || '';
+                } else if (sortField === 'supplier' || sortField === 'name' || sortField === 'project') {
+                    valA = cardA.dataset.supplierName || cardA.dataset.project || (cardA.querySelector('.po-supplier, .rs-project, .card-title')?.textContent || '');
+                    valB = cardB.dataset.supplierName || cardB.dataset.project || (cardB.querySelector('.po-supplier, .rs-project, .card-title')?.textContent || '');
+                } else if (sortField === 'code' || sortField === 'po' || sortField === 'rs') {
+                    valA = cardA.dataset.poNo || cardA.dataset.rsNo || (cardA.querySelector('.po-no, .rs-no')?.textContent || '');
+                    valB = cardB.dataset.poNo || cardB.dataset.rsNo || (cardB.querySelector('.po-no, .rs-no')?.textContent || '');
+                } else if (sortField === 'status') {
+                    valA = cardA.dataset.status || '';
+                    valB = cardB.dataset.status || '';
+                }
+
+                let cmp = 0;
+                if (isDate) {
+                    const timeA = parseDateToTimestamp(String(valA));
+                    const timeB = parseDateToTimestamp(String(valB));
+                    cmp = timeA - timeB;
+                } else if (isNum) {
+                    const numA = parseNumberVal(String(valA));
+                    const numB = parseNumberVal(String(valB));
+                    cmp = numA - numB;
+                } else {
+                    cmp = String(valA).trim().localeCompare(String(valB).trim(), undefined, { numeric: true, sensitivity: 'base' });
+                }
+
+                return sortDirection === 'desc' ? -cmp : cmp;
+            });
+        }
+
+        // Re-append cards non-destructively
+        const fragment = document.createDocumentFragment();
+        cards.forEach(card => fragment.appendChild(card));
+        container.appendChild(fragment);
+    }
+
+    /**
+     * Programmatically triggers desktop table sorting to match mobile selection.
+     */
+    function sortDesktopByHeader(tableSelector, colIndex, sortDirection) {
+        const table = typeof tableSelector === 'string' ? document.querySelector(tableSelector) : tableSelector;
+        if (!table) return;
+
+        const thList = table.querySelectorAll('thead th');
+        if (colIndex === -1 || sortDirection === 'none') {
+            const tbody = table.querySelector('tbody');
+            if (tbody) {
+                executeSort(tbody, 0, 'string', 'none');
+                thList.forEach(th => {
+                    th.setAttribute('aria-sort', 'none');
+                    th.classList.remove('cims-sorted-asc', 'cims-sorted-desc');
+                    const icon = th.querySelector('.cims-sort-icon');
+                    if (icon) icon.className = 'bi bi-arrow-down-up cims-sort-icon';
+                });
+            }
+            return;
+        }
+
+        const th = thList[colIndex];
+        if (!th) return;
+
+        const colType = th.dataset.cimsColType || detectColumnType(th, table, colIndex);
+        const tbody = table.querySelector('tbody');
+        if (!tbody) return;
+
+        // Reset other headers
+        thList.forEach(otherTh => {
+            if (otherTh !== th) {
+                otherTh.setAttribute('aria-sort', 'none');
+                otherTh.classList.remove('cims-sorted-asc', 'cims-sorted-desc');
+                const icon = otherTh.querySelector('.cims-sort-icon');
+                if (icon) icon.className = 'bi bi-arrow-down-up cims-sort-icon';
+            }
+        });
+
+        th.setAttribute('aria-sort', sortDirection);
+        th.classList.remove('cims-sorted-asc', 'cims-sorted-desc');
+        const activeIcon = th.querySelector('.cims-sort-icon');
+
+        if (sortDirection === 'asc') {
+            th.classList.add('cims-sorted-asc');
+            if (activeIcon) activeIcon.className = 'bi bi-arrow-up cims-sort-icon active-sort';
+        } else if (sortDirection === 'desc') {
+            th.classList.add('cims-sorted-desc');
+            if (activeIcon) activeIcon.className = 'bi bi-arrow-down cims-sort-icon active-sort';
+        }
+
+        executeSort(tbody, colIndex, colType, sortDirection);
+    }
+
+    /**
+     * Hook triggered after desktop sorting to sync mobile cards if present.
      */
     function tableSortingCompleted(table, colIndex, sortDirection) {
         if (!table) return;
+
+        // Auto-sync mobile cards for PO and RS
+        if (table.id === 'poTable') {
+            const poMobile = document.getElementById('poMobileCards');
+            if (poMobile) {
+                let field = 'date';
+                if (colIndex === 0) field = 'code';
+                if (colIndex === 1) field = 'date';
+                if (colIndex === 3) field = 'supplier';
+                if (colIndex === 4) field = 'status';
+                sortMobileCards(poMobile, field, sortDirection);
+            }
+        } else if (table.id === 'rsTable') {
+            const rsMobile = document.getElementById('rsMobileCards');
+            if (rsMobile) {
+                let field = 'date';
+                if (colIndex === 0) field = 'code';
+                if (colIndex === 1) field = 'project';
+                if (colIndex === 3) field = 'date';
+                if (colIndex === 5) field = 'status';
+                sortMobileCards(rsMobile, field, sortDirection);
+            }
+        }
 
         // Custom event for reactive components or modals
         table.dispatchEvent(new CustomEvent('cims:table-sorted', {
@@ -491,6 +654,8 @@
     window.CimsTableSorter = {
         init: initAllTables,
         enhance: enhanceTable,
+        sortMobileCards: sortMobileCards,
+        sortDesktopByHeader: sortDesktopByHeader,
         refresh: function (tableEl) {
             if (tableEl) {
                 const tbody = tableEl.querySelector('tbody');
@@ -508,10 +673,47 @@
 
     // Handle AJAX updates from modals (cims-modal-ajax-handler standard)
     document.addEventListener('cims:table-updated', (e) => {
-        const table = e.target.closest('table') || document.querySelector(DEFAULT_TABLE_SELECTORS.join(','));
+        const table = (e.detail && e.detail.table) || (e.target && e.target.closest && e.target.closest('table')) || document.querySelector(DEFAULT_TABLE_SELECTORS.join(','));
         if (table) {
             window.CimsTableSorter.refresh(table);
+        } else {
+            initAllTables();
         }
     });
 
+    // SPA Router Navigation Event Listeners
+    document.addEventListener('cims:content-loaded', initAllTables);
+    document.addEventListener('cims:route-changed', initAllTables);
+
+    // MutationObserver: Automatically observes DOM changes so SPA router page swaps and dynamic tables auto-initialize immediately
+    try {
+        const observer = new MutationObserver((mutations) => {
+            let foundTable = false;
+            for (let i = 0; i < mutations.length; i++) {
+                const added = mutations[i].addedNodes;
+                for (let j = 0; j < added.length; j++) {
+                    const node = added[j];
+                    if (node.nodeType === 1) { // Node.ELEMENT_NODE
+                        if (node.tagName === 'TABLE' || (node.querySelector && node.querySelector('table'))) {
+                            foundTable = true;
+                            break;
+                        }
+                    }
+                }
+                if (foundTable) break;
+            }
+            if (foundTable) {
+                initAllTables();
+            }
+        });
+
+        const targetNode = document.getElementById('content') || document.body || document.documentElement;
+        if (targetNode) {
+            observer.observe(targetNode, { childList: true, subtree: true });
+        }
+    } catch (obsErr) {
+        console.warn('CimsTableSorter: MutationObserver fallback', obsErr);
+    }
+
 })();
+
