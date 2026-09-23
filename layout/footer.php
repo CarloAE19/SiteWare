@@ -496,167 +496,327 @@ function escapeSmsHtml(text) {
 // DEDICATED SUPPLY LOGISTICS UPDATES JS
 // ==========================================
 let supplyUpdatesData = [];
-let currentSupplyFilter = 'all';
+let currentSupplyFilter = 'urgent'; // Default focus on urgent alerts (Overdue & Today)
+
+function getDismissedSuppliesKey() {
+    const uid = window.currentUserId || 0;
+    return `cims_dismissed_supplies_u${uid}`;
+}
+
+function getDismissedSupplies() {
+    try {
+        const key = getDismissedSuppliesKey();
+        const raw = localStorage.getItem(key);
+        return raw ? JSON.parse(raw) : {};
+    } catch (e) {
+        return {};
+    }
+}
+
+function saveDismissedSupplies(map) {
+    try {
+        const key = getDismissedSuppliesKey();
+        localStorage.setItem(key, JSON.stringify(map));
+    } catch (e) {
+        console.error('Error saving dismissed supplies:', e);
+    }
+}
+
+// Update the warning icon badge & highlighted state based on active (non-dismissed) urgent alerts
+function updateSupplyBadge() {
+    const badge = document.getElementById('supplyUpdatesBadge');
+    const icon = document.getElementById('supplyTruckIcon');
+    const dismissedMap = getDismissedSupplies();
+
+    // Urgent alerts: Arriving Today, Overdue, or unread SMS reply
+    const activeUrgentItems = supplyUpdatesData.filter(a => {
+        if (dismissedMap[a.id]) return false;
+        return a.category === 'arriving_today' || a.category === 'overdue' || (a.type === 'sms_reply' && a.is_read === 0);
+    });
+
+    const urgentCount = activeUrgentItems.length;
+
+    if (urgentCount > 0) {
+        if (badge) {
+            badge.textContent = urgentCount > 99 ? '99+' : urgentCount;
+            badge.classList.remove('d-none');
+        }
+        if (icon) {
+            // HIGHLIGHT: Alerting yellow triangle
+            icon.className = 'bi bi-exclamation-triangle-fill fs-5 text-warning';
+        }
+    } else {
+        if (badge) {
+            badge.classList.add('d-none');
+        }
+        if (icon) {
+            // UNHIGHLIGHT: Muted outline triangle
+            icon.className = 'bi bi-exclamation-triangle fs-5 text-muted';
+        }
+    }
+}
 
 async function loadSupplyUpdates() {
-const container = document.getElementById('supplyUpdatesContainer');
-const badge = document.getElementById('supplyUpdatesBadge');
-if (!container && !badge) return;
+    const container = document.getElementById('supplyUpdatesContainer');
+    if (!container && !document.getElementById('supplyUpdatesBadge')) return;
 
-try {
-const formData = new FormData();
-formData.append('action', 'fetch_combined_alerts');
+    try {
+        const formData = new FormData();
+        formData.append('action', 'fetch_combined_alerts');
 
-const res = await fetch('process/process.php', { method: 'POST', body: formData });
-const data = await res.json();
+        const res = await fetch('process/process.php', { method: 'POST', body: formData });
+        const data = await res.json();
 
-if (data.status === 'success') {
-// Filter to supply items only (supply_eta & sms_reply)
-const allItems = data.alerts || [];
-supplyUpdatesData = allItems.filter(a => a.type === 'supply_eta' || a.type === 'sms_reply');
+        if (data.status === 'success') {
+            const allItems = data.alerts || [];
+            supplyUpdatesData = allItems.filter(a => a.type === 'supply_eta' || a.type === 'sms_reply');
 
-// Count urgent items (arriving today, overdue, unread SMS)
-const urgentCount = supplyUpdatesData.filter(a => a.category === 'arriving_today' || a.category === 'overdue' || (a.type
-=== 'sms_reply' && a.is_read === 0)).length;
-const icon = document.getElementById('supplyTruckIcon');
+            // --- SMART RE-ALERTING (Safety Guard) ---
+            // If a dismissed delivery becomes Overdue or changes to Arriving Today, or its ETA changed,
+            // automatically re-surface it and light up the warning badge!
+            const dismissedMap = getDismissedSupplies();
+            let stateChanged = false;
 
-if (urgentCount > 0) {
-if (badge) {
-badge.textContent = urgentCount > 99 ? '99+' : urgentCount;
-badge.classList.remove('d-none');
-}
-if (icon) {
-// HIGHLIGHT: Filled warning yellow triangle
-icon.className = 'bi bi-exclamation-triangle-fill fs-5 text-warning';
-}
-} else {
-if (badge) {
-badge.classList.add('d-none');
-}
-if (icon) {
-// UNHIGHLIGHT: Muted grey outline triangle
-icon.className = 'bi bi-exclamation-triangle fs-5 text-muted';
-}
-}
+            supplyUpdatesData.forEach(item => {
+                const rec = dismissedMap[item.id];
+                if (rec) {
+                    const wasScheduled = rec.category === 'on_track';
+                    const wasToday = rec.category === 'arriving_today';
+                    const isNowUrgent = item.category === 'arriving_today' || item.category === 'overdue';
+                    const isNowOverdue = item.category === 'overdue';
+                    const etaChanged = Boolean(item.expected_delivery_date && rec.eta && item.expected_delivery_date !== rec.eta);
 
-renderSupplyUpdates(currentSupplyFilter);
-} else {
-if (container) container.innerHTML = `<div class="p-3 text-center text-muted small">Unable to load supply updates.</div>
-`;
-}
-} catch (err) {
-console.error('Error loading supply updates:', err);
-}
+                    // Re-alert conditions:
+                    // 1. Routine scheduled shipment becomes Arriving Today or Overdue
+                    // 2. Shipment was dismissed as Today and has now escalated to Overdue
+                    // 3. Expected delivery date was updated/rescheduled
+                    if ((wasScheduled && isNowUrgent) || (wasToday && isNowOverdue) || etaChanged) {
+                        delete dismissedMap[item.id];
+                        stateChanged = true;
+                    }
+                }
+            });
+
+            if (stateChanged) {
+                saveDismissedSupplies(dismissedMap);
+            }
+
+            // Update badge & alert triangle state
+            updateSupplyBadge();
+
+            // Render with current filter
+            renderSupplyUpdates(currentSupplyFilter);
+        } else {
+            if (container) container.innerHTML = `<div class="p-3 text-center text-muted small">Unable to load supply updates.</div>`;
+        }
+    } catch (err) {
+        console.error('Error loading supply updates:', err);
+    }
 }
 
 function filterSupplyUpdates(filter, btnEl) {
-currentSupplyFilter = filter;
+    currentSupplyFilter = filter;
 
-const container = btnEl ? btnEl.closest('.dropdown-menu') : null;
-if (container) {
-const tabs = container.querySelectorAll('.supply-tab-btn');
-tabs.forEach(t => {
-t.classList.remove('btn-primary', 'active');
-t.classList.add('btn-outline-secondary');
-});
+    const container = btnEl ? btnEl.closest('.dropdown-menu') : document.getElementById('dropdownSupplyUpdates')?.nextElementSibling;
+    if (container) {
+        const tabs = container.querySelectorAll('.supply-tab-btn');
+        tabs.forEach(t => {
+            t.classList.remove('btn-primary', 'active');
+            t.classList.add('btn-outline-secondary');
+        });
+    }
+
+    if (btnEl) {
+        btnEl.classList.remove('btn-outline-secondary');
+        btnEl.classList.add('btn-primary', 'active');
+    }
+
+    renderSupplyUpdates(filter);
 }
 
-if (btnEl) {
-btnEl.classList.remove('btn-outline-secondary');
-btnEl.classList.add('btn-primary', 'active');
-}
+function getFilteredSupplyItems(filter) {
+    const dismissedMap = getDismissedSupplies();
+    const activeItems = supplyUpdatesData.filter(item => !dismissedMap[item.id]);
 
-renderSupplyUpdates(filter);
+    if (filter === 'urgent') {
+        return activeItems.filter(a => a.category === 'arriving_today' || a.category === 'overdue' || (a.type === 'sms_reply' && a.is_read === 0));
+    } else if (filter === 'today') {
+        return activeItems.filter(a => a.category === 'arriving_today');
+    } else if (filter === 'overdue') {
+        return activeItems.filter(a => a.category === 'overdue');
+    } else if (filter === 'scheduled') {
+        return activeItems.filter(a => a.category === 'on_track');
+    }
+    // 'all'
+    return activeItems;
 }
 
 function renderSupplyUpdates(filter) {
-const container = document.getElementById('supplyUpdatesContainer');
-if (!container) return;
+    const container = document.getElementById('supplyUpdatesContainer');
+    if (!container) return;
 
-let items = supplyUpdatesData;
-if (filter === 'arriving_today') {
-items = supplyUpdatesData.filter(a => a.category === 'arriving_today');
-} else if (filter === 'overdue') {
-items = supplyUpdatesData.filter(a => a.category === 'overdue');
-}
+    const activeFilter = filter || currentSupplyFilter;
+    const items = getFilteredSupplyItems(activeFilter);
+    const clearAllBtn = document.getElementById('clearAllSupplyBtn');
 
-if (items.length === 0) {
-container.innerHTML = `
-<div class="text-center text-muted py-4 px-3">
-    <i class="bi bi-truck display-6 opacity-25 d-block mb-2 text-primary"></i>
-    <p class="small mb-0 fw-semibold">No supply updates found</p>
-    <small class="text-muted" style="font-size: 0.72rem;">No active shipments matching filter.</small>
-</div>
-`;
-return;
-}
-
-let html = '';
-items.forEach(item => {
-    let borderClass = 'border-start border-3 border-primary bg-white';
-    let badgeText = item.category ? item.category.replace('_', ' ').toUpperCase() : 'SUPPLY';
-
-    if (item.category === 'overdue') {
-        borderClass = 'border-start border-3 border-danger bg-danger-subtle bg-opacity-10';
-        badgeText = 'OVERDUE';
-    } else if (item.category === 'arriving_today') {
-        borderClass = 'border-start border-3 border-warning bg-warning-subtle bg-opacity-10';
-        badgeText = 'ARRIVING TODAY';
-    } else if (item.category === 'on_track') {
-        borderClass = 'border-start border-3 border-primary bg-white';
-        badgeText = 'SCHEDULED';
-    }
-
-    let actionBtn = '';
-    if (item.type === 'supply_eta') {
-        actionBtn = `
-        <div class="d-flex align-items-center gap-2 mt-2 pt-1 border-top border-light">
-            <button type="button" class="btn btn-sm btn-outline-primary py-1 px-2 fw-bold text-nowrap" style="font-size:0.75rem;"
-                onclick="if (typeof openPoModalByNo === 'function') { openPoModalByNo('${escapeSmsHtml(item.po_no)}'); } else { window.location.href='po?search=${encodeURIComponent(item.po_no)}'; }"
-                title="Preview PO Details">
-                <i class="bi bi-file-earmark-text me-1"></i>Quick View
-            </button>`;
-        if (item.po_id && ['purchasing', 'admin'].includes(window.currentUserRole)) {
-            actionBtn += `
-            <button type="button" class="btn btn-sm btn-light border py-1 px-2 fw-bold text-dark text-nowrap" style="font-size:0.75rem;"
-                onclick="openEditEtaModal(${item.po_id}, '${escapeSmsHtml(item.po_no)}', '${escapeSmsHtml(item.expected_delivery_date || '')}')"
-                title="Update Target Delivery Date">
-                <i class="bi bi-pencil-square text-primary me-1"></i>Edit ETA
-            </button>`;
+    // Toggle "Clear all" button visibility based on whether active items exist
+    if (clearAllBtn) {
+        if (items.length > 0) {
+            clearAllBtn.classList.remove('d-none');
+        } else {
+            clearAllBtn.classList.add('d-none');
         }
-        actionBtn += `
-            <a href="po?search=${encodeURIComponent(item.po_no)}" class="btn btn-sm btn-link text-muted p-0 ms-auto text-decoration-none" style="font-size:0.72rem;" title="Go to PO management">
-                Manage <i class="bi bi-arrow-right"></i>
-            </a>
-        </div>`;
-    } else if (item.type === 'sms_reply') {
-        actionBtn = `
-        <div class="mt-2 pt-1 border-top border-light">
-            <button type="button" class="btn btn-sm btn-primary py-1 px-2 fw-bold" style="font-size:0.75rem;"
-                onclick="if (typeof openSmsInboxModal === 'function') openSmsInboxModal();">
-                <i class="bi bi-chat-dots me-1"></i>Reply SMS
-            </button>
-        </div>`;
     }
 
-    html += `
-    <div class="p-3 border-bottom ${borderClass} transition-all">
-        <div class="d-flex align-items-start justify-content-between mb-1">
-            <div class="d-flex align-items-center flex-wrap gap-1">
-                <span class="badge ${item.badge_class}" style="font-size:0.65rem;">
+    if (items.length === 0) {
+        container.innerHTML = `
+        <div class="text-center text-muted py-4 px-3">
+            <i class="bi bi-shield-check display-6 text-success opacity-75 d-block mb-2"></i>
+            <p class="small mb-0 fw-semibold text-dark">All caught up!</p>
+            <small class="text-muted" style="font-size: 0.72rem;">No pending supply alerts.</small>
+        </div>
+        `;
+        return;
+    }
+
+    let html = '';
+    items.forEach(item => {
+        let borderClass = 'border-start border-3 border-primary bg-white';
+        let badgeText = item.category ? item.category.replace('_', ' ').toUpperCase() : 'SUPPLY';
+
+        if (item.category === 'overdue') {
+            borderClass = 'border-start border-3 border-danger bg-danger-subtle bg-opacity-10';
+            badgeText = 'OVERDUE';
+        } else if (item.category === 'arriving_today') {
+            borderClass = 'border-start border-3 border-warning bg-warning-subtle bg-opacity-10';
+            badgeText = 'ARRIVING TODAY';
+        } else if (item.category === 'on_track') {
+            borderClass = 'border-start border-3 border-primary bg-white';
+            badgeText = 'SCHEDULED';
+        }
+
+        let actionBtn = '';
+        if (item.type === 'supply_eta') {
+            actionBtn = `
+            <div class="d-flex align-items-center gap-2 mt-2 pt-1 border-top border-light">
+                <button type="button" class="btn btn-sm btn-outline-primary py-1 px-2 fw-bold text-nowrap" style="font-size:0.75rem;"
+                    onclick="if (typeof openPoModalByNo === 'function') { openPoModalByNo('${escapeSmsHtml(item.po_no)}'); } else { window.location.href='po?search=${encodeURIComponent(item.po_no)}'; }"
+                    title="Preview PO Details">
+                    <i class="bi bi-file-earmark-text me-1"></i>Quick View
+                </button>`;
+            if (item.po_id && ['purchasing', 'admin'].includes(window.currentUserRole)) {
+                actionBtn += `
+                <button type="button" class="btn btn-sm btn-light border py-1 px-2 fw-bold text-dark text-nowrap" style="font-size:0.75rem;"
+                    onclick="openEditEtaModal(${item.po_id}, '${escapeSmsHtml(item.po_no)}', '${escapeSmsHtml(item.expected_delivery_date || '')}')"
+                    title="Update Target Delivery Date">
+                    <i class="bi bi-pencil-square text-primary me-1"></i>Edit ETA
+                </button>`;
+            }
+            actionBtn += `
+                <a href="po?search=${encodeURIComponent(item.po_no)}" class="btn btn-sm btn-link text-muted p-0 ms-auto text-decoration-none" style="font-size:0.72rem;" title="Go to PO management">
+                    Manage <i class="bi bi-arrow-right"></i>
+                </a>
+            </div>`;
+        } else if (item.type === 'sms_reply') {
+            actionBtn = `
+            <div class="mt-2 pt-1 border-top border-light">
+                <button type="button" class="btn btn-sm btn-primary py-1 px-2 fw-bold" style="font-size:0.75rem;"
+                    onclick="if (typeof openSmsInboxModal === 'function') openSmsInboxModal();">
+                    <i class="bi bi-chat-dots me-1"></i>Reply SMS
+                </button>
+            </div>`;
+        }
+
+        html += `
+        <div class="p-3 border-bottom ${borderClass} transition-all position-relative supply-item-card" data-supply-id="${escapeSmsHtml(item.id)}">
+            <div class="d-flex align-items-center justify-content-between mb-2">
+                <span class="badge ${item.badge_class} rounded-pill px-2 py-0.5 fw-bold" style="font-size: 0.65rem; letter-spacing: 0.2px;">
                     <i class="bi ${item.icon} me-1"></i>${badgeText}
                 </span>
-                <strong class="text-dark" style="font-size:0.83rem;">${escapeSmsHtml(item.title)}</strong>
+                <div class="d-flex align-items-center gap-1.5 ms-auto flex-shrink-0">
+                    <span class="badge bg-light text-secondary border px-2 py-0.5 rounded-pill text-nowrap" style="font-size: 0.68rem; font-weight: 500;">
+                        ${escapeSmsHtml(item.time_ago)}
+                    </span>
+                    <button type="button" class="supply-dismiss-btn ms-1"
+                        onclick="event.stopPropagation(); dismissSingleSupplyAlert('${escapeSmsHtml(item.id)}', '${escapeSmsHtml(item.category || '')}', '${escapeSmsHtml(item.expected_delivery_date || '')}')"
+                        title="Dismiss alert" aria-label="Dismiss alert">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                </div>
             </div>
-            <small class="badge bg-light text-secondary border text-nowrap ms-2" style="font-size:0.68rem;">${escapeSmsHtml(item.time_ago)}</small>
+            <div class="text-dark fw-bold mb-1 text-truncate" style="font-size: 0.84rem;" title="${escapeSmsHtml(item.title)}">
+                ${escapeSmsHtml(item.title)}
+            </div>
+            <p class="mb-2 text-secondary" style="font-size: 0.77rem; line-height: 1.38;">${escapeSmsHtml(item.message)}</p>
+            ${actionBtn}
         </div>
-        <p class="mb-1 text-secondary" style="font-size:0.78rem; line-height: 1.4;">${escapeSmsHtml(item.message)}</p>
-        ${actionBtn}
-    </div>
-    `;
-});
+        `;
+    });
 
-container.innerHTML = html;
+    container.innerHTML = html;
+}
+
+// Dismiss a single supply alert with smooth transition & save to localStorage
+function dismissSingleSupplyAlert(itemId, category, eta) {
+    if (!itemId) return;
+
+    const dismissedMap = getDismissedSupplies();
+    dismissedMap[itemId] = {
+        category: category || 'on_track',
+        eta: eta || '',
+        dismissedAt: Date.now()
+    };
+    saveDismissedSupplies(dismissedMap);
+
+    const cardEl = document.querySelector(`.supply-item-card[data-supply-id="${itemId}"]`);
+    if (cardEl) {
+        cardEl.style.opacity = '0';
+        cardEl.style.transform = 'translateX(25px)';
+        cardEl.style.maxHeight = '0px';
+        cardEl.style.paddingTop = '0px';
+        cardEl.style.paddingBottom = '0px';
+        cardEl.style.overflow = 'hidden';
+        setTimeout(() => {
+            updateSupplyBadge();
+            renderSupplyUpdates(currentSupplyFilter);
+        }, 220);
+    } else {
+        updateSupplyBadge();
+        renderSupplyUpdates(currentSupplyFilter);
+    }
+}
+
+// Clear all alerts visible under the active filter
+function clearAllSupplyUpdates() {
+    const itemsToClear = getFilteredSupplyItems(currentSupplyFilter);
+    if (!itemsToClear || itemsToClear.length === 0) return;
+
+    const dismissedMap = getDismissedSupplies();
+    itemsToClear.forEach(item => {
+        dismissedMap[item.id] = {
+            category: item.category || 'on_track',
+            eta: item.expected_delivery_date || '',
+            dismissedAt: Date.now()
+        };
+    });
+    saveDismissedSupplies(dismissedMap);
+
+    updateSupplyBadge();
+    renderSupplyUpdates(currentSupplyFilter);
+
+    if (typeof Swal !== 'undefined') {
+        const Toast = Swal.mixin({
+            toast: true,
+            position: 'top-end',
+            showConfirmButton: false,
+            timer: 2000,
+            timerProgressBar: false
+        });
+        Toast.fire({
+            icon: 'success',
+            title: 'Supply alerts cleared'
+        });
+    }
 }
 
 // Poll for supply updates every 25 seconds (Only for roles with the supply dropdown)
