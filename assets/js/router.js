@@ -252,6 +252,13 @@ document.addEventListener("DOMContentLoaded", () => {
                     updateOfflineUI();
                 }
 
+                // Immediately initialize table sorting on newly routed page
+                if (window.CimsTableSorter && typeof window.CimsTableSorter.init === 'function') {
+                    window.CimsTableSorter.init();
+                }
+                document.dispatchEvent(new CustomEvent('cims:content-loaded'));
+                document.dispatchEvent(new CustomEvent('cims:route-changed', { detail: { url } }));
+
                 hideRouteLoadingPill();
                 finishProgressBar();
 
