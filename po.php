@@ -504,6 +504,70 @@ include 'layout/header.php';
                             placeholder="Search PO No, Supplier...">
                     </div>
 
+                    <!-- Mobile / Quick Sort Dropdown -->
+                    <div class="dropdown" id="poSortDropdownWrap">
+                        <button class="btn btn-outline-secondary fw-bold shadow-sm d-flex align-items-center gap-1 dropdown-toggle"
+                            type="button" id="poSortDropdownBtn" data-bs-toggle="dropdown" aria-expanded="false" title="Sort records" style="min-height: 38px;">
+                            <i class="bi bi-arrow-down-up text-primary"></i>
+                            <span>Sort</span>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end shadow-lg border-0 rounded-3 p-2 cims-mobile-sort-menu" aria-labelledby="poSortDropdownBtn" style="min-width: 230px; z-index: 1055;">
+                            <li class="dropdown-header text-uppercase fw-bold text-muted small pb-1">Sort Options</li>
+                            <li>
+                                <a class="dropdown-item py-2 rounded-2 d-flex align-items-center justify-content-between active" href="javascript:void(0)" 
+                                   onclick="CimsTableSorter.sortMobileCards('#poMobileCards', 'date', 'desc', this); CimsTableSorter.sortDesktopByHeader('#poTable', 1, 'desc');">
+                                    <span class="d-flex align-items-center gap-2"><i class="bi bi-calendar-event text-primary"></i>Date: Newest First</span>
+                                    <i class="bi bi-check2 text-primary sort-check"></i>
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item py-2 rounded-2 d-flex align-items-center justify-content-between" href="javascript:void(0)" 
+                                   onclick="CimsTableSorter.sortMobileCards('#poMobileCards', 'date', 'asc', this); CimsTableSorter.sortDesktopByHeader('#poTable', 1, 'asc');">
+                                    <span class="d-flex align-items-center gap-2"><i class="bi bi-calendar-event text-secondary"></i>Date: Oldest First</span>
+                                    <i class="bi bi-check2 text-primary sort-check d-none"></i>
+                                </a>
+                            </li>
+                            <li><hr class="dropdown-divider my-1"></li>
+                            <li>
+                                <a class="dropdown-item py-2 rounded-2 d-flex align-items-center justify-content-between" href="javascript:void(0)" 
+                                   onclick="CimsTableSorter.sortMobileCards('#poMobileCards', 'supplier', 'asc', this); CimsTableSorter.sortDesktopByHeader('#poTable', 3, 'asc');">
+                                    <span class="d-flex align-items-center gap-2"><i class="bi bi-sort-alpha-down text-info"></i>Supplier: A → Z</span>
+                                    <i class="bi bi-check2 text-primary sort-check d-none"></i>
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item py-2 rounded-2 d-flex align-items-center justify-content-between" href="javascript:void(0)" 
+                                   onclick="CimsTableSorter.sortMobileCards('#poMobileCards', 'supplier', 'desc', this); CimsTableSorter.sortDesktopByHeader('#poTable', 3, 'desc');">
+                                    <span class="d-flex align-items-center gap-2"><i class="bi bi-sort-alpha-up text-info"></i>Supplier: Z → A</span>
+                                    <i class="bi bi-check2 text-primary sort-check d-none"></i>
+                                </a>
+                            </li>
+                            <li><hr class="dropdown-divider my-1"></li>
+                            <li>
+                                <a class="dropdown-item py-2 rounded-2 d-flex align-items-center justify-content-between" href="javascript:void(0)" 
+                                   onclick="CimsTableSorter.sortMobileCards('#poMobileCards', 'code', 'desc', this); CimsTableSorter.sortDesktopByHeader('#poTable', 0, 'desc');">
+                                    <span class="d-flex align-items-center gap-2"><i class="bi bi-sort-numeric-down-alt text-success"></i>PO No: High to Low</span>
+                                    <i class="bi bi-check2 text-primary sort-check d-none"></i>
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item py-2 rounded-2 d-flex align-items-center justify-content-between" href="javascript:void(0)" 
+                                   onclick="CimsTableSorter.sortMobileCards('#poMobileCards', 'code', 'asc', this); CimsTableSorter.sortDesktopByHeader('#poTable', 0, 'asc');">
+                                    <span class="d-flex align-items-center gap-2"><i class="bi bi-sort-numeric-down text-success"></i>PO No: Low to High</span>
+                                    <i class="bi bi-check2 text-primary sort-check d-none"></i>
+                                </a>
+                            </li>
+                            <li><hr class="dropdown-divider my-1"></li>
+                            <li>
+                                <a class="dropdown-item py-2 rounded-2 d-flex align-items-center justify-content-between text-danger" href="javascript:void(0)" 
+                                   onclick="CimsTableSorter.sortMobileCards('#poMobileCards', 'reset', 'none', this); CimsTableSorter.sortDesktopByHeader('#poTable', -1, 'none');">
+                                    <span class="d-flex align-items-center gap-2"><i class="bi bi-arrow-counterclockwise"></i>Reset Default</span>
+                                    <i class="bi bi-check2 text-primary sort-check d-none"></i>
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+
                     <!-- Filter Toggle Button -->
                     <button class="btn btn-outline-secondary fw-bold shadow-sm d-flex align-items-center gap-1"
                         type="button" data-bs-toggle="collapse" data-bs-target="#poFilterCollapse" aria-expanded="false"
@@ -1091,7 +1155,10 @@ include 'layout/header.php';
                     <div class="cims-mobile-card po-card"
                         data-prepared-by="<?= htmlspecialchars($po['prepared_by'] ?? '') ?>"
                         data-supplier-id="<?= htmlspecialchars($po['supplier_id'] ?? '') ?>"
+                        data-supplier-name="<?= htmlspecialchars($po['company_name'] ?? '') ?>"
+                        data-po-no="<?= htmlspecialchars($po['po_no'] ?? '') ?>"
                         data-created-date="<?= !empty($po['created_at']) ? date('Y-m-d', strtotime($po['created_at'])) : '' ?>"
+                        data-created-timestamp="<?= !empty($po['created_at']) ? strtotime($po['created_at']) : 0 ?>"
                         data-status="<?= htmlspecialchars($po['status'] ?? 'Generated') ?>"
                         data-project="<?= htmlspecialchars($po['project_name'] ?? 'Warehouse Restock') ?>"
                         data-eta-urgency="<?= $etaUrgencyVal ?>">
