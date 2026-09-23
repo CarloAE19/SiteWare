@@ -421,6 +421,7 @@ foreach ($notifications as $n) {
     </script>
     <script>
         window.currentUserRole = '<?= $currentUserRole ?>';
+        window.currentUserId = <?= (int)($currentUserId ?? 0) ?>;
         // Global Popup Window Helper for Secure Media Viewing (Desktop & Mobile PWA Compatible)
         window.openPhotoWindow = function(url, title = 'Media Proof Viewer') {
             if (!url || url === '#' || url === 'javascript:void(0);') return;
@@ -552,37 +553,44 @@ foreach ($notifications as $n) {
                                 </a>
 
                                 <div class="dropdown-menu dropdown-menu-end shadow-lg border-0 rounded-3 notif-menu p-0"
-                                    aria-labelledby="dropdownSupplyUpdates" style="width: 360px; max-width: 90vw;">
+                                    aria-labelledby="dropdownSupplyUpdates" style="width: 385px; max-width: 95vw;">
                                     <div
                                         class="p-3 bg-dark text-white rounded-top-3 d-flex justify-content-between align-items-center">
-                                        <div class="d-flex align-items-center">
-                                            <i class="bi bi-exclamation-triangle-fill text-warning me-2 fs-5"></i>
-                                            <div>
-                                                <h6 class="fw-bold mb-0 text-white">Supply Deliveries & ETAs</h6>
-                                                <small class="text-white-50" style="font-size: 0.72rem;">Warehouse arrival
-                                                    schedules & supplier tracking</small>
+                                        <div class="d-flex align-items-center me-2" style="min-width: 0;">
+                                            <i class="bi bi-exclamation-triangle-fill text-warning me-2 fs-5 flex-shrink-0"></i>
+                                            <div style="min-width: 0;">
+                                                <h6 class="fw-bold mb-0 text-white text-truncate" style="font-size: 0.88rem;">Supply Deliveries & ETAs</h6>
+                                                <small class="text-white-50 text-truncate d-block" style="font-size: 0.71rem;">Warehouse arrival schedules & tracking</small>
                                             </div>
                                         </div>
+                                        <button id="clearAllSupplyBtn" type="button"
+                                            class="btn btn-sm supply-clear-btn d-none"
+                                            onclick="event.stopPropagation(); clearAllSupplyUpdates()" title="Clear current delivery alerts">
+                                            <i class="bi bi-trash3 me-1"></i>Clear all
+                                        </button>
                                     </div>
 
-                                    <!-- Filter Tabs for Supplies -->
-                                    <div class="bg-light border-bottom px-2 py-1 d-flex gap-1 overflow-auto">
+                                    <!-- Filter Tabs for Supplies (Default Focus on Urgent Alerts) -->
+                                    <div class="bg-light border-bottom px-2 py-1.5 d-flex gap-1 supply-tabs-bar">
                                         <button type="button"
-                                            class="btn btn-sm btn-primary rounded-pill px-2 py-0 fw-bold text-nowrap supply-tab-btn active"
-                                            onclick="event.stopPropagation(); filterSupplyUpdates('all', this)"
-                                            style="font-size: 0.72rem;">All Deliveries</button>
+                                            class="btn btn-sm btn-primary supply-tab-btn active"
+                                            onclick="event.stopPropagation(); filterSupplyUpdates('urgent', this)">⚠️ Urgent</button>
                                         <button type="button"
-                                            class="btn btn-sm btn-outline-secondary rounded-pill px-2 py-0 fw-bold text-nowrap supply-tab-btn"
-                                            onclick="event.stopPropagation(); filterSupplyUpdates('arriving_today', this)"
-                                            style="font-size: 0.72rem;">🟡 Today</button>
+                                            class="btn btn-sm btn-outline-secondary supply-tab-btn"
+                                            onclick="event.stopPropagation(); filterSupplyUpdates('today', this)">🟡 Today</button>
                                         <button type="button"
-                                            class="btn btn-sm btn-outline-secondary rounded-pill px-2 py-0 fw-bold text-nowrap supply-tab-btn"
-                                            onclick="event.stopPropagation(); filterSupplyUpdates('overdue', this)"
-                                            style="font-size: 0.72rem;">🔴 Overdue</button>
+                                            class="btn btn-sm btn-outline-secondary supply-tab-btn"
+                                            onclick="event.stopPropagation(); filterSupplyUpdates('overdue', this)">🔴 Overdue</button>
+                                        <button type="button"
+                                            class="btn btn-sm btn-outline-secondary supply-tab-btn"
+                                            onclick="event.stopPropagation(); filterSupplyUpdates('scheduled', this)">📦 Scheduled</button>
+                                        <button type="button"
+                                            class="btn btn-sm btn-outline-secondary supply-tab-btn"
+                                            onclick="event.stopPropagation(); filterSupplyUpdates('all', this)">All</button>
                                     </div>
 
                                     <!-- Supply Updates Container -->
-                                    <div class="overflow-auto" style="max-height: 360px;" id="supplyUpdatesContainer">
+                                    <div class="overflow-auto supply-updates-scroll" style="max-height: 380px;" id="supplyUpdatesContainer">
                                         <div class="text-center text-muted py-4">
                                             <div class="spinner-border spinner-border-sm text-primary mb-2" role="status">
                                             </div>
