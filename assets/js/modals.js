@@ -886,4 +886,187 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
     });
+
+    // 5. Universal Auto-Dismiss Alert Banners with Animated Countdown Timer
+    window.initAlertAutoDismiss = function(scope = document, duration = 4000) {
+        const alerts = scope.querySelectorAll('.alert.alert-dismissible:not([data-autodismiss-init="true"])');
+        alerts.forEach(alertEl => {
+            if (alertEl.dataset.noAutodismiss === 'true' || alertEl.classList.contains('no-autodismiss')) return;
+            alertEl.dataset.autodismissInit = 'true';
+
+            // Find or detach close button
+            let closeBtn = alertEl.querySelector('.btn-close');
+            if (closeBtn) {
+                closeBtn.remove();
+            } else {
+                closeBtn = document.createElement('button');
+                closeBtn.type = 'button';
+                closeBtn.className = 'btn-close';
+                closeBtn.setAttribute('data-bs-dismiss', 'alert');
+                closeBtn.setAttribute('aria-label', 'Close');
+            }
+
+            // Find or detach progress container
+            let progressContainer = alertEl.querySelector('.alert-timer-progress');
+            if (progressContainer) {
+                progressContainer.remove();
+            } else {
+                progressContainer = document.createElement('div');
+                progressContainer.className = 'alert-timer-progress';
+                progressContainer.innerHTML = '<div class="alert-timer-progress-bar"></div>';
+            }
+
+            // Wrap content in .alert-content-wrapper with contextual icon if not already wrapped
+            let contentWrapper = alertEl.querySelector('.alert-content-wrapper');
+            if (!contentWrapper) {
+                contentWrapper = document.createElement('div');
+                contentWrapper.className = 'alert-content-wrapper d-flex align-items-center gap-2';
+
+                // Determine appropriate icon class if not already present in children
+                const hasExistingIcon = !!alertEl.querySelector('i.bi, svg, .alert-icon');
+                if (!hasExistingIcon) {
+                    let iconClass = 'bi-bell-fill text-primary';
+                    if (alertEl.classList.contains('alert-success')) {
+                        iconClass = 'bi-check-circle-fill text-success';
+                    } else if (alertEl.classList.contains('alert-danger')) {
+                        iconClass = 'bi-exclamation-octagon-fill text-danger';
+                    } else if (alertEl.classList.contains('alert-warning')) {
+                        iconClass = 'bi-exclamation-triangle-fill text-warning';
+                    } else if (alertEl.classList.contains('alert-info')) {
+                        iconClass = 'bi-info-circle-fill text-info';
+                    }
+
+                    const iconEl = document.createElement('i');
+                    iconEl.className = `bi ${iconClass} alert-icon flex-shrink-0`;
+                    iconEl.setAttribute('aria-hidden', 'true');
+                    contentWrapper.appendChild(iconEl);
+                }
+
+                // Move existing alert child nodes into .alert-text-body
+                const textBody = document.createElement('div');
+                textBody.className = 'alert-text-body flex-grow-1';
+                while (alertEl.firstChild) {
+                    textBody.appendChild(alertEl.firstChild);
+                }
+                contentWrapper.appendChild(textBody);
+                alertEl.appendChild(contentWrapper);
+            }
+
+            // Append close button and countdown progress bar
+            alertEl.appendChild(closeBtn);
+            alertEl.appendChild(progressContainer);
+
+            const progressBar = progressContainer.querySelector('.alert-timer-progress-bar');
+            if (progressBar) {
+                progressBar.style.animationDuration = `${duration}ms`;
+            }
+
+            let remainingTime = duration;
+            let startTime = Date.now();
+            let dismissTimer = null;
+
+            const dismissAlert = () => {
+                if (dismissTimer) {
+                    clearTimeout(dismissTimer);
+                    dismissTimer = null;
+                }
+                try {
+                    const bsAlert = (typeof bootstrap !== 'undefined' && bootstrap.Alert)
+                        ? bootstrap.Alert.getOrCreateInstance(alertEl)
+                        : null;
+                    if (bsAlert) {
+                        bsAlert.close();
+                    } else {
+                        alertEl.classList.remove('show');
+                        setTimeout(() => alertEl.remove(), 250);
+                    }
+                } catch (e) {
+                    alertEl.remove();
+                }
+            };
+
+            const startTimer = () => {
+                startTime = Date.now();
+                dismissTimer = setTimeout(dismissAlert, remainingTime);
+            };
+
+            startTimer();
+
+            // Pause countdown on desktop hover
+            alertEl.addEventListener('mouseenter', () => {
+                if (dismissTimer) {
+                    clearTimeout(dismissTimer);
+                    dismissTimer = null;
+                }
+                const elapsed = Date.now() - startTime;
+                remainingTime = Math.max(0, remainingTime - elapsed);
+                alertEl.classList.add('is-paused');
+            });
+
+            // Resume countdown on desktop mouse leave
+            alertEl.addEventListener('mouseleave', () => {
+                if (remainingTime > 0) {
+                    alertEl.classList.remove('is-paused');
+                    startTimer();
+                }
+            });
+
+            // Mobile Touch Interactions: pause on touch, resume on release, and swipe-up to dismiss
+            let touchStartY = 0;
+            let isTouching = false;
+
+            alertEl.addEventListener('touchstart', (e) => {
+                isTouching = true;
+                if (e.touches && e.touches[0]) {
+                    touchStartY = e.touches[0].clientY;
+                }
+                if (dismissTimer) {
+                    clearTimeout(dismissTimer);
+                    dismissTimer = null;
+                }
+                const elapsed = Date.now() - startTime;
+                remainingTime = Math.max(0, remainingTime - elapsed);
+                alertEl.classList.add('is-paused');
+            }, { passive: true });
+
+            alertEl.addEventListener('touchend', (e) => {
+                if (!isTouching) return;
+                isTouching = false;
+                if (e.changedTouches && e.changedTouches[0]) {
+                    const touchEndY = e.changedTouches[0].clientY;
+                    // Swipe up detection (dragged up by >= 25px) -> dismiss immediately
+                    if (touchStartY - touchEndY > 25) {
+                        dismissAlert();
+                        return;
+                    }
+                }
+                if (remainingTime > 0) {
+                    alertEl.classList.remove('is-paused');
+                    startTimer();
+                }
+            }, { passive: true });
+        });
+    };
+
+    // Auto-initialize existing alerts on page load
+    window.initAlertAutoDismiss();
+
+    // Observe document for dynamically injected alerts
+    const alertObserver = new MutationObserver((mutations) => {
+        mutations.forEach(mutation => {
+            mutation.addedNodes.forEach(node => {
+                if (node.nodeType === Node.ELEMENT_NODE) {
+                    if (node.matches && node.matches('.alert.alert-dismissible')) {
+                        window.initAlertAutoDismiss(node.parentElement || document);
+                    } else if (node.querySelectorAll) {
+                        const nestedAlerts = node.querySelectorAll('.alert.alert-dismissible');
+                        if (nestedAlerts.length > 0) {
+                            window.initAlertAutoDismiss(node);
+                        }
+                    }
+                }
+            });
+        });
+    });
+    alertObserver.observe(document.body, { childList: true, subtree: true });
 });
