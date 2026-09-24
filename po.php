@@ -329,55 +329,170 @@ include 'layout/header.php';
         box-shadow: 0 1px 2px rgba(0,0,0,0.03);
     }
 
-        /* Receive Modal Table Mobile Stack */
-        #receiveItemsTable {
-            white-space: normal !important;
-            background: transparent !important;
+        /* ==========================================================
+           RECEIVE MODAL MANIFEST TABLE: RESPONSIVE DUAL-VIEW
+           Desktop (>= 768px): Structured Multi-Column Data Table
+           Mobile (< 768px): Touch-Friendly Stacked Card System
+           ========================================================== */
+        @media (min-width: 768px) {
+            #receiveItemsTable {
+                white-space: normal;
+                background: #ffffff;
+                width: 100%;
+            }
+            #receiveItemsTable thead {
+                display: table-header-group !important;
+            }
+            #receiveItemsTable thead th {
+                white-space: nowrap;
+                font-weight: 700;
+                font-size: 0.78rem;
+                padding: 10px 8px;
+            }
+            #receiveItemsTable tbody {
+                display: table-row-group !important;
+            }
+            #receiveItemsTable tbody tr {
+                display: table-row !important;
+                border: none !important;
+                box-shadow: none !important;
+                background: transparent !important;
+                margin-bottom: 0 !important;
+                padding: 0 !important;
+            }
+            #receiveItemsTable tbody td {
+                display: table-cell !important;
+                padding: 10px 8px !important;
+                border-bottom: 1px solid #e9ecef !important;
+                vertical-align: middle !important;
+                text-align: inherit;
+                width: auto !important;
+            }
+            #receiveItemsTable tbody td::before {
+                display: none !important;
+                content: none !important;
+            }
+            #receiveItemsTable tfoot {
+                display: table-footer-group !important;
+            }
+            #receiveItemsTable tfoot tr {
+                display: table-row !important;
+                border: none !important;
+                background: inherit !important;
+                padding: 0 !important;
+            }
+            #receiveItemsTable tfoot td {
+                display: table-cell !important;
+            }
         }
 
-        #receiveItemsTable thead {
-            display: none;
-        }
+        /* Mobile Card Stack for Phones (< 768px) */
+        @media (max-width: 767.98px) {
+            #receiveItemsTable {
+                white-space: normal !important;
+                background: transparent !important;
+                border: none !important;
+            }
 
-        #receiveItemsTable tbody tr {
-            display: flex;
-            flex-direction: column;
-            border: 1px solid #e0e4e8;
-            border-radius: 12px;
-            margin-bottom: 1rem;
-            background: #fff;
-            padding: 12px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.02);
-        }
+            #receiveItemsTable thead {
+                display: none !important;
+            }
 
-        #receiveItemsTable tbody td {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            text-align: right;
-            padding: 10px 4px;
-            border: none;
-            border-bottom: 1px dashed #e9ecef;
-            white-space: normal !important;
-            word-break: break-word;
-            width: 100%;
-        }
+            #receiveItemsTable tbody {
+                display: block !important;
+                width: 100% !important;
+            }
 
-        #receiveItemsTable tbody td:last-child {
-            border-bottom: none;
-            align-items: center;
-        }
+            #receiveItemsTable tbody tr {
+                display: flex !important;
+                flex-direction: column !important;
+                border: 1px solid #e0e4e8 !important;
+                border-radius: 12px !important;
+                margin-bottom: 1rem !important;
+                background: #fff !important;
+                padding: 12px 14px !important;
+                box-shadow: 0 3px 8px rgba(0, 0, 0, 0.03) !important;
+            }
 
-        #receiveItemsTable tbody td::before {
-            content: attr(data-label);
-            font-weight: 700;
-            font-size: 0.75rem;
-            color: #6c757d;
-            text-transform: uppercase;
-            text-align: left;
-            padding-right: 15px;
-            flex-shrink: 0;
-            white-space: nowrap;
+            #receiveItemsTable tbody td {
+                display: flex !important;
+                justify-content: space-between !important;
+                align-items: center !important;
+                text-align: right !important;
+                padding: 8px 0 !important;
+                border: none !important;
+                border-bottom: 1px dashed #e9ecef !important;
+                white-space: normal !important;
+                word-break: break-word;
+                width: 100% !important;
+            }
+
+            #receiveItemsTable tbody td:last-child {
+                border-bottom: none !important;
+            }
+
+            #receiveItemsTable tbody td::before {
+                content: attr(data-label);
+                font-weight: 700;
+                font-size: 0.72rem;
+                color: #64748b;
+                text-transform: uppercase;
+                text-align: left;
+                padding-right: 12px;
+                flex-shrink: 0;
+                white-space: nowrap;
+                letter-spacing: 0.3px;
+            }
+
+            #receiveItemsTable tbody td[data-label="Item Description"] {
+                flex-direction: column !important;
+                align-items: flex-start !important;
+                text-align: left !important;
+                padding-bottom: 10px !important;
+            }
+
+            #receiveItemsTable tbody td[data-label="Item Description"]::before {
+                margin-bottom: 4px;
+            }
+
+            #receiveItemsTable tbody td[data-label="Receive Today"] .cims-qty-stepper {
+                margin-left: auto !important;
+                margin-right: 0 !important;
+            }
+
+            #receiveItemsTable tbody td[data-label="Unit Price (₱)"] .unit-price-input {
+                margin-left: auto !important;
+                margin-right: 0 !important;
+            }
+
+            #receiveItemsTable tbody td[data-label="Status / Remainder"] .disposition-wrapper {
+                margin-left: auto !important;
+                margin-right: 0 !important;
+                max-width: 65%;
+            }
+
+            #receiveItemsTable tfoot {
+                display: block !important;
+                width: 100% !important;
+            }
+
+            #receiveItemsTable tfoot tr {
+                display: flex !important;
+                justify-content: space-between !important;
+                align-items: center !important;
+                padding: 12px 14px !important;
+                background: #f8fafc !important;
+                border-radius: 10px !important;
+                border: 1px solid #e2e8f0 !important;
+                margin-top: 0.5rem !important;
+            }
+
+            #receiveItemsTable tfoot td:first-child,
+            #receiveItemsTable tfoot td:last-child {
+                display: block !important;
+                padding: 0 !important;
+                border: none !important;
+            }
         }
 
         /* Interactive KPI Filter Tiles */
