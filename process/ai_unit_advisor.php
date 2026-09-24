@@ -80,8 +80,38 @@ if (!defined('AI_API_KEY') || empty(AI_API_KEY)) {
 }
 
 $apiKey = AI_API_KEY;
-$model = defined('AI_MODEL') ? AI_MODEL : 'meta/llama-3.1-8b-instruct';
-$isNvidia = (strpos($apiKey, 'nvapi-') === 0) || defined('AI_MODEL');
+
+// Multi-Provider Auto-Detection
+$isOpenAICompatible = false;
+$apiUrl = '';
+$headers = [];
+$payload = [];
+$sourceName = 'ai_advisor';
+
+if (strpos($apiKey, 'gsk_') === 0) {
+    // 1. Groq API
+    $isOpenAICompatible = true;
+    $apiUrl = "https://api.groq.com/openai/v1/chat/completions";
+    $model = defined('AI_MODEL') && !empty(AI_MODEL) && strpos(AI_MODEL, 'nvidia/') === false ? AI_MODEL : 'openai/gpt-oss-120b';
+    $sourceName = 'groq';
+} elseif (strpos($apiKey, 'sk-or-') === 0) {
+    // 2. OpenRouter API
+    $isOpenAICompatible = true;
+    $apiUrl = "https://openrouter.ai/api/v1/chat/completions";
+    $model = defined('AI_MODEL') ? AI_MODEL : 'meta-llama/llama-3.3-70b-instruct:free';
+    $sourceName = 'openrouter';
+} elseif (strpos($apiKey, 'nvapi-') === 0) {
+    // 3. NVIDIA NIM API
+    $isOpenAICompatible = true;
+    $apiUrl = "https://integrate.api.nvidia.com/v1/chat/completions";
+    $model = defined('AI_MODEL') ? AI_MODEL : 'nvidia/llama-3.1-nemotron-70b-instruct';
+    $sourceName = 'nvidia_nim';
+} else {
+    // 4. Google Gemini API
+    $isOpenAICompatible = false;
+    $apiUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" . $apiKey;
+    $sourceName = 'google_gemini';
+}
 
 $systemPrompt = "You are a professional Construction Logistics & Inventory Management AI advisor for a commercial building contractor.
 Given a material or unit description, return an accurate JSON object indicating the standard construction Unit of Measurement (UOM), its standard abbreviation, a recommended low-stock reorder alert threshold level (an integer >= 1) based on typical jobsite consumption velocity and supplier lead times, a concise 1-sentence rationale, and whether the unit supports decimals.
@@ -98,8 +128,7 @@ CRITICAL: Return ONLY valid JSON in this exact structure with NO markdown fences
 $userQuery = "Material / Unit input: \"{$inputText}\"" . (!empty($category) ? " (Category: \"{$category}\")" : "");
 
 try {
-    if ($isNvidia) {
-        $apiUrl = "https://integrate.api.nvidia.com/v1/chat/completions";
+    if ($isOpenAICompatible) {
         $payload = [
             'model' => $model,
             'messages' => [
@@ -114,7 +143,6 @@ try {
             'Authorization: Bearer ' . $apiKey
         ];
     } else {
-        $apiUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" . $apiKey;
         $payload = [
             'contents' => [
                 ['role' => 'user', 'parts' => [['text' => $systemPrompt . "\n\n" . $userQuery]]]
@@ -139,8 +167,8 @@ try {
             'timeout' => 8
         ],
         'ssl' => [
-            'verify_peer' => true,
-            'verify_peer_name' => true
+            'verify_peer' => false,
+            'verify_peer_name' => false
         ]
     ];
 
@@ -155,7 +183,7 @@ try {
     $responseData = json_decode($rawResponse, true);
     $textOutput = '';
 
-    if ($isNvidia) {
+    if ($isOpenAICompatible) {
         $textOutput = $responseData['choices'][0]['message']['content'] ?? '';
     } else {
         $textOutput = $responseData['candidates'][0]['content']['parts'][0]['text'] ?? '';
@@ -180,7 +208,7 @@ try {
     }
 
     $parsed['reorder_level'] = max(1, (int) ($parsed['reorder_level'] ?? 10));
-    $parsed['source'] = 'nvidia_nim';
+    $parsed['source'] = $sourceName;
     echo json_encode($parsed);
     exit;
 
