@@ -44,9 +44,9 @@ An enterprise-grade, cloud-ready **Construction Inventory Management System (CIM
 - **Responsive Virtual PO Document:** Screen-optimized and print-ready Half-A4 virtual document preview with official digital signatures, company seals, and live calculation.
 - **Weather & Logistics Delay Tracking:** Structured logging for delivery delays, discrepancy memos, and supplier turnaround performance ratings.
 
-### 4. 📲 Viber & SMS Logistics Integration
+### 4. 📲 Viber Logistics Messaging & Order Tracking
 - **Supplier Viber Order Logs (`supplier_viber_logs` / `viber_actions.php`):** Direct dispatch and tracking of official purchase orders with line-item breakdowns and supplier confirmation histories.
-- **SMS Gateway via httpSMS:** Fallback SMS transmission and inbound webhook reply processing (`httpsms_webhook.php`).
+- **Automated Order Dispatch:** Automated messaging directly transmitting PO numbers, delivery milestones, and item manifests to supplier Viber contacts.
 
 ### 5. 📱 Progressive Web App (PWA) & Offline Resilience
 - **Multi-Platform Installable:** Installable on Windows, macOS, Android, and iOS with dedicated splash screens (`components/splash_screen.php`) and service worker offline caching (`firebase-messaging-sw.js`, `offline.html`).
@@ -222,7 +222,7 @@ CIMS/
 │   ├── get_po_details.php          # AJAX purchase order line-items and metadata reader
 │   ├── get_rs_details.php          # AJAX requisition line-items and metadata reader
 │   ├── get_withdrawal_details.php  # AJAX material withdrawal details reader
-│   ├── httpsms_webhook.php         # Inbound SMS webhook receiver
+│   ├── module_backup.php           # Database automated backup and restore logic
 │   ├── module_audit.php            # Audit submission and discrepancy recording
 │   ├── module_inventory.php        # Stock management and CRUD controllers
 │   ├── module_settings.php         # System branding and visual customization
@@ -239,7 +239,7 @@ CIMS/
 │       ├── viber_actions.php       # Viber supplier dispatch and message logging
 │       └── withdrawal_actions.php  # Material withdrawal, inventory deduction, and signature recorder
 ├── uploads/                        # Protected storage for receipts, signatures, and proof photos
-├── .env                            # Environment credentials (DB, AI Key, SMS - not committed)
+├── .env                            # Environment credentials (DB, AI Key - not committed)
 ├── .htaccess                       # Server security rules, rewrite engine, header protections
 ├── LICENSE                         # Proprietary & Confidential Software License (All Rights Reserved)
 ├── about.php                       # System & team credits page
@@ -291,7 +291,7 @@ CIMS features **zero-touch database provisioning**. On initial launch, `Connecti
 | 12 | `inventory_audits` | Weekly/monthly physical count records with auditor assignments and discrepancy totals. |
 | 13 | `audit_items` | Item-by-item physical count variances (system qty vs. physical qty vs. discrepancy). |
 | 14 | `notifications` | Role-based and user-targeted notifications with read receipts. |
-| 15 | `supplier_viber_logs` | Communication history for Viber and SMS orders dispatched to suppliers. |
+| 15 | `supplier_viber_logs` | Communication history for Viber orders dispatched to suppliers. |
 | 16 | `projects` | Active and completed construction project registry. |
 | 17 | `system_settings` | System-wide configurable options (login background, blur intensity, system branding). |
 
@@ -312,7 +312,7 @@ The system auto-migrates indexes from `cims_indexes.sql` into live databases, op
 | **Cryptography** | Digital Signatures & PKI | OpenSSL RSA-2048 key pairs with SHA-256 canonical hashing & verification |
 | **Mobile & PWA** | Progressive Web App | Web App Manifest, Service Worker caching, and offline fallback |
 | **Push Notifications** | Google FCM v1 | Pure-PHP JWT authentication engine (no Composer dependency required) |
-| **Messaging** | Viber & SMS Gateway | Viber logistics integration and httpSMS gateway with inbound webhooks |
+| **Messaging** | Viber Logistics Gateway | Direct Viber PO dispatch, delivery tracking, and supplier communication logs |
 | **QR System** | Scan & Generate | HTML5-QRCode scanner and high-resolution dynamic QR code generation |
 
 ---
@@ -343,11 +343,6 @@ The system auto-migrates indexes from `cims_indexes.sql` into live databases, op
    AI_API_KEY=your_nvidia_nim_api_key_here
    AI_MODEL=meta/llama-3.1-8b-instruct
    AI_SYSTEM_PROMPT="You are SiteWare AI, the intelligent construction inventory assistant for GB Construction & Enterprise Inc."
-
-   # SMS Gateway (httpSMS)
-   SMS_API_KEY=your_httpsms_api_key
-   SMS_FROM_NUMBER=+639XXXXXXXXX
-   SMS_GATEWAY_URL=https://api.httpsms.com/v1/messages/send
    ```
 
 3. **Open the application in your browser:**
