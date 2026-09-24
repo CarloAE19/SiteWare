@@ -514,7 +514,7 @@ if (strpos($apiKey, 'gsk_') === 0) {
     // 1. Groq API (Ultra-fast active model)
     $isOpenAICompatible = true;
     $apiUrl = "https://api.groq.com/openai/v1/chat/completions";
-    $model = defined('AI_MODEL') && !empty(AI_MODEL) && strpos(AI_MODEL, 'nvidia/') === false ? AI_MODEL : 'groq/compound-mini';
+    $model = defined('AI_MODEL') && !empty(AI_MODEL) && strpos(AI_MODEL, 'nvidia/') === false ? AI_MODEL : 'openai/gpt-oss-120b';
 } elseif (strpos($apiKey, 'sk-or-') === 0) {
     // 2. OpenRouter API
     $isOpenAICompatible = true;
