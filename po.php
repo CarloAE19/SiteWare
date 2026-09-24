@@ -559,6 +559,21 @@ include 'layout/header.php';
                             </li>
                             <li><hr class="dropdown-divider my-1"></li>
                             <li>
+                                <a class="dropdown-item py-2 rounded-2 d-flex align-items-center justify-content-between" href="javascript:void(0)" 
+                                   onclick="CimsTableSorter.sortMobileCards('#poMobileCards', 'status', 'asc', this); CimsTableSorter.sortDesktopByHeader('#poTable', 4, 'asc');">
+                                    <span class="d-flex align-items-center gap-2"><i class="bi bi-tag text-warning"></i>Status: Pending → Delivered → Void</span>
+                                    <i class="bi bi-check2 text-primary sort-check d-none"></i>
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item py-2 rounded-2 d-flex align-items-center justify-content-between" href="javascript:void(0)" 
+                                   onclick="CimsTableSorter.sortMobileCards('#poMobileCards', 'status', 'desc', this); CimsTableSorter.sortDesktopByHeader('#poTable', 4, 'desc');">
+                                    <span class="d-flex align-items-center gap-2"><i class="bi bi-tag-fill text-secondary"></i>Status: Void → Delivered → Pending</span>
+                                    <i class="bi bi-check2 text-primary sort-check d-none"></i>
+                                </a>
+                            </li>
+                            <li><hr class="dropdown-divider my-1"></li>
+                            <li>
                                 <a class="dropdown-item py-2 rounded-2 d-flex align-items-center justify-content-between text-danger" href="javascript:void(0)" 
                                    onclick="CimsTableSorter.sortMobileCards('#poMobileCards', 'reset', 'none', this); CimsTableSorter.sortDesktopByHeader('#poTable', -1, 'none');">
                                     <span class="d-flex align-items-center gap-2"><i class="bi bi-arrow-counterclockwise"></i>Reset Default</span>
@@ -842,7 +857,7 @@ include 'layout/header.php';
                                     </div>
                                 </td>
 
-                                <td data-label="Status">
+                                <td data-label="Status" data-sort-value="<?= htmlspecialchars($po['status'] ?? 'Generated') ?>">
                                     <span class="badge <?= $statusClass ?> px-3 py-2 shadow-sm text-uppercase"
                                         id="status_<?= $po['id'] ?>">
                                         <?php if ($displayStatus === 'Out for Delivery'): ?>
