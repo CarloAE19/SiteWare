@@ -81,6 +81,11 @@
             return 'number';
         }
 
+        // Keyword detection for Status (Workflow priority: Pending -> Delivered -> Void)
+        if (title.includes('status')) {
+            return 'status';
+        }
+
         // Sample rows to test values
         const rows = table.querySelectorAll('tbody tr:not([id*="noResults"]):not(.no-sort)');
         let sampleCount = 0;
@@ -206,6 +211,40 @@
     }
 
     /**
+     * Determines workflow lifecycle priority rank for statuses.
+     * Tier 1 (Rank 1-19): Pending & In-transit (Action needed, e.g. Pending Delivery, Out for Delivery, Delayed)
+     * Tier 2 (Rank 20-29): Delivered & Completed (Fulfilled, e.g. Delivered, Approved)
+     * Tier 3 (Rank 30-39): Voided & Cancelled (Inactive, e.g. Void, Cancelled, Rejected)
+     */
+    function getStatusPriorityRank(rawVal) {
+        if (!rawVal) return 99;
+        const norm = String(rawVal).toLowerCase().trim();
+
+        // 1. Pending Deliveries & Active In-Progress Orders (Highest warehouse priority)
+        if (norm.includes('pending delivery')) return 1;
+        if (norm.includes('out for delivery')) return 2;
+        if (norm.includes('delayed')) return 3;
+        if (norm.includes('partially')) return 4;
+        if (norm.includes('viber') || norm.includes('sms')) return 5;
+        if (norm.includes('pending approval') || norm === 'pending') return 6;
+        if (norm.includes('generated') || norm.includes('draft') || norm.includes('staged')) return 7;
+        if (norm.includes('po created')) return 8;
+        if (norm.includes('low stock') || norm.includes('out of stock')) return 9;
+
+        // 2. Delivered & Completed Fulfilled Orders
+        if (norm === 'delivered' || norm.includes('delivered (complete)')) return 20;
+        if (norm.includes('delivered (discrepancy)')) return 21;
+        if (norm.includes('delivered')) return 22;
+        if (norm.includes('approved') || norm.includes('released') || norm.includes('in stock')) return 23;
+
+        // 3. Voided / Cancelled / Rejected (Terminal/Inactive states)
+        if (norm.includes('void') || norm.includes('cancel')) return 30;
+        if (norm.includes('reject')) return 31;
+
+        return 25;
+    }
+
+    /**
      * Parses a numeric value into a float.
      */
     function parseNumberVal(rawVal) {
@@ -295,6 +334,13 @@
                 initial: 'Click to sort: Lowest to Highest',
                 nextAsc: 'Click to sort: Highest to Lowest',
                 nextDesc: 'Click to sort: Lowest to Highest',
+                nextReset: 'Click to reset to default order'
+            };
+        } else if (colType === 'status') {
+            return {
+                initial: 'Click to sort: Pending, Delivered, Void',
+                nextAsc: 'Click to sort: Void, Delivered, Pending',
+                nextDesc: 'Click to sort: Pending, Delivered, Void',
                 nextReset: 'Click to reset to default order'
             };
         } else {
@@ -444,6 +490,10 @@
                     const numA = parseNumberVal(valA);
                     const numB = parseNumberVal(valB);
                     cmp = numA - numB;
+                } else if (colType === 'status') {
+                    const rankA = getStatusPriorityRank(valA);
+                    const rankB = getStatusPriorityRank(valB);
+                    cmp = rankA - rankB;
                 } else {
                     // Natural alphanumeric string comparison
                     cmp = valA.localeCompare(valB, undefined, { numeric: true, sensitivity: 'base' });
@@ -468,140 +518,170 @@
      * Sorts mobile cards container by a specific field and direction.
      */
     function sortMobileCards(containerSelector, sortField, sortDirection, clickedItem) {
-        const container = typeof containerSelector === 'string' ? document.querySelector(containerSelector) : containerSelector;
-        if (!container) return;
+        try {
+            const container = typeof containerSelector === 'string' ? document.querySelector(containerSelector) : containerSelector;
+            if (!container) return;
 
-        // Visual update on dropdown item if provided
-        if (clickedItem) {
-            const menu = clickedItem.closest('.dropdown-menu');
-            if (menu) {
-                menu.querySelectorAll('.dropdown-item').forEach(item => {
-                    item.classList.remove('active');
-                    const check = item.querySelector('.sort-check');
-                    if (check) check.classList.add('d-none');
+            // Visual update on dropdown item if provided
+            if (clickedItem) {
+                const menu = clickedItem.closest('.dropdown-menu');
+                if (menu) {
+                    menu.querySelectorAll('.dropdown-item').forEach(item => {
+                        item.classList.remove('active');
+                        const check = item.querySelector('.sort-check');
+                        if (check) check.classList.add('d-none');
+                    });
+                    clickedItem.classList.add('active');
+                    const check = clickedItem.querySelector('.sort-check');
+                    if (check) check.classList.remove('d-none');
+                }
+            }
+
+            const cards = Array.from(container.children).filter(el =>
+                el.classList.contains('cims-mobile-card') || el.classList.contains('po-card') || el.classList.contains('rs-card') || el.classList.contains('card')
+            );
+
+            if (cards.length <= 1) return;
+
+            // Snapshot original order index on cards
+            cards.forEach((card, idx) => {
+                if (!card.dataset.cimsOrigCardIndex) {
+                    card.dataset.cimsOrigCardIndex = String(idx);
+                }
+            });
+
+            if (sortDirection === 'none' || sortField === 'reset') {
+                cards.sort((a, b) => {
+                    const idxA = parseInt(a.dataset.cimsOrigCardIndex || '0', 10);
+                    const idxB = parseInt(b.dataset.cimsOrigCardIndex || '0', 10);
+                    return idxA - idxB;
                 });
-                clickedItem.classList.add('active');
-                const check = clickedItem.querySelector('.sort-check');
-                if (check) check.classList.remove('d-none');
+            } else {
+                cards.sort((cardA, cardB) => {
+                    let valA = '';
+                    let valB = '';
+                    let isDate = false;
+                    let isNum = false;
+                    let cmp = 0;
+
+                    if (sortField === 'date') {
+                        isDate = true;
+                        valA = cardA.dataset.createdTimestamp || cardA.dataset.createdDate || '';
+                        valB = cardB.dataset.createdTimestamp || cardB.dataset.createdDate || '';
+                    } else if (sortField === 'supplier' || sortField === 'name' || sortField === 'project') {
+                        valA = cardA.dataset.supplierName || cardA.dataset.project || (cardA.querySelector('.po-supplier, .rs-project, .card-title')?.textContent || '');
+                        valB = cardB.dataset.supplierName || cardB.dataset.project || (cardB.querySelector('.po-supplier, .rs-project, .card-title')?.textContent || '');
+                    } else if (sortField === 'code' || sortField === 'po' || sortField === 'rs') {
+                        valA = cardA.dataset.poNo || cardA.dataset.rsNo || (cardA.querySelector('.po-no, .rs-no')?.textContent || '');
+                        valB = cardB.dataset.poNo || cardB.dataset.rsNo || (cardB.querySelector('.po-no, .rs-no')?.textContent || '');
+                    } else if (sortField === 'status') {
+                        valA = cardA.dataset.status || (cardA.querySelector('.badge')?.textContent || '');
+                        valB = cardB.dataset.status || (cardB.querySelector('.badge')?.textContent || '');
+                        const rankA = getStatusPriorityRank(valA);
+                        const rankB = getStatusPriorityRank(valB);
+                        cmp = rankA - rankB;
+                        return sortDirection === 'desc' ? -cmp : cmp;
+                    }
+
+                    if (isDate) {
+                        const timeA = parseDateToTimestamp(String(valA));
+                        const timeB = parseDateToTimestamp(String(valB));
+                        cmp = timeA - timeB;
+                    } else if (isNum) {
+                        const numA = parseNumberVal(String(valA));
+                        const numB = parseNumberVal(String(valB));
+                        cmp = numA - numB;
+                    } else {
+                        cmp = String(valA).trim().localeCompare(String(valB).trim(), undefined, { numeric: true, sensitivity: 'base' });
+                    }
+
+                    return sortDirection === 'desc' ? -cmp : cmp;
+                });
             }
+
+            // Re-append cards non-destructively
+            const fragment = document.createDocumentFragment();
+            cards.forEach(card => fragment.appendChild(card));
+            container.appendChild(fragment);
+        } catch (err) {
+            console.error('[CIMS Table Sorter] sortMobileCards error:', err);
         }
-
-        const cards = Array.from(container.children).filter(el => 
-            el.classList.contains('cims-mobile-card') || el.classList.contains('po-card') || el.classList.contains('rs-card') || el.classList.contains('card')
-        );
-
-        if (cards.length <= 1) return;
-
-        // Snapshot original order index on cards
-        cards.forEach((card, idx) => {
-            if (!card.dataset.cimsOrigCardIndex) {
-                card.dataset.cimsOrigCardIndex = String(idx);
-            }
-        });
-
-        if (sortDirection === 'none' || sortField === 'reset') {
-            cards.sort((a, b) => {
-                const idxA = parseInt(a.dataset.cimsOrigCardIndex || '0', 10);
-                const idxB = parseInt(b.dataset.cimsOrigCardIndex || '0', 10);
-                return idxA - idxB;
-            });
-        } else {
-            cards.sort((cardA, cardB) => {
-                let valA = '';
-                let valB = '';
-                let isDate = false;
-                let isNum = false;
-
-                if (sortField === 'date') {
-                    isDate = true;
-                    valA = cardA.dataset.createdTimestamp || cardA.dataset.createdDate || '';
-                    valB = cardB.dataset.createdTimestamp || cardB.dataset.createdDate || '';
-                } else if (sortField === 'supplier' || sortField === 'name' || sortField === 'project') {
-                    valA = cardA.dataset.supplierName || cardA.dataset.project || (cardA.querySelector('.po-supplier, .rs-project, .card-title')?.textContent || '');
-                    valB = cardB.dataset.supplierName || cardB.dataset.project || (cardB.querySelector('.po-supplier, .rs-project, .card-title')?.textContent || '');
-                } else if (sortField === 'code' || sortField === 'po' || sortField === 'rs') {
-                    valA = cardA.dataset.poNo || cardA.dataset.rsNo || (cardA.querySelector('.po-no, .rs-no')?.textContent || '');
-                    valB = cardB.dataset.poNo || cardB.dataset.rsNo || (cardB.querySelector('.po-no, .rs-no')?.textContent || '');
-                } else if (sortField === 'status') {
-                    valA = cardA.dataset.status || '';
-                    valB = cardB.dataset.status || '';
-                }
-
-                let cmp = 0;
-                if (isDate) {
-                    const timeA = parseDateToTimestamp(String(valA));
-                    const timeB = parseDateToTimestamp(String(valB));
-                    cmp = timeA - timeB;
-                } else if (isNum) {
-                    const numA = parseNumberVal(String(valA));
-                    const numB = parseNumberVal(String(valB));
-                    cmp = numA - numB;
-                } else {
-                    cmp = String(valA).trim().localeCompare(String(valB).trim(), undefined, { numeric: true, sensitivity: 'base' });
-                }
-
-                return sortDirection === 'desc' ? -cmp : cmp;
-            });
-        }
-
-        // Re-append cards non-destructively
-        const fragment = document.createDocumentFragment();
-        cards.forEach(card => fragment.appendChild(card));
-        container.appendChild(fragment);
     }
 
     /**
      * Programmatically triggers desktop table sorting to match mobile selection.
      */
     function sortDesktopByHeader(tableSelector, colIndex, sortDirection) {
-        const table = typeof tableSelector === 'string' ? document.querySelector(tableSelector) : tableSelector;
-        if (!table) return;
+        try {
+            const table = typeof tableSelector === 'string' ? document.querySelector(tableSelector) : tableSelector;
+            if (!table) return;
 
-        const thList = table.querySelectorAll('thead th');
-        if (colIndex === -1 || sortDirection === 'none') {
+            const thList = Array.from(table.querySelectorAll('thead th'));
+            if (colIndex === -1 || sortDirection === 'none') {
+                const tbody = table.querySelector('tbody');
+                if (tbody) {
+                    executeSort(tbody, 0, 'string', 'none');
+                    thList.forEach(th => {
+                        th.setAttribute('aria-sort', 'none');
+                        th.classList.remove('cims-sorted-asc', 'cims-sorted-desc');
+                        const icon = th.querySelector('.cims-sort-icon');
+                        if (icon) icon.className = 'bi bi-arrow-down-up cims-sort-icon';
+                    });
+                }
+                return;
+            }
+
+            let th = null;
+            let targetIndex = -1;
+
+            if (typeof colIndex === 'number' && colIndex >= 0 && colIndex < thList.length) {
+                th = thList[colIndex];
+                targetIndex = colIndex;
+            } else if (typeof colIndex === 'string') {
+                const search = colIndex.trim().toLowerCase();
+                targetIndex = thList.findIndex(header => (header.textContent || '').trim().toLowerCase().includes(search));
+                if (targetIndex !== -1) {
+                    th = thList[targetIndex];
+                }
+            }
+
+            if (!th || targetIndex === -1) return;
+
+            let colType = th.dataset.cimsColType || detectColumnType(th, table, targetIndex);
+            th.dataset.cimsColType = colType;
+
             const tbody = table.querySelector('tbody');
-            if (tbody) {
-                executeSort(tbody, 0, 'string', 'none');
-                thList.forEach(th => {
-                    th.setAttribute('aria-sort', 'none');
-                    th.classList.remove('cims-sorted-asc', 'cims-sorted-desc');
-                    const icon = th.querySelector('.cims-sort-icon');
+            if (!tbody) return;
+
+            // Snapshot original order index on rows if not already done
+            snapshotRowOrder(tbody);
+
+            // Reset other headers
+            thList.forEach(otherTh => {
+                if (otherTh !== th) {
+                    otherTh.setAttribute('aria-sort', 'none');
+                    otherTh.classList.remove('cims-sorted-asc', 'cims-sorted-desc');
+                    const icon = otherTh.querySelector('.cims-sort-icon');
                     if (icon) icon.className = 'bi bi-arrow-down-up cims-sort-icon';
-                });
+                }
+            });
+
+            th.setAttribute('aria-sort', sortDirection);
+            th.classList.remove('cims-sorted-asc', 'cims-sorted-desc');
+            const activeIcon = th.querySelector('.cims-sort-icon');
+
+            if (sortDirection === 'asc') {
+                th.classList.add('cims-sorted-asc');
+                if (activeIcon) activeIcon.className = 'bi bi-arrow-up cims-sort-icon active-sort';
+            } else if (sortDirection === 'desc') {
+                th.classList.add('cims-sorted-desc');
+                if (activeIcon) activeIcon.className = 'bi bi-arrow-down cims-sort-icon active-sort';
             }
-            return;
+
+            executeSort(tbody, targetIndex, colType, sortDirection);
+        } catch (err) {
+            console.error('[CIMS Table Sorter] sortDesktopByHeader error:', err);
         }
-
-        const th = thList[colIndex];
-        if (!th) return;
-
-        const colType = th.dataset.cimsColType || detectColumnType(th, table, colIndex);
-        const tbody = table.querySelector('tbody');
-        if (!tbody) return;
-
-        // Reset other headers
-        thList.forEach(otherTh => {
-            if (otherTh !== th) {
-                otherTh.setAttribute('aria-sort', 'none');
-                otherTh.classList.remove('cims-sorted-asc', 'cims-sorted-desc');
-                const icon = otherTh.querySelector('.cims-sort-icon');
-                if (icon) icon.className = 'bi bi-arrow-down-up cims-sort-icon';
-            }
-        });
-
-        th.setAttribute('aria-sort', sortDirection);
-        th.classList.remove('cims-sorted-asc', 'cims-sorted-desc');
-        const activeIcon = th.querySelector('.cims-sort-icon');
-
-        if (sortDirection === 'asc') {
-            th.classList.add('cims-sorted-asc');
-            if (activeIcon) activeIcon.className = 'bi bi-arrow-up cims-sort-icon active-sort';
-        } else if (sortDirection === 'desc') {
-            th.classList.add('cims-sorted-desc');
-            if (activeIcon) activeIcon.className = 'bi bi-arrow-down cims-sort-icon active-sort';
-        }
-
-        executeSort(tbody, colIndex, colType, sortDirection);
     }
 
     /**
