@@ -735,6 +735,21 @@ include 'layout/header.php';
                                 </li>
                                 <li><hr class="dropdown-divider my-1"></li>
                                 <li>
+                                    <a class="dropdown-item py-2 rounded-2 d-flex align-items-center justify-content-between" href="javascript:void(0)" 
+                                       onclick="CimsTableSorter.sortMobileCards('#rsMobileCards', 'status', 'asc', this); CimsTableSorter.sortDesktopByHeader('#rsTable', 5, 'asc');">
+                                        <span class="d-flex align-items-center gap-2"><i class="bi bi-tag text-warning"></i>Status: Pending → Approved → Rejected</span>
+                                        <i class="bi bi-check2 text-primary sort-check d-none"></i>
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item py-2 rounded-2 d-flex align-items-center justify-content-between" href="javascript:void(0)" 
+                                       onclick="CimsTableSorter.sortMobileCards('#rsMobileCards', 'status', 'desc', this); CimsTableSorter.sortDesktopByHeader('#rsTable', 5, 'desc');">
+                                        <span class="d-flex align-items-center gap-2"><i class="bi bi-tag-fill text-secondary"></i>Status: Rejected → Approved → Pending</span>
+                                        <i class="bi bi-check2 text-primary sort-check d-none"></i>
+                                    </a>
+                                </li>
+                                <li><hr class="dropdown-divider my-1"></li>
+                                <li>
                                     <a class="dropdown-item py-2 rounded-2 d-flex align-items-center justify-content-between text-danger" href="javascript:void(0)" 
                                        onclick="CimsTableSorter.sortMobileCards('#rsMobileCards', 'reset', 'none', this); CimsTableSorter.sortDesktopByHeader('#rsTable', -1, 'none');">
                                         <span class="d-flex align-items-center gap-2"><i class="bi bi-arrow-counterclockwise"></i>Reset Default</span>
@@ -948,7 +963,7 @@ include 'layout/header.php';
                                     ?>
                                     <span class="badge <?= $urgencyClass ?> shadow-sm"><?= htmlspecialchars($rs['urgency']) ?></span>
                                 </td>
-                                <td class="col-status" data-label="Status">
+                                <td class="col-status" data-label="Status" data-sort-value="<?= htmlspecialchars($rs['status']) ?>">
                                     <?php
                                     $statusClass = 'bg-secondary';
                                     if ($rs['status'] == 'Pending Approval') $statusClass = 'bg-warning text-dark';
