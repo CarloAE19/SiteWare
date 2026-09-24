@@ -2584,7 +2584,13 @@ th.cims-sortable-th:hover .cims-sort-indicator {
     animation: sortIconBounce 0.22s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
-table:not(.table-dark) thead .cims-sort-icon.active-sort {
+thead.table-dark .cims-sort-icon.active-sort,
+.table-dark thead .cims-sort-icon.active-sort,
+.table-dark th .cims-sort-icon.active-sort {
+    color: var(--gb-yellow, #ffc107) !important;
+}
+
+thead:not(.table-dark) .cims-sort-icon.active-sort {
     color: var(--gb-blue, #0033CC) !important;
 }
 
