@@ -32,13 +32,23 @@ Follow these strict standards across all tasks, edits, and recommendations for t
 - **Responsive Tables & Data Lists:** Data tables must be enclosed in `table-responsive` containers or dynamically transform into mobile-friendly stacked card views on narrow screens so users can read data without awkward horizontal panning.
 - **Adaptive Navigation & Safe Areas:** Sidebars, navigation headers, and filter toolbars must collapse cleanly into mobile-friendly offcanvas drawers or sticky bottom/top navbars, respecting device safe areas (`env(safe-area-inset-bottom)`).
 
-## 4. Human-Computer Interaction (HCI) & Usability Principles
-- **Visibility of System Status:** Provide immediate, unambiguous feedback for user actions (loading spinners during AJAX, disabled buttons to prevent double-submits, clear toast/alert confirmations).
-- **Error Prevention & Recovery:** Implement defensive input validation (e.g. quantity bounds, non-negative inputs), confirm destructive operations (deletions, cancellations), and provide helpful, human-readable error messages explaining how to fix issues.
-- **Recognition Over Recall:** Minimize cognitive load by using descriptive field labels, sensible placeholder hints, contextual tooltips on icon-only buttons, and auto-suggest/autocomplete where appropriate.
-- **Semantic & Visual Consistency:** Maintain strict, predictable color semantics across all screens (Green for Approved/Success, Yellow/Amber for Pending/Warning, Red for Rejected/Danger, Blue for Primary Actions).
-- **User Control & Freedom:** Provide easy exits from dialogs (close button, backdrop tap, `Escape` key) and clear cancel/reset options without trapping the user in a broken state.
-- **Accessibility & Inclusivity (a11y):** Ensure strong text-to-background contrast (WCAG standards), keyboard accessibility, and proper ARIA labels (`aria-label`, `aria-hidden`) on icon-only buttons.
+## 4. Advanced Human-Computer Interaction (HCI) & Usability Quality Assurance (QA)
+- **Visibility of System Status & Immediate Feedback QA:** Provide instant, unambiguous feedback on every user interaction:
+  - Submit buttons must immediately enter a disabled loading state (`<span class="spinner-border spinner-border-sm"></span> Processing...`) to eliminate duplicate submissions.
+  - Data table mutations and state changes must display non-blocking, accessible notifications (SweetAlert2 or toast alerts) with clear success/error context.
+- **Cognitive Walkthrough & Frictionless Workflows:** Optimize task flows so routine operations (creating requisitions, searching stock, approving orders) can be accomplished within minimal clicks without interaction dead-ends.
+- **Defensive Error Prevention, Diagnosis & Recovery QA:**
+  - Proactive field validation (e.g. quantity bounds `min="1"`, available stock verification) before form submission.
+  - Informative, human-readable error messages explaining *what happened, why, and how to resolve it* (avoid generic "Invalid input").
+  - On failed validation, automatically scroll and transfer focus to the first invalid field with inline feedback (`.invalid-feedback`).
+- **Dirty Form & State Preservation QA:** Prevent accidental loss of user progress. In multi-field modals or tables, prompt confirmation before discarding unsaved edits if a user taps backdrop or close buttons.
+- **Accessibility & Inclusive Design QA (WCAG 2.1 AA Compliance):**
+  - High contrast text-to-background ratios meeting WCAG AA standards.
+  - Visible keyboard focus rings (`:focus-visible`) for all interactive elements.
+  - Complete keyboard operability (`Tab` navigation, `Enter` to submit, `Escape` to dismiss dialogs).
+  - ARIA attributes (`aria-label`, `aria-expanded`, `aria-live="polite"`) on all icon-only buttons, accordions, and dynamic DOM updates.
+- **Semantic & Visual Consistency:** Strict, predictable color semantics across all screens (Green for Approved/Success, Yellow/Amber for Pending/Warning, Red for Rejected/Danger, Blue for Primary Actions).
+- **Usability Testing & Capstone UAT Alignment:** Ensure all user flows conform to high System Usability Scale (SUS) benchmarks (>80 SUS score target) with intuitive, self-explanatory controls suitable for non-technical field personnel.
 
 ## 5. Role-Based Access Control (RBAC) & Enterprise Security Standards
 - **Strict Server-Side Authorization:** Never rely solely on client-side JS or hidden HTML elements to enforce permissions. Every backend controller, endpoint (`process/*.php`), and data query MUST verify active `$_SESSION['user_id']` and authorize `$_SESSION['user_role']` before executing actions.
