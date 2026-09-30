@@ -9,6 +9,21 @@
     </div>
 </footer>
 
+<?php
+    $userHasPasskeys = false;
+    $userHasTotp = false;
+    if (!empty($currentUserId) && isset($pdo)) {
+        try {
+            $pkStmt = $pdo->prepare("SELECT COUNT(*) FROM user_passkeys WHERE user_id = ?");
+            $pkStmt->execute([$currentUserId]);
+            $userHasPasskeys = ($pkStmt->fetchColumn() > 0);
+
+            $mfaStmt = $pdo->prepare("SELECT mfa_enabled FROM users WHERE id = ?");
+            $mfaStmt->execute([$currentUserId]);
+            $userHasTotp = ($mfaStmt->fetchColumn() == 1);
+        } catch (\Exception $e) {}
+    }
+?>
 <script>
     window.cimsBasePath = '<?= rtrim(dirname($_SERVER['PHP_SELF']), "/\\") ?>';
     window.cimsIdleConfig = {
@@ -20,7 +35,9 @@
         userRole: <?= json_encode($currentUserRole ?? 'requestor') ?>,
         userRoleLabel: <?= json_encode($userBadgeLabel ?? 'Staff') ?>,
         isLocked: <?= !empty($isScreenLockedSession) ? 'true' : 'false' ?>,
-        freshLogin: <?= !empty($isFreshLogin) ? 'true' : 'false' ?>
+        freshLogin: <?= !empty($isFreshLogin) ? 'true' : 'false' ?>,
+        hasPasskeys: <?= !empty($userHasPasskeys) ? 'true' : 'false' ?>,
+        hasTotp: <?= !empty($userHasTotp) ? 'true' : 'false' ?>
     };
 </script>
 
@@ -943,7 +960,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
 
                 <h4 class="fw-bold mb-1" id="cimsIdleLockTitle">Session Paused</h4>
-                <p class="text-muted small mb-3">Locked due to inactivity to protect data privacy. Enter your password to resume.</p>
+                <p class="text-muted small mb-3">Locked due to inactivity to protect data privacy. Authenticate to resume.</p>
 
                 <!-- Current User Details -->
                 <div class="d-inline-flex align-items-center gap-2 px-3 py-1 bg-light rounded-pill border mb-3">
@@ -964,15 +981,31 @@ document.addEventListener('DOMContentLoaded', () => {
                 <!-- Inline Error Alert -->
                 <div id="cimsUnlockErrorAlert" class="alert alert-danger py-2 px-3 mb-3 small text-start d-none border-0 shadow-sm" role="alert"></div>
 
+                <!-- Biometric Passkey Quick Unlock Button -->
+                <div id="cimsPasskeyUnlockContainer" class="mb-3 <?= empty($userHasPasskeys) ? 'd-none' : '' ?>">
+                    <button type="button" class="btn btn-outline-primary w-100 py-2 fw-bold shadow-sm d-flex align-items-center justify-content-center gap-2 rounded-3" id="cimsPasskeyUnlockBtn">
+                        <i class="bi bi-fingerprint fs-5"></i>
+                        <span>Unlock with Passkey / Biometrics</span>
+                    </button>
+                    <div class="d-flex align-items-center my-3">
+                        <hr class="flex-grow-1 my-0 text-muted opacity-25">
+                        <span class="px-2 text-muted text-uppercase fw-semibold" style="font-size: 0.70rem; letter-spacing: 0.5px;">Or Enter Password / 6-Digit Code</span>
+                        <hr class="flex-grow-1 my-0 text-muted opacity-25">
+                    </div>
+                </div>
+
                 <!-- Unlock Form -->
                 <form id="cimsIdleUnlockForm" class="no-spin" autocomplete="off">
                     <div class="mb-3">
                         <div class="input-group">
                             <span class="input-group-text bg-white border-end-0 text-muted"><i class="bi bi-key-fill"></i></span>
-                            <input type="password" class="form-control border-start-0 border-end-0" id="cimsUnlockPassword" placeholder="Enter password to unlock" required autocomplete="current-password">
+                            <input type="password" class="form-control border-start-0 border-end-0" id="cimsUnlockPassword" placeholder="Enter password or 6-digit code" required autocomplete="current-password">
                             <button class="btn btn-outline-secondary border-start-0 bg-white" type="button" id="cimsToggleUnlockPwd" title="Toggle password visibility">
                                 <i class="bi bi-eye"></i>
                             </button>
+                        </div>
+                        <div class="form-text text-start text-muted" style="font-size: 0.75rem;">
+                            <i class="bi bi-shield-check text-success me-1"></i>Supports your account password or Google/Microsoft Authenticator code.
                         </div>
                     </div>
 
