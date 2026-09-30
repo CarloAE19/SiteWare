@@ -21,9 +21,13 @@ if (!empty($_GET['deactivated'])) {
     $error = 'Your session has ended because your account was deactivated by an administrator.';
 } elseif (!empty($_GET['timeout'])) {
     $infoMsg = 'Your session expired due to inactivity. Please log in again to continue.';
+} elseif (!empty($_GET['cancel_mfa'])) {
+    unset($_SESSION['mfa_pending_user_id'], $_SESSION['mfa_pending_user_name'], $_SESSION['mfa_pending_time'], $_SESSION['mfa_pending_attempts']);
+    $infoMsg = 'Two-Factor Authentication cancelled. Please log in again.';
 }
 $is_locked_out = false;
 $lockout_retry_after = 0;
+$mfa_required = !empty($_SESSION['mfa_pending_user_id']) && (time() - ($_SESSION['mfa_pending_time'] ?? 0) <= 300);
 
 $remembered_username = $_COOKIE['siteware_remember_user'] ?? '';
 $initial_username = $_POST['username'] ?? $remembered_username;
@@ -112,16 +116,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$is_locked_out) {
                     }
 
                     clear_rate_limit($rlKey, true);
-                    session_regenerate_id(true);
-                    // Rotate CSRF token on privilege level change
-                    unset($_SESSION['csrf_token']);
-                    $_SESSION['user_id'] = $user['id'];
-                    $_SESSION['user_name'] = $user['name'];
-                    $_SESSION['user_role'] = $user['role'];
-                    $_SESSION['last_activity'] = time();
-                    unset($_SESSION['screen_locked']);
-                    $_SESSION['fresh_login'] = true;
-                    redirectUserByRole($user['role']);
+
+                    // 🛡️ Multi-Factor Authentication Check
+                    if (!empty($user['mfa_enabled'])) {
+                        $_SESSION['mfa_pending_user_id'] = $user['id'];
+                        $_SESSION['mfa_pending_user_name'] = $user['name'];
+                        $_SESSION['mfa_pending_time'] = time();
+                        $_SESSION['mfa_pending_attempts'] = 0;
+                        $mfa_required = true;
+                    } else {
+                        session_regenerate_id(true);
+                        // Rotate CSRF token on privilege level change
+                        unset($_SESSION['csrf_token']);
+                        $_SESSION['user_id'] = $user['id'];
+                        $_SESSION['user_name'] = $user['name'];
+                        $_SESSION['user_role'] = $user['role'];
+                        $_SESSION['last_activity'] = time();
+                        unset($_SESSION['screen_locked']);
+                        $_SESSION['fresh_login'] = true;
+                        redirectUserByRole($user['role']);
+                    }
                 }
             } else {
                 record_rate_limit_attempt($rlKey, true);
@@ -188,6 +202,7 @@ $bg_scale = 1 + ($bg_blur * 0.006);
         content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Sign In — GB Inventory System</title>
     <meta name="description" content="GB Construction & Enterprise Smart Inventory & Logistics System — Secure Login">
+    <meta name="csrf-token" content="<?= htmlspecialchars(generate_csrf_token()) ?>">
 
     <!-- PWA -->
     <link rel="manifest" href="manifest.json">
@@ -341,6 +356,20 @@ $bg_scale = 1 + ($bg_blur * 0.006);
                     <?php endif; ?>
                 </button>
 
+                <!-- Passkey / Biometric Login Option -->
+                <div class="login-divider my-3 d-flex align-items-center">
+                    <hr class="flex-grow-1 border-secondary-subtle my-0">
+                    <span class="px-2 text-muted small fw-semibold" style="font-size: 0.75rem;">OR QUICK ACCESS</span>
+                    <hr class="flex-grow-1 border-secondary-subtle my-0">
+                </div>
+
+                <button type="button"
+                    class="btn btn-outline-primary w-100 py-2 fw-bold d-flex align-items-center justify-content-center gap-2 shadow-sm rounded-3"
+                    id="passkeySignInBtn" style="border-width: 1.5px; transition: all 0.2s ease;">
+                    <i class="bi bi-fingerprint fs-5"></i>
+                    <span>Sign in with Passkey</span>
+                </button>
+
             </form>
 
         </div>
@@ -397,8 +426,88 @@ $bg_scale = 1 + ($bg_blur * 0.006);
         </div>
     </div>
 
+    <!-- ======================================================== -->
+    <!-- MODAL: TWO-FACTOR AUTHENTICATION (TOTP / BACKUP CODE)    -->
+    <!-- ======================================================== -->
+    <div class="modal fade" id="mfaModal" tabindex="-1" aria-labelledby="mfaModalLabel" aria-hidden="true"
+        data-bs-backdrop="static" data-bs-keyboard="false">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-fullscreen-sm-down"
+            style="max-width: 440px;">
+            <div class="modal-content border-0 shadow-lg" style="border-radius: 18px; overflow: hidden;">
+                <div class="modal-header border-0 pb-0 pt-4 px-4 bg-white">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="d-flex align-items-center justify-content-center bg-primary-subtle rounded-3 text-primary shadow-sm"
+                            style="width: 46px; height: 46px; font-size: 1.35rem;">
+                            <i class="bi bi-shield-check"></i>
+                        </div>
+                        <div>
+                            <h5 class="modal-title fw-bold text-dark mb-0" id="mfaModalLabel"
+                                style="font-size: 1.15rem;">Two-Factor Verification</h5>
+                            <small class="text-muted" style="font-size: 0.8rem;">SiteWare Enhanced Security</small>
+                        </div>
+                    </div>
+                    <a href="login?cancel_mfa=1" class="btn-close shadow-none" aria-label="Cancel verification"></a>
+                </div>
+                <div class="modal-body px-4 py-3">
+                    <p class="text-secondary small mb-3" id="mfaInstructionText" style="line-height: 1.55;">
+                        Hello, <strong><?= htmlspecialchars($_SESSION['mfa_pending_user_name'] ?? 'User') ?></strong>!
+                        Please enter the 6-digit authentication code generated by your Authenticator app.
+                    </p>
+
+                    <div id="mfaAlertBox" class="alert alert-danger d-none py-2 px-3 small border-0 shadow-sm mb-3"
+                        style="border-radius: 8px;">
+                        <i class="bi bi-exclamation-triangle-fill me-1"></i>
+                        <span id="mfaAlertMessage"></span>
+                    </div>
+
+                    <form id="mfaVerifyForm" autocomplete="off">
+                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(generate_csrf_token()) ?>">
+
+                        <div class="mb-3 text-center">
+                            <label for="mfaCodeInput"
+                                class="form-label fw-bold text-secondary small text-uppercase mb-2" id="mfaInputLabel">
+                                6-Digit Verification Code
+                            </label>
+                            <input type="text" class="form-control form-control-lg text-center fw-bold shadow-none"
+                                id="mfaCodeInput" name="code" placeholder="000000" maxlength="9" inputmode="numeric"
+                                style="font-size: 1.6rem; letter-spacing: 0.25em; border-radius: 12px; height: 56px;"
+                                required autofocus>
+                        </div>
+
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <a href="javascript:void(0)" id="toggleBackupCodeLink"
+                                class="text-decoration-none small text-primary fw-semibold">
+                                <i class="bi bi-key-fill me-1"></i>Use a backup code instead
+                            </a>
+                            <small class="text-muted" id="mfaCodeHint"><i class="bi bi-clock-history me-1"></i>Expires
+                                in 5m</small>
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-brand py-2 fw-bold shadow-sm" id="mfaSubmitBtn"
+                                style="border-radius: 10px; min-height: 44px;">
+                                <i class="bi bi-shield-lock-fill me-1"></i> Verify &amp; Sign In
+                            </button>
+                            <a href="login?cancel_mfa=1" class="btn btn-light py-2 text-secondary fw-semibold border"
+                                style="border-radius: 10px; min-height: 44px;">
+                                Cancel &amp; Back to Login
+                            </a>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer border-0 px-4 pb-3 pt-0 bg-light text-center justify-content-center">
+                    <small class="text-muted" style="font-size: 0.75rem;">
+                        <i class="bi bi-lock me-1"></i> Protected by Multi-Factor Authentication (ISO/IEC 25010)
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Bootstrap Bundle JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- SweetAlert2 for polished enterprise alerts -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
     <!-- Login Scripts -->
     <script src="assets/js/login.js?v=<?= time() ?>"></script>
@@ -411,6 +520,258 @@ $bg_scale = 1 + ($bg_blur * 0.006);
                 }
             });
         } catch (e) { }
+
+        // =========================================================================
+        // MULTI-FACTOR AUTHENTICATION (TOTP / BACKUP CODE) AJAX HANDLER
+        // (Standards: cims-modal-ajax-handler & quality-standards)
+        // =========================================================================
+        document.addEventListener('DOMContentLoaded', function () {
+            const mfaModalEl = document.getElementById('mfaModal');
+            const mfaForm = document.getElementById('mfaVerifyForm');
+            const mfaCodeInput = document.getElementById('mfaCodeInput');
+            const mfaSubmitBtn = document.getElementById('mfaSubmitBtn');
+            const mfaAlertBox = document.getElementById('mfaAlertBox');
+            const mfaAlertMsg = document.getElementById('mfaAlertMessage');
+            const toggleBackupLink = document.getElementById('toggleBackupCodeLink');
+            const mfaInputLabel = document.getElementById('mfaInputLabel');
+            const mfaInstruction = document.getElementById('mfaInstructionText');
+
+            let isBackupMode = false;
+            let mfaModalInstance = null;
+
+            if (mfaModalEl) {
+                mfaModalInstance = new bootstrap.Modal(mfaModalEl, { backdrop: 'static', keyboard: false });
+
+                // Auto-show modal if MFA is required on page load
+                <?php if ($mfa_required): ?>
+                    mfaModalInstance.show();
+                <?php endif; ?>
+
+                mfaModalEl.addEventListener('shown.bs.modal', function () {
+                    if (mfaCodeInput) mfaCodeInput.focus();
+                });
+            }
+
+            // Toggle between 6-digit TOTP and 8-character backup recovery code
+            if (toggleBackupLink) {
+                toggleBackupLink.addEventListener('click', function () {
+                    isBackupMode = !isBackupMode;
+                    if (isBackupMode) {
+                        mfaInputLabel.textContent = '8-Character Backup Code';
+                        mfaCodeInput.placeholder = 'XXXX-XXXX';
+                        mfaCodeInput.maxLength = 9;
+                        mfaCodeInput.inputMode = 'text';
+                        mfaInstruction.innerHTML = 'Enter one of your emergency <strong>backup recovery codes</strong> to sign in.';
+                        toggleBackupLink.innerHTML = '<i class="bi bi-phone me-1"></i>Use 6-digit Authenticator code';
+                    } else {
+                        mfaInputLabel.textContent = '6-Digit Verification Code';
+                        mfaCodeInput.placeholder = '000000';
+                        mfaCodeInput.maxLength = 6;
+                        mfaCodeInput.inputMode = 'numeric';
+                        mfaInstruction.innerHTML = 'Please enter the 6-digit authentication code generated by your Authenticator app.';
+                        toggleBackupLink.innerHTML = '<i class="bi bi-key-fill me-1"></i>Use a backup code instead';
+                    }
+                    if (mfaAlertBox) mfaAlertBox.classList.add('d-none');
+                    mfaCodeInput.value = '';
+                    mfaCodeInput.focus();
+                });
+            }
+
+            // AJAX Form Submission
+            if (mfaForm) {
+                mfaForm.addEventListener('submit', async function (e) {
+                    e.preventDefault();
+
+                    const codeVal = mfaCodeInput.value.trim();
+                    if (!codeVal) {
+                        mfaCodeInput.focus();
+                        return;
+                    }
+
+                    // Prevent duplicate submissions & show loading spinner
+                    const originalBtnHtml = mfaSubmitBtn.innerHTML;
+                    mfaSubmitBtn.disabled = true;
+                    mfaSubmitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> Verifying...';
+                    if (mfaAlertBox) mfaAlertBox.classList.add('d-none');
+
+                    try {
+                        const formData = new FormData(mfaForm);
+                        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+
+                        const response = await fetch('process/verify_mfa_login.php', {
+                            method: 'POST',
+                            body: formData,
+                            headers: {
+                                'X-Requested-With': 'XMLHttpRequest',
+                                'X-CSRF-Token': csrfToken
+                            }
+                        });
+
+                        const result = await response.json();
+
+                        if (result.success || result.status === 'success') {
+                            if (typeof Swal !== 'undefined') {
+                                await Swal.fire({
+                                    icon: 'success',
+                                    title: 'Identity Verified!',
+                                    text: result.message || 'Redirecting to your dashboard...',
+                                    timer: 1500,
+                                    showConfirmButton: false
+                                });
+                            }
+                            window.location.href = result.redirect || 'dashboard';
+                        } else {
+                            throw new Error(result.message || 'Verification failed. Please try again.');
+                        }
+                    } catch (err) {
+                        console.error('MFA Verification Error:', err);
+                        if (mfaAlertBox && mfaAlertMsg) {
+                            mfaAlertMsg.textContent = err.message || 'Verification failed. Please try again.';
+                            mfaAlertBox.classList.remove('d-none');
+                        } else if (typeof Swal !== 'undefined') {
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Verification Failed',
+                                text: err.message || 'Invalid verification code.'
+                            });
+                        }
+                        mfaCodeInput.select();
+                        mfaCodeInput.focus();
+                    } finally {
+                        mfaSubmitBtn.disabled = false;
+                        mfaSubmitBtn.innerHTML = originalBtnHtml;
+                    }
+                });
+            }
+
+            // =========================================================================
+            // WEBAUTHN / FIDO2 PASSKEY BIOMETRIC SIGN-IN HANDLER
+            // =========================================================================
+            const passkeyBtn = document.getElementById('passkeySignInBtn');
+            if (passkeyBtn) {
+                // Utility: Base64URL to ArrayBuffer
+                function base64UrlToBuffer(base64Url) {
+                    let padding = '='.repeat((4 - (base64Url.length % 4)) % 4);
+                    let base64 = (base64Url + padding).replace(/\-/g, '+').replace(/_/g, '/');
+                    let rawData = window.atob(base64);
+                    let outputArray = new Uint8Array(rawData.length);
+                    for (let i = 0; i < rawData.length; ++i) {
+                        outputArray[i] = rawData.charCodeAt(i);
+                    }
+                    return outputArray.buffer;
+                }
+
+                // Utility: ArrayBuffer to Base64URL
+                function bufferToBase64Url(buffer) {
+                    let binary = '';
+                    let bytes = new Uint8Array(buffer);
+                    for (let i = 0; i < bytes.byteLength; i++) {
+                        binary += String.fromCharCode(bytes[i]);
+                    }
+                    return window.btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+                }
+
+                passkeyBtn.addEventListener('click', async function () {
+                    // Check browser WebAuthn support
+                    if (!window.PublicKeyCredential) {
+                        if (typeof Swal !== 'undefined') {
+                            Swal.fire({
+                                icon: 'info',
+                                title: 'Passkeys Unsupported',
+                                text: 'Your browser or device does not currently support Passkeys or WebAuthn biometrics.'
+                            });
+                        } else {
+                            alert('Passkeys are not supported on this browser.');
+                        }
+                        return;
+                    }
+
+                    const originalPasskeyHtml = passkeyBtn.innerHTML;
+                    passkeyBtn.disabled = true;
+                    passkeyBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span> Awaiting biometric scan...';
+
+                    try {
+                        // 1. Fetch challenge from server
+                        const optRes = await fetch('process/passkey_handler.php?action=get_login_options');
+                        const optData = await optRes.json();
+
+                        if (!optData.success || !optData.options) {
+                            throw new Error(optData.message || 'Failed to initialize biometric challenge.');
+                        }
+
+                        const options = optData.options;
+                        const publicKeyCredentialRequestOptions = {
+                            challenge: base64UrlToBuffer(options.challenge),
+                            rpId: options.rpId,
+                            timeout: options.timeout || 60000,
+                            userVerification: options.userVerification || 'preferred'
+                        };
+
+                        // 2. Launch native browser biometric prompt
+                        const assertion = await navigator.credentials.get({
+                            publicKey: publicKeyCredentialRequestOptions
+                        });
+
+                        if (!assertion) {
+                            throw new Error('Biometric verification cancelled.');
+                        }
+
+                        // 3. Prepare payload for backend verification
+                        const verifyPayload = new FormData();
+                        verifyPayload.append('action', 'verify_login');
+                        verifyPayload.append('id', assertion.id);
+                        verifyPayload.append('clientDataJSON', bufferToBase64Url(assertion.response.clientDataJSON));
+                        verifyPayload.append('authenticatorData', bufferToBase64Url(assertion.response.authenticatorData));
+                        verifyPayload.append('signature', bufferToBase64Url(assertion.response.signature));
+
+                        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+
+                        const verRes = await fetch('process/passkey_handler.php', {
+                            method: 'POST',
+                            body: verifyPayload,
+                            headers: {
+                                'X-Requested-With': 'XMLHttpRequest',
+                                'X-CSRF-Token': csrfToken
+                            }
+                        });
+
+                        const verData = await verRes.json();
+
+                        if (verData.success || verData.status === 'success') {
+                            if (typeof Swal !== 'undefined') {
+                                await Swal.fire({
+                                    icon: 'success',
+                                    title: 'Biometric Authenticated!',
+                                    text: verData.message || 'Redirecting to your dashboard...',
+                                    timer: 1500,
+                                    showConfirmButton: false
+                                });
+                            }
+                            window.location.href = verData.redirect || 'dashboard';
+                        } else {
+                            throw new Error(verData.message || 'Biometric authentication failed.');
+                        }
+                    } catch (err) {
+                        console.error('Passkey Error:', err);
+                        // Do not show error alert if user simply dismissed the system prompt
+                        if (err.name !== 'NotAllowedError' && err.name !== 'AbortError') {
+                            if (typeof Swal !== 'undefined') {
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'Sign In Failed',
+                                    text: err.message || 'Could not verify biometric credential.'
+                                });
+                            } else {
+                                alert(err.message || 'Passkey verification failed.');
+                            }
+                        }
+                    } finally {
+                        passkeyBtn.disabled = false;
+                        passkeyBtn.innerHTML = originalPasskeyHtml;
+                    }
+                });
+            }
+        });
     </script>
 
     <?php if ($is_locked_out && $lockout_retry_after > 0): ?>
