@@ -220,26 +220,44 @@ try {
             break;
 
         // =========================================================================
-        // 4. LOGIN OPTIONS (Public / Pre-Auth)
+        // 4. LOGIN OPTIONS (Public / Pre-Auth / Inactivity Unlock)
         // =========================================================================
         case 'get_login_options':
             $challenge = WebAuthnHelper::generateChallenge();
             $_SESSION['passkey_auth_challenge'] = $challenge;
 
+            $loginOptions = [
+                'challenge' => $challenge,
+                'rpId' => WebAuthnHelper::getRpId(),
+                'timeout' => 60000,
+                'userVerification' => 'preferred'
+            ];
+
+            // If user is locked/authenticated, restrict assertion options to their registered credentials
+            if (!empty($_SESSION['user_id'])) {
+                $uid = (int)$_SESSION['user_id'];
+                $cStmt = $pdo->prepare("SELECT credential_id FROM user_passkeys WHERE user_id = ?");
+                $cStmt->execute([$uid]);
+                $creds = $cStmt->fetchAll(PDO::FETCH_COLUMN);
+                if (!empty($creds)) {
+                    $loginOptions['allowCredentials'] = array_map(function($cid) {
+                        return [
+                            'type' => 'public-key',
+                            'id' => $cid
+                        ];
+                    }, $creds);
+                }
+            }
+
             echo json_encode([
                 'success' => true,
                 'status' => 'success',
-                'options' => [
-                    'challenge' => $challenge,
-                    'rpId' => WebAuthnHelper::getRpId(),
-                    'timeout' => 60000,
-                    'userVerification' => 'preferred'
-                ]
+                'options' => $loginOptions
             ]);
             break;
 
         // =========================================================================
-        // 5. VERIFY LOGIN (Public / Pre-Auth)
+        // 5. VERIFY LOGIN / SCREEN UNLOCK (Public / Pre-Auth / Inactivity Unlock)
         // =========================================================================
         case 'verify_login':
             if (empty($_SESSION['passkey_auth_challenge'])) {
@@ -288,6 +306,13 @@ try {
                 throw new Exception('Your account has been deactivated. Please contact an administrator.');
             }
 
+            // Anti-IDOR / Identity lock check: If the screen is locked, ensure the passkey belongs to the locked account
+            if (!empty($_SESSION['screen_locked']) && !empty($_SESSION['user_id'])) {
+                if ((int)$record['user_id'] !== (int)$_SESSION['user_id']) {
+                    throw new Exception('This passkey belongs to a different account. Please use your own passkey or password.');
+                }
+            }
+
             // Cryptographic verification
             $isValid = WebAuthnHelper::verifyAssertionSignature(
                 $record['public_key'],
@@ -306,38 +331,48 @@ try {
             $updStmt->execute([$newSignCount, $record['passkey_id']]);
 
             // Authentication Successful!
+            $isUnlock = !empty($_SESSION['screen_locked']);
             unset($_SESSION['passkey_auth_challenge']);
             unset($_SESSION['mfa_pending_user_id']);
             unset($_SESSION['mfa_pending_user_name']);
 
-            // Session Hardening
-            session_regenerate_id(true);
-            unset($_SESSION['csrf_token']);
-
-            $_SESSION['user_id'] = $record['user_id'];
-            $_SESSION['user_name'] = $record['name'];
-            $_SESSION['user_role'] = $record['role'];
-            $_SESSION['last_activity'] = time();
             unset($_SESSION['screen_locked']);
-            $_SESSION['fresh_login'] = true;
+            $_SESSION['last_activity'] = time();
 
-            // Audit Log
+            if (!$isUnlock) {
+                // Session Hardening for fresh login from login.php
+                session_regenerate_id(true);
+                unset($_SESSION['csrf_token']);
+
+                $_SESSION['user_id'] = $record['user_id'];
+                $_SESSION['user_name'] = $record['name'];
+                $_SESSION['user_role'] = $record['role'];
+                $_SESSION['fresh_login'] = true;
+            }
+
+            // Audit Log (ISO 9001 Traceability)
+            $auditAction = $isUnlock ? 'SCREEN_UNLOCK_PASSKEY_SUCCESS' : 'LOGIN_PASSKEY_SUCCESS';
+            $auditRemarks = $isUnlock
+                ? "Screen unlocked via Passkey ({$record['device_name']})"
+                : "Passkey login via {$record['device_name']}";
+
             $auditStmt = $pdo->prepare("INSERT INTO audit_logs (user_id, action_type, entity_type, entity_id, previous_value, new_value, ip_address) VALUES (?, ?, ?, ?, ?, ?, ?)");
             $auditStmt->execute([
                 $record['user_id'],
-                'LOGIN_PASSKEY_SUCCESS',
+                $auditAction,
                 'users',
                 $record['user_id'],
                 null,
-                "Passkey login via {$record['device_name']}",
+                $auditRemarks,
                 $clientIp
             ]);
 
             echo json_encode([
                 'success' => true,
                 'status' => 'success',
+                'unlocked' => true,
                 'redirect' => 'dashboard',
-                'message' => 'Identity verified! Redirecting to dashboard...'
+                'message' => $isUnlock ? 'Screen unlocked successfully.' : 'Identity verified! Redirecting to dashboard...'
             ]);
             break;
 
