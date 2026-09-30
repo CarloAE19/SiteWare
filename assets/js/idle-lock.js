@@ -35,6 +35,8 @@
         const togglePwdBtn = document.getElementById('cimsToggleUnlockPwd');
         const countdownBanner = document.getElementById('cimsIdleCountdownBanner');
         const countdownSecondsEl = document.getElementById('cimsCountdownSeconds');
+        const passkeyUnlockBtn = document.getElementById('cimsPasskeyUnlockBtn');
+        const passkeyContainer = document.getElementById('cimsPasskeyUnlockContainer');
 
         let bsLockModal = null;
         let isLocked = false;
@@ -45,6 +47,7 @@
         let isTampered = false;
 
         const UNLOCK_BTN_DEFAULT_HTML = '<i class="bi bi-unlock-fill me-2"></i> Unlock Screen';
+        const PASSKEY_BTN_DEFAULT_HTML = '<i class="bi bi-fingerprint fs-5"></i> <span>Unlock with Passkey / Biometrics</span>';
 
         function resetUnlockFormState() {
             if (unlockForm) {
@@ -66,6 +69,10 @@
                 unlockSubmitBtn.innerHTML = UNLOCK_BTN_DEFAULT_HTML;
                 delete unlockSubmitBtn.dataset.originalContent;
             }
+            if (passkeyUnlockBtn) {
+                passkeyUnlockBtn.disabled = false;
+                passkeyUnlockBtn.innerHTML = PASSKEY_BTN_DEFAULT_HTML;
+            }
             if (unlockErrorAlert) {
                 unlockErrorAlert.classList.add('d-none');
                 unlockErrorAlert.textContent = '';
@@ -81,6 +88,9 @@
 
             lockModalEl.addEventListener('shown.bs.modal', () => {
                 resetUnlockFormState();
+                if (passkeyContainer && config.hasPasskeys && window.PublicKeyCredential) {
+                    passkeyContainer.classList.remove('d-none');
+                }
                 if (unlockPasswordInput) {
                     unlockPasswordInput.focus();
                 }
@@ -478,6 +488,119 @@
                     }
                     if (unlockForm) {
                         delete unlockForm.dataset.submitting;
+                    }
+                }
+            });
+        }
+
+        /**
+         * WebAuthn Base64URL Conversion Helpers
+         */
+        function base64UrlToBuffer(base64Url) {
+            let padding = '='.repeat((4 - (base64Url.length % 4)) % 4);
+            let base64 = (base64Url + padding).replace(/\-/g, '+').replace(/_/g, '/');
+            let rawData = window.atob(base64);
+            let outputArray = new Uint8Array(rawData.length);
+            for (let i = 0; i < rawData.length; ++i) {
+                outputArray[i] = rawData.charCodeAt(i);
+            }
+            return outputArray.buffer;
+        }
+
+        function bufferToBase64Url(buffer) {
+            let binary = '';
+            let bytes = new Uint8Array(buffer);
+            for (let i = 0; i < bytes.byteLength; i++) {
+                binary += String.fromCharCode(bytes[i]);
+            }
+            return window.btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+        }
+
+        /**
+         * Biometric Passkey Unlock Handler
+         */
+        if (passkeyUnlockBtn) {
+            // Display passkey button if browser supports WebAuthn and user has passkeys configured
+            if (passkeyContainer && config.hasPasskeys && window.PublicKeyCredential) {
+                passkeyContainer.classList.remove('d-none');
+            }
+
+            passkeyUnlockBtn.addEventListener('click', async () => {
+                if (!window.PublicKeyCredential) {
+                    showUnlockError('Biometric authentication is not supported on this browser.');
+                    return;
+                }
+
+                passkeyUnlockBtn.disabled = true;
+                passkeyUnlockBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> Awaiting biometric scan...';
+                if (unlockErrorAlert) unlockErrorAlert.classList.add('d-none');
+
+                try {
+                    const basePath = window.cimsBasePath || '';
+                    const optRes = await fetch(basePath + '/process/passkey_handler.php?action=get_login_options');
+                    const optData = await optRes.json();
+
+                    if (!optData.success || !optData.options) {
+                        throw new Error(optData.message || 'Failed to initialize biometric challenge.');
+                    }
+
+                    const options = optData.options;
+                    const publicKeyCredentialRequestOptions = {
+                        challenge: base64UrlToBuffer(options.challenge),
+                        rpId: options.rpId,
+                        timeout: options.timeout || 60000,
+                        userVerification: options.userVerification || 'preferred'
+                    };
+
+                    if (options.allowCredentials && Array.isArray(options.allowCredentials)) {
+                        publicKeyCredentialRequestOptions.allowCredentials = options.allowCredentials.map(c => ({
+                            type: 'public-key',
+                            id: base64UrlToBuffer(c.id)
+                        }));
+                    }
+
+                    // Launch native OS/device biometric verification prompt
+                    const assertion = await navigator.credentials.get({
+                        publicKey: publicKeyCredentialRequestOptions
+                    });
+
+                    if (!assertion) {
+                        throw new Error('Biometric verification cancelled.');
+                    }
+
+                    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+                    const verifyPayload = new FormData();
+                    verifyPayload.append('action', 'verify_login');
+                    verifyPayload.append('id', assertion.id);
+                    verifyPayload.append('clientDataJSON', bufferToBase64Url(assertion.response.clientDataJSON));
+                    verifyPayload.append('authenticatorData', bufferToBase64Url(assertion.response.authenticatorData));
+                    verifyPayload.append('signature', bufferToBase64Url(assertion.response.signature));
+
+                    const verRes = await fetch(basePath + '/process/passkey_handler.php', {
+                        method: 'POST',
+                        body: verifyPayload,
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'X-CSRF-Token': csrfToken
+                        }
+                    });
+
+                    const verData = await verRes.json();
+
+                    if (verData.success || verData.status === 'success') {
+                        unlockScreenSuccess();
+                    } else {
+                        throw new Error(verData.message || 'Biometric verification failed.');
+                    }
+                } catch (err) {
+                    console.error('Passkey Inactivity Unlock Error:', err);
+                    if (err.name !== 'NotAllowedError' && err.name !== 'AbortError') {
+                        showUnlockError(err.message || 'Biometric authentication failed. Please enter your password or 6-digit code.');
+                    }
+                } finally {
+                    if (passkeyUnlockBtn) {
+                        passkeyUnlockBtn.disabled = false;
+                        passkeyUnlockBtn.innerHTML = PASSKEY_BTN_DEFAULT_HTML;
                     }
                 }
             });
