@@ -483,3 +483,14 @@ body {
         font-size: 0.78rem;
     }
 }
+
+/* ===================== SHAKE FEEDBACK ANIMATION ===================== */
+@keyframes loginShake {
+    0%, 100% { transform: translateX(0); }
+    20%, 60% { transform: translateX(-7px); }
+    40%, 80% { transform: translateX(7px); }
+}
+
+.animate-shake {
+    animation: loginShake 0.45s ease-in-out !important;
+}
