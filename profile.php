@@ -8,10 +8,15 @@ require_once 'Connection/db.php';
 
 $userId = $_SESSION['user_id'];
 
-// Fetch current user's data
-$stmt = $pdo->prepare("SELECT name, username, role, created_at, signature_path FROM users WHERE id = ?");
+// Fetch current user's data including MFA configuration
+$stmt = $pdo->prepare("SELECT name, username, role, created_at, signature_path, mfa_enabled, mfa_secret FROM users WHERE id = ?");
 $stmt->execute([$userId]);
 $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+// Fetch registered Passkeys / Biometric Devices
+$passkeyStmt = $pdo->prepare("SELECT id, device_name, sign_count, created_at FROM user_passkeys WHERE user_id = ? ORDER BY created_at DESC");
+$passkeyStmt->execute([$userId]);
+$userPasskeys = $passkeyStmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Role Aesthetics
 $roleDisplay = [
@@ -116,6 +121,176 @@ include 'layout/header.php';
                             </button>
                         </div>
                     </form>
+                </div>
+            </div>
+
+            <!-- ======================================================== -->
+            <!-- CARD: MULTI-FACTOR & BIOMETRIC SECURITY                  -->
+            <!-- ======================================================== -->
+            <div class="card border-0 shadow-sm mt-4">
+                <div class="card-header bg-white fw-bold py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <div class="d-flex align-items-center gap-2">
+                        <i class="bi bi-shield-lock-fill text-primary"></i>
+                        <span>Multi-Factor Authentication &amp; Biometrics</span>
+                    </div>
+                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle">
+                        <i class="bi bi-shield-check me-1"></i>ISO/IEC 27001 &amp; 25010
+                    </span>
+                </div>
+                <div class="card-body p-4">
+                    <p class="text-secondary small mb-4" style="line-height: 1.6;">
+                        Protect your SiteWare account against credential theft, unauthorized access, and session hijacking by enabling two-factor verification or linking a hardware biometric device (Windows Hello, Touch ID, Face ID).
+                    </p>
+
+                    <div class="row g-4">
+                        <!-- SECTION 1: TOTP AUTHENTICATOR APP -->
+                        <div class="col-12 col-lg-6">
+                            <div class="p-3 border rounded-3 h-100 bg-light-subtle d-flex flex-column justify-content-between">
+                                <div>
+                                    <div class="d-flex align-items-center justify-content-between mb-2">
+                                        <div class="d-flex align-items-center gap-2">
+                                            <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
+                                                <i class="bi bi-phone"></i>
+                                            </div>
+                                            <h6 class="fw-bold mb-0 text-dark">Authenticator App (TOTP)</h6>
+                                        </div>
+                                        <?php if (!empty($user['mfa_enabled'])): ?>
+                                            <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">
+                                                <i class="bi bi-check-circle-fill me-1"></i>Active
+                                            </span>
+                                        <?php else: ?>
+                                            <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-2 py-1">
+                                                <i class="bi bi-dash-circle me-1"></i>Disabled
+                                            </span>
+                                        <?php endif; ?>
+                                    </div>
+                                    <p class="text-muted small mb-3" style="line-height: 1.5;">
+                                        Generates a dynamic 6-digit code via Google Authenticator, Microsoft Authenticator, or Authy. Works 100% offline.
+                                    </p>
+                                </div>
+
+                                <div class="pt-2 border-top d-flex gap-2 flex-wrap">
+                                    <?php if (!empty($user['mfa_enabled'])): ?>
+                                        <button type="button" class="btn btn-sm btn-outline-primary fw-bold" id="openRegenBackupCodesBtn">
+                                            <i class="bi bi-arrow-repeat me-1"></i>New Backup Codes
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-outline-danger fw-bold ms-auto" data-bs-toggle="modal" data-bs-target="#mfaDisableModal">
+                                            <i class="bi bi-shield-x me-1"></i>Disable 2FA
+                                        </button>
+                                    <?php else: ?>
+                                        <button type="button" class="btn btn-sm btn-primary fw-bold w-100" id="startTotpSetupBtn">
+                                            <i class="bi bi-qr-code-scan me-1"></i>Setup Authenticator App
+                                        </button>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- SECTION 2: PASSKEYS & BIOMETRIC LOGIN -->
+                        <div class="col-12 col-lg-6">
+                            <div class="p-3 border rounded-3 h-100 bg-light-subtle d-flex flex-column justify-content-between">
+                                <div>
+                                    <div class="d-flex align-items-center justify-content-between mb-2">
+                                        <div class="d-flex align-items-center gap-2">
+                                            <div class="bg-success text-white rounded-circle d-flex align-items-center justify-content-center shadow-sm" style="width: 32px; height: 32px;">
+                                                <i class="bi bi-fingerprint"></i>
+                                            </div>
+                                            <h6 class="fw-bold mb-0 text-dark">Biometric Passkeys</h6>
+                                        </div>
+                                        <?php if (!empty($userPasskeys)): ?>
+                                            <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">
+                                                <i class="bi bi-check-circle-fill me-1"></i><?= count($userPasskeys) ?> Linked
+                                            </span>
+                                        <?php else: ?>
+                                            <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-2 py-1">
+                                                <i class="bi bi-dash-circle me-1"></i>Not Linked
+                                            </span>
+                                        <?php endif; ?>
+                                    </div>
+                                    <p class="text-muted small mb-2" style="line-height: 1.5;">
+                                        FIDO2 / WebAuthn cryptographic keys. Log in in 1 second using Windows Hello, Face ID, Touch ID, or your phone's fingerprint sensor.
+                                    </p>
+                                    <?php if (!empty($userPasskeys)): ?>
+                                        <div class="d-flex align-items-center gap-2 text-success small mb-2 p-2 rounded-2" style="background-color: rgba(22, 163, 74, 0.08); border-left: 3px solid #16a34a;">
+                                            <i class="bi bi-shield-fill-check fs-6 text-success"></i>
+                                            <span class="fw-semibold" style="font-size: 0.8rem; line-height: 1.3;">Biometric passwordless login is active and ready to use.</span>
+                                        </div>
+                                    <?php endif; ?>
+                                </div>
+
+                                <div class="pt-2 border-top">
+                                    <?php if (!empty($userPasskeys)): ?>
+                                        <button type="button" class="btn btn-sm btn-outline-success fw-bold w-100 py-2 shadow-sm d-flex align-items-center justify-content-center gap-2" id="openRegisterPasskeyBtn">
+                                            <i class="bi bi-plus-circle"></i>
+                                            <span>Add Another Device / Key</span>
+                                        </button>
+                                        <small class="text-muted d-block text-center mt-1" style="font-size: 0.72rem;">
+                                            Link an additional PC, laptop, or backup device
+                                        </small>
+                                    <?php else: ?>
+                                        <button type="button" class="btn btn-sm btn-success fw-bold w-100 py-2 shadow-sm d-flex align-items-center justify-content-center gap-2" id="openRegisterPasskeyBtn">
+                                            <i class="bi bi-fingerprint"></i>
+                                            <span>Register This Device / Biometric</span>
+                                        </button>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- REGISTERED PASSKEYS LIST -->
+                    <?php if (!empty($userPasskeys)): ?>
+                        <div class="mt-4 pt-3 border-top">
+                            <div class="d-flex align-items-center justify-content-between mb-3">
+                                <h6 class="fw-bold small text-uppercase text-secondary mb-0">
+                                    <i class="bi bi-laptop me-1 text-primary"></i>Registered Biometric Devices (<?= count($userPasskeys) ?>)
+                                </h6>
+                                <span class="badge bg-light text-muted border" style="font-size: 0.72rem;">
+                                    Passwordless Active
+                                </span>
+                            </div>
+                            <div class="table-responsive">
+                                <table class="table table-sm table-hover align-middle mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Device Name</th>
+                                            <th>Date Registered</th>
+                                            <th>Logins</th>
+                                            <th class="text-end">Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <?php foreach ($userPasskeys as $pk): ?>
+                                            <tr id="passkey_row_<?= (int)$pk['id'] ?>">
+                                                <td>
+                                                    <div class="d-flex align-items-center gap-2">
+                                                        <div class="bg-success-subtle text-success rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" style="width: 28px; height: 28px; font-size: 0.85rem;">
+                                                            <i class="bi bi-shield-check"></i>
+                                                        </div>
+                                                        <div>
+                                                            <span class="fw-bold text-dark d-block"><?= htmlspecialchars($pk['device_name']) ?></span>
+                                                            <small class="text-success d-inline-flex align-items-center gap-1" style="font-size: 0.72rem;">
+                                                                <span class="badge rounded-pill bg-success" style="width: 6px; height: 6px; padding: 0;"></span> Ready for biometric sign-in
+                                                            </small>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td class="text-muted small text-nowrap"><?= date('M d, Y h:i A', strtotime($pk['created_at'])) ?></td>
+                                                <td><span class="badge bg-light text-dark border"><?= (int)$pk['sign_count'] ?> logins</span></td>
+                                                <td class="text-end">
+                                                    <button type="button" class="btn btn-sm btn-outline-danger delete-passkey-btn shadow-none" 
+                                                        style="min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center;"
+                                                        data-id="<?= (int)$pk['id'] ?>" data-name="<?= htmlspecialchars($pk['device_name']) ?>" title="Remove this Passkey" aria-label="Remove this device">
+                                                        <i class="bi bi-trash"></i>
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        <?php endforeach; ?>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    <?php endif; ?>
                 </div>
             </div>
 
@@ -1125,4 +1300,766 @@ include 'layout/header.php';
     })();
 </script>
 
+    <!-- ======================================================== -->
+    <!-- MODAL: MFA (TOTP) SETUP WIZARD                           -->
+    <!-- ======================================================== -->
+    <div class="modal fade" id="mfaSetupModal" tabindex="-1" aria-labelledby="mfaSetupModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-fullscreen-sm-down" style="max-width: 520px;">
+            <div class="modal-content border-0 shadow-lg" style="border-radius: 18px; overflow: hidden;">
+                <div class="modal-header border-0 pb-0 pt-4 px-4 bg-white">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="d-flex align-items-center justify-content-center bg-primary-subtle rounded-3 text-primary shadow-sm"
+                            style="width: 44px; height: 44px; font-size: 1.3rem;">
+                            <i class="bi bi-qr-code-scan"></i>
+                        </div>
+                        <div>
+                            <h5 class="modal-title fw-bold text-dark mb-0" id="mfaSetupModalLabel">Set Up Two-Factor Authentication</h5>
+                            <small class="text-muted" style="font-size: 0.8rem;">Authenticator App (RFC 6238)</small>
+                        </div>
+                    </div>
+                    <button type="button" class="btn-close shadow-none" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body px-4 py-3">
+                    <!-- Step 1: Scan QR -->
+                    <div class="mb-4">
+                        <h6 class="fw-bold small text-uppercase text-secondary mb-2">Step 1: Scan QR Code</h6>
+                        <p class="text-muted small mb-3">
+                            Open <strong>Google Authenticator</strong>, <strong>Microsoft Authenticator</strong>, or your preferred authenticator app, tap <em>"+"</em>, and scan the QR code below:
+                        </p>
+                        <div class="d-flex flex-column align-items-center justify-content-center p-3 border rounded-3 bg-white mb-2 shadow-sm text-center">
+                            <div id="totpQrCodeContainer" class="p-2 bg-white rounded" style="min-width: 180px; min-height: 180px; display: flex; align-items: center; justify-content: center;">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Loading QR Code...</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Manual Key Entry Fallback -->
+                        <div class="p-2 border rounded-3 bg-light text-center">
+                            <small class="text-muted d-block mb-1" style="font-size: 0.75rem;">Can't scan? Enter this key manually:</small>
+                            <code class="fw-bold fs-6 text-primary user-select-all" id="totpSecretKeyDisplay">---- ---- ---- ----</code>
+                        </div>
+                    </div>
+
+                    <!-- Step 2: Emergency Backup Codes -->
+                    <div class="mb-4">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="fw-bold small text-uppercase text-secondary mb-0">Step 2: Save Emergency Recovery Codes</h6>
+                            <button type="button" class="btn btn-sm btn-link text-decoration-none p-0 fw-bold" id="copyBackupCodesBtn">
+                                <i class="bi bi-clipboard me-1"></i>Copy
+                            </button>
+                        </div>
+                        <p class="text-muted small mb-2" style="font-size: 0.8rem;">
+                            If you ever lose access to your phone, these single-use codes are the only way to recover your account:
+                        </p>
+                        <div class="p-3 border rounded-3 bg-light font-monospace small" id="backupCodesContainer" style="font-size: 0.85rem; line-height: 1.8;">
+                            <!-- Populated via AJAX -->
+                        </div>
+                    </div>
+
+                    <!-- Step 3: Confirmation Form -->
+                    <div>
+                        <h6 class="fw-bold small text-uppercase text-secondary mb-2">Step 3: Confirm 6-Digit Code</h6>
+                        <form id="mfaSetupConfirmForm" autocomplete="off">
+                            <input type="hidden" name="action" value="verify_and_enable">
+                            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(generate_csrf_token()) ?>">
+
+                            <div class="mb-3">
+                                <label for="mfaConfirmCodeInput" class="form-label small fw-bold text-dark">Enter 6-digit code shown in your app:</label>
+                                <input type="text" class="form-control form-control-lg text-center fw-bold shadow-none" 
+                                    id="mfaConfirmCodeInput" name="code" 
+                                    placeholder="000000" maxlength="6" inputmode="numeric" 
+                                    style="letter-spacing: 0.25em; font-size: 1.4rem; height: 50px;" required>
+                            </div>
+
+                            <div class="d-grid gap-2">
+                                <button type="submit" class="btn btn-brand py-2 fw-bold shadow-sm" id="mfaSetupSubmitBtn" style="border-radius: 10px; min-height: 44px;">
+                                    <i class="bi bi-shield-check me-1"></i> Activate Two-Factor Authentication
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ======================================================== -->
+    <!-- MODAL: MFA DISABLE CONFIRMATION                          -->
+    <!-- ======================================================== -->
+    <div class="modal fade" id="mfaDisableModal" tabindex="-1" aria-labelledby="mfaDisableModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered" style="max-width: 440px;">
+            <div class="modal-content border-0 shadow-lg" style="border-radius: 18px; overflow: hidden;">
+                <div class="modal-header border-0 pb-0 pt-4 px-4 bg-white">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="d-flex align-items-center justify-content-center bg-danger-subtle rounded-3 text-danger shadow-sm"
+                            style="width: 44px; height: 44px; font-size: 1.3rem;">
+                            <i class="bi bi-shield-x"></i>
+                        </div>
+                        <div>
+                            <h5 class="modal-title fw-bold text-dark mb-0" id="mfaDisableModalLabel">Disable 2FA Protection</h5>
+                            <small class="text-muted" style="font-size: 0.8rem;">Security Confirmation</small>
+                        </div>
+                    </div>
+                    <button type="button" class="btn-close shadow-none" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body px-4 py-3">
+                    <div class="alert alert-warning border-0 small py-2 px-3 mb-3" style="border-radius: 8px;">
+                        <i class="bi bi-exclamation-triangle-fill me-1 text-warning"></i>
+                        Disabling Two-Factor Authentication will reduce your account's protection to password-only authentication.
+                    </div>
+                    <form id="mfaDisableForm" autocomplete="off">
+                        <input type="hidden" name="action" value="disable">
+                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(generate_csrf_token()) ?>">
+
+                        <div class="mb-3">
+                            <label for="mfaDisablePasswordInput" class="form-label small fw-bold">Enter your account password to confirm:</label>
+                            <input type="password" class="form-control" id="mfaDisablePasswordInput" name="password" placeholder="Current password" required>
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-danger py-2 fw-bold shadow-sm" id="mfaDisableSubmitBtn" style="border-radius: 10px; min-height: 44px;">
+                                <i class="bi bi-unlock-fill me-1"></i> Confirm &amp; Disable 2FA
+                            </button>
+                            <button type="button" class="btn btn-light py-2 border text-secondary fw-semibold" data-bs-dismiss="modal" style="border-radius: 10px; min-height: 44px;">
+                                Keep 2FA Enabled
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ======================================================== -->
+    <!-- MODAL: REGENERATE BACKUP RECOVERY CODES                  -->
+    <!-- ======================================================== -->
+    <div class="modal fade" id="mfaBackupModal" tabindex="-1" aria-labelledby="mfaBackupModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered" style="max-width: 460px;">
+            <div class="modal-content border-0 shadow-lg" style="border-radius: 18px; overflow: hidden;">
+                <div class="modal-header border-0 pb-0 pt-4 px-4 bg-white">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="d-flex align-items-center justify-content-center bg-primary-subtle rounded-3 text-primary shadow-sm"
+                            style="width: 44px; height: 44px; font-size: 1.3rem;">
+                            <i class="bi bi-key-fill"></i>
+                        </div>
+                        <div>
+                            <h5 class="modal-title fw-bold text-dark mb-0" id="mfaBackupModalLabel">Emergency Recovery Codes</h5>
+                            <small class="text-muted" style="font-size: 0.8rem;">Single-Use Backup Codes</small>
+                        </div>
+                    </div>
+                    <button type="button" class="btn-close shadow-none" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body px-4 py-3">
+                    <div id="regenPromptSection">
+                        <p class="text-muted small mb-3">
+                            Generating new backup codes will immediately invalidate all previously issued recovery codes. Please enter your password to proceed:
+                        </p>
+                        <form id="regenBackupCodesForm" autocomplete="off">
+                            <input type="hidden" name="action" value="regenerate_backup_codes">
+                            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(generate_csrf_token()) ?>">
+
+                            <div class="mb-3">
+                                <label for="regenPasswordInput" class="form-label small fw-bold">Current Account Password:</label>
+                                <input type="password" class="form-control" id="regenPasswordInput" name="password" placeholder="Enter password" required>
+                            </div>
+
+                            <button type="submit" class="btn btn-brand w-100 py-2 fw-bold shadow-sm" id="regenSubmitBtn" style="border-radius: 10px; min-height: 44px;">
+                                <i class="bi bi-arrow-repeat me-1"></i> Generate 8 New Codes
+                            </button>
+                        </form>
+                    </div>
+
+                    <div id="regenResultSection" class="d-none">
+                        <p class="text-success small fw-semibold mb-2">
+                            <i class="bi bi-check-circle-fill me-1"></i> 8 Fresh Backup Codes Generated:
+                        </p>
+                        <div class="p-3 border rounded-3 bg-light font-monospace small mb-3" id="freshBackupCodesDisplay" style="font-size: 0.9rem; line-height: 1.8;">
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-outline-primary btn-sm fw-bold w-100 py-2" id="copyFreshCodesBtn">
+                                <i class="bi bi-clipboard me-1"></i> Copy Codes
+                            </button>
+                            <button type="button" class="btn btn-brand btn-sm fw-bold w-100 py-2" data-bs-dismiss="modal">
+                                <i class="bi bi-check2 me-1"></i> Done
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ======================================================== -->
+    <!-- MODAL: REGISTER PASSKEY / BIOMETRIC                      -->
+    <!-- ======================================================== -->
+    <div class="modal fade" id="passkeyRegisterModal" tabindex="-1" aria-labelledby="passkeyRegisterModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered" style="max-width: 440px;">
+            <div class="modal-content border-0 shadow-lg" style="border-radius: 18px; overflow: hidden;">
+                <div class="modal-header border-0 pb-0 pt-4 px-4 bg-white">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="d-flex align-items-center justify-content-center bg-success-subtle rounded-3 text-success shadow-sm"
+                            style="width: 44px; height: 44px; font-size: 1.3rem;">
+                            <i class="bi bi-fingerprint"></i>
+                        </div>
+                        <div>
+                            <h5 class="modal-title fw-bold text-dark mb-0" id="passkeyRegisterModalLabel">Register Biometric Passkey</h5>
+                            <small class="text-muted" style="font-size: 0.8rem;">Windows Hello / Touch ID / Face ID</small>
+                        </div>
+                    </div>
+                    <button type="button" class="btn-close shadow-none" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body px-4 py-3">
+                    <p class="text-muted small mb-3">
+                        Link this device's biometric sensor or security key to your SiteWare account for passwordless, 1-second sign-in.
+                    </p>
+
+                    <form id="passkeyRegisterForm" autocomplete="off">
+                        <div class="mb-3">
+                            <label for="passkeyDeviceNameInput" class="form-label small fw-bold">Device Nickname:</label>
+                            <input type="text" class="form-control" id="passkeyDeviceNameInput" placeholder="e.g. Work Laptop (Windows Hello)" required>
+                            <div class="form-text text-muted" style="font-size: 0.75rem;">A friendly name to help you recognize this device.</div>
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-success py-2 fw-bold shadow-sm" id="passkeyRegisterSubmitBtn" style="border-radius: 10px; min-height: 44px;">
+                                <i class="bi bi-shield-check me-1"></i> Start Biometric Scan
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
 <?php include 'layout/footer.php'; ?>
+
+<!-- Offline QR Code Generator Library with Cache Buster -->
+<script src="assets/js/qrcode.min.js?v=<?= filemtime(__DIR__ . '/assets/js/qrcode.min.js') ?>"></script>
+
+<script>
+    // =========================================================================
+    // PROFILE MFA (TOTP) & PASSKEY MANAGEMENT HANDLERS
+    // (Standards: cims-modal-ajax-handler & quality-standards)
+    // =========================================================================
+    document.addEventListener('DOMContentLoaded', function () {
+        // Helpers
+        function getCsrfToken() {
+            return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+        }
+
+        function base64UrlToBuffer(base64Url) {
+            let padding = '='.repeat((4 - (base64Url.length % 4)) % 4);
+            let base64 = (base64Url + padding).replace(/\-/g, '+').replace(/_/g, '/');
+            let rawData = window.atob(base64);
+            let outputArray = new Uint8Array(rawData.length);
+            for (let i = 0; i < rawData.length; ++i) {
+                outputArray[i] = rawData.charCodeAt(i);
+            }
+            return outputArray.buffer;
+        }
+
+        function bufferToBase64Url(buffer) {
+            let binary = '';
+            let bytes = new Uint8Array(buffer);
+            for (let i = 0; i < bytes.byteLength; i++) {
+                binary += String.fromCharCode(bytes[i]);
+            }
+            return window.btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+        }
+
+        // --- 1. TOTP SETUP WIZARD ---
+        const startSetupBtn = document.getElementById('startTotpSetupBtn');
+        const setupModalEl = document.getElementById('mfaSetupModal');
+        const qrContainer = document.getElementById('totpQrCodeContainer');
+        const secretKeyDisplay = document.getElementById('totpSecretKeyDisplay');
+        const backupCodesContainer = document.getElementById('backupCodesContainer');
+        const copyBackupBtn = document.getElementById('copyBackupCodesBtn');
+        const setupForm = document.getElementById('mfaSetupConfirmForm');
+        const setupSubmitBtn = document.getElementById('mfaSetupSubmitBtn');
+        const confirmCodeInput = document.getElementById('mfaConfirmCodeInput');
+
+        let currentBackupCodes = [];
+
+        function getModal(el) {
+            if (!el || typeof bootstrap === 'undefined') return null;
+            return bootstrap.Modal.getOrCreateInstance(el);
+        }
+
+        if (startSetupBtn) {
+            startSetupBtn.addEventListener('click', async function () {
+                const originalHtml = startSetupBtn.innerHTML;
+                startSetupBtn.disabled = true;
+                startSetupBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Preparing...';
+
+                try {
+                    const formData = new FormData();
+                    formData.append('action', 'setup');
+                    formData.append('csrf_token', getCsrfToken());
+
+                    const res = await fetch('process/mfa_totp.php', {
+                        method: 'POST',
+                        body: formData,
+                        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                    });
+                    const data = await res.json();
+
+                    if (!data.success) {
+                        throw new Error(data.message || 'Failed to initialize 2FA setup.');
+                    }
+
+                    // Render QR Code
+                    qrContainer.innerHTML = '';
+                    if (typeof QRCode !== 'undefined') {
+                        new QRCode(qrContainer, {
+                            text: data.otpauth_url,
+                            width: 170,
+                            height: 170,
+                            colorDark: "#0f172a",
+                            colorLight: "#ffffff",
+                            correctLevel: QRCode.CorrectLevel.M
+                        });
+                    } else {
+                        qrContainer.innerHTML = '<div class="alert alert-warning small mb-0 py-2">Please enter the secret key manually below into your app.</div>';
+                    }
+
+                    // Display formatted secret
+                    if (secretKeyDisplay) {
+                        secretKeyDisplay.textContent = data.secret_formatted || data.secret;
+                    }
+
+                    // Display backup codes in 2 columns
+                    currentBackupCodes = data.backup_codes || [];
+                    if (backupCodesContainer) {
+                        let codesHtml = '<div class="row g-2">';
+                        currentBackupCodes.forEach(code => {
+                            codesHtml += `<div class="col-6"><span class="badge bg-white text-dark border px-2 py-1 w-100 text-center font-monospace">${code}</span></div>`;
+                        });
+                        codesHtml += '</div>';
+                        backupCodesContainer.innerHTML = codesHtml;
+                    }
+
+                    // Open modal
+                    const modal = getModal(setupModalEl);
+                    if (modal) modal.show();
+                } catch (err) {
+                    console.error('Setup error:', err);
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({ icon: 'error', title: 'Setup Error', text: err.message });
+                    } else {
+                        alert('Setup Error: ' + err.message);
+                    }
+                } finally {
+                    startSetupBtn.disabled = false;
+                    startSetupBtn.innerHTML = originalHtml;
+                }
+            });
+        }
+
+        // Copy Backup Codes
+        if (copyBackupBtn) {
+            copyBackupBtn.addEventListener('click', function () {
+                if (!currentBackupCodes.length) return;
+                navigator.clipboard.writeText(currentBackupCodes.join('\n')).then(() => {
+                    copyBackupBtn.innerHTML = '<i class="bi bi-check2 text-success me-1"></i>Copied!';
+                    setTimeout(() => copyBackupBtn.innerHTML = '<i class="bi bi-clipboard me-1"></i>Copy', 2000);
+                });
+            });
+        }
+
+        // Confirm & Enable Form
+        if (setupForm) {
+            setupForm.addEventListener('submit', async function (e) {
+                e.preventDefault();
+                const code = confirmCodeInput ? confirmCodeInput.value.trim() : '';
+                if (!code) {
+                    if (confirmCodeInput) confirmCodeInput.focus();
+                    return;
+                }
+
+                const originalBtnText = setupSubmitBtn ? setupSubmitBtn.innerHTML : 'Activate';
+                if (setupSubmitBtn) {
+                    setupSubmitBtn.disabled = true;
+                    setupSubmitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Activating...';
+                }
+
+                try {
+                    const formData = new FormData(setupForm);
+                    const res = await fetch('process/mfa_totp.php', {
+                        method: 'POST',
+                        body: formData,
+                        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                    });
+                    const data = await res.json();
+
+                    if (data.success) {
+                        const modal = getModal(setupModalEl);
+                        if (modal) modal.hide();
+
+                        if (typeof Swal !== 'undefined') {
+                            await Swal.fire({
+                                icon: 'success',
+                                title: '2FA Enabled!',
+                                text: data.message,
+                                timer: 2000,
+                                showConfirmButton: false
+                            });
+                        }
+                        window.location.reload();
+                    } else {
+                        throw new Error(data.message || 'Activation failed.');
+                    }
+                } catch (err) {
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({ icon: 'error', title: 'Verification Failed', text: err.message });
+                    } else {
+                        alert(err.message);
+                    }
+                    if (confirmCodeInput) {
+                        confirmCodeInput.select();
+                        confirmCodeInput.focus();
+                    }
+                } finally {
+                    if (setupSubmitBtn) {
+                        setupSubmitBtn.disabled = false;
+                        setupSubmitBtn.innerHTML = originalBtnText;
+                    }
+                }
+            });
+        }
+
+        // --- 2. DISABLE MFA ---
+        const disableForm = document.getElementById('mfaDisableForm');
+        const disableSubmitBtn = document.getElementById('mfaDisableSubmitBtn');
+        const disableModalEl = document.getElementById('mfaDisableModal');
+
+        if (disableForm) {
+            disableForm.addEventListener('submit', async function (e) {
+                e.preventDefault();
+                const originalBtnText = disableSubmitBtn ? disableSubmitBtn.innerHTML : 'Confirm';
+                if (disableSubmitBtn) {
+                    disableSubmitBtn.disabled = true;
+                    disableSubmitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Disabling...';
+                }
+
+                try {
+                    const formData = new FormData(disableForm);
+                    const res = await fetch('process/mfa_totp.php', {
+                        method: 'POST',
+                        body: formData,
+                        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                    });
+                    const data = await res.json();
+
+                    if (data.success) {
+                        const modal = getModal(disableModalEl);
+                        if (modal) modal.hide();
+
+                        if (typeof Swal !== 'undefined') {
+                            await Swal.fire({
+                                icon: 'success',
+                                title: '2FA Disabled',
+                                text: data.message,
+                                timer: 2000,
+                                showConfirmButton: false
+                            });
+                        }
+                        window.location.reload();
+                    } else {
+                        throw new Error(data.message || 'Could not disable 2FA.');
+                    }
+                } catch (err) {
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({ icon: 'error', title: 'Error', text: err.message });
+                    } else {
+                        alert(err.message);
+                    }
+                } finally {
+                    if (disableSubmitBtn) {
+                        disableSubmitBtn.disabled = false;
+                        disableSubmitBtn.innerHTML = originalBtnText;
+                    }
+                }
+            });
+        }
+
+        // --- 3. REGENERATE BACKUP CODES ---
+        const openRegenBtn = document.getElementById('openRegenBackupCodesBtn');
+        const backupModalEl = document.getElementById('mfaBackupModal');
+        const regenForm = document.getElementById('regenBackupCodesForm');
+        const regenSubmitBtn = document.getElementById('regenSubmitBtn');
+        const regenPromptSec = document.getElementById('regenPromptSection');
+        const regenResultSec = document.getElementById('regenResultSection');
+        const freshCodesDisplay = document.getElementById('freshBackupCodesDisplay');
+        const copyFreshBtn = document.getElementById('copyFreshCodesBtn');
+
+        let freshCodesList = [];
+
+        if (openRegenBtn) {
+            openRegenBtn.addEventListener('click', function () {
+                if (regenPromptSec) regenPromptSec.classList.remove('d-none');
+                if (regenResultSec) regenResultSec.classList.add('d-none');
+                const passInput = document.getElementById('regenPasswordInput');
+                if (passInput) passInput.value = '';
+                const modal = getModal(backupModalEl);
+                if (modal) modal.show();
+            });
+        }
+
+        if (regenForm) {
+            regenForm.addEventListener('submit', async function (e) {
+                e.preventDefault();
+                const originalBtnText = regenSubmitBtn ? regenSubmitBtn.innerHTML : 'Generate';
+                if (regenSubmitBtn) {
+                    regenSubmitBtn.disabled = true;
+                    regenSubmitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Generating...';
+                }
+
+                try {
+                    const formData = new FormData(regenForm);
+                    const res = await fetch('process/mfa_totp.php', {
+                        method: 'POST',
+                        body: formData,
+                        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                    });
+                    const data = await res.json();
+
+                    if (data.success) {
+                        freshCodesList = data.backup_codes || [];
+                        let html = '<div class="row g-2">';
+                        freshCodesList.forEach(c => {
+                            html += `<div class="col-6"><span class="badge bg-white text-dark border px-2 py-1 w-100 text-center font-monospace">${c}</span></div>`;
+                        });
+                        html += '</div>';
+                        if (freshCodesDisplay) freshCodesDisplay.innerHTML = html;
+
+                        if (regenPromptSec) regenPromptSec.classList.add('d-none');
+                        if (regenResultSec) regenResultSec.classList.remove('d-none');
+                    } else {
+                        throw new Error(data.message || 'Failed to regenerate codes.');
+                    }
+                } catch (err) {
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({ icon: 'error', title: 'Error', text: err.message });
+                    } else {
+                        alert(err.message);
+                    }
+                } finally {
+                    if (regenSubmitBtn) {
+                        regenSubmitBtn.disabled = false;
+                        regenSubmitBtn.innerHTML = originalBtnText;
+                    }
+                }
+            });
+        }
+
+        if (copyFreshBtn) {
+            copyFreshBtn.addEventListener('click', function () {
+                if (!freshCodesList.length) return;
+                navigator.clipboard.writeText(freshCodesList.join('\n')).then(() => {
+                    copyFreshBtn.innerHTML = '<i class="bi bi-check2 text-success me-1"></i>Copied!';
+                    setTimeout(() => copyFreshBtn.innerHTML = '<i class="bi bi-clipboard me-1"></i>Copy Codes', 2000);
+                });
+            });
+        }
+
+        // --- 4. PASSKEY / BIOMETRIC REGISTRATION ---
+        const openPasskeyBtn = document.getElementById('openRegisterPasskeyBtn');
+        const passkeyModalEl = document.getElementById('passkeyRegisterModal');
+        const passkeyForm = document.getElementById('passkeyRegisterForm');
+        const passkeySubmitBtn = document.getElementById('passkeyRegisterSubmitBtn');
+        const passkeyDeviceInput = document.getElementById('passkeyDeviceNameInput');
+
+        if (openPasskeyBtn) {
+            openPasskeyBtn.addEventListener('click', function () {
+                if (!window.PublicKeyCredential) {
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({
+                            icon: 'info',
+                            title: 'Passkeys Unsupported',
+                            text: 'Your current browser or device does not support WebAuthn / Passkeys.'
+                        });
+                    } else {
+                        alert('Passkeys are not supported on this browser.');
+                    }
+                    return;
+                }
+                if (passkeyDeviceInput) {
+                    const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+                    const isWin = navigator.platform.toUpperCase().indexOf('WIN') >= 0;
+                    const isMobile = /Android|iPhone|iPad/i.test(navigator.userAgent);
+                    let defaultName = 'Work Device';
+                    if (isWin) defaultName = 'Windows PC (Hello)';
+                    else if (isMac) defaultName = 'Mac (Touch ID)';
+                    else if (isMobile) defaultName = 'Mobile Phone Biometric';
+                    passkeyDeviceInput.value = defaultName;
+                }
+                const modal = getModal(passkeyModalEl);
+                if (modal) modal.show();
+            });
+        }
+
+        if (passkeyForm) {
+            passkeyForm.addEventListener('submit', async function (e) {
+                e.preventDefault();
+                const deviceName = passkeyDeviceInput ? passkeyDeviceInput.value.trim() : '';
+                if (!deviceName) {
+                    if (passkeyDeviceInput) passkeyDeviceInput.focus();
+                    return;
+                }
+
+                const originalBtnText = passkeySubmitBtn ? passkeySubmitBtn.innerHTML : 'Scan';
+                if (passkeySubmitBtn) {
+                    passkeySubmitBtn.disabled = true;
+                    passkeySubmitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Scanning biometric...';
+                }
+
+                try {
+                    // 1. Get creation options
+                    const optRes = await fetch('process/passkey_handler.php?action=get_registration_options');
+                    const optData = await optRes.json();
+
+                    if (!optData.success || !optData.options) {
+                        throw new Error(optData.message || 'Failed to get registration options.');
+                    }
+
+                    const options = optData.options;
+                    const publicKeyCredentialCreationOptions = {
+                        challenge: base64UrlToBuffer(options.challenge),
+                        rp: options.rp,
+                        user: {
+                            id: base64UrlToBuffer(options.user.id),
+                            name: options.user.name,
+                            displayName: options.user.displayName
+                        },
+                        pubKeyCredParams: options.pubKeyCredParams,
+                        authenticatorSelection: options.authenticatorSelection,
+                        timeout: options.timeout || 60000,
+                        attestation: options.attestation || 'none',
+                        excludeCredentials: (options.excludeCredentials || []).map(c => ({
+                            id: base64UrlToBuffer(c.id),
+                            type: c.type,
+                            transports: c.transports
+                        }))
+                    };
+
+                    // 2. Browser native biometric prompt
+                    const credential = await navigator.credentials.create({
+                        publicKey: publicKeyCredentialCreationOptions
+                    });
+
+                    if (!credential) {
+                        throw new Error('Biometric registration was cancelled.');
+                    }
+
+                    // 3. Submit attestation to server
+                    const savePayload = new FormData();
+                    savePayload.append('action', 'save_registration');
+                    savePayload.append('device_name', deviceName);
+                    savePayload.append('clientDataJSON', bufferToBase64Url(credential.response.clientDataJSON));
+                    savePayload.append('attestationObject', bufferToBase64Url(credential.response.attestationObject));
+                    savePayload.append('csrf_token', getCsrfToken());
+
+                    const saveRes = await fetch('process/passkey_handler.php', {
+                        method: 'POST',
+                        body: savePayload,
+                        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                    });
+                    const saveData = await saveRes.json();
+
+                    if (saveData.success) {
+                        const modal = getModal(passkeyModalEl);
+                        if (modal) modal.hide();
+
+                        if (typeof Swal !== 'undefined') {
+                            await Swal.fire({
+                                icon: 'success',
+                                title: 'Passkey Linked!',
+                                text: saveData.message,
+                                timer: 2000,
+                                showConfirmButton: false
+                            });
+                        }
+                        window.location.reload();
+                    } else {
+                        throw new Error(saveData.message || 'Failed to save biometric credential.');
+                    }
+                } catch (err) {
+                    console.error('Passkey Registration Error:', err);
+                    if (err.name !== 'NotAllowedError' && err.name !== 'AbortError') {
+                        if (typeof Swal !== 'undefined') {
+                            Swal.fire({ icon: 'error', title: 'Registration Failed', text: err.message });
+                        } else {
+                            alert(err.message);
+                        }
+                    }
+                } finally {
+                    if (passkeySubmitBtn) {
+                        passkeySubmitBtn.disabled = false;
+                        passkeySubmitBtn.innerHTML = originalBtnText;
+                    }
+                }
+            });
+        }
+
+        // --- 5. DELETE PASSKEY ---
+        document.querySelectorAll('.delete-passkey-btn').forEach(btn => {
+            btn.addEventListener('click', async function () {
+                const passkeyId = this.getAttribute('data-id');
+                const passkeyName = this.getAttribute('data-name');
+
+                let confirmed = false;
+                if (typeof Swal !== 'undefined') {
+                    const confirmRes = await Swal.fire({
+                        icon: 'warning',
+                        title: 'Remove Passkey?',
+                        text: `Are you sure you want to remove "${passkeyName}"? You won't be able to log in with this biometric device anymore.`,
+                        showCancelButton: true,
+                        confirmButtonText: 'Yes, Remove It',
+                        cancelButtonText: 'Cancel',
+                        confirmButtonColor: '#dc2626'
+                    });
+                    confirmed = confirmRes.isConfirmed;
+                } else {
+                    confirmed = confirm(`Are you sure you want to remove "${passkeyName}"?`);
+                }
+
+                if (!confirmed) return;
+
+                try {
+                    const formData = new FormData();
+                    formData.append('action', 'delete_passkey');
+                    formData.append('passkey_id', passkeyId);
+                    formData.append('csrf_token', getCsrfToken());
+
+                    const res = await fetch('process/passkey_handler.php', {
+                        method: 'POST',
+                        body: formData,
+                        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                    });
+                    const data = await res.json();
+
+                    if (data.success) {
+                        const row = document.getElementById(`passkey_row_${passkeyId}`);
+                        if (row) {
+                            row.style.transition = 'opacity 0.4s ease';
+                            row.style.opacity = '0';
+                            setTimeout(() => row.remove(), 400);
+                        }
+                        if (typeof Swal !== 'undefined') {
+                            Swal.fire({ icon: 'success', title: 'Removed', text: data.message, timer: 1500, showConfirmButton: false });
+                        }
+                    } else {
+                        throw new Error(data.message || 'Could not remove passkey.');
+                    }
+                } catch (err) {
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({ icon: 'error', title: 'Error', text: err.message });
+                    } else {
+                        alert(err.message);
+                    }
+                }
+            });
+        });
+    });
+</script>
