@@ -15,6 +15,19 @@ if (isset($_SESSION['user_id'])) {
     redirectUserByRole($_SESSION['user_role']);
 }
 
+$is_ajax = (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest')
+    || (!empty($_POST['ajax_login']));
+
+function login_send_json(array $data, int $statusCode = 200): void
+{
+    if (!headers_sent()) {
+        http_response_code($statusCode);
+        header('Content-Type: application/json; charset=utf-8');
+    }
+    echo json_encode($data);
+    exit;
+}
+
 $error = '';
 $infoMsg = '';
 if (!empty($_GET['deactivated'])) {
@@ -23,6 +36,9 @@ if (!empty($_GET['deactivated'])) {
     $infoMsg = 'Your session expired due to inactivity. Please log in again to continue.';
 } elseif (!empty($_GET['cancel_mfa'])) {
     unset($_SESSION['mfa_pending_user_id'], $_SESSION['mfa_pending_user_name'], $_SESSION['mfa_pending_time'], $_SESSION['mfa_pending_attempts']);
+    if ($is_ajax) {
+        login_send_json(['success' => true, 'status' => 'success', 'message' => 'Two-Factor Authentication cancelled.']);
+    }
     $infoMsg = 'Two-Factor Authentication cancelled. Please log in again.';
 }
 $is_locked_out = false;
@@ -49,20 +65,42 @@ if (defined('DB_OFFLINE')) {
     }
 }
 
+if ($is_ajax && $is_locked_out) {
+    login_send_json([
+        'success' => false,
+        'status' => 'error',
+        'locked' => true,
+        'retry_after' => $lockout_retry_after,
+        'message' => $error
+    ]);
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$is_locked_out) {
     $submitted_token = $_POST['csrf_token'] ?? '';
     if (!validate_csrf_token($submitted_token)) {
         $error = 'Security session expired or invalid token. Please refresh the page and try again.';
+        if ($is_ajax) {
+            login_send_json(['success' => false, 'status' => 'error', 'message' => $error]);
+        }
     } elseif (defined('DB_OFFLINE')) {
         $error = "Can't connect to database. You're offline.";
+        if ($is_ajax) {
+            login_send_json(['success' => false, 'status' => 'error', 'message' => $error]);
+        }
     } else {
         $username = trim($_POST['username'] ?? '');
         $password = $_POST['password'] ?? '';
 
         if (empty($username) || empty($password)) {
             $error = 'Please enter both username and password.';
+            if ($is_ajax) {
+                login_send_json(['success' => false, 'status' => 'error', 'message' => $error]);
+            }
         } elseif (preg_match('/[^a-zA-Z0-9]/', $username)) {
             $error = 'Special characters not allowed in username';
+            if ($is_ajax) {
+                login_send_json(['success' => false, 'status' => 'error', 'message' => $error]);
+            }
         } elseif (strlen($password) < 8) {
             // 🛡️ Constant-time dummy verification for length check edge case
             password_verify($password, '$2y$12$KENzSxOKE94984d5ZXfNSeN00crr/yfGyCn6xEP1Za5IFR6kdlx/i');
@@ -76,6 +114,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$is_locked_out) {
             } else {
                 $error = 'Invalid username or password.';
             }
+            if ($is_ajax) {
+                login_send_json([
+                    'success' => false,
+                    'status' => 'error',
+                    'locked' => $is_locked_out,
+                    'retry_after' => $lockout_retry_after,
+                    'message' => $error
+                ]);
+            }
         } else {
             // 🛡️ SQL Injection Prevention (Prepared Statements)
             $stmt = $pdo->prepare("SELECT * FROM users WHERE username = ?");
@@ -83,7 +130,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$is_locked_out) {
             $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
             // 🛡️ Constant-Time Password Verification + Timing-Attack Mitigation (Username Enumeration Prevention)
-            // If user is not found, verify against a realistic cost-12 dummy bcrypt hash so response time is identical.
             $dummyHash = '$2y$12$KENzSxOKE94984d5ZXfNSeN00crr/yfGyCn6xEP1Za5IFR6kdlx/i';
             $hashToVerify = $user ? $user['password'] : $dummyHash;
             $passwordMatches = password_verify($password, $hashToVerify);
@@ -92,6 +138,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$is_locked_out) {
             if ($user && $passwordMatches) {
                 if (isset($user['status']) && strtolower($user['status']) === 'inactive') {
                     $error = 'Your account has been deactivated. Please contact an administrator.';
+                    if ($is_ajax) {
+                        login_send_json(['success' => false, 'status' => 'error', 'message' => $error]);
+                    }
                 } else {
                     // Handle "Remember Username" persistent cookie (30 days)
                     $is_secure_conn = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || (isset($_SERVER['SERVER_PORT']) && $_SERVER['SERVER_PORT'] == 443);
@@ -124,6 +173,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$is_locked_out) {
                         $_SESSION['mfa_pending_time'] = time();
                         $_SESSION['mfa_pending_attempts'] = 0;
                         $mfa_required = true;
+
+                        if ($is_ajax) {
+                            login_send_json([
+                                'success' => true,
+                                'status' => 'success',
+                                'mfa_required' => true,
+                                'user_name' => $user['name'],
+                                'message' => 'Credentials verified. Please enter your 6-digit Authenticator code.'
+                            ]);
+                        }
                     } else {
                         session_regenerate_id(true);
                         // Rotate CSRF token on privilege level change
@@ -134,6 +193,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$is_locked_out) {
                         $_SESSION['last_activity'] = time();
                         unset($_SESSION['screen_locked']);
                         $_SESSION['fresh_login'] = true;
+
+                        if ($is_ajax) {
+                            login_send_json([
+                                'success' => true,
+                                'status' => 'success',
+                                'mfa_required' => false,
+                                'redirect' => 'dashboard',
+                                'message' => 'Login successful! Redirecting...'
+                            ]);
+                        }
                         redirectUserByRole($user['role']);
                     }
                 }
@@ -161,6 +230,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$is_locked_out) {
                     } else {
                         $error = 'Invalid username or password.';
                     }
+                }
+
+                if ($is_ajax) {
+                    login_send_json([
+                        'success' => false,
+                        'status' => 'error',
+                        'locked' => $is_locked_out,
+                        'retry_after' => $lockout_retry_after,
+                        'message' => $error
+                    ]);
                 }
             }
         }
@@ -271,19 +350,20 @@ $bg_scale = 1 + ($bg_blur * 0.006);
                         animation: pulseLogin 2s infinite ease-in-out;
                     }
                 </style>
-            <?php elseif (!empty($infoMsg)): ?>
-                <div class="login-error" id="phpInfoBlock"
-                    style="background: rgba(13, 110, 253, 0.08); border-color: rgba(13, 110, 253, 0.25); color: #0033cc;">
-                    <i class="bi bi-clock-history" style="font-size:1.1rem; color: #0d6efd; flex-shrink:0;"></i>
-                    <?= htmlspecialchars($infoMsg) ?>
-                </div>
-            <?php elseif ($error && $error !== 'Special characters not allowed in username'): ?>
-                <div class="login-error" id="phpErrorBlock">
-                    <i class="bi bi-exclamation-circle-fill"
-                        style="font-size:1.1rem; color:var(--gb-red); flex-shrink:0;"></i>
-                    <?= htmlspecialchars($error) ?>
-                </div>
             <?php endif; ?>
+
+            <div class="login-error" id="phpInfoBlock"
+                style="<?= !empty($infoMsg) ? 'display:flex;' : 'display:none;' ?>; background: rgba(13, 110, 253, 0.08); border-color: rgba(13, 110, 253, 0.25); color: #0033cc;">
+                <i class="bi bi-clock-history" style="font-size:1.1rem; color: #0d6efd; flex-shrink:0;"></i>
+                <span id="phpInfoText"><?= htmlspecialchars($infoMsg ?? '') ?></span>
+            </div>
+
+            <div class="login-error" id="phpErrorBlock"
+                style="<?= ($error && $error !== 'Special characters not allowed in username') ? 'display:flex;' : 'display:none;' ?>">
+                <i class="bi bi-exclamation-circle-fill"
+                    style="font-size:1.1rem; color:var(--gb-red); flex-shrink:0;"></i>
+                <span id="phpErrorText"><?= htmlspecialchars($error ?? '') ?></span>
+            </div>
 
             <form method="POST" action="" autocomplete="on" id="loginForm">
                 <!-- CSRF Protection Token -->
@@ -446,11 +526,11 @@ $bg_scale = 1 + ($bg_blur * 0.006);
                             <small class="text-muted" style="font-size: 0.8rem;">SiteWare Enhanced Security</small>
                         </div>
                     </div>
-                    <a href="login?cancel_mfa=1" class="btn-close shadow-none" aria-label="Cancel verification"></a>
+                    <button type="button" class="btn-close shadow-none cancel-mfa-btn" data-bs-dismiss="modal" aria-label="Cancel verification"></button>
                 </div>
                 <div class="modal-body px-4 py-3">
                     <p class="text-secondary small mb-3" id="mfaInstructionText" style="line-height: 1.55;">
-                        Hello, <strong><?= htmlspecialchars($_SESSION['mfa_pending_user_name'] ?? 'User') ?></strong>!
+                        Hello, <strong id="mfaTargetUserName"><?= htmlspecialchars($_SESSION['mfa_pending_user_name'] ?? 'User') ?></strong>!
                         Please enter the 6-digit authentication code generated by your Authenticator app.
                     </p>
 
@@ -488,10 +568,10 @@ $bg_scale = 1 + ($bg_blur * 0.006);
                                 style="border-radius: 10px; min-height: 44px;">
                                 <i class="bi bi-shield-lock-fill me-1"></i> Verify &amp; Sign In
                             </button>
-                            <a href="login?cancel_mfa=1" class="btn btn-light py-2 text-secondary fw-semibold border"
+                            <button type="button" class="btn btn-light py-2 text-secondary fw-semibold border cancel-mfa-btn" data-bs-dismiss="modal"
                                 style="border-radius: 10px; min-height: 44px;">
                                 Cancel &amp; Back to Login
-                            </a>
+                            </button>
                         </div>
                     </form>
                 </div>
@@ -549,6 +629,26 @@ $bg_scale = 1 + ($bg_blur * 0.006);
 
                 mfaModalEl.addEventListener('shown.bs.modal', function () {
                     if (mfaCodeInput) mfaCodeInput.focus();
+                });
+
+                // Cancel MFA action via AJAX (smooth return to login screen without page reload)
+                document.querySelectorAll('.cancel-mfa-btn').forEach(btn => {
+                    btn.addEventListener('click', async function (e) {
+                        e.preventDefault();
+                        try {
+                            await fetch('login.php?cancel_mfa=1', {
+                                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                            });
+                        } catch (err) {}
+                        if (mfaModalInstance) {
+                            mfaModalInstance.hide();
+                        }
+                        const passwordField = document.getElementById('passwordField');
+                        if (passwordField) {
+                            passwordField.value = '';
+                            passwordField.focus();
+                        }
+                    });
                 });
             }
 
