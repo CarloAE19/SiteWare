@@ -340,7 +340,7 @@ elseif ($action === 'unlock_screen') {
         exit;
     }
 
-    $stmt = $pdo->prepare("SELECT password, name, role, status FROM users WHERE id = ?");
+    $stmt = $pdo->prepare("SELECT password, name, role, status, mfa_enabled, mfa_secret FROM users WHERE id = ?");
     $stmt->execute([$userId]);
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -349,25 +349,52 @@ elseif ($action === 'unlock_screen') {
         exit;
     }
 
-    if (password_verify($password, $user['password'])) {
+    $isPasswordMatch = password_verify($password, $user['password']);
+    $isTotpMatch = false;
+
+    // Support unlocking via 6-digit Authenticator TOTP code if MFA is enabled
+    if (!$isPasswordMatch && !empty($user['mfa_enabled']) && !empty($user['mfa_secret']) && preg_match('/^[0-9]{6}$/', $password)) {
+        require_once __DIR__ . '/../helpers/totp_helper.php';
+        $isTotpMatch = TotpHelper::verifyCode($user['mfa_secret'], $password, 1);
+    }
+
+    if ($isPasswordMatch || $isTotpMatch) {
         clear_rate_limit($rlKey, true);
         unset($_SESSION['screen_locked']);
         $_SESSION['last_activity'] = time();
+
+        // Audit Trail (ISO 9001 Compliance)
+        $auditAction = $isTotpMatch ? 'SCREEN_UNLOCK_TOTP_SUCCESS' : 'SCREEN_UNLOCK_PASSWORD_SUCCESS';
+        $clientIp = function_exists('get_client_ip') ? get_client_ip() : ($_SERVER['REMOTE_ADDR'] ?? '127.0.0.1');
+        $auditStmt = $pdo->prepare("INSERT INTO audit_logs (user_id, action_type, entity_type, entity_id, previous_value, new_value, ip_address) VALUES (?, ?, ?, ?, ?, ?, ?)");
+        $auditStmt->execute([
+            $userId,
+            $auditAction,
+            'users',
+            $userId,
+            null,
+            $isTotpMatch ? 'Screen unlocked via Authenticator App (TOTP)' : 'Screen unlocked via password',
+            $clientIp
+        ]);
+
         echo json_encode([
             'success' => true,
             'status' => 'success',
             'message' => 'Screen unlocked successfully.',
             'data' => [
                 'user_name' => $user['name'],
-                'user_role' => $user['role']
+                'user_role' => $user['role'],
+                'unlock_type' => $isTotpMatch ? 'totp' : 'password'
             ]
         ]);
     } else {
         record_rate_limit_attempt($rlKey, true);
         $newRl = check_rate_limit($rlKey, 5, 600, true);
         $remaining = $newRl['remaining'];
+        $hasMfa = !empty($user['mfa_enabled']);
+        $credName = $hasMfa ? 'password or 6-digit code' : 'password';
         $msg = ($remaining > 0)
-            ? "Incorrect password. {$remaining} attempt(s) remaining before temporary lockout."
+            ? "Incorrect {$credName}. {$remaining} attempt(s) remaining before temporary lockout."
             : "Too many incorrect attempts. Screen locked for 10 minutes.";
         echo json_encode(['success' => false, 'status' => 'error', 'message' => $msg]);
     }
