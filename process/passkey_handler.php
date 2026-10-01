@@ -348,6 +348,32 @@ try {
                 $_SESSION['user_name'] = $record['name'];
                 $_SESSION['user_role'] = $record['role'];
                 $_SESSION['fresh_login'] = true;
+
+                // Check if this browser already has a 30-day trusted device cookie
+                $trustedHash = null;
+                $trustedId = null;
+                if (!empty($_COOKIE['cims_trusted_device'])) {
+                    $parts = explode(':', $_COOKIE['cims_trusted_device'], 2);
+                    if (count($parts) === 2 && (int)$parts[0] === (int)$record['user_id']) {
+                        $rawTok = $parts[1];
+                        $tHash = hash('sha256', $rawTok);
+                        $tStmt = $pdo->prepare("SELECT id FROM user_trusted_devices WHERE user_id = ? AND device_token_hash = ? AND expires_at > NOW() LIMIT 1");
+                        $tStmt->execute([(int)$record['user_id'], $tHash]);
+                        $tRow = $tStmt->fetch(PDO::FETCH_ASSOC);
+                        if ($tRow) {
+                            $trustedHash = $tHash;
+                            $trustedId = (int)$tRow['id'];
+                            // Touch last used on trusted device
+                            $pdo->prepare("UPDATE user_trusted_devices SET last_used_at = NOW(), ip_address = ? WHERE id = ?")
+                                ->execute([$clientIp, $trustedId]);
+                        }
+                    }
+                }
+
+                // Track live active session in user_active_sessions
+                if (function_exists('record_user_active_session')) {
+                    record_user_active_session($pdo, (int)$record['user_id'], $trustedHash, $trustedId);
+                }
             }
 
             // Audit Log (ISO 9001 Traceability)
