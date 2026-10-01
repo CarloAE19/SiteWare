@@ -32,6 +32,8 @@ $error = '';
 $infoMsg = '';
 if (!empty($_GET['deactivated'])) {
     $error = 'Your session has ended because your account was deactivated by an administrator.';
+} elseif (!empty($_GET['logged_out_remotely'])) {
+    $error = 'You were signed out remotely from another device for your account\'s security.';
 } elseif (!empty($_GET['timeout'])) {
     $infoMsg = 'Your session expired due to inactivity. Please log in again to continue.';
 } elseif (!empty($_GET['cancel_mfa'])) {
@@ -166,8 +168,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$is_locked_out) {
 
                     clear_rate_limit($rlKey, true);
 
+                    // 🛡️ Trusted Device Check (30-day Remember This Device)
+                    $is_trusted_device = false;
+                    if (!empty($user['mfa_enabled']) && !empty($_COOKIE['cims_trusted_device'])) {
+                        $cookieVal = $_COOKIE['cims_trusted_device'];
+                        $cookieParts = explode(':', $cookieVal, 2);
+                        if (count($cookieParts) === 2 && (int)$cookieParts[0] === (int)$user['id']) {
+                            $rawDeviceToken = $cookieParts[1];
+                            $deviceHash = hash('sha256', $rawDeviceToken);
+                            $trustStmt = $pdo->prepare("
+                                SELECT id FROM user_trusted_devices 
+                                WHERE user_id = ? AND device_token_hash = ? AND expires_at > NOW() 
+                                LIMIT 1
+                            ");
+                            $trustStmt->execute([(int)$user['id'], $deviceHash]);
+                            $trustedRow = $trustStmt->fetch(PDO::FETCH_ASSOC);
+                            if ($trustedRow) {
+                                $is_trusted_device = true;
+                                $updStmt = $pdo->prepare("UPDATE user_trusted_devices SET last_used_at = NOW(), ip_address = ? WHERE id = ?");
+                                $updStmt->execute([get_client_ip(), $trustedRow['id']]);
+
+                                // Audit Log for Trusted Device Login
+                                try {
+                                    $auditStmt = $pdo->prepare("INSERT INTO audit_logs (user_id, action_type, entity_type, entity_id, previous_value, new_value, ip_address) VALUES (?, ?, ?, ?, ?, ?, ?)");
+                                    $auditStmt->execute([
+                                        $user['id'],
+                                        'LOGIN_TRUSTED_DEVICE',
+                                        'users',
+                                        $user['id'],
+                                        null,
+                                        'Bypassed 2FA: Trusted browser recognized within 30-day window',
+                                        get_client_ip()
+                                    ]);
+                                } catch (Throwable $e) {}
+                            }
+                        }
+                    }
+
                     // 🛡️ Multi-Factor Authentication Check
-                    if (!empty($user['mfa_enabled'])) {
+                    if (!empty($user['mfa_enabled']) && !$is_trusted_device) {
                         $_SESSION['mfa_pending_user_id'] = $user['id'];
                         $_SESSION['mfa_pending_user_name'] = $user['name'];
                         $_SESSION['mfa_pending_time'] = time();
@@ -194,13 +233,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$is_locked_out) {
                         unset($_SESSION['screen_locked']);
                         $_SESSION['fresh_login'] = true;
 
+                        // 🛡️ Track live active device session
+                        if (function_exists('record_user_active_session')) {
+                            record_user_active_session(
+                                $pdo, 
+                                (int)$user['id'], 
+                                $is_trusted_device ? ($rawDeviceToken ?? null) ? $deviceHash : null : null, 
+                                $is_trusted_device ? (int)$trustedRow['id'] : null
+                            );
+                        }
+
                         if ($is_ajax) {
                             login_send_json([
                                 'success' => true,
                                 'status' => 'success',
                                 'mfa_required' => false,
                                 'redirect' => 'dashboard',
-                                'message' => 'Login successful! Redirecting...'
+                                'message' => $is_trusted_device ? 'Trusted device recognized. Welcome back!' : 'Login successful! Redirecting...'
                             ]);
                         }
                         redirectUserByRole($user['role']);
@@ -710,14 +759,59 @@ $bg_scale = 1 + ($bg_blur * 0.006);
                         const result = await response.json();
 
                         if (result.success || result.status === 'success') {
+                            if (mfaModalInstance) {
+                                mfaModalInstance.hide();
+                            }
+
                             if (typeof Swal !== 'undefined') {
-                                await Swal.fire({
-                                    icon: 'success',
-                                    title: 'Identity Verified!',
-                                    text: result.message || 'Redirecting to your dashboard...',
-                                    timer: 1500,
-                                    showConfirmButton: false
+                                const trustPrompt = await Swal.fire({
+                                    title: 'Remember this device?',
+                                    html: '<p class="text-muted mb-2">Stay signed in without needing two-factor authentication codes on this browser for the next <strong>30 days</strong>.</p><small class="text-muted d-block mt-2"><i class="bi bi-shield-check text-success me-1"></i>Only choose this if you are using your personal or trusted work computer.</small>',
+                                    icon: 'question',
+                                    showCancelButton: true,
+                                    confirmButtonColor: '#198754',
+                                    cancelButtonColor: '#6c757d',
+                                    confirmButtonText: '<i class="bi bi-shield-lock-fill me-1"></i> Remember This Device',
+                                    cancelButtonText: 'Not Now (Skip)',
+                                    reverseButtons: true,
+                                    allowOutsideClick: false,
+                                    allowEscapeKey: false
                                 });
+
+                                if (trustPrompt.isConfirmed) {
+                                    try {
+                                        const trustFd = new FormData();
+                                        trustFd.append('action', 'trust_device');
+                                        trustFd.append('csrf_token', result.csrf_token || csrfToken);
+
+                                        await fetch('process/manage_trusted_device.php', {
+                                            method: 'POST',
+                                            body: trustFd,
+                                            headers: {
+                                                'X-Requested-With': 'XMLHttpRequest',
+                                                'X-CSRF-Token': result.csrf_token || csrfToken
+                                            }
+                                        });
+
+                                        await Swal.fire({
+                                            icon: 'success',
+                                            title: 'Device Remembered!',
+                                            text: 'This browser is trusted for the next 30 days.',
+                                            timer: 1300,
+                                            showConfirmButton: false
+                                        });
+                                    } catch (trustErr) {
+                                        console.warn('Trusted device registration failed:', trustErr);
+                                    }
+                                } else {
+                                    await Swal.fire({
+                                        icon: 'success',
+                                        title: 'Identity Verified!',
+                                        text: 'Redirecting to your dashboard...',
+                                        timer: 1000,
+                                        showConfirmButton: false
+                                    });
+                                }
                             }
                             window.location.href = result.redirect || 'dashboard';
                         } else {
