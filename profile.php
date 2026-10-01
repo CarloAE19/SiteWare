@@ -18,6 +18,34 @@ $passkeyStmt = $pdo->prepare("SELECT id, device_name, sign_count, created_at FRO
 $passkeyStmt->execute([$userId]);
 $userPasskeys = $passkeyStmt->fetchAll(PDO::FETCH_ASSOC);
 
+// Ensure current session is recorded in active sessions
+if (function_exists('record_user_active_session')) {
+    record_user_active_session($pdo, (int)$userId);
+}
+
+// Fetch active sessions & recognized devices
+$currentSessionId = session_id();
+$sessionsStmt = $pdo->prepare("
+    SELECT uas.id, uas.session_id, uas.device_name, uas.ip_address, uas.is_remembered, 
+           uas.created_at, uas.last_activity, uas.status,
+           utd.expires_at,
+           (uas.session_id = ?) AS is_current_device
+    FROM user_active_sessions uas
+    LEFT JOIN user_trusted_devices utd ON (uas.trusted_device_id = utd.id OR uas.trusted_token_hash = utd.device_token_hash)
+    WHERE uas.user_id = ? AND uas.status = 'active'
+    ORDER BY is_current_device DESC, uas.last_activity DESC
+");
+$sessionsStmt->execute([$currentSessionId, $userId]);
+$userActiveSessions = $sessionsStmt->fetchAll(PDO::FETCH_ASSOC);
+
+// Count remote sessions
+$otherSessionsCount = 0;
+foreach ($userActiveSessions as $sess) {
+    if (!$sess['is_current_device']) {
+        $otherSessionsCount++;
+    }
+}
+
 // Role Aesthetics
 $roleDisplay = [
     'admin' => ['label' => 'System Admin', 'class' => 'bg-danger'],
@@ -291,6 +319,127 @@ include 'layout/header.php';
                             </div>
                         </div>
                     <?php endif; ?>
+
+                    <!-- ACTIVE SESSIONS & RECOGNIZED DEVICES (REMOTE LOGOUT & 30-DAY MFA) -->
+                    <div class="mt-4 pt-3 border-top">
+                        <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+                            <div>
+                                <h6 class="fw-bold small text-uppercase text-secondary mb-1">
+                                    <i class="bi bi-devices me-1 text-primary"></i>Active Sessions & Recognized Devices (<?= count($userActiveSessions) ?>)
+                                </h6>
+                                <p class="text-muted small mb-0" style="font-size: 0.78rem;">
+                                    Devices currently logged into your account. Signing out a device terminates its session immediately and revokes its 30-day 2FA bypass.
+                                </p>
+                            </div>
+                            <?php if ($otherSessionsCount > 0): ?>
+                                <button type="button" class="btn btn-sm btn-outline-danger signout-all-others-btn" style="min-height: 38px;">
+                                    <i class="bi bi-box-arrow-right me-1"></i>Sign Out All Other Devices (<?= $otherSessionsCount ?>)
+                                </button>
+                            <?php endif; ?>
+                        </div>
+
+                        <?php if (!empty($userActiveSessions)): ?>
+                            <div class="table-responsive">
+                                <table class="table table-sm table-hover align-middle mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Browser / Device</th>
+                                            <th>Session Status</th>
+                                            <th>2FA Bypass</th>
+                                            <th>IP & Last Active</th>
+                                            <th class="text-end">Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <?php foreach ($userActiveSessions as $sess): 
+                                            $isCurr = (bool)$sess['is_current_device'];
+                                            $isRem = (bool)$sess['is_remembered'];
+                                            $daysLeft = !empty($sess['expires_at']) ? max(0, ceil((strtotime($sess['expires_at']) - time()) / 86400)) : 0;
+                                            
+                                            // Icon selection
+                                            $devIcon = 'bi-display';
+                                            if (stripos($sess['device_name'], 'phone') !== false || stripos($sess['device_name'], 'android') !== false || stripos($sess['device_name'], 'iphone') !== false) {
+                                                $devIcon = 'bi-phone';
+                                            } elseif (stripos($sess['device_name'], 'windows') !== false || stripos($sess['device_name'], 'mac') !== false) {
+                                                $devIcon = 'bi-laptop';
+                                            }
+                                        ?>
+                                            <tr id="session_row_<?= (int)$sess['id'] ?>" class="<?= $isCurr ? 'table-light-subtle' : '' ?>">
+                                                <td>
+                                                    <div class="d-flex align-items-center gap-2">
+                                                        <div class="<?= $isCurr ? 'bg-success-subtle text-success' : 'bg-primary-subtle text-primary' ?> rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" style="width: 32px; height: 32px; font-size: 0.95rem;">
+                                                            <i class="bi <?= $devIcon ?>"></i>
+                                                        </div>
+                                                        <div>
+                                                            <div class="d-flex align-items-center gap-2">
+                                                                <span class="fw-bold text-dark"><?= htmlspecialchars($sess['device_name']) ?></span>
+                                                                <?php if ($isCurr): ?>
+                                                                    <span class="badge bg-success-subtle text-success border border-success-subtle" style="font-size: 0.68rem;">
+                                                                        <i class="bi bi-circle-fill me-1" style="font-size: 0.45rem;"></i>This Device
+                                                                    </span>
+                                                                <?php endif; ?>
+                                                            </div>
+                                                            <small class="text-muted" style="font-size: 0.72rem;">
+                                                                Signed in: <?= date('M d, Y h:i A', strtotime($sess['created_at'])) ?>
+                                                            </small>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <?php if ($isCurr): ?>
+                                                        <span class="badge bg-success text-white fw-semibold">
+                                                            <i class="bi bi-broadcast me-1"></i>Active Now
+                                                        </span>
+                                                    <?php else: ?>
+                                                        <span class="badge bg-light text-muted border">
+                                                            <i class="bi bi-wifi text-secondary me-1"></i>Online
+                                                        </span>
+                                                    <?php endif; ?>
+                                                </td>
+                                                <td>
+                                                    <?php if ($isRem): ?>
+                                                        <span class="badge bg-success-subtle text-success border border-success-subtle d-inline-flex align-items-center gap-1">
+                                                            <i class="bi bi-shield-check"></i>
+                                                            <span>Trusted (<?= $daysLeft ?>d left)</span>
+                                                        </span>
+                                                    <?php else: ?>
+                                                        <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">
+                                                            <i class="bi bi-shield me-1"></i>Standard
+                                                        </span>
+                                                    <?php endif; ?>
+                                                </td>
+                                                <td>
+                                                    <div class="font-monospace small text-dark"><?= htmlspecialchars($sess['ip_address']) ?></div>
+                                                    <small class="text-muted" style="font-size: 0.72rem;">
+                                                        <?= $isCurr ? 'Active Now' : time_elapsed_string($sess['last_activity']) ?>
+                                                    </small>
+                                                </td>
+                                                <td class="text-end">
+                                                    <?php if ($isCurr): ?>
+                                                        <span class="badge bg-light text-muted border py-2 px-2" style="font-size: 0.75rem;">
+                                                            <i class="bi bi-lock-fill text-success me-1"></i>Current Session
+                                                        </span>
+                                                    <?php else: ?>
+                                                        <button type="button" class="btn btn-sm btn-outline-danger revoke-session-btn shadow-none" 
+                                                            style="min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 4px;"
+                                                            data-id="<?= (int)$sess['id'] ?>" data-name="<?= htmlspecialchars($sess['device_name']) ?>" title="Sign Out & Revoke Device" aria-label="Sign Out & Revoke Device">
+                                                            <i class="bi bi-box-arrow-right"></i>
+                                                            <span class="d-none d-md-inline">Log Out & Revoke</span>
+                                                        </button>
+                                                    <?php endif; ?>
+                                                </td>
+                                            </tr>
+                                        <?php endforeach; ?>
+                                    </tbody>
+                                </table>
+                            </div>
+                        <?php else: ?>
+                            <div class="p-3 bg-light rounded-3 text-center border">
+                                <i class="bi bi-laptop text-muted fs-4 d-block mb-1"></i>
+                                <span class="text-muted small">No other active sessions detected.</span>
+                            </div>
+                        <?php endif; ?>
+                    </div>
                 </div>
             </div>
 
@@ -2061,5 +2210,135 @@ include 'layout/header.php';
                 }
             });
         });
+
+        // --- 6. REMOTE LOGOUT & REVOKE SESSION ---
+        document.querySelectorAll('.revoke-session-btn').forEach(btn => {
+            btn.addEventListener('click', async function () {
+                const sessionId = this.getAttribute('data-id');
+                const deviceName = this.getAttribute('data-name');
+
+                let confirmed = false;
+                if (typeof Swal !== 'undefined') {
+                    const confirmRes = await Swal.fire({
+                        icon: 'warning',
+                        title: 'Sign Out & Revoke Device?',
+                        html: `<p class="mb-2">Are you sure you want to sign out <strong>"${deviceName}"</strong>?</p><small class="text-muted d-block">This device will be immediately logged out of SiteWare, and its 30-day 2FA bypass token will be erased.</small>`,
+                        showCancelButton: true,
+                        confirmButtonText: '<i class="bi bi-box-arrow-right me-1"></i> Yes, Log Out Device',
+                        cancelButtonText: 'Cancel',
+                        confirmButtonColor: '#dc2626',
+                        reverseButtons: true
+                    });
+                    confirmed = confirmRes.isConfirmed;
+                } else {
+                    confirmed = confirm(`Sign out and revoke "${deviceName}"?`);
+                }
+
+                if (!confirmed) return;
+
+                const origHtml = this.innerHTML;
+                this.disabled = true;
+                this.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Signing out...';
+
+                try {
+                    const formData = new FormData();
+                    formData.append('action', 'revoke_session_and_device');
+                    formData.append('session_id', sessionId);
+                    formData.append('csrf_token', getCsrfToken());
+
+                    const res = await fetch('process/manage_trusted_device.php', {
+                        method: 'POST',
+                        body: formData,
+                        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                    });
+                    const data = await res.json();
+
+                    if (data.success) {
+                        const row = document.getElementById(`session_row_${sessionId}`);
+                        if (row) {
+                            row.style.transition = 'opacity 0.4s ease';
+                            row.style.opacity = '0';
+                            setTimeout(() => {
+                                row.remove();
+                                window.location.reload();
+                            }, 400);
+                        }
+                        if (typeof Swal !== 'undefined') {
+                            Swal.fire({ icon: 'success', title: 'Device Signed Out', text: data.message, timer: 1500, showConfirmButton: false });
+                        }
+                    } else {
+                        throw new Error(data.message || 'Could not sign out device.');
+                    }
+                } catch (err) {
+                    this.disabled = false;
+                    this.innerHTML = origHtml;
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({ icon: 'error', title: 'Error', text: err.message });
+                    } else {
+                        alert(err.message);
+                    }
+                }
+            });
+        });
+
+        // --- 7. SIGN OUT ALL OTHER SESSIONS ---
+        const signoutAllOthersBtn = document.querySelector('.signout-all-others-btn');
+        if (signoutAllOthersBtn) {
+            signoutAllOthersBtn.addEventListener('click', async function () {
+                let confirmed = false;
+                if (typeof Swal !== 'undefined') {
+                    const confirmRes = await Swal.fire({
+                        icon: 'warning',
+                        title: 'Sign Out All Other Devices?',
+                        html: '<p class="mb-2">This will immediately terminate all active login sessions on any other phones, laptops, or browsers, and revoke their 2FA bypass tokens.</p><strong class="text-success small"><i class="bi bi-shield-check me-1"></i>Only this current device will stay logged in.</strong>',
+                        showCancelButton: true,
+                        confirmButtonText: '<i class="bi bi-box-arrow-right me-1"></i> Yes, Sign Out Others',
+                        cancelButtonText: 'Cancel',
+                        confirmButtonColor: '#dc2626',
+                        reverseButtons: true
+                    });
+                    confirmed = confirmRes.isConfirmed;
+                } else {
+                    confirmed = confirm('Are you sure you want to sign out all other devices?');
+                }
+
+                if (!confirmed) return;
+
+                const origHtml = this.innerHTML;
+                this.disabled = true;
+                this.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Processing...';
+
+                try {
+                    const formData = new FormData();
+                    formData.append('action', 'revoke_session_and_device');
+                    formData.append('revoke_all_others', '1');
+                    formData.append('csrf_token', getCsrfToken());
+
+                    const res = await fetch('process/manage_trusted_device.php', {
+                        method: 'POST',
+                        body: formData,
+                        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                    });
+                    const data = await res.json();
+
+                    if (data.success) {
+                        if (typeof Swal !== 'undefined') {
+                            await Swal.fire({ icon: 'success', title: 'Other Devices Signed Out', text: data.message, timer: 1500, showConfirmButton: false });
+                        }
+                        window.location.reload();
+                    } else {
+                        throw new Error(data.message || 'Could not sign out devices.');
+                    }
+                } catch (err) {
+                    this.disabled = false;
+                    this.innerHTML = origHtml;
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({ icon: 'error', title: 'Error', text: err.message });
+                    } else {
+                        alert(err.message);
+                    }
+                }
+            });
+        }
     });
 </script>
