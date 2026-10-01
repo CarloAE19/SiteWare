@@ -127,6 +127,97 @@ if (!function_exists('validate_csrf_token')) {
     }
 }
 
+// Helper: Parse User-Agent into friendly human-readable Device and OS name
+if (!function_exists('get_friendly_device_name')) {
+    function get_friendly_device_name(?string $userAgent): string
+    {
+        if (empty($userAgent)) {
+            return 'Web Browser';
+        }
+
+        $os = 'Unknown OS';
+        if (preg_match('/windows nt 10/i', $userAgent)) $os = 'Windows 10/11';
+        elseif (preg_match('/windows nt 6\.3/i', $userAgent)) $os = 'Windows 8.1';
+        elseif (preg_match('/windows nt/i', $userAgent)) $os = 'Windows PC';
+        elseif (preg_match('/android/i', $userAgent)) {
+            if (preg_match('/(tecno[^\;]+)/i', $userAgent, $m)) $os = trim($m[1]);
+            elseif (preg_match('/(sm-[a-z0-9]+)/i', $userAgent, $m)) $os = 'Samsung (' . trim($m[1]) . ')';
+            elseif (preg_match('/(pixel[^\;]+)/i', $userAgent, $m)) $os = trim($m[1]);
+            else $os = 'Android Device';
+        }
+        elseif (preg_match('/iphone/i', $userAgent)) $os = 'iPhone';
+        elseif (preg_match('/ipad/i', $userAgent)) $os = 'iPad';
+        elseif (preg_match('/macintosh|mac os x/i', $userAgent)) $os = 'macOS';
+        elseif (preg_match('/linux/i', $userAgent)) $os = 'Linux';
+
+        $browser = 'Browser';
+        if (preg_match('/edg/i', $userAgent)) $browser = 'Edge';
+        elseif (preg_match('/chrome/i', $userAgent) && !preg_match('/edg/i', $userAgent)) $browser = 'Chrome';
+        elseif (preg_match('/safari/i', $userAgent) && !preg_match('/chrome/i', $userAgent)) $browser = 'Safari';
+        elseif (preg_match('/firefox/i', $userAgent)) $browser = 'Firefox';
+        elseif (preg_match('/opera|opr/i', $userAgent)) $browser = 'Opera';
+
+        return "{$browser} on {$os}";
+    }
+}
+
+// Helper: Track or update active device session in database for remote logout & session auditing
+if (!function_exists('record_user_active_session')) {
+    function record_user_active_session(PDO $pdo, int $userId, ?string $trustedTokenHash = null, ?int $trustedDeviceId = null): void
+    {
+        if (session_status() === PHP_SESSION_NONE) {
+            return;
+        }
+        $sessId = session_id();
+        if (empty($sessId) || $userId <= 0) {
+            return;
+        }
+
+        $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? '';
+        $deviceName = get_friendly_device_name($userAgent);
+        $clientIp = function_exists('get_client_ip') ? get_client_ip() : ($_SERVER['REMOTE_ADDR'] ?? '127.0.0.1');
+
+        try {
+            $checkStmt = $pdo->prepare("SELECT id FROM user_active_sessions WHERE session_id = ? AND user_id = ? LIMIT 1");
+            $checkStmt->execute([$sessId, $userId]);
+            $existing = $checkStmt->fetch(PDO::FETCH_ASSOC);
+
+            if ($existing) {
+                $updSql = "UPDATE user_active_sessions SET device_name = ?, ip_address = ?, user_agent = ?, last_activity = NOW(), status = 'active'";
+                $params = [$deviceName, $clientIp, $userAgent];
+                if ($trustedTokenHash !== null) {
+                    $updSql .= ", is_remembered = 1, trusted_token_hash = ?, trusted_device_id = ?";
+                    $params[] = $trustedTokenHash;
+                    $params[] = $trustedDeviceId;
+                }
+                $updSql .= " WHERE id = ?";
+                $params[] = $existing['id'];
+                $updStmt = $pdo->prepare($updSql);
+                $updStmt->execute($params);
+            } else {
+                $isRemembered = ($trustedTokenHash !== null) ? 1 : 0;
+                $insStmt = $pdo->prepare("
+                    INSERT INTO user_active_sessions 
+                    (user_id, session_id, device_name, ip_address, user_agent, trusted_device_id, trusted_token_hash, is_remembered, status, last_activity)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active', NOW())
+                ");
+                $insStmt->execute([
+                    $userId,
+                    $sessId,
+                    $deviceName,
+                    $clientIp,
+                    $userAgent,
+                    $trustedDeviceId,
+                    $trustedTokenHash,
+                    $isRemembered
+                ]);
+            }
+        } catch (Throwable $e) {
+            error_log('Failed to record active session: ' . $e->getMessage());
+        }
+    }
+}
+
 // Helper: Normalize Philippine phone numbers (09XX, +639XX, 639XX, 9XX) into canonical Viber E.164 (+639XXXXXXXXX)
 if (!function_exists('normalizeViberPhone')) {
     function normalizeViberPhone(?string $phone): ?string
