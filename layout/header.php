@@ -55,6 +55,40 @@ if (!defined('DB_OFFLINE') && isset($pdo) && $pdo !== null && $currentUserId > 0
         header("Location: login?deactivated=1");
         exit;
     }
+
+    // Remote Device Session Revocation Check (Real-Time Remote Logout)
+    $currSessId = session_id();
+    if (!empty($currSessId)) {
+        try {
+            $sessCheck = $pdo->prepare("SELECT status FROM user_active_sessions WHERE session_id = ? AND user_id = ? LIMIT 1");
+            $sessCheck->execute([$currSessId, $currentUserId]);
+            $sessStatus = $sessCheck->fetchColumn();
+
+            if ($sessStatus === 'revoked') {
+                $_SESSION = [];
+                if (ini_get("session.use_cookies")) {
+                    $params = session_get_cookie_params();
+                    setcookie(session_name(), '', time() - 42000,
+                        $params["path"], $params["domain"],
+                        $params["secure"], $params["httponly"]
+                    );
+                }
+                $isSec = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off');
+                setcookie('cims_trusted_device', '', time() - 42000, '/', '', $isSec, true);
+                session_destroy();
+                header("Location: login?logged_out_remotely=1");
+                exit;
+            }
+
+            // Periodic heartbeat for live activity tracking (every 2 mins)
+            if (empty($_SESSION['last_sess_heartbeat']) || (time() - $_SESSION['last_sess_heartbeat'] > 120)) {
+                $_SESSION['last_sess_heartbeat'] = time();
+                if (function_exists('record_user_active_session')) {
+                    record_user_active_session($pdo, $currentUserId);
+                }
+            }
+        } catch (Throwable $e) {}
+    }
 }
 
 // Inactivity & Session Expiry Policy (ISO/IEC 25010 & Quality Standards)
