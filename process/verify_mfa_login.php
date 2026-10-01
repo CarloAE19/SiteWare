@@ -139,6 +139,11 @@ try {
     unset($_SESSION['screen_locked']);
     $_SESSION['fresh_login'] = true;
 
+    // 🛡️ Track live active device session
+    if (function_exists('record_user_active_session')) {
+        record_user_active_session($pdo, (int)$user['id']);
+    }
+
     // ISO 9001 Audit Trail
     $auditStmt = $pdo->prepare("INSERT INTO audit_logs (user_id, action_type, entity_type, entity_id, previous_value, new_value, ip_address) VALUES (?, ?, ?, ?, ?, ?, ?)");
     $auditStmt->execute([
@@ -151,10 +156,13 @@ try {
         $clientIp
     ]);
 
+    $newCsrfToken = function_exists('generate_csrf_token') ? generate_csrf_token() : '';
+
     echo json_encode([
         'success' => true,
         'status' => 'success',
         'redirect' => 'dashboard',
+        'csrf_token' => $newCsrfToken,
         'message' => 'Verification successful! Redirecting to dashboard...'
     ]);
 
