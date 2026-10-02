@@ -622,6 +622,33 @@ body:has(#profileFullSigModal.show) #cims-chatbot-container {
     color: #cbd5e1 !important;
 }
 
+/* Modal Table Container Overflow & Popover/Dropdown Unclipping */
+#viewRsModal .table-container-custom,
+#viewRsModal .table-responsive,
+#viewPoModal .table-container-custom,
+#viewPoModal .table-responsive {
+    overflow: visible !important;
+}
+
+#viewRsModal .dropdown-menu,
+#viewPoModal .dropdown-menu {
+    z-index: 1080 !important;
+}
+
+.pending-demand-item {
+    transition: background-color 0.15s ease;
+}
+.pending-demand-item:hover {
+    background-color: rgba(0, 0, 0, 0.04) !important;
+}
+[data-bs-theme="dark"] .pending-demand-item {
+    background-color: rgba(255, 255, 255, 0.04) !important;
+    border-color: var(--gb-dark-border, #30363d) !important;
+}
+[data-bs-theme="dark"] .pending-demand-item:hover {
+    background-color: rgba(255, 255, 255, 0.08) !important;
+}
+
 /* Global Light & White Button Tuning for Dark Mode */
 [data-bs-theme="dark"] .btn-light,
 [data-bs-theme="dark"] .btn-white {
