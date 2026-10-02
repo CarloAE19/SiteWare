@@ -1288,6 +1288,13 @@ include 'layout/header.php';
 
                                                 <?php if ($canManageLogistics): ?>
                                                     <li>
+                                                        <button type="button" class="dropdown-item py-2 px-3 d-flex align-items-center gap-2 text-warning fw-semibold"
+                                                            onclick="openSwitchSupplierModal(<?= $po['id'] ?>, '<?= htmlspecialchars($po['po_no'], ENT_QUOTES) ?>', '<?= htmlspecialchars($po['company_name'] ?? '', ENT_QUOTES) ?>', '<?= htmlspecialchars($po['rs_no'] ?? '', ENT_QUOTES) ?>', <?= (int)($po['rs_id'] ?? 0) ?>)">
+                                                            <i class="bi bi-arrow-repeat fs-6 text-warning" style="width: 18px;"></i>
+                                                            <span>Switch Supplier / Re-issue</span>
+                                                        </button>
+                                                    </li>
+                                                    <li>
                                                         <button type="button" class="dropdown-item py-2 px-3 d-flex align-items-center gap-2 text-danger"
                                                             onclick="openCancelPoModal(<?= $po['id'] ?>, '<?= htmlspecialchars($po['po_no'], ENT_QUOTES) ?>', '<?= htmlspecialchars($po['company_name'] ?? '', ENT_QUOTES) ?>', '<?= htmlspecialchars($po['rs_no'] ?? '', ENT_QUOTES) ?>')">
                                                             <i class="bi bi-slash-circle fs-6 text-danger" style="width: 18px;"></i>
@@ -1636,8 +1643,15 @@ include 'layout/header.php';
                                                 </button>
                                             </li>
                                             <li>
+                                                <button type="button" class="dropdown-item py-2 px-3 d-flex align-items-center gap-2 text-warning fw-semibold"
+                                                    onclick="openSwitchSupplierModal(<?= $po['id'] ?>, '<?= htmlspecialchars($po['po_no'], ENT_QUOTES) ?>', '<?= htmlspecialchars($po['company_name'] ?? '', ENT_QUOTES) ?>', '<?= htmlspecialchars($po['rs_no'] ?? '', ENT_QUOTES) ?>', <?= (int)($po['rs_id'] ?? 0) ?>)">
+                                                    <i class="bi bi-arrow-repeat text-warning fs-6" style="width: 18px;"></i>
+                                                    <span>Switch Supplier / Re-issue</span>
+                                                </button>
+                                            </li>
+                                            <li>
                                                 <button type="button" class="dropdown-item py-2 px-3 d-flex align-items-center gap-2 text-danger"
-                                                    onclick="openCancelPoModal(<?= $po['id'] ?>, '<?= $po['po_no'] ?>')">
+                                                    onclick="openCancelPoModal(<?= $po['id'] ?>, '<?= htmlspecialchars($po['po_no'], ENT_QUOTES) ?>', '<?= htmlspecialchars($po['company_name'] ?? '', ENT_QUOTES) ?>', '<?= htmlspecialchars($po['rs_no'] ?? '', ENT_QUOTES) ?>')">
                                                     <i class="bi bi-x-circle text-danger fs-6" style="width: 18px;"></i>
                                                     <span>Cancel Purchase Order</span>
                                                 </button>
@@ -1673,8 +1687,71 @@ include 'layout/header.php';
 <!-- SPA-PROOF JAVASCRIPT LOGIC -->
 <script>
     // ==========================================
-    // NEW: FETCH RS ITEMS & SUPPLIER HISTORY
+    // SPLIT-PO LINE-ITEM ALLOCATION & QUANTITY SELECTION
     // ==========================================
+    window.toggleAllPoItems = function (check) {
+        const checkAll = document.getElementById('checkAllPoItems');
+        if (checkAll) checkAll.checked = check;
+        const checkboxes = document.querySelectorAll('.po-item-checkbox:not(:disabled)');
+        checkboxes.forEach(cb => {
+            cb.checked = check;
+            const row = cb.closest('tr');
+            if (row) {
+                const qtyInput = row.querySelector('.po-item-qty');
+                if (qtyInput) qtyInput.disabled = !check;
+                const priceInput = row.querySelector('.po-item-price');
+                if (priceInput) priceInput.disabled = !check;
+            }
+        });
+        window.updatePoSelectedTotal();
+    };
+
+    window.onPoItemCheckboxChange = function (cb) {
+        const row = cb.closest('tr');
+        if (row) {
+            const qtyInput = row.querySelector('.po-item-qty');
+            if (qtyInput) qtyInput.disabled = !cb.checked;
+            const priceInput = row.querySelector('.po-item-price');
+            if (priceInput) priceInput.disabled = !cb.checked;
+        }
+        window.updatePoSelectedTotal();
+    };
+
+    window.updatePoSelectedTotal = function () {
+        const checkboxes = document.querySelectorAll('.po-item-checkbox:checked');
+        let total = 0;
+        let count = 0;
+
+        checkboxes.forEach(cb => {
+            const row = cb.closest('tr');
+            if (!row) return;
+            const qtyInput = row.querySelector('.po-item-qty');
+            const priceInput = row.querySelector('.po-item-price');
+            const subtotalEl = row.querySelector('.po-item-subtotal');
+
+            const qty = parseFloat(qtyInput ? qtyInput.value : 0) || 0;
+            const price = parseFloat(priceInput ? priceInput.value : 0) || 0;
+            const sub = qty * price;
+
+            if (subtotalEl) {
+                subtotalEl.innerText = '₱' + sub.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            }
+
+            total += sub;
+            count++;
+        });
+
+        const countBadge = document.getElementById('poSelectedCountBadge');
+        if (countBadge) {
+            countBadge.innerHTML = `<i class="bi bi-box-seam me-1 text-primary"></i><strong>${count}</strong> item${count === 1 ? '' : 's'} selected`;
+        }
+
+        const totalDisplay = document.getElementById('poSelectedTotalDisplay');
+        if (totalDisplay) {
+            totalDisplay.innerText = '₱' + total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+    };
+
     window.initPoRsPreview = function () {
         const rsSelect = document.getElementById('poRsSelect');
         if (rsSelect) {
@@ -1688,7 +1765,7 @@ include 'layout/header.php';
                 if (typeof window.cimsRenderTableSkeleton === 'function') {
                     window.cimsRenderTableSkeleton(tbody, 3, ['col-8', 'col-3', 'col-6']);
                 } else {
-                    tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted py-3"><div class="spinner-border spinner-border-sm me-2"></div> Loading items...</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-3"><div class="spinner-border spinner-border-sm me-2"></div> Loading items & fulfillment balance...</td></tr>';
                 }
                 container.classList.remove('d-none');
 
@@ -1696,37 +1773,98 @@ include 'layout/header.php';
                 formData.append('action', 'fetch_rs_with_history');
                 formData.append('rs_id', rsId);
 
+                const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+                const headers = {};
+                if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
+
                 try {
                     const response = await (window.cimsFetchWithTimeout || fetch)('process/process.php', {
                         method: 'POST',
-                        body: formData
+                        body: formData,
+                        headers: headers
                     }, 25000);
                     const data = await response.json();
 
                     if (data.status === 'success') {
                         tbody.innerHTML = '';
-                        if (data.items.length === 0) {
-                            tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted py-2"><i class="bi bi-info-circle me-1"></i> No items found.</td></tr>';
+                        if (!data.items || data.items.length === 0) {
+                            tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-3"><i class="bi bi-info-circle me-1"></i> No approved items found on this Requisition.</td></tr>';
+                            window.updatePoSelectedTotal();
                             return;
                         }
+
                         data.items.forEach(item => {
                             const tr = document.createElement('tr');
-                            const supplierText = item.last_purchased ?
-                                `<span class="text-primary fw-bold" style="font-size: 0.8rem;">${item.last_supplier} <br><small class="text-muted fw-normal">${item.last_purchased}</small></span>` :
-                                `${item.last_supplier}`;
+                            const isFullyOrdered = item.is_fully_ordered || item.remaining_qty <= 0;
+                            const remaining = parseInt(item.remaining_qty || 0, 10);
+                            const requested = parseInt(item.requested_qty || item.quantity || 0, 10);
+                            const unitPrice = parseFloat(item.unit_price || 0);
 
-                            tr.innerHTML = `
-                            <td class="fw-bold text-dark text-wrap">${item.item_name}</td>
-                            <td class="text-center fw-bold text-danger">${item.quantity}</td>
-                            <td>${supplierText}</td>
-                        `;
+                            if (isFullyOrdered) {
+                                tr.className = 'table-light opacity-60 text-muted';
+                                tr.innerHTML = `
+                                    <td class="text-center ps-2">
+                                        <input type="checkbox" class="form-check-input po-item-checkbox" disabled>
+                                    </td>
+                                    <td>
+                                        <span class="fw-semibold text-muted text-decoration-line-through">${item.item_name}</span>
+                                        <span class="badge bg-secondary-subtle text-secondary border ms-1" style="font-size:0.65rem;">${item.category || 'General'}</span>
+                                        <small class="text-muted d-block" style="font-size:0.72rem;">
+                                            RS Qty: ${requested} ${item.unit} &bull; <span class="badge bg-success-subtle text-success border">100% Ordered on Active PO</span>
+                                        </small>
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="badge bg-light text-secondary border font-monospace px-2 py-1">0 ${item.unit}</span>
+                                    </td>
+                                    <td class="text-end pe-3 font-monospace text-muted small">
+                                        ₱0.00
+                                    </td>
+                                `;
+                            } else {
+                                const supplierHint = item.last_supplier ? `&bull; Past Vendor: <span class="text-primary">${item.last_supplier}</span>` : '';
+                                const subtotal = (remaining * unitPrice).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                                tr.innerHTML = `
+                                    <td class="text-center ps-2">
+                                        <input type="checkbox" class="form-check-input po-item-checkbox" name="selected_items[]" 
+                                            value="${item.item_code}" 
+                                            data-name="${(item.item_name || '').replace(/"/g, '&quot;')}" 
+                                            data-unit="${item.unit || 'pcs'}" 
+                                            data-price="${unitPrice}" 
+                                            checked onchange="window.onPoItemCheckboxChange(this)" style="cursor: pointer;">
+                                    </td>
+                                    <td>
+                                        <span class="fw-bold text-dark">${item.item_name}</span>
+                                        <span class="badge bg-light text-secondary border ms-1" style="font-size:0.65rem;">${item.category || 'General'}</span>
+                                        <small class="text-muted d-block" style="font-size:0.72rem;">
+                                            RS Requested: ${requested} ${item.unit} &bull; <strong class="text-primary">Remaining Needed: ${remaining} ${item.unit}</strong> ${supplierHint}
+                                        </small>
+                                    </td>
+                                    <td class="text-center">
+                                        <div class="input-group input-group-sm mx-auto" style="max-width: 120px;">
+                                            <input type="number" class="form-control form-control-sm text-center fw-bold po-item-qty" 
+                                                name="item_qty[${item.item_code}]" min="1" max="${remaining}" value="${remaining}" 
+                                                oninput="window.updatePoSelectedTotal()" style="font-size: 0.82rem;">
+                                            <span class="input-group-text py-0 px-1.5 small text-muted font-monospace" style="font-size:0.72rem;">${item.unit}</span>
+                                        </div>
+                                    </td>
+                                    <td class="text-end pe-3">
+                                        <input type="hidden" class="po-item-price" name="item_price[${item.item_code}]" value="${unitPrice}">
+                                        <div class="po-item-subtotal font-monospace fw-bold text-success" style="font-size:0.85rem;">₱${subtotal}</div>
+                                        <small class="text-muted d-block" style="font-size:0.68rem;">@ ₱${unitPrice.toLocaleString('en-US', { minimumFractionDigits: 2 })}/${item.unit}</small>
+                                    </td>
+                                `;
+                            }
                             tbody.appendChild(tr);
                         });
+
+                        const checkAll = document.getElementById('checkAllPoItems');
+                        if (checkAll) checkAll.checked = true;
+                        window.updatePoSelectedTotal();
                     } else {
-                        tbody.innerHTML = `<tr><td colspan="3" class="text-center text-danger py-2">Error: ${data.message}</td></tr>`;
+                        tbody.innerHTML = `<tr><td colspan="4" class="text-center text-danger py-3">Error loading items: ${data.message}</td></tr>`;
                     }
                 } catch (e) {
-                    tbody.innerHTML = `<tr><td colspan="3" class="text-center text-danger py-2">Network Error: Could not fetch RS items.</td></tr>`;
+                    tbody.innerHTML = `<tr><td colspan="4" class="text-center text-danger py-3">Network Error: Could not fetch RS items.</td></tr>`;
                 }
             });
         }
@@ -2746,6 +2884,20 @@ include 'layout/header.php';
                     });
                 } else {
                     alert('Please select an approved requisition.');
+                }
+                return;
+            }
+
+            const checkedItems = createForm.querySelectorAll('.po-item-checkbox:checked');
+            if (checkedItems.length === 0) {
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'No Items Selected',
+                        text: 'Please select at least one item from the requisition to purchase from this supplier.'
+                    });
+                } else {
+                    alert('Please select at least one item to purchase.');
                 }
                 return;
             }
@@ -3969,6 +4121,332 @@ include 'layout/header.php';
     };
 
     // ==========================================
+    // METHOD A: PRE-PO VIBER / STOCK & PRICING INQUIRY
+    // ==========================================
+    window._lastGeneratedPrePoTemplate = '';
+
+    window.onPoSupplierChange = function() {
+        const supplierSelect = document.getElementById('poSupplierSelect');
+        if (!supplierSelect) return;
+        const opt = supplierSelect.options[supplierSelect.selectedIndex];
+        if (!opt || !opt.value) return;
+
+        const rawPhone = opt.getAttribute('data-phone') || '';
+        const norm = window.normalizeViberPhoneClient ? window.normalizeViberPhoneClient(rawPhone) : null;
+        const btn = document.getElementById('btnQuickViberInquiry');
+        if (btn) {
+            if (norm) {
+                btn.style.backgroundColor = '#7360f2';
+                btn.style.borderColor = '#7360f2';
+                btn.style.color = '#ffffff';
+                btn.title = 'Send quick inquiry via Viber (' + norm + ')';
+            } else {
+                btn.style.backgroundColor = '#6c757d';
+                btn.style.borderColor = '#6c757d';
+                btn.style.color = '#ffffff';
+                btn.title = 'Supplier has no Viber mobile registered. Copy message mode enabled.';
+            }
+        }
+    };
+
+    window.openPrePoInquiryModal = function() {
+        const rsSelect = document.getElementById('poRsSelect');
+        if (!rsSelect || !rsSelect.value) {
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    icon: 'info',
+                    title: 'Select Requisition First',
+                    text: 'Please select an Approved RS from the dropdown before generating an inquiry.',
+                    confirmButtonColor: '#002B49'
+                });
+            } else {
+                alert('Please select an Approved RS first.');
+            }
+            return;
+        }
+
+        const supplierSelect = document.getElementById('poSupplierSelect');
+        if (!supplierSelect || !supplierSelect.value) {
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    icon: 'info',
+                    title: 'Select Supplier First',
+                    text: 'Please select the target Supplier you want to inquire with.',
+                    confirmButtonColor: '#002B49'
+                });
+            } else {
+                alert('Please select a Supplier first.');
+            }
+            return;
+        }
+
+        const checkedBoxes = Array.from(document.querySelectorAll('#rsItemsPreviewBody input.po-item-checkbox:checked'));
+        if (checkedBoxes.length === 0) {
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'No Items Selected',
+                    text: 'Please check at least one material item from the requisition list to inquire about.',
+                    confirmButtonColor: '#002B49'
+                });
+            } else {
+                alert('Please check at least one item from the requisition list.');
+            }
+            return;
+        }
+
+        // Supplier details
+        const selectedSup = supplierSelect.options[supplierSelect.selectedIndex];
+        const companyName = selectedSup.getAttribute('data-company') || selectedSup.text.split('[')[0].trim();
+        const contactPerson = selectedSup.getAttribute('data-contact') || '';
+        const rawPhone = selectedSup.getAttribute('data-phone') || '';
+        const normPhone = window.normalizeViberPhoneClient ? window.normalizeViberPhoneClient(rawPhone) : null;
+
+        document.getElementById('prePoInquirySupplierName').textContent = companyName;
+        const contactEl = document.getElementById('prePoInquiryContactPerson');
+        if (contactEl) {
+            contactEl.innerHTML = '<i class="bi bi-person me-1"></i>Contact: <strong>' + (contactPerson || 'Sales Representative') + '</strong>';
+        }
+
+        const phoneDisp = document.getElementById('prePoInquiryPhoneDisplay');
+        if (phoneDisp) phoneDisp.textContent = rawPhone || 'No registered mobile';
+
+        const viberBadge = document.getElementById('prePoInquiryViberBadge');
+        const viberBtn = document.getElementById('btnLaunchPrePoViber');
+
+        if (normPhone) {
+            if (viberBadge) {
+                viberBadge.className = 'badge shadow-sm';
+                viberBadge.style.backgroundColor = '#7360f2';
+                viberBadge.style.color = '#ffffff';
+                viberBadge.innerHTML = '<i class="fa-brands fa-viber me-1"></i>Viber Ready (' + normPhone + ')';
+            }
+            if (viberBtn) {
+                viberBtn.setAttribute('href', 'viber://chat?number=' + encodeURIComponent(normPhone));
+                viberBtn.setAttribute('data-phone', normPhone);
+                viberBtn.classList.remove('opacity-50');
+                viberBtn.removeAttribute('title');
+            }
+        } else {
+            if (viberBadge) {
+                viberBadge.className = 'badge bg-secondary shadow-sm text-white';
+                viberBadge.innerHTML = '<i class="bi bi-telephone-x me-1"></i>No Mobile Phone';
+            }
+            if (viberBtn) {
+                viberBtn.setAttribute('href', '#');
+                viberBtn.setAttribute('data-phone', '');
+                viberBtn.classList.add('opacity-50');
+                viberBtn.setAttribute('title', 'Supplier has no valid 09XX or +639XX mobile number. Please copy message text instead.');
+            }
+        }
+
+        // RS Reference & Destination
+        const rsOpt = rsSelect.options[rsSelect.selectedIndex];
+        const rsText = rsOpt ? rsOpt.text.trim() : '';
+        const rsMatch = rsText.match(/RS-[\w-]+/);
+        const rsNo = rsMatch ? rsMatch[0] : ('RS #' + rsSelect.value);
+        const refEl = document.getElementById('prePoInquiryRsRef');
+        if (refEl) refEl.textContent = 'Ref: ' + rsNo;
+
+        const destType = document.querySelector('input[name="delivery_destination_type"]:checked')?.value || 'warehouse';
+        let destText = 'Central Warehouse (Main Storage)';
+        if (destType === 'jobsite') {
+            const addr = document.getElementById('poDeliveryAddress')?.value?.trim() || document.getElementById('poJobsiteAddress')?.value?.trim();
+            destText = addr ? ('Jobsite Drop: ' + addr) : 'Project Jobsite Direct';
+        }
+        const expectedDate = document.querySelector('input[name="expected_delivery_date"]')?.value;
+        const dateLine = expectedDate ? `\n📅 Target Delivery Date: ${expectedDate}` : '';
+
+        // Build item lines & preview chips
+        let itemsListText = '';
+        let chipsHtml = '';
+
+        checkedBoxes.forEach(cb => {
+            const tr = cb.closest('tr');
+            const name = cb.getAttribute('data-name') || tr?.querySelector('.fw-bold.text-dark')?.textContent.trim() || cb.value;
+            const unit = cb.getAttribute('data-unit') || tr?.querySelector('.input-group-text')?.textContent.trim() || 'pcs';
+            const price = parseFloat(cb.getAttribute('data-price') || tr?.querySelector('.po-item-price')?.value || 0);
+            const qtyInput = tr?.querySelector('.po-item-qty');
+            const qty = qtyInput ? qtyInput.value : '1';
+            const priceInfo = price > 0 ? ` (Est. ₱${price.toLocaleString('en-US', {minimumFractionDigits: 2})}/${unit})` : '';
+
+            itemsListText += `• ${qty} ${unit} - ${name}${priceInfo}\n`;
+            chipsHtml += `
+                <div class="d-flex align-items-center justify-content-between py-1 border-bottom border-light">
+                    <div class="text-truncate me-2">
+                        <strong class="text-dark small">${name}</strong>
+                    </div>
+                    <div class="text-nowrap small font-monospace">
+                        <span class="badge bg-primary-subtle text-primary border">${qty} ${unit}</span>
+                        ${price > 0 ? `<span class="text-muted ms-1" style="font-size: 0.72rem;">@ ₱${price.toLocaleString('en-US', {minimumFractionDigits: 2})}</span>` : ''}
+                    </div>
+                </div>
+            `;
+        });
+
+        const countEl = document.getElementById('prePoInquiryItemCount');
+        if (countEl) countEl.textContent = checkedBoxes.length;
+
+        const chipsEl = document.getElementById('prePoInquiryItemsChips');
+        if (chipsEl) chipsEl.innerHTML = chipsHtml;
+
+        // Inquiry message template
+        const greeting = contactPerson ? `Good day ${companyName} (${contactPerson})!` : `Good day ${companyName}!`;
+        const templateMsg = `${greeting}
+
+This is Purchasing from GB Construction & Enterprise Inc.
+We are preparing an official Purchase Order (${rsNo}) and would like to confirm current stock availability, lead time, and unit pricing for the following materials:
+
+${itemsListText.trim()}
+
+📍 Target Delivery: ${destText}${dateLine}
+
+Kindly let us know if these items are on hand and your latest prices so we can finalize our PO. Thank you!`;
+
+        window._lastGeneratedPrePoTemplate = templateMsg;
+        const msgTextarea = document.getElementById('prePoInquiryMessage');
+        if (msgTextarea) msgTextarea.value = templateMsg;
+
+        // Show modal
+        const modalEl = document.getElementById('prePoInquiryModal');
+        if (modalEl) {
+            let instance = bootstrap.Modal.getInstance(modalEl);
+            if (!instance) instance = new bootstrap.Modal(modalEl);
+            instance.show();
+        }
+    };
+
+    window.resetPrePoInquiryMessage = function() {
+        const msgTextarea = document.getElementById('prePoInquiryMessage');
+        if (msgTextarea && window._lastGeneratedPrePoTemplate) {
+            msgTextarea.value = window._lastGeneratedPrePoTemplate;
+        }
+    };
+
+    window.copyPrePoInquiryText = function() {
+        const textarea = document.getElementById('prePoInquiryMessage');
+        if (!textarea) return;
+        const text = textarea.value;
+        const btn = document.getElementById('btnCopyPrePoInquiry');
+
+        const onSuccess = () => {
+            if (btn) {
+                const origHtml = btn.innerHTML;
+                btn.innerHTML = '<i class="bi bi-check-lg me-1 text-success"></i> Copied!';
+                btn.classList.add('btn-light', 'text-success');
+                setTimeout(() => {
+                    btn.innerHTML = origHtml;
+                    btn.classList.remove('btn-light', 'text-success');
+                }, 2500);
+            }
+            if (typeof Swal !== 'undefined' && Swal.mixin) {
+                const Toast = Swal.mixin({
+                    toast: true,
+                    position: 'top-end',
+                    showConfirmButton: false,
+                    timer: 2200,
+                    timerProgressBar: true
+                });
+                Toast.fire({
+                    icon: 'success',
+                    title: 'Inquiry message copied to clipboard!'
+                });
+            }
+        };
+
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(onSuccess).catch(() => {
+                textarea.select();
+                document.execCommand('copy');
+                onSuccess();
+            });
+        } else {
+            textarea.select();
+            document.execCommand('copy');
+            onSuccess();
+        }
+    };
+
+    window.onLaunchPrePoViberClick = function(e) {
+        const viberBtn = document.getElementById('btnLaunchPrePoViber');
+        const href = viberBtn ? viberBtn.getAttribute('href') : '';
+        const phone = viberBtn ? viberBtn.getAttribute('data-phone') : '';
+
+        if (!href || href === '#' || !phone) {
+            e.preventDefault();
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    icon: 'info',
+                    title: 'No Viber Mobile Registered',
+                    text: 'This supplier does not have a registered Philippine mobile number (09XX or +639XX). Please click "Copy Message" to copy the text and send via SMS, email, or chat.',
+                    confirmButtonColor: '#002B49'
+                });
+            } else {
+                alert('No Viber mobile registered. Please copy the message text.');
+            }
+            return;
+        }
+
+        // Copy message to clipboard automatically before opening Viber
+        const textarea = document.getElementById('prePoInquiryMessage');
+        const msg = textarea ? textarea.value : '';
+        if (msg && navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(msg).catch(() => {});
+        }
+
+        // Background log to supplier_viber_logs
+        try {
+            const supplierSelect = document.getElementById('poSupplierSelect');
+            const supplierId = supplierSelect ? supplierSelect.value : '';
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+
+            let fd = new FormData();
+            fd.append('action', 'log_viber_inquiry');
+            fd.append('supplier_id', supplierId);
+            fd.append('contact_number', phone);
+            fd.append('message', msg);
+
+            fetch('process/process.php', {
+                method: 'POST',
+                body: fd,
+                headers: csrfToken ? { 'X-CSRF-Token': csrfToken } : {}
+            }).catch(() => {});
+        } catch (err) {}
+
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                icon: 'success',
+                title: 'Inquiry Copied to Clipboard!',
+                html: `Opening Viber Desktop for <strong>${phone}</strong>...<br><br><small class="text-muted"><i class="bi bi-keyboard me-1"></i>Press <strong>Ctrl + V</strong> inside Viber to paste your inquiry.</small>`,
+                timer: 3000,
+                showConfirmButton: false
+            });
+        }
+    };
+
+    // Fix Bootstrap 5 nested modal backdrop stacking & scrolling
+    document.addEventListener('DOMContentLoaded', function() {
+        const inquiryModalEl = document.getElementById('prePoInquiryModal');
+        if (inquiryModalEl) {
+            inquiryModalEl.addEventListener('show.bs.modal', function () {
+                setTimeout(() => {
+                    const backdrops = document.querySelectorAll('.modal-backdrop');
+                    if (backdrops.length > 1) {
+                        backdrops[backdrops.length - 1].style.zIndex = '1060';
+                    }
+                }, 15);
+            });
+            inquiryModalEl.addEventListener('hidden.bs.modal', function () {
+                const poModal = document.getElementById('poModal');
+                if (poModal && poModal.classList.contains('show')) {
+                    document.body.classList.add('modal-open');
+                    document.body.style.overflow = 'hidden';
+                }
+            });
+        }
+    });
+
+    // ==========================================
     // MARK PURCHASE ORDER OUT FOR DELIVERY
     // ==========================================
     window.markPoOutForDelivery = async function (poId, poNo) {
@@ -4192,13 +4670,43 @@ include 'layout/header.php';
     };
 
     // ==========================================
-    // CANCEL / VOID PURCHASE ORDER AJAX SUBMISSION
+    // CANCEL / VOID PURCHASE ORDER & SWITCH SUPPLIER AJAX
     // ==========================================
-    window.handleCancelPoSubmit = async function (e) {
+    window.openSwitchSupplierModal = function (id, poNo, supplierName, rsNo, rsId) {
+        if (typeof window.openCancelPoModal === 'function') {
+            window.openCancelPoModal(id, poNo, supplierName, rsNo);
+            const reasonSelect = document.getElementById('cancelPoReason');
+            if (reasonSelect) {
+                reasonSelect.value = 'Supplier Out of Stock / Unfulfillable';
+            }
+            const notesInput = document.getElementById('cancelPoNotes');
+            if (notesInput) {
+                notesInput.value = `Supplier ${supplierName || ''} cannot fulfill order (out of stock). Voided to immediately switch vendor.`;
+            }
+            const btnSwitch = document.getElementById('btnSwitchSupplierPo');
+            if (btnSwitch) {
+                setTimeout(() => btnSwitch.focus(), 350);
+            }
+        }
+    };
+
+    window.handleCancelPoSubmit = async function (e, isSwitchSupplier = false) {
         if (e && e.preventDefault) e.preventDefault();
 
         const form = document.getElementById('cancelPoForm');
         if (!form) return;
+
+        const reasonSelect = document.getElementById('cancelPoReason');
+        const notesInput = document.getElementById('cancelPoNotes');
+
+        if (isSwitchSupplier) {
+            if (!reasonSelect.value) {
+                reasonSelect.value = 'Supplier Out of Stock / Unfulfillable';
+            }
+            if (!notesInput.value.trim()) {
+                notesInput.value = 'Supplier out of stock / unfulfillable. Voided to immediately re-issue to alternative vendor.';
+            }
+        }
 
         if (!form.checkValidity()) {
             form.reportValidity();
@@ -4207,9 +4715,11 @@ include 'layout/header.php';
 
         const poId = document.getElementById('cancelPoId').value;
         const poNo = document.getElementById('cancelPoNoDisplay').value;
-        const reason = document.getElementById('cancelPoReason').value;
-        const notes = document.getElementById('cancelPoNotes').value;
-        const submitBtn = document.getElementById('confirmCancelPoBtn');
+        const reason = reasonSelect.value;
+        const notes = notesInput.value;
+        const submitBtn = isSwitchSupplier 
+            ? document.getElementById('btnSwitchSupplierPo') 
+            : document.getElementById('confirmCancelPoBtn');
         const originalBtnHtml = submitBtn ? submitBtn.innerHTML : '';
 
         if (!reason) {
@@ -4225,29 +4735,38 @@ include 'layout/header.php';
             return;
         }
 
-        // Confirmation dialog before taking destructive action
+        // Confirmation dialog before taking administrative action
         let confirmResult = false;
         if (typeof Swal !== 'undefined') {
+            const confirmTitle = isSwitchSupplier ? 'Void & Switch Supplier?' : 'Void this Purchase Order?';
+            const confirmHtml = isSwitchSupplier
+                ? `Are you sure you want to void <strong>${poNo}</strong> and switch suppliers?<br><br><span class="text-warning-emphasis small"><i class="bi bi-arrow-repeat me-1"></i>This PO will be voided, and the Requisition will immediately open for you to select an alternative supplier.</span>`
+                : `Are you sure you want to void <strong>${poNo}</strong>?<br><br><span class="text-danger small"><i class="bi bi-info-circle me-1"></i>Linked Requisition will be restored to Approved status for re-issuing.</span>`;
+
             const res = await Swal.fire({
-                title: 'Void this Purchase Order?',
-                html: `Are you sure you want to void <strong>${poNo}</strong>?<br><br><span class="text-danger small"><i class="bi bi-info-circle me-1"></i>Linked Requisition will be restored to Approved status for re-issuing.</span>`,
-                icon: 'warning',
+                title: confirmTitle,
+                html: confirmHtml,
+                icon: isSwitchSupplier ? 'question' : 'warning',
                 showCancelButton: true,
-                confirmButtonColor: '#dc3545',
+                confirmButtonColor: isSwitchSupplier ? '#ffc107' : '#dc3545',
                 cancelButtonColor: '#6c757d',
-                confirmButtonText: '<i class="bi bi-slash-circle me-1"></i> Yes, Void Order',
+                confirmButtonText: isSwitchSupplier 
+                    ? '<i class="bi bi-arrow-repeat me-1 text-dark"></i> <span class="text-dark fw-bold">Yes, Switch Supplier</span>' 
+                    : '<i class="bi bi-slash-circle me-1"></i> Yes, Void Order',
                 cancelButtonText: 'Keep Order Active'
             });
             confirmResult = res.isConfirmed;
         } else {
-            confirmResult = confirm(`Are you sure you want to void Purchase Order ${poNo}? Linked Requisition will be restored to Approved.`);
+            confirmResult = confirm(isSwitchSupplier
+                ? `Void PO ${poNo} and switch supplier for this requisition?`
+                : `Are you sure you want to void Purchase Order ${poNo}? Linked Requisition will be restored to Approved.`);
         }
 
         if (!confirmResult) return;
 
         if (submitBtn) {
             submitBtn.disabled = true;
-            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Voiding Order...';
+            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Processing...';
         }
 
         const formData = new FormData(form);
@@ -4267,22 +4786,48 @@ include 'layout/header.php';
             }, 25000);
             const result = await response.json();
 
-            if (result.status === 'success') {
+            if (result.status === 'success' || result.success) {
                 const modalEl = document.getElementById('cancelPoModal');
                 const modalInstance = bootstrap.Modal.getInstance(modalEl);
                 if (modalInstance) modalInstance.hide();
 
-                if (typeof Swal !== 'undefined') {
-                    await Swal.fire({
-                        icon: 'success',
-                        title: 'Purchase Order Voided',
-                        text: result.message || 'Purchase Order voided successfully.',
-                        confirmButtonColor: '#0033cc'
-                    });
+                if (isSwitchSupplier && result.rs_id) {
+                    setTimeout(() => {
+                        const poModalEl = document.getElementById('poModal');
+                        if (poModalEl) {
+                            const modalInst = new bootstrap.Modal(poModalEl);
+                            modalInst.show();
+                            const rsSelect = document.getElementById('poRsSelect');
+                            if (rsSelect) {
+                                rsSelect.value = result.rs_id;
+                                rsSelect.dispatchEvent(new Event('change'));
+                            }
+                            if (typeof Swal !== 'undefined') {
+                                Swal.fire({
+                                    icon: 'info',
+                                    title: 'Select Alternative Supplier',
+                                    text: `Previous PO ${poNo} was voided. Please select the alternative supplier below to complete your order.`,
+                                    timer: 3500,
+                                    showConfirmButton: false
+                                });
+                            }
+                        } else {
+                            window.location.reload();
+                        }
+                    }, 400);
                 } else {
-                    alert(result.message || 'Purchase Order voided successfully.');
+                    if (typeof Swal !== 'undefined') {
+                        await Swal.fire({
+                            icon: 'success',
+                            title: 'Purchase Order Voided',
+                            text: result.message || 'Purchase Order voided successfully.',
+                            confirmButtonColor: '#0033cc'
+                        });
+                    } else {
+                        alert(result.message || 'Purchase Order voided successfully.');
+                    }
+                    window.location.reload();
                 }
-                window.location.reload();
             } else {
                 if (typeof Swal !== 'undefined') {
                     Swal.fire({
