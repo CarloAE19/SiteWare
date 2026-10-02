@@ -65,8 +65,8 @@
 <script src="assets/js/table-sort.js?v=<?= time() ?>"></script>
 
 <!-- Notification Scripts -->
-<script src="assets/js/notifications.js"></script>
-<script src="assets/js/fcm.js"></script>
+<script src="assets/js/notifications.js?v=<?= time() ?>"></script>
+<script src="assets/js/fcm.js?v=<?= time() ?>"></script>
 
 <!-- DYNAMIC ROLE-BASED CHATBOT WIDGET -->
 <style>
