@@ -14,8 +14,8 @@ require_once 'Connection/db.php';
 
 $role = $_SESSION['user_role'];
 
-// AUTO-PATCH DB: Ensures the PO table can handle SMS Status and Weather Delays! (Guarded once per session for TTFB speed)
-if (empty($_SESSION['po_schema_patched_v2'])) {
+// AUTO-PATCH DB: Ensures the PO table can handle SMS Status, Weather Delays, Delivery Destination, and Quality Inspection! (Guarded once per session for TTFB speed)
+if (empty($_SESSION['po_schema_patched_v5'])) {
     try {
         $pdo->exec("ALTER TABLE purchase_orders ADD COLUMN status VARCHAR(50) DEFAULT 'Generated'");
         $pdo->exec("ALTER TABLE purchase_orders ADD COLUMN delay_remarks TEXT");
@@ -25,6 +25,24 @@ if (empty($_SESSION['po_schema_patched_v2'])) {
         } catch (PDOException $e) {}
         try {
             $pdo->exec("ALTER TABLE requisitions ADD COLUMN approved_by INT NULL AFTER status");
+        } catch (PDOException $e) {}
+        try {
+            $pdo->exec("ALTER TABLE purchase_orders ADD COLUMN delivery_destination VARCHAR(150) DEFAULT 'Warehouse (Central Storage)'");
+        } catch (PDOException $e) {}
+        try {
+            $pdo->exec("ALTER TABLE purchase_orders ADD COLUMN delivery_address TEXT NULL");
+        } catch (PDOException $e) {}
+        try {
+            $pdo->exec("ALTER TABLE purchase_orders ADD COLUMN approved_at DATETIME NULL");
+        } catch (PDOException $e) {}
+        try {
+            $pdo->exec("ALTER TABLE purchase_orders ADD COLUMN supplier_dr_no VARCHAR(100) NULL");
+        } catch (PDOException $e) {}
+        try {
+            $pdo->exec("ALTER TABLE po_items ADD COLUMN rejected_quantity INT DEFAULT 0");
+        } catch (PDOException $e) {}
+        try {
+            $pdo->exec("ALTER TABLE po_items ADD COLUMN rejection_reason VARCHAR(255) NULL");
         } catch (PDOException $e) {}
 
         // Clean existing duplicated discrepancy records in delay_remarks if present
@@ -57,26 +75,30 @@ if (empty($_SESSION['po_schema_patched_v2'])) {
                 }
             }
         }
-        $_SESSION['po_schema_patched_v2'] = true;
+        $_SESSION['po_schema_patched_v5'] = true;
     } catch (PDOException $e) { /* Columns already exist */
-        $_SESSION['po_schema_patched_v2'] = true;
+        $_SESSION['po_schema_patched_v5'] = true;
     }
 }
 
 // Fetch Purchase Orders
 $query = "
-    SELECT p.*, s.company_name, s.contact_number, r.rs_no, r.project_name, u.name AS prepared_by_name 
+    SELECT p.*, s.company_name, s.contact_number, r.rs_no, r.project_name, 
+           u.name AS prepared_by_name,
+           appr.name AS approved_by_name
     FROM purchase_orders p 
     LEFT JOIN suppliers s ON p.supplier_id = s.id 
     LEFT JOIN requisitions r ON p.rs_id = r.id 
     LEFT JOIN users u ON p.prepared_by = u.id
+    LEFT JOIN users appr ON p.approved_by = appr.id
     ORDER BY p.created_at DESC
 ";
 $pos = $pdo->query($query)->fetchAll(PDO::FETCH_ASSOC);
 
 // Calculate Stats
 $totalPO = count($pos);
-$pendingDelivery = count(array_filter($pos, fn($p) => in_array($p['status'], ['Generated', 'Viber Order Sent', 'Out for Delivery', 'Pending Delivery', 'Partially Delivered', 'Partially Received'])));
+$pendingApprovalPO = count(array_filter($pos, fn($p) => in_array($p['status'], ['Pending Approval', 'Pending Authorization'])));
+$pendingDelivery = count(array_filter($pos, fn($p) => in_array($p['status'], ['Generated', 'Approved', 'Viber Order Sent', 'Out for Delivery', 'Pending Delivery', 'Partially Delivered', 'Partially Received'])));
 $delayedPO = count(array_filter($pos, fn($p) => strpos($p['status'], 'Delayed') !== false));
 
 // Fetch suppliers, officers, and projects list for filter dropdowns
@@ -515,6 +537,9 @@ include 'layout/header.php';
             box-shadow: 0 0 0 2px var(--gb-blue, #0033CC), 0 8px 20px rgba(0, 51, 204, 0.12) !important;
             background-color: #f8fafc !important;
         }
+        .po-filter-tile[data-filter="pending_approval"].active-filter {
+            box-shadow: 0 0 0 2px #d97706, 0 8px 20px rgba(217, 119, 6, 0.2) !important;
+        }
         .po-filter-tile[data-filter="pending"].active-filter {
             box-shadow: 0 0 0 2px var(--gb-yellow, #ffc107), 0 8px 20px rgba(255, 193, 7, 0.2) !important;
         }
@@ -550,16 +575,16 @@ include 'layout/header.php';
         <?php unset($_SESSION['message'], $_SESSION['msg_type']); ?>
     <?php endif; ?>
 
-    <!-- PO Stats Cards (Interactive Filter Tiles) -->
+    <!-- PO Stats Cards (Interactive Filter Tiles: 4-Column Grid) -->
     <div class="row mb-4 g-3">
-        <div class="col-12 col-md-4">
+        <!-- 1. Total POs -->
+        <div class="col-12 col-sm-6 col-xl-3">
             <div class="card stat-card po-filter-tile active-filter bg-white h-100 p-3 shadow-sm border-0 rounded-3"
                 data-filter="all" role="button" tabindex="0" title="Click to view all purchase orders"
                 style="border-left: 5px solid var(--gb-blue) !important;">
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
-                        <h6 class="text-muted text-uppercase mb-1 fw-bold" style="font-size:0.75rem;">Total Purchase
-                            Orders</h6>
+                        <h6 class="text-muted text-uppercase mb-1 fw-bold" style="font-size:0.75rem;">Total Purchase Orders</h6>
                         <h3 class="mb-0 fw-bold text-dark"><?= $totalPO ?></h3>
                     </div>
                     <div class="fs-1 text-primary" style="color: var(--gb-blue) !important; opacity: 0.8;"><i
@@ -567,32 +592,48 @@ include 'layout/header.php';
                 </div>
             </div>
         </div>
-        <div class="col-12 col-md-4">
+
+        <!-- 2. Pending Management Authorization -->
+        <div class="col-12 col-sm-6 col-xl-3">
             <div class="card stat-card po-filter-tile bg-white h-100 p-3 shadow-sm border-0 rounded-3"
-                data-filter="pending" role="button" tabindex="0" title="Click to filter Pending Deliveries"
-                style="border-left: 5px solid var(--gb-yellow) !important;">
+                data-filter="pending_approval" role="button" tabindex="0" title="Click to filter POs Awaiting Management Authorization"
+                style="border-left: 5px solid #d97706 !important;">
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
-                        <h6 class="text-muted text-uppercase mb-1 fw-bold" style="font-size:0.75rem;">Pending Deliveries
-                        </h6>
-                        <h3 class="mb-0 fw-bold text-dark"><?= $pendingDelivery ?></h3>
+                        <h6 class="text-muted text-uppercase mb-1 fw-bold" style="font-size:0.75rem;">Pending Authorization</h6>
+                        <h3 class="mb-0 fw-bold text-warning-emphasis"><?= $pendingApprovalPO ?></h3>
                     </div>
-                    <div class="fs-1 text-warning" style="opacity: 0.8;"><i class="bi bi-truck"></i></div>
+                    <div class="fs-1 text-warning" style="opacity: 0.85;"><i class="bi bi-shield-lock-fill"></i></div>
                 </div>
             </div>
         </div>
-        <div class="col-12 col-md-4">
+
+        <!-- 3. Active Deliveries / In Transit -->
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="card stat-card po-filter-tile bg-white h-100 p-3 shadow-sm border-0 rounded-3"
+                data-filter="pending" role="button" tabindex="0" title="Click to filter Active Deliveries"
+                style="border-left: 5px solid #0284c7 !important;">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="text-muted text-uppercase mb-1 fw-bold" style="font-size:0.75rem;">Active Deliveries</h6>
+                        <h3 class="mb-0 fw-bold text-dark"><?= $pendingDelivery ?></h3>
+                    </div>
+                    <div class="fs-1 text-info" style="opacity: 0.85;"><i class="bi bi-truck"></i></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 4. Delayed Orders -->
+        <div class="col-12 col-sm-6 col-xl-3">
             <div class="card stat-card po-filter-tile bg-white h-100 p-3 shadow-sm border-0 rounded-3"
                 data-filter="delayed" role="button" tabindex="0" title="Click to filter Delayed Orders"
                 style="border-left: 5px solid #dc3545 !important;">
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
-                        <h6 class="text-muted text-uppercase mb-1 fw-bold" style="font-size:0.75rem;">Delayed Orders
-                        </h6>
+                        <h6 class="text-muted text-uppercase mb-1 fw-bold" style="font-size:0.75rem;">Delayed Orders</h6>
                         <h3 class="mb-0 fw-bold text-danger"><?= $delayedPO ?></h3>
                     </div>
-                    <div class="fs-1 text-danger" style="opacity: 0.8;"><i class="bi bi-exclamation-triangle-fill"></i>
-                    </div>
+                    <div class="fs-1 text-danger" style="opacity: 0.8;"><i class="bi bi-exclamation-triangle-fill"></i></div>
                 </div>
             </div>
         </div>
@@ -789,6 +830,8 @@ include 'layout/header.php';
                                     class="bi bi-tag-fill text-success"></i></span>
                             <select id="filterStatus" class="form-select bg-white fw-bold small">
                                 <option value="all">All Statuses</option>
+                                <option value="Pending Approval">⏳ Pending Authorization</option>
+                                <option value="Approved">✅ Approved (Ready for Dispatch)</option>
                                 <option value="Generated">Generated / Draft</option>
                                 <option value="Viber Order Sent">Viber Order Sent</option>
                                 <option value="Out for Delivery">🚚 Out for Delivery</option>
@@ -797,6 +840,7 @@ include 'layout/header.php';
                                 <option value="Delivered">Delivered (Complete)</option>
                                 <option value="Delivered (Discrepancy)">Delivered (Discrepancy)</option>
                                 <option value="Delayed">Delayed (All Reasons)</option>
+                                <option value="Rejected">❌ Disapproved / Rejected</option>
                                 <option value="Cancelled">Cancelled / Voided</option>
                             </select>
                         </div>
@@ -860,6 +904,12 @@ include 'layout/header.php';
                                 $displayStatus = 'Partially Delivered';
                             }
                             $statusClass = 'bg-secondary';
+                            if ($displayStatus === 'Pending Approval' || $displayStatus === 'Pending Authorization')
+                                $statusClass = 'bg-warning text-dark border border-warning shadow-sm';
+                            if ($displayStatus === 'Approved')
+                                $statusClass = 'bg-success text-white shadow-sm';
+                            if ($displayStatus === 'Rejected')
+                                $statusClass = 'bg-danger text-white shadow-sm';
                             if ($displayStatus === 'Generated')
                                 $statusClass = 'bg-info text-dark';
                             if ($displayStatus === 'Viber Order Sent')
@@ -952,6 +1002,17 @@ include 'layout/header.php';
                                             class="badge bg-light text-dark border me-1 shadow-sm"><?= htmlspecialchars($po['rs_no']) ?></span>
                                         <small class="text-muted fw-bold"><?= htmlspecialchars($po['project_name']) ?></small>
                                     </span>
+                                    <?php
+                                    $dest = $po['delivery_destination'] ?? 'Warehouse (Central Storage)';
+                                    $isSiteDelivery = stripos($dest, 'Jobsite') !== false || stripos($dest, 'Direct') !== false;
+                                    $destBadgeClass = $isSiteDelivery ? 'bg-info-subtle text-info border-info-subtle' : 'bg-secondary-subtle text-secondary border-secondary-subtle';
+                                    $destIcon = $isSiteDelivery ? 'bi-geo-alt-fill text-danger' : 'bi-building-down text-secondary';
+                                    ?>
+                                    <div class="mt-1">
+                                        <span class="badge <?= $destBadgeClass ?> border px-2 py-0.5 fw-semibold text-truncate d-inline-block" style="font-size: 0.68rem; max-width: 220px;" title="<?= htmlspecialchars($dest) ?>">
+                                            <i class="bi <?= $destIcon ?> me-1"></i><?= htmlspecialchars($dest) ?>
+                                        </span>
+                                    </div>
                                 </td>
 
                                 <td class="fw-bold text-primary po-supplier" data-label="Supplier">
@@ -975,15 +1036,30 @@ include 'layout/header.php';
                                 <td data-label="Status" data-sort-value="<?= htmlspecialchars($po['status'] ?? 'Generated') ?>">
                                     <span class="badge <?= $statusClass ?> px-3 py-2 shadow-sm text-uppercase"
                                         id="status_<?= $po['id'] ?>">
-                                        <?php if ($displayStatus === 'Out for Delivery'): ?>
+                                        <?php if ($displayStatus === 'Pending Approval' || $displayStatus === 'Pending Authorization'): ?>
+                                            <i class="bi bi-hourglass-split me-1"></i>
+                                        <?php elseif ($displayStatus === 'Approved'): ?>
+                                            <i class="bi bi-check2-circle me-1"></i>
+                                        <?php elseif ($displayStatus === 'Rejected'): ?>
+                                            <i class="bi bi-x-circle me-1"></i>
+                                        <?php elseif ($displayStatus === 'Out for Delivery'): ?>
                                             <i class="bi bi-truck me-1"></i>
                                         <?php endif; ?>
                                         <?= htmlspecialchars($displayStatus) ?>
                                     </span>
+                                    <?php if (!empty($po['approved_by_name']) && in_array($po['status'], ['Approved', 'Viber Order Sent', 'Out for Delivery', 'Delivered'])): ?>
+                                        <small class="d-block text-muted mt-1" style="font-size: 0.70rem;" title="Authorized By Management">
+                                            <i class="bi bi-shield-check text-success me-1"></i>Auth: <?= htmlspecialchars($po['approved_by_name']) ?>
+                                        </small>
+                                    <?php endif; ?>
                                     <?php if ($po['status'] === 'Delayed (Weather)'): ?>
                                         <small class="d-block text-danger mt-2 fw-bold"
                                             style="font-size: 0.75rem; white-space: normal;"><i
                                                  class="bi bi-exclamation-triangle-fill me-1"></i><?= htmlspecialchars($po['delay_remarks']) ?></small>
+                                    <?php elseif ($po['status'] === 'Rejected'): ?>
+                                        <small class="d-block text-danger mt-1 fw-bold"
+                                            style="font-size: 0.72rem; white-space: normal;"><i
+                                                class="bi bi-x-circle me-1"></i>Disapproved</small>
                                     <?php elseif ($po['status'] === 'Cancelled'): ?>
                                         <small class="d-block text-muted mt-1 fw-bold"
                                             style="font-size: 0.72rem; white-space: normal;"><i
@@ -1009,13 +1085,41 @@ include 'layout/header.php';
                                     <?php
                                     $receiptFile = !empty($po['proof_of_receipt']) ? basename($po['proof_of_receipt']) : '';
                                     $secureReceiptUrl = $receiptFile ? ('secure-image?type=receipts&file=' . urlencode($receiptFile)) : '';
-                                    $canManageLogistics = in_array($role, ['admin', 'purchasing']) && !in_array($po['status'], ['Delivered', 'Delivered (Discrepancy)', 'Cancelled']);
-                                    $canReceive = in_array($role, ['admin', 'warehouse', 'purchasing']) && !in_array($po['status'], ['Delivered', 'Delivered (Discrepancy)', 'Cancelled']);
+                                    $isPendingAuth = in_array($po['status'], ['Pending Approval', 'Pending Authorization']);
+                                    $isRejected = ($po['status'] === 'Rejected');
+                                    $canManageLogistics = in_array($role, ['admin', 'purchasing']) && !in_array($po['status'], ['Delivered', 'Delivered (Discrepancy)', 'Cancelled', 'Pending Approval', 'Pending Authorization', 'Rejected']);
+                                    $canReceive = in_array($role, ['admin', 'warehouse', 'purchasing']) && !in_array($po['status'], ['Delivered', 'Delivered (Discrepancy)', 'Cancelled', 'Pending Approval', 'Pending Authorization', 'Rejected']);
+
                                     ?>
 
                                     <div class="d-inline-flex align-items-center justify-content-center gap-1">
                                         <!-- 1. PRIMARY OPERATIONAL ACTION BUTTON (Dynamic by Lifecycle) -->
-                                        <?php if ($canReceive && in_array($po['status'], ['Generated', 'Viber Order Sent'])): ?>
+                                        <?php if ($isPendingAuth): ?>
+                                            <?php if (in_array($role, ['admin', 'management'])): ?>
+                                                <button type="button" class="btn btn-sm btn-success fw-bold shadow-sm primary-action-btn-<?= $po['id'] ?>"
+                                                    style="min-width: 110px;"
+                                                    title="Review and Authorize Purchase Order"
+                                                    onclick="openApprovePoModal(<?= $po['id'] ?>, '<?= htmlspecialchars($po['po_no'], ENT_QUOTES) ?>', '<?= htmlspecialchars($po['company_name'] ?? '', ENT_QUOTES) ?>', '<?= htmlspecialchars($po['project_name'] ?? '', ENT_QUOTES) ?>', '<?= htmlspecialchars($dest, ENT_QUOTES) ?>')">
+                                                    <i class="bi bi-shield-check"></i> <span class="ms-1">Authorize</span>
+                                                </button>
+                                            <?php else: ?>
+                                                <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle py-2 px-2.5 small fw-semibold" style="min-width: 110px; display: inline-block;">
+                                                    <i class="bi bi-hourglass-split me-1"></i> Pending Auth
+                                                </span>
+                                            <?php endif; ?>
+                                        <?php elseif ($isRejected): ?>
+                                            <button type="button" class="btn btn-sm btn-outline-danger fw-bold shadow-sm"
+                                                style="min-width: 110px;"
+                                                title="View Disapproval Reason"
+                                                data-pono="<?= htmlspecialchars($po['po_no']) ?>"
+                                                data-poid="<?= (int)$po['id'] ?>"
+                                                data-status="<?= htmlspecialchars($po['status']) ?>"
+                                                data-remarks="<?= htmlspecialchars($po['delay_remarks'] ?? 'No remarks recorded.') ?>"
+                                                data-proof=""
+                                                onclick="viewDiscrepancy(this)">
+                                                <i class="bi bi-x-circle"></i> <span class="ms-1">Disapproved</span>
+                                            </button>
+                                        <?php elseif ($canReceive && in_array($po['status'], ['Generated', 'Approved', 'Viber Order Sent'])): ?>
                                             <!-- Out for Delivery is the next milestone -->
                                             <button type="button" class="btn btn-sm btn-primary fw-bold shadow-sm primary-action-btn-<?= $po['id'] ?>"
                                                 style="min-width: 110px;"
@@ -1083,6 +1187,15 @@ include 'layout/header.php';
                                                 <li class="dropdown-header text-uppercase text-muted fw-bold py-1 px-3" style="font-size: 0.68rem; letter-spacing: 0.5px;">
                                                     <i class="bi bi-gear me-1"></i> Order Actions
                                                 </li>
+                                                <?php if ($isPendingAuth && in_array($role, ['admin', 'management'])): ?>
+                                                    <li>
+                                                        <button type="button" class="dropdown-item py-2 px-3 d-flex align-items-center gap-2 text-success fw-semibold"
+                                                            onclick="openApprovePoModal(<?= $po['id'] ?>, '<?= htmlspecialchars($po['po_no'], ENT_QUOTES) ?>', '<?= htmlspecialchars($po['company_name'] ?? '', ENT_QUOTES) ?>', '<?= htmlspecialchars($po['project_name'] ?? '', ENT_QUOTES) ?>', '<?= htmlspecialchars($dest, ENT_QUOTES) ?>')">
+                                                            <i class="bi bi-shield-check text-success fs-6" style="width: 18px;"></i>
+                                                            <span>Authorize &amp; Approve PO</span>
+                                                        </button>
+                                                    </li>
+                                                <?php endif; ?>
                                                 <li>
                                                     <button type="button" class="dropdown-item py-2 px-3 d-flex align-items-center gap-2"
                                                         onclick="openPoPrintModal(<?= $po['id'] ?>)">
@@ -1100,7 +1213,7 @@ include 'layout/header.php';
 
                                                 <?php if ($canReceive): ?>
                                                     <li><hr class="dropdown-divider my-1"></li>
-                                                    <?php if (in_array($po['status'], ['Generated', 'Viber Order Sent'])): ?>
+                                                    <?php if (in_array($po['status'], ['Generated', 'Approved', 'Viber Order Sent'])): ?>
                                                         <li>
                                                             <button type="button" class="dropdown-item py-2 px-3 d-flex align-items-center gap-2 text-success fw-semibold"
                                                                 onclick="openReceiveModal(<?= $po['id'] ?>, '<?= $po['po_no'] ?>')">
@@ -1109,7 +1222,7 @@ include 'layout/header.php';
                                                             </button>
                                                         </li>
                                                     <?php endif; ?>
-                                                    <?php if (in_array($po['status'], ['Generated', 'Viber Order Sent', 'Pending Delivery'])): ?>
+                                                    <?php if (in_array($po['status'], ['Generated', 'Approved', 'Viber Order Sent', 'Pending Delivery'])): ?>
                                                         <li class="out-for-delivery-item-<?= $po['id'] ?>">
                                                             <button type="button" class="dropdown-item py-2 px-3 d-flex align-items-center gap-2 text-primary fw-semibold"
                                                                 onclick="markPoOutForDelivery(<?= $po['id'] ?>, '<?= htmlspecialchars($po['po_no'], ENT_QUOTES) ?>')">
@@ -1186,6 +1299,7 @@ include 'layout/header.php';
                                         </div>
                                     </div>
                                 </td>
+
                             </tr>
                         <?php endforeach; ?>
                         <tr id="noResultsPoRow" style="display: none;">
@@ -1217,6 +1331,12 @@ include 'layout/header.php';
                         $displayStatus = 'Partially Delivered';
                     }
                     $statusClass = 'bg-secondary';
+                    if ($displayStatus === 'Pending Approval' || $displayStatus === 'Pending Authorization')
+                        $statusClass = 'bg-warning text-dark border border-warning shadow-sm';
+                    if ($displayStatus === 'Approved')
+                        $statusClass = 'bg-success text-white shadow-sm';
+                    if ($displayStatus === 'Rejected')
+                        $statusClass = 'bg-danger text-white shadow-sm';
                     if ($displayStatus === 'Generated')
                         $statusClass = 'bg-info text-dark';
                     if ($displayStatus === 'Viber Order Sent')
@@ -1274,8 +1394,10 @@ include 'layout/header.php';
 
                     $receiptFile = !empty($po['proof_of_receipt']) ? basename($po['proof_of_receipt']) : '';
                     $secureReceiptUrl = $receiptFile ? ('secure-image?type=receipts&file=' . urlencode($receiptFile)) : '';
-                    $canManageLogistics = in_array($role, ['admin', 'purchasing']) && !in_array($po['status'], ['Delivered', 'Delivered (Discrepancy)', 'Cancelled']);
-                    $canReceive = in_array($role, ['admin', 'warehouse', 'purchasing']) && !in_array($po['status'], ['Delivered', 'Delivered (Discrepancy)', 'Cancelled']);
+                    $isPendingAuth = in_array($po['status'], ['Pending Approval', 'Pending Authorization']);
+                    $isRejected = ($po['status'] === 'Rejected');
+                    $canManageLogistics = in_array($role, ['admin', 'purchasing']) && !in_array($po['status'], ['Delivered', 'Delivered (Discrepancy)', 'Cancelled', 'Pending Approval', 'Pending Authorization', 'Rejected']);
+                    $canReceive = in_array($role, ['admin', 'warehouse', 'purchasing']) && !in_array($po['status'], ['Delivered', 'Delivered (Discrepancy)', 'Cancelled', 'Pending Approval', 'Pending Authorization', 'Rejected']);
 
                     $terms = $po['payment_terms'] ?? 'Credit (30 Days Net)';
                     $isCredit = stripos($terms, 'Credit') !== false || stripos($terms, 'Account') !== false;
@@ -1318,14 +1440,29 @@ include 'layout/header.php';
                             </div>
                             <div class="text-end flex-shrink-0">
                                 <span class="badge <?= $statusClass ?> px-2 py-1.5 shadow-sm text-uppercase fw-bold" style="font-size: 0.68rem;" id="mobile_status_<?= $po['id'] ?>">
-                                    <?php if ($displayStatus === 'Out for Delivery'): ?>
+                                    <?php if ($displayStatus === 'Pending Approval' || $displayStatus === 'Pending Authorization'): ?>
+                                        <i class="bi bi-hourglass-split me-1"></i>
+                                    <?php elseif ($displayStatus === 'Approved'): ?>
+                                        <i class="bi bi-check2-circle me-1"></i>
+                                    <?php elseif ($displayStatus === 'Rejected'): ?>
+                                        <i class="bi bi-x-circle me-1"></i>
+                                    <?php elseif ($displayStatus === 'Out for Delivery'): ?>
                                         <i class="bi bi-truck me-1"></i>
                                     <?php endif; ?>
                                     <?= htmlspecialchars($displayStatus) ?>
                                 </span>
+                                <?php if (!empty($po['approved_by_name']) && in_array($po['status'], ['Approved', 'Viber Order Sent', 'Out for Delivery', 'Delivered'])): ?>
+                                    <small class="d-block text-muted mt-1 text-end" style="font-size: 0.65rem;" title="Authorized By">
+                                        <i class="bi bi-shield-check text-success me-1"></i><?= htmlspecialchars($po['approved_by_name']) ?>
+                                    </small>
+                                <?php endif; ?>
                                 <?php if ($po['status'] === 'Delayed (Weather)'): ?>
                                     <small class="d-block text-danger mt-1 fw-bold text-end" style="font-size: 0.70rem;">
                                         <i class="bi bi-exclamation-triangle-fill me-1"></i>Delayed
+                                    </small>
+                                <?php elseif ($po['status'] === 'Rejected'): ?>
+                                    <small class="d-block text-danger mt-1 fw-bold text-end" style="font-size: 0.70rem;">
+                                        <i class="bi bi-x-circle me-1"></i>Disapproved
                                     </small>
                                 <?php elseif ($po['status'] === 'Cancelled'): ?>
                                     <small class="d-block text-muted mt-1 fw-bold text-end" style="font-size: 0.70rem;">
@@ -1338,10 +1475,23 @@ include 'layout/header.php';
                         <!-- Middle Metadata Row: Linked RS/Project (Left) + ETA/Date (Right) -->
                         <div class="d-flex align-items-center justify-content-between text-muted small mb-3 border-top border-bottom py-2" style="font-size: 0.78rem;">
                             <div class="overflow-hidden me-2">
-                                <span class="badge bg-light text-dark border me-1 shadow-sm"><?= htmlspecialchars($po['rs_no']) ?></span>
-                                <span class="fw-bold text-secondary text-truncate d-inline-block align-middle" style="max-width: 140px;" title="<?= htmlspecialchars($po['project_name']) ?>">
-                                    <?= htmlspecialchars($po['project_name']) ?>
-                                </span>
+                                <div>
+                                    <span class="badge bg-light text-dark border me-1 shadow-sm"><?= htmlspecialchars($po['rs_no']) ?></span>
+                                    <span class="fw-bold text-secondary text-truncate d-inline-block align-middle" style="max-width: 140px;" title="<?= htmlspecialchars($po['project_name']) ?>">
+                                        <?= htmlspecialchars($po['project_name']) ?>
+                                    </span>
+                                </div>
+                                <?php
+                                $dest = $po['delivery_destination'] ?? 'Warehouse (Central Storage)';
+                                $isSiteDelivery = stripos($dest, 'Jobsite') !== false || stripos($dest, 'Direct') !== false;
+                                $destBadgeClass = $isSiteDelivery ? 'bg-info-subtle text-info border-info-subtle' : 'bg-secondary-subtle text-secondary border-secondary-subtle';
+                                $destIcon = $isSiteDelivery ? 'bi-geo-alt-fill text-danger' : 'bi-building-down text-secondary';
+                                ?>
+                                <div class="mt-0.5">
+                                    <span class="badge <?= $destBadgeClass ?> border px-1.5 py-0.5 fw-semibold text-truncate d-inline-block" style="font-size: 0.64rem; max-width: 160px;" title="<?= htmlspecialchars($dest) ?>">
+                                        <i class="bi <?= $destIcon ?> me-1"></i><?= htmlspecialchars($dest) ?>
+                                    </span>
+                                </div>
                             </div>
                             <div class="text-end flex-shrink-0">
                                 <div><?= $etaBadge ?></div>
@@ -1360,7 +1510,29 @@ include 'layout/header.php';
                                 </button>
                             </div>
                             <div class="col-6">
-                                <?php if ($canReceive && in_array($po['status'], ['Generated', 'Viber Order Sent'])): ?>
+                                <?php if ($isPendingAuth): ?>
+                                    <?php if (in_array($role, ['admin', 'management'])): ?>
+                                        <button type="button" class="btn btn-success w-100 fw-bold shadow-sm"
+                                            title="Authorize PO"
+                                            onclick="openApprovePoModal(<?= $po['id'] ?>, '<?= htmlspecialchars($po['po_no'], ENT_QUOTES) ?>', '<?= htmlspecialchars($po['company_name'] ?? '', ENT_QUOTES) ?>', '<?= htmlspecialchars($po['project_name'] ?? '', ENT_QUOTES) ?>', '<?= htmlspecialchars($dest, ENT_QUOTES) ?>')">
+                                            <i class="bi bi-shield-check me-1"></i> Authorize
+                                        </button>
+                                    <?php else: ?>
+                                        <button type="button" class="btn btn-light border text-muted w-100 fw-bold" disabled>
+                                            <i class="bi bi-hourglass-split me-1"></i> Pending Auth
+                                        </button>
+                                    <?php endif; ?>
+                                <?php elseif ($isRejected): ?>
+                                    <button type="button" class="btn btn-outline-danger w-100 fw-bold shadow-sm"
+                                        data-pono="<?= htmlspecialchars($po['po_no']) ?>"
+                                        data-poid="<?= (int)$po['id'] ?>"
+                                        data-status="<?= htmlspecialchars($po['status']) ?>"
+                                        data-remarks="<?= htmlspecialchars($po['delay_remarks'] ?? 'No remarks recorded.') ?>"
+                                        data-proof="" 
+                                        onclick="viewDiscrepancy(this)">
+                                        <i class="bi bi-x-circle me-1"></i> Disapproved
+                                    </button>
+                                <?php elseif ($canReceive && in_array($po['status'], ['Generated', 'Approved', 'Viber Order Sent'])): ?>
                                     <button type="button" class="btn btn-primary w-100 fw-bold shadow-sm"
                                         title="Mark as Out for Delivery"
                                         onclick="markPoOutForDelivery(<?= $po['id'] ?>, '<?= htmlspecialchars($po['po_no'], ENT_QUOTES) ?>')">
@@ -1414,6 +1586,15 @@ include 'layout/header.php';
                                         <li class="dropdown-header text-uppercase text-muted fw-bold py-1 px-3" style="font-size: 0.68rem; letter-spacing: 0.5px;">
                                             <i class="bi bi-gear me-1"></i> Order Options
                                         </li>
+                                        <?php if ($isPendingAuth && in_array($role, ['admin', 'management'])): ?>
+                                            <li>
+                                                <button type="button" class="dropdown-item py-2 px-3 d-flex align-items-center gap-2 text-success fw-semibold"
+                                                    onclick="openApprovePoModal(<?= $po['id'] ?>, '<?= htmlspecialchars($po['po_no'], ENT_QUOTES) ?>', '<?= htmlspecialchars($po['company_name'] ?? '', ENT_QUOTES) ?>', '<?= htmlspecialchars($po['project_name'] ?? '', ENT_QUOTES) ?>', '<?= htmlspecialchars($dest, ENT_QUOTES) ?>')">
+                                                    <i class="bi bi-shield-check text-success fs-6" style="width: 18px;"></i>
+                                                    <span>Authorize &amp; Approve PO</span>
+                                                </button>
+                                            </li>
+                                        <?php endif; ?>
                                         <li>
                                             <button type="button" class="dropdown-item py-2 px-3 d-flex align-items-center gap-2"
                                                 onclick="openPoPrintModal(<?= $po['id'] ?>)">
@@ -1602,8 +1783,15 @@ include 'layout/header.php';
 
             if (data.status === 'success') {
                 tbody.innerHTML = '';
+
+                // Populate Modal Header 3-Way Match References
+                const poBadge = document.getElementById('receivePoNoBadge');
+                if (poBadge) poBadge.innerText = poNo;
+                const drInput = document.getElementById('receiveSupplierDrNo');
+                if (drInput) drInput.value = data.po?.supplier_dr_no || '';
+
                 if (data.items.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">No items linked to this manifest.</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="10" class="text-center text-muted py-4">No items linked to this manifest.</td></tr>';
                     document.getElementById('confirmReceiveBtn').disabled = true;
                     return;
                 }
@@ -1615,6 +1803,7 @@ include 'layout/header.php';
                     const initialPrice = parseFloat(item.unit_price || 0).toFixed(2);
                     const orderedQty = parseInt(item.ordered_qty || item.expected_qty || 0);
                     const receivedQty = parseInt(item.received_quantity || 0);
+                    const priorRejectedQty = parseInt(item.rejected_qty || 0);
                     const remainingQty = parseInt(item.remaining_qty !== undefined ? item.remaining_qty : (orderedQty - receivedQty));
                     const isAlreadyCompleted = (remainingQty <= 0);
                     const defaultReceiveToday = isAlreadyCompleted ? 0 : remainingQty;
@@ -1623,25 +1812,28 @@ include 'layout/header.php';
                     tr.innerHTML = `
                         <td data-label="Item Description">
                             <div class="fw-bold text-dark text-wrap">${item.item_name}</div>
-                            <span class="badge bg-light text-muted border font-monospace" style="font-size: 0.72rem;">${item.item_code}</span>
+                            <div class="d-flex align-items-center gap-1.5 mt-0.5">
+                                <span class="badge bg-light text-muted border font-monospace" style="font-size: 0.70rem;">${item.item_code}</span>
+                                ${priorRejectedQty > 0 ? `<span class="badge bg-danger-subtle text-danger border border-danger-subtle font-monospace" style="font-size: 0.68rem;" title="Prior Rejections"><i class="bi bi-x-octagon me-0.5"></i>${priorRejectedQty} Rej</span>` : ''}
+                            </div>
                             <input type="hidden" name="item_codes[]" value="${item.item_code}">
                             <input type="hidden" name="expected_qtys[]" value="${remainingQty}">
                         </td>
                         <td class="text-center fw-semibold text-secondary" data-label="Ordered">
                             ${orderedQty} <small class="text-muted">${item.unit || ''}</small>
                         </td>
-                        <td class="text-center fw-semibold text-info" data-label="Prior Recv">
+                        <td class="text-center fw-semibold text-info" data-label="Prior">
                             ${receivedQty}
                         </td>
                         <td class="text-center fw-bold ${remainingQty > 0 ? 'text-primary' : 'text-muted'}" data-label="Remaining">
                             <span class="badge ${remainingQty > 0 ? 'bg-primary-subtle text-primary border border-primary-subtle' : 'bg-light text-muted'} px-2 py-1">${remainingQty}</span>
                         </td>
-                        <td class="text-center align-middle" data-label="Receive Today">
+                        <td class="text-center align-middle" data-label="Accepted Today">
                             ${isAlreadyCompleted ? `
                                 <input type="number" name="actual_qtys[]" class="form-control text-center bg-light text-muted actual-qty-input" 
                                     value="0" readonly style="max-width: 90px; font-size: 1rem; height: 44px; margin: 0 auto;">
                             ` : `
-                                <div class="cims-qty-stepper d-inline-flex justify-content-center align-items-stretch shadow-sm" style="min-width: 150px; margin: 0 auto;">
+                                <div class="cims-qty-stepper d-inline-flex justify-content-center align-items-stretch shadow-sm" style="min-width: 135px; margin: 0 auto;">
                                     <button type="button" class="btn btn-light qty-step-btn qty-step-minus" tabindex="-1" aria-label="Decrease quantity"><i class="bi bi-dash-lg"></i></button>
                                     <input type="number" name="actual_qtys[]" class="form-control text-center fw-bold text-success actual-qty-input item-qty-input" 
                                         value="${defaultReceiveToday}" min="0" max="${remainingQty}" data-remaining="${remainingQty}" inputmode="numeric" onclick="this.select()" onfocus="this.select()" required>
@@ -1649,9 +1841,34 @@ include 'layout/header.php';
                                 </div>
                             `}
                         </td>
+                        <td class="text-center align-middle" data-label="Damaged / Defect">
+                            ${isAlreadyCompleted ? `
+                                <span class="text-muted small">-</span>
+                                <input type="hidden" name="rejected_qtys[]" value="0">
+                            ` : `
+                                <input type="number" name="rejected_qtys[]" class="form-control form-control-sm text-center fw-bold text-danger border-danger-subtle shadow-sm rejected-qty-input" 
+                                    style="max-width: 85px; font-size: 0.95rem; min-height: 44px; margin: 0 auto;" value="0" min="0" max="${remainingQty}" inputmode="numeric" onclick="this.select()" onfocus="this.select()">
+                            `}
+                        </td>
+                        <td class="text-center align-middle" data-label="Defect Reason">
+                            ${isAlreadyCompleted ? `
+                                <span class="text-muted small">-</span>
+                                <input type="hidden" name="rejection_reasons[]" value="">
+                            ` : `
+                                <select name="rejection_reasons[]" class="form-select form-select-sm text-muted defect-reason-select shadow-xs" style="min-height: 44px; font-size: 0.76rem; max-width: 180px; margin: 0 auto;">
+                                    <option value="" selected>-- No Defect --</option>
+                                    <option value="Broken / Damage in Transit">Broken / Physical Damage</option>
+                                    <option value="Wrong Specification / Dimensions">Wrong Specification</option>
+                                    <option value="Moisture / Packaging Compromised">Moisture / Compromised</option>
+                                    <option value="Factory Defect / Quality Failure">Factory Defect / Failed QA</option>
+                                    <option value="Short-packed / Missing Parts">Missing Parts / Shortage</option>
+                                    <option value="Other Quality Non-Conformance">Other Non-Conformance</option>
+                                </select>
+                            `}
+                        </td>
                         <td class="text-center align-middle" data-label="Unit Price (₱)">
                             <input type="number" step="0.01" name="unit_prices[]" class="form-control form-control-sm text-center fw-bold text-primary border-primary shadow-sm unit-price-input" 
-                                style="max-width: 110px; font-size: 1rem; min-height: 44px; margin: 0 auto;" value="${initialPrice}" min="0" inputmode="decimal" onclick="this.select()" onfocus="this.select()" required>
+                                style="max-width: 105px; font-size: 0.95rem; min-height: 44px; margin: 0 auto;" value="${initialPrice}" min="0" inputmode="decimal" onclick="this.select()" onfocus="this.select()" required>
                         </td>
                         <td class="text-center align-middle" data-label="Status / Remainder">
                             <div class="disposition-wrapper">
@@ -1679,6 +1896,8 @@ include 'layout/header.php';
                     tbody.appendChild(tr);
 
                     const qtyInput = tr.querySelector('.actual-qty-input');
+                    const rejectedInput = tr.querySelector('.rejected-qty-input');
+                    const reasonSelect = tr.querySelector('.defect-reason-select');
                     const priceInput = tr.querySelector('.unit-price-input');
                     const subtotalTd = tr.querySelector('.subtotal-val');
                     const fullBadge = tr.querySelector('.full-delivery-badge');
@@ -1687,20 +1906,46 @@ include 'layout/header.php';
                     const dispSelect = tr.querySelector('.disposition-dropdown');
 
                     const updateRowState = () => {
-                        let q = parseInt(qtyInput.value) || 0;
-                        const maxQ = parseInt(qtyInput.getAttribute('data-remaining') || 0);
+                        let accepted = parseInt(qtyInput ? qtyInput.value : 0) || 0;
+                        let rejected = parseInt(rejectedInput ? rejectedInput.value : 0) || 0;
+                        const maxQ = parseInt((qtyInput ? qtyInput.getAttribute('data-remaining') : 0) || 0);
 
-                        if (q < 0) { q = 0; qtyInput.value = 0; }
-                        if (maxQ > 0 && q > maxQ) { 
-                            q = maxQ; 
-                            qtyInput.value = maxQ; 
+                        if (accepted < 0) { accepted = 0; if (qtyInput) qtyInput.value = 0; }
+                        if (rejected < 0) { rejected = 0; if (rejectedInput) rejectedInput.value = 0; }
+
+                        // Combined accounted units cannot exceed remaining needed
+                        if ((accepted + rejected) > maxQ) {
+                            if (accepted > maxQ) {
+                                accepted = maxQ;
+                                if (qtyInput) qtyInput.value = maxQ;
+                                rejected = 0;
+                                if (rejectedInput) rejectedInput.value = 0;
+                            } else {
+                                rejected = maxQ - accepted;
+                                if (rejectedInput) rejectedInput.value = rejected;
+                            }
                         }
 
-                        const p = parseFloat(priceInput.value) || 0;
-                        subtotalTd.textContent = '₱' + (q * p).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                        // Defect reason dropdown dynamic styling
+                        if (reasonSelect) {
+                            if (rejected > 0) {
+                                reasonSelect.classList.remove('text-muted');
+                                reasonSelect.classList.add('border-danger', 'fw-semibold', 'text-dark');
+                                if (!reasonSelect.value) {
+                                    reasonSelect.value = 'Broken / Damage in Transit';
+                                }
+                            } else {
+                                reasonSelect.classList.add('text-muted');
+                                reasonSelect.classList.remove('border-danger', 'fw-semibold', 'text-dark');
+                                reasonSelect.value = '';
+                            }
+                        }
+
+                        const p = parseFloat(priceInput ? priceInput.value : 0) || 0;
+                        subtotalTd.textContent = '₱' + (accepted * p).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
                         if (!isAlreadyCompleted && fullBadge && partialSelect) {
-                            if (q >= maxQ) {
+                            if ((accepted + rejected) >= maxQ) {
                                 fullBadge.classList.remove('d-none');
                                 partialSelect.classList.add('d-none');
                                 if (dispInput) {
@@ -1708,6 +1953,12 @@ include 'layout/header.php';
                                     dispInput.value = 'to_follow';
                                 }
                                 if (dispSelect) dispSelect.removeAttribute('name');
+
+                                if (rejected > 0) {
+                                    fullBadge.innerHTML = `<span class="badge bg-warning-subtle text-dark border border-warning-subtle py-2 px-2 w-100" style="font-size: 0.72rem;"><i class="bi bi-exclamation-triangle-fill text-warning me-1"></i>${accepted} Acc / ${rejected} Rej</span>`;
+                                } else {
+                                    fullBadge.innerHTML = `<span class="badge bg-success-subtle text-success border border-success-subtle py-2 px-2 w-100" style="font-size: 0.75rem;"><i class="bi bi-check2-circle me-1"></i>Full Delivery</span>`;
+                                }
                             } else {
                                 fullBadge.classList.add('d-none');
                                 partialSelect.classList.remove('d-none');
@@ -1722,6 +1973,9 @@ include 'layout/header.php';
 
                     if (qtyInput && !isAlreadyCompleted) {
                         qtyInput.addEventListener('input', updateRowState);
+                    }
+                    if (rejectedInput && !isAlreadyCompleted) {
+                        rejectedInput.addEventListener('input', updateRowState);
                     }
                     if (priceInput) {
                         priceInput.addEventListener('input', updateRowState);
@@ -1742,7 +1996,7 @@ include 'layout/header.php';
                 }
                 updateGrandTotal();
             } else {
-                tbody.innerHTML = `<tr><td colspan="8" class="text-center text-danger py-3">Error: ${data.message}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="10" class="text-center text-danger py-3">Error: ${data.message}</td></tr>`;
             }
         } catch (e) {
             tbody.innerHTML = `<tr><td colspan="8" class="text-center text-danger py-3">Network Error: Could not load the manifest.</td></tr>`;
@@ -1866,6 +2120,12 @@ include 'layout/header.php';
                     const batchNum = index + 1;
                     let datePart = batch.meta;
                     let officerPart = 'Warehouse Officer';
+                    let drPart = '';
+                    if (batch.meta.includes('(DR: ')) {
+                        const drSplit = batch.meta.split('(DR: ');
+                        drPart = drSplit[1].replace(/\)$/, '').trim();
+                        batch.meta = drSplit[0].trim();
+                    }
                     if (batch.meta.includes(' by ')) {
                         const parts = batch.meta.split(' by ');
                         datePart = parts[0].trim();
@@ -1878,23 +2138,42 @@ include 'layout/header.php';
                     lines.forEach(line => {
                         const rawTrimmed = line.trim().replace(/^-\s*/, '');
 
-                        // Regex to parse structured line:
-                        // e.g. "Solar Panel [Code: ITM-5616]: Received 10 units today (Total: 10/15) @ ₱150.00 ⏳ [5 Remainder To Follow from Supplier]"
-                        const parsedMatch = rawTrimmed.match(/^(.+?)\s*\[Code:\s*([^\]]+)\]:\s*Received\s*([\d\.,]+)\s*(?:units\s*)?today\s*\(Total:\s*([\d\.,]+)\/([\d\.,]+)\)(.*)$/i);
+                        if (rawTrimmed.startsWith('Inspection Remarks:')) {
+                            const rem = rawTrimmed.replace(/^Inspection Remarks:\s*/i, '');
+                            itemsHtml += `
+                                <div class="p-2 px-3 rounded-2 bg-white border border-success-subtle mb-2 d-flex align-items-center gap-2" style="font-size: 0.82rem;">
+                                    <i class="bi bi-shield-check text-success fs-6"></i>
+                                    <div><strong class="text-success">Inspection Notes:</strong> <span class="text-dark">${rem}</span></div>
+                                </div>
+                            `;
+                            return;
+                        }
+
+                        // Regex to parse structured line (supports both Accepted and Received):
+                        const parsedMatch = rawTrimmed.match(/^(.+?)\s*\[Code:\s*([^\]]+)\]:\s*(?:Accepted|Received)\s*([\d\.,]+)\s*(?:units\s*)?(.*?)\((?:Fulfilled|Total):\s*([\d\.,]+)\/([\d\.,]+)\)(.*)$/i);
 
                         if (parsedMatch) {
                             const itemName = parsedMatch[1].trim();
                             const itemCode = parsedMatch[2].trim();
                             const todayQty = parsedMatch[3].trim();
-                            const totalRecv = parseFloat(parsedMatch[4].replace(/,/g, '')) || 0;
-                            const orderedQty = parseFloat(parsedMatch[5].replace(/,/g, '')) || 1;
-                            const extraInfo = parsedMatch[6] || '';
+                            const totalRecv = parseFloat(parsedMatch[5].replace(/,/g, '')) || 0;
+                            const orderedQty = parseFloat(parsedMatch[6].replace(/,/g, '')) || 1;
+                            const extraInfo = (parsedMatch[4] || '') + (parsedMatch[7] || '');
 
                             const pct = Math.min(100, Math.round((totalRecv / orderedQty) * 100));
 
                             // Extract unit price if present
                             const priceMatch = extraInfo.match(/@\s*(₱[\d\.,]+)/);
                             const unitPriceStr = priceMatch ? priceMatch[1] : '';
+
+                            // Defect detection
+                            let defectPill = '';
+                            const rejMatch = rawTrimmed.match(/REJECTED\/DAMAGED:\s*([\d\.,]+)\s*units\s*(?:\((?:Defect:\s*)?([^\)]+)\))?/i);
+                            if (rejMatch) {
+                                const rejUnits = rejMatch[1];
+                                const rejReason = rejMatch[2] || 'Defective';
+                                defectPill = `<span class="badge bg-danger text-white shadow-sm px-2 py-1 text-nowrap" style="font-size: 0.75rem;" title="${rejReason}"><i class="bi bi-x-octagon-fill me-1"></i>${rejUnits} Defective (${rejReason})</span>`;
+                            }
 
                             // Status Disposition Pill (Clean, concise, and non-wrapping)
                             let statusPill = '';
@@ -1926,8 +2205,9 @@ include 'layout/header.php';
                                     </div>
                                     <div class="d-flex flex-wrap align-items-center justify-content-md-end gap-2 flex-shrink-0">
                                         <span class="badge bg-success-subtle text-success border border-success-subtle px-2.5 py-1.5 fw-bold text-nowrap" style="font-size: 0.80rem;">
-                                            <i class="bi bi-plus-circle me-1"></i>+${todayQty} units
+                                            <i class="bi bi-plus-circle me-1"></i>+${todayQty} accepted
                                         </span>
+                                        ${defectPill}
                                         <span class="badge bg-white text-secondary border px-2.5 py-1.5 fw-semibold shadow-sm text-nowrap" style="font-size: 0.80rem;" title="Fulfilled Progress">
                                             <i class="bi bi-pie-chart me-1 text-muted"></i>Total: ${totalRecv}/${orderedQty} (${pct}%)
                                         </span>
@@ -1973,8 +2253,16 @@ include 'layout/header.php';
                     batchCard.className = 'card border-0 shadow-sm rounded-3 overflow-hidden';
                     batchCard.innerHTML = `
                         <div class="card-header bg-white border-bottom py-2.5 px-3 d-flex flex-wrap justify-content-between align-items-center gap-2">
-                            <div class="d-flex align-items-center gap-2">
+                            <div class="d-flex align-items-center gap-2 flex-wrap">
                                 <span class="badge ${batchBadgeClass} text-white fw-bold px-2 py-1">Batch #${batchNum}</span>
+                                ${drPart ? `<span class="badge bg-success-subtle text-success border border-success-subtle fw-semibold px-2 py-1" style="font-size: 0.72rem;"><i class="bi bi-receipt me-1"></i>DR: ${drPart}</span>` : ''}
+                                <span class="fw-bold text-dark small"><i class="bi bi-calendar-event me-1 text-muted"></i> ${datePart}</span>
+                                ${isLatest ? '<span class="badge bg-success-subtle text-success border border-success-subtle small px-1.5 py-0.5">Latest Intake</span>' : ''}
+                            </div>
+                            <span class="badge bg-light text-secondary border small">
+                                <i class="bi bi-person-check-fill me-1 text-primary"></i> ${officerPart}
+                            </span>
+                        </div>
                                 <span class="fw-bold text-dark small"><i class="bi bi-calendar-event me-1 text-muted"></i> ${datePart}</span>
                                 ${isLatest ? '<span class="badge bg-success-subtle text-success border border-success-subtle small px-1.5 py-0.5">Latest Intake</span>' : ''}
                             </div>
@@ -2228,9 +2516,26 @@ include 'layout/header.php';
                     return;
                 }
 
+                // 3-Way Match Verification: Supplier DR/SI Number is strictly required
+                const drInput = document.getElementById('receiveSupplierDrNo');
+                const drVal = drInput ? drInput.value.trim() : '';
+                if (!drVal) {
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({
+                            icon: 'warning',
+                            title: 'Delivery Receipt Required',
+                            text: 'Please enter the official Supplier Delivery Receipt (DR) or Sales Invoice (SI) Number to establish 3-way matching.'
+                        });
+                    } else {
+                        alert('Please enter the Supplier DR / Sales Invoice Number.');
+                    }
+                    if (drInput) drInput.focus();
+                    return;
+                }
+
                 const tbody = document.getElementById('receiveItemsBody');
-                const qtyInputs = tbody ? tbody.querySelectorAll('.actual-qty-input') : [];
-                if (!tbody || qtyInputs.length === 0) {
+                const rowEls = tbody ? tbody.querySelectorAll('tr') : [];
+                if (!tbody || rowEls.length === 0) {
                     const msg = 'No manifest items found to receive.';
                     if (typeof Swal !== 'undefined') {
                         Swal.fire({ icon: 'warning', title: 'Empty Manifest', text: msg });
@@ -2240,40 +2545,64 @@ include 'layout/header.php';
                     return;
                 }
 
-                // Defensive check: non-negative and bounds validation
+                // Defensive check: non-negative, bounds validation, and mandatory defect reasons
                 let totalBatchQty = 0;
+                let totalBatchRejected = 0;
                 let hasNegative = false;
                 let hasOverQty = false;
+                let missingDefectReason = false;
 
-                qtyInputs.forEach(input => {
-                    const val = parseInt(input.value) || 0;
-                    const max = parseInt(input.getAttribute('data-remaining') || input.getAttribute('max') || 0);
-                    if (val < 0) hasNegative = true;
-                    if (max > 0 && val > max) hasOverQty = true;
-                    totalBatchQty += val;
+                rowEls.forEach(row => {
+                    const accInput = row.querySelector('.actual-qty-input');
+                    const rejInput = row.querySelector('.rejected-qty-input');
+                    const reasonSelect = row.querySelector('.defect-reason-select');
+
+                    const valAcc = parseInt(accInput ? accInput.value : 0) || 0;
+                    const valRej = parseInt(rejInput ? rejInput.value : 0) || 0;
+                    const max = parseInt((accInput ? accInput.getAttribute('data-remaining') : 0) || 0);
+
+                    if (valAcc < 0 || valRej < 0) hasNegative = true;
+                    if (max > 0 && (valAcc + valRej) > max) hasOverQty = true;
+
+                    if (valRej > 0 && reasonSelect && !reasonSelect.value.trim()) {
+                        missingDefectReason = true;
+                        reasonSelect.classList.add('is-invalid');
+                    } else if (reasonSelect) {
+                        reasonSelect.classList.remove('is-invalid');
+                    }
+
+                    totalBatchQty += valAcc;
+                    totalBatchRejected += valRej;
                 });
 
                 if (hasNegative) {
-                    const msg = 'Received quantities cannot be negative.';
+                    const msg = 'Accepted or rejected quantities cannot be negative.';
                     if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: 'Invalid Quantity', text: msg });
                     else alert(msg);
                     return;
                 }
 
                 if (hasOverQty) {
-                    const msg = 'One or more items exceed the maximum remaining quantity permitted.';
+                    const msg = 'The combined accepted and damaged quantity for one or more items exceeds the remaining quantity permitted.';
                     if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: 'Quantity Exceeded', text: msg });
                     else alert(msg);
                     return;
                 }
 
-                // If 0 units received across entire shipment, confirm explicit user intent
-                if (totalBatchQty === 0) {
+                if (missingDefectReason) {
+                    const msg = 'Please specify a defect / quality failure reason for all damaged or rejected items.';
+                    if (typeof Swal !== 'undefined') Swal.fire({ icon: 'warning', title: 'Defect Reason Required', text: msg });
+                    else alert(msg);
+                    return;
+                }
+
+                // If 0 units accepted and 0 rejected across entire shipment, confirm explicit user intent
+                if (totalBatchQty === 0 && totalBatchRejected === 0) {
                     if (typeof Swal !== 'undefined') {
                         const confirmZero = await Swal.fire({
                             icon: 'question',
                             title: 'Zero Units Arrived?',
-                            text: 'You have entered 0 units received today for all items. Proceed only if recording non-delivery or supplier cancellation.',
+                            text: 'You have entered 0 units received and 0 rejected today for all items. Proceed only if recording non-delivery or supplier cancellation.',
                             showCancelButton: true,
                             confirmButtonText: 'Yes, Proceed',
                             cancelButtonText: 'Cancel'
@@ -2396,11 +2725,98 @@ include 'layout/header.php';
         }
     };
 
+    // ==========================================
+    // CREATE PO FORM AJAX SUBMIT & LIFECYCLE
+    // ==========================================
+    window.initCreatePoFormLifecycle = function () {
+        const createForm = document.getElementById('createPoForm');
+        if (!createForm || createForm.dataset.boundLifecycle) return;
+        createForm.dataset.boundLifecycle = 'true';
+
+        createForm.addEventListener('submit', async function (e) {
+            e.preventDefault();
+
+            const rsSelect = document.getElementById('poRsSelect');
+            if (!rsSelect || !rsSelect.value) {
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Missing Requisition',
+                        text: 'Please select an approved requisition to generate the Purchase Order.'
+                    });
+                } else {
+                    alert('Please select an approved requisition.');
+                }
+                return;
+            }
+
+            const submitBtn = createForm.querySelector('button[type="submit"]');
+            const originalBtnHtml = submitBtn ? submitBtn.innerHTML : '';
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span> Generating PO...';
+            }
+
+            const formData = new FormData(createForm);
+            try {
+                const response = await (window.cimsFetchWithTimeout || fetch)('process/process.php', {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Accept': 'application/json'
+                    }
+                }, 30000);
+
+                const result = await response.json();
+                if (result && (result.status === 'success' || result.success)) {
+                    const poModalEl = document.getElementById('poModal');
+                    if (poModalEl) {
+                        const modalInst = bootstrap.Modal.getInstance(poModalEl);
+                        if (modalInst) modalInst.hide();
+                    }
+                    if (typeof Swal !== 'undefined') {
+                        await Swal.fire({
+                            icon: 'success',
+                            title: 'PO Generated!',
+                            text: result.message || 'Purchase Order generated and submitted to Management for review & authorization.',
+                            timer: 2000,
+                            showConfirmButton: false
+                        });
+                    }
+                    window.location.reload();
+                } else {
+                    throw new Error(result?.message || 'Failed to generate Purchase Order.');
+                }
+            } catch (err) {
+                console.error('Create PO Error:', err);
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'PO Generation Failed',
+                        text: err.message || 'An error occurred while generating the Purchase Order.'
+                    });
+                } else {
+                    alert(err.message || 'An error occurred while generating the Purchase Order.');
+                }
+            } finally {
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalBtnHtml;
+                }
+            }
+        });
+    };
+
     // Immediate execution for SPA compatibility
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', window.initPoReceiveModalLifecycle);
+        document.addEventListener('DOMContentLoaded', function () {
+            if (typeof window.initPoReceiveModalLifecycle === 'function') window.initPoReceiveModalLifecycle();
+            if (typeof window.initCreatePoFormLifecycle === 'function') window.initCreatePoFormLifecycle();
+        });
     } else {
-        window.initPoReceiveModalLifecycle();
+        if (typeof window.initPoReceiveModalLifecycle === 'function') window.initPoReceiveModalLifecycle();
+        if (typeof window.initCreatePoFormLifecycle === 'function') window.initCreatePoFormLifecycle();
     }
 
     // ==========================================
@@ -2462,7 +2878,14 @@ include 'layout/header.php';
                 const poStatusBadge = document.getElementById('printPoStatus');
                 if (poStatusBadge) {
                     poStatusBadge.innerText = docStatus;
-                    if (docStatus === 'Out for Delivery') {
+                    if (docStatus === 'Pending Approval' || docStatus === 'Pending Authorization') {
+                        poStatusBadge.className = 'badge bg-warning text-dark px-2 py-0.5 text-uppercase po-doc-status';
+                        poStatusBadge.innerText = 'Pending Authorization';
+                    } else if (docStatus === 'Approved') {
+                        poStatusBadge.className = 'badge bg-success px-2 py-0.5 text-uppercase po-doc-status';
+                    } else if (docStatus === 'Rejected') {
+                        poStatusBadge.className = 'badge bg-danger px-2 py-0.5 text-uppercase po-doc-status';
+                    } else if (docStatus === 'Out for Delivery') {
                         poStatusBadge.className = 'badge bg-primary px-2 py-0.5 text-uppercase po-doc-status';
                     } else if (docStatus === 'Delivered') {
                         poStatusBadge.className = 'badge bg-success px-2 py-0.5 text-uppercase po-doc-status';
@@ -2479,7 +2902,33 @@ include 'layout/header.php';
                 if (poTermsEl) {
                     poTermsEl.innerText = po.payment_terms || 'Credit (30 Days Net)';
                 }
+                const printDestEl = document.getElementById('printDeliveryDestination');
+                if (printDestEl) {
+                    printDestEl.innerText = po.delivery_destination || 'Warehouse (Central Storage)';
+                }
+                const printAddressRow = document.getElementById('printDeliveryAddressRow');
+                const printAddressEl = document.getElementById('printDeliveryAddress');
+                if (printAddressRow && printAddressEl) {
+                    if (po.delivery_address && po.delivery_address.trim() !== '') {
+                        printAddressEl.innerText = po.delivery_address;
+                        printAddressRow.classList.remove('d-none');
+                    } else {
+                        printAddressRow.classList.add('d-none');
+                    }
+                }
                 document.getElementById('printPoEta').innerText = data.formatted_eta;
+
+                const printDrRow = document.getElementById('printSupplierDrRow');
+                const printDrEl = document.getElementById('printSupplierDrNo');
+                if (printDrRow && printDrEl) {
+                    if (po.supplier_dr_no && po.supplier_dr_no.trim() !== '') {
+                        printDrEl.innerText = po.supplier_dr_no;
+                        printDrRow.classList.remove('d-none');
+                    } else {
+                        printDrRow.classList.add('d-none');
+                    }
+                }
+
                 document.getElementById('printPreparedBy').innerText = po.prepared_by_name || 'Purchasing Department';
                 const prepSigWrap = document.getElementById('preparedSigImgWrap');
                 const prepSigImg = document.getElementById('printPreparedSigImg');
@@ -2494,15 +2943,22 @@ include 'layout/header.php';
                     }
                 }
 
+                const isPendingOrRejected = (po.status === 'Pending Approval' || po.status === 'Pending Authorization' || po.status === 'Rejected');
                 const appByElem = document.getElementById('printApprovedBy');
                 if (appByElem) {
-                    appByElem.innerText = po.approved_by_name || 'Management / Supplier Authorization';
+                    if (po.status === 'Pending Approval' || po.status === 'Pending Authorization') {
+                        appByElem.innerHTML = '<span class="text-warning-emphasis fw-bold"><i class="bi bi-hourglass-split me-1"></i>Pending Management Authorization</span>';
+                    } else if (po.status === 'Rejected') {
+                        appByElem.innerHTML = '<span class="text-danger fw-bold"><i class="bi bi-x-circle me-1"></i>Disapproved by Management</span>';
+                    } else {
+                        appByElem.innerText = po.approved_by_name || 'Management Authorization';
+                    }
                 }
                 const appSigWrap = document.getElementById('approvedSigImgWrap');
                 const appSigImg = document.getElementById('printApprovedSigImg');
                 const appSig = po.approved_signature || po.approved_user_sig;
                 if (appSigWrap && appSigImg) {
-                    if (appSig && appSig.trim() !== '') {
+                    if (!isPendingOrRejected && appSig && appSig.trim() !== '') {
                         const filename = appSig.split('/').pop();
                         appSigImg.src = `secure_image.php?type=signatures&file=${encodeURIComponent(filename)}&t=${Date.now()}`;
                         appSigWrap.classList.remove('d-none');
@@ -2533,6 +2989,12 @@ include 'layout/header.php';
                             } else {
                                 fulfillmentBadge = `<span class="badge bg-warning-subtle text-dark border border-warning-subtle py-0 px-1" style="font-size: 0.64rem;"><i class="bi bi-pie-chart-fill me-1"></i>Recv'd ${recvQty}/${ordQty} (${item.remaining_qty || (ordQty - recvQty)} to follow)</span>`;
                             }
+                        }
+
+                        const rejQty = parseInt(item.rejected_quantity || item.rejected_qty || 0);
+                        if (rejQty > 0) {
+                            const rejReasonText = item.rejection_reason ? `: ${item.rejection_reason}` : '';
+                            fulfillmentBadge += `<span class="badge bg-danger-subtle text-danger border border-danger-subtle py-0 px-1 ms-1" style="font-size: 0.64rem;"><i class="bi bi-x-octagon-fill me-1"></i>${rejQty} Defect / Rejected${rejReasonText}</span>`;
                         }
 
                         tr.innerHTML = `
@@ -2801,12 +3263,12 @@ include 'layout/header.php';
                 extra: outForDeliveryNote ? `<div class="p-1.5 bg-light rounded border mt-1 small font-monospace"><i class="bi bi-card-text me-1 text-primary"></i>${outForDeliveryNote}</div>` : ''
             },
             {
-                title: 'Warehouse Receiving & Stock-In',
+                title: 'Warehouse Receiving & Quality Inspection',
                 icon: 'bi-box-seam-fill',
                 nodeClass: isCancelled ? 'muted' : (isDelivered ? 'completed' : 'muted'),
-                date: isDelivered ? 'Stocked In Successfully' : 'Awaiting Arrival',
-                subtitle: isDelivered ? 'All ordered materials verified and stocked into warehouse inventory.' : 'Materials will be received and counted upon delivery arrival.',
-                extra: ''
+                date: isDelivered ? 'Inspected & Stocked In' : 'Awaiting Arrival',
+                subtitle: isDelivered ? 'Materials inspected for defects and accepted items credited to inventory.' : 'Materials will be inspected and counted upon delivery arrival.',
+                extra: (po.supplier_dr_no && po.supplier_dr_no.trim() !== '') ? `<span class="badge bg-light text-success border border-success-subtle font-monospace"><i class="bi bi-receipt me-1"></i>Matched DR / SI: ${po.supplier_dr_no}</span>` : ''
             },
             {
                 title: 'Official Delivery Receipt / Invoicing Proof',
@@ -3123,8 +3585,10 @@ include 'layout/header.php';
 
             // KPI Stat Tile Filter
             let matchesTileStatus = true;
-            if (currentPoTileFilter === 'pending') {
-                matchesTileStatus = ['Generated', 'Viber Order Sent', 'Out for Delivery', 'Pending Delivery', 'Partially Delivered', 'Partially Received'].includes(rowStatus);
+            if (currentPoTileFilter === 'pending_approval') {
+                matchesTileStatus = ['Pending Approval', 'Pending Authorization'].includes(rowStatus);
+            } else if (currentPoTileFilter === 'pending') {
+                matchesTileStatus = ['Generated', 'Approved', 'Viber Order Sent', 'Out for Delivery', 'Pending Delivery', 'Partially Delivered', 'Partially Received'].includes(rowStatus);
             } else if (currentPoTileFilter === 'delayed') {
                 matchesTileStatus = rowStatus.includes('Delayed');
             }
@@ -3894,6 +4358,25 @@ include 'layout/header.php';
         if (urlParams.get('action') === 'new') {
             const poModalEl = document.getElementById('poModal');
             if (poModalEl) {
+                const targetRsId = urlParams.get('rs_id');
+                const targetRsNo = urlParams.get('rs_no');
+                const rsSelect = document.getElementById('poRsSelect');
+                if (rsSelect && (targetRsId || targetRsNo)) {
+                    if (targetRsId && rsSelect.querySelector(`option[value="${targetRsId}"]`)) {
+                        rsSelect.value = targetRsId;
+                    } else if (targetRsNo) {
+                        for (let opt of rsSelect.options) {
+                            if (opt.text.includes(targetRsNo)) {
+                                opt.selected = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (typeof window.updatePoDestinationOnRsChange === 'function') {
+                        window.updatePoDestinationOnRsChange();
+                    }
+                    rsSelect.dispatchEvent(new Event('change'));
+                }
                 new bootstrap.Modal(poModalEl).show();
             }
         }
