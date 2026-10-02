@@ -309,7 +309,19 @@ $units = $units ?? [];
 
             <div class="modal-footer d-flex justify-content-between bg-white border-top-0">
                 <button type="button" id="printRsBtn" class="btn btn-outline-primary fw-bold px-4 d-none" onclick="printRSDocument()"><i class="bi bi-printer me-2"></i>Print Approved RS</button>
-                <button type="button" class="btn btn-secondary fw-bold px-4 ms-auto" data-bs-dismiss="modal">Close</button>
+                <div class="d-flex align-items-center gap-2 ms-auto">
+                    <?php if (in_array($role, ['management', 'admin'])): ?>
+                        <button type="button" id="viewRsReviewBtn" class="btn btn-success fw-bold px-4 d-none shadow-sm">
+                            <i class="bi bi-check2-square me-2"></i>Review for Approval
+                        </button>
+                    <?php endif; ?>
+                    <?php if (in_array($role, ['purchasing', 'admin'])): ?>
+                        <a href="javascript:void(0)" id="viewRsCreatePoBtn" class="btn btn-outline-primary fw-bold px-4 d-none shadow-sm">
+                            <i class="bi bi-file-earmark-plus me-2"></i>Generate PO
+                        </a>
+                    <?php endif; ?>
+                    <button type="button" class="btn btn-secondary fw-bold px-4" data-bs-dismiss="modal">Close</button>
+                </div>
             </div>
         </div>
     </div>
