@@ -116,7 +116,7 @@ elseif ($action === 'fetch_po_items') {
     $po_id = (int)($_POST['po_id'] ?? 0);
 
     // Fetch PO status and metadata
-    $poMetaStmt = $pdo->prepare("SELECT po_no, status, delay_remarks FROM purchase_orders WHERE id = ?");
+    $poMetaStmt = $pdo->prepare("SELECT po_no, status, delay_remarks, supplier_dr_no FROM purchase_orders WHERE id = ?");
     $poMetaStmt->execute([$po_id]);
     $poMeta = $poMetaStmt->fetch(PDO::FETCH_ASSOC);
 
@@ -126,6 +126,8 @@ elseif ($action === 'fetch_po_items') {
             pi.quantity AS ordered_qty,
             pi.quantity AS expected_qty,
             COALESCE(pi.received_quantity, 0) AS received_qty,
+            COALESCE(pi.rejected_quantity, 0) AS rejected_qty,
+            pi.rejection_reason,
             GREATEST(0, pi.quantity - COALESCE(pi.received_quantity, 0)) AS remaining_qty,
             COALESCE(pi.item_status, 'Pending') AS item_status,
             COALESCE(pi.unit_price, i.unit_price, 0) AS unit_price, 
@@ -216,15 +218,24 @@ elseif ($action === 'fetch_po_details') {
     $po['prepared_signature'] = $prepSig;
 
     // 2. Resolve Approved By Signature & Name
-    $appSig = $checkSig($po['approved_signature'] ?? '');
-    if (empty($appSig)) {
-        $appSig = $checkSig($po['approved_user_sig'] ?? '');
+    if (in_array($po['status'], ['Pending Approval', 'Pending Authorization', 'Rejected'])) {
+        $po['approved_signature'] = '';
+        $po['approved_user_sig'] = '';
+        if ($po['status'] === 'Rejected') {
+            $po['approved_by_name'] = 'Disapproved by Management';
+        } else {
+            $po['approved_by_name'] = 'Pending Management Authorization';
+        }
+    } else {
+        $appSig = $checkSig($po['approved_signature'] ?? '');
+        if (empty($appSig)) {
+            $appSig = $checkSig($po['approved_user_sig'] ?? '');
+        }
+        if (empty($po['approved_by_name'])) {
+            $po['approved_by_name'] = 'Management Authorization';
+        }
+        $po['approved_signature'] = $appSig;
     }
-
-    if (empty($po['approved_by_name'])) {
-        $po['approved_by_name'] = 'Management Authorization';
-    }
-    $po['approved_signature'] = $appSig;
 
     $itemsStmt = $pdo->prepare("
         SELECT 
@@ -232,6 +243,8 @@ elseif ($action === 'fetch_po_details') {
             pi.quantity, 
             pi.quantity AS ordered_qty,
             COALESCE(pi.received_quantity, 0) AS received_quantity,
+            COALESCE(pi.rejected_quantity, 0) AS rejected_quantity,
+            pi.rejection_reason,
             GREATEST(0, pi.quantity - COALESCE(pi.received_quantity, 0)) AS remaining_qty,
             COALESCE(pi.item_status, 'Pending') AS item_status,
             pi.unit_price, 
@@ -280,6 +293,8 @@ elseif ($action === 'create_po') {
     $prepared_by = $_SESSION['user_id'];
     $expected_delivery_date = !empty($_POST['expected_delivery_date']) ? $_POST['expected_delivery_date'] : null;
     $payment_terms = !empty($_POST['payment_terms']) ? trim($_POST['payment_terms']) : 'Credit (30 Days Net)';
+    $delivery_destination = !empty($_POST['delivery_destination']) ? trim($_POST['delivery_destination']) : 'Warehouse (Central Storage)';
+    $delivery_address = !empty($_POST['delivery_address']) ? trim($_POST['delivery_address']) : null;
 
     try {
         $pdo->beginTransaction();
@@ -299,11 +314,19 @@ elseif ($action === 'create_po') {
         $rsApprovedStmt->execute([$rs_id]);
         $rsApp = $rsApprovedStmt->fetch(PDO::FETCH_ASSOC);
 
-        $approved_by = $rsApp['approved_by'] ?? null;
-        $approved_signature = $rsApp['signature_path'] ?? null;
-
-        $stmt = $pdo->prepare("INSERT INTO purchase_orders (po_no, rs_id, supplier_id, prepared_by, prepared_signature, approved_by, approved_signature, expected_delivery_date, payment_terms) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
-        $stmt->execute([$po_no, $rs_id, $supplier_id, $prepared_by, $prepared_signature, $approved_by, $approved_signature, $expected_delivery_date, $payment_terms]);
+        // Two-Step Approval Workflow: PO is drafted by Purchasing, requiring Management Authorization before dispatch
+        $stmt = $pdo->prepare("
+            INSERT INTO purchase_orders (
+                po_no, rs_id, supplier_id, prepared_by, prepared_signature, 
+                approved_by, approved_signature, expected_delivery_date, 
+                payment_terms, delivery_destination, delivery_address, 
+                status
+            ) VALUES (?, ?, ?, ?, ?, NULL, NULL, ?, ?, ?, ?, 'Pending Approval')
+        ");
+        $stmt->execute([
+            $po_no, $rs_id, $supplier_id, $prepared_by, $prepared_signature, 
+            $expected_delivery_date, $payment_terms, $delivery_destination, $delivery_address
+        ]);
         $po_id = $pdo->lastInsertId();
 
         // Only copy items that management approved (excludes rejected items from Partially Approved RSes)
@@ -339,10 +362,25 @@ elseif ($action === 'create_po') {
 
         $pdo->prepare("UPDATE requisitions SET status = 'PO Created' WHERE id = ?")->execute([$rs_id]);
 
-        $etaMsg = $expected_delivery_date ? " Target Warehouse ETA: " . date('M d, Y', strtotime($expected_delivery_date)) . "." : "";
-        $notif = $pdo->prepare("INSERT INTO notifications (target_role, title, message) VALUES ('warehouse', 'Incoming Delivery Expected', ?)");
-        $notif->execute(["PO {$po_no} generated.{$etaMsg} Prepare space to receive materials."]);
-        sendPushNotification($pdo, 'Incoming Delivery Expected', "PO {$po_no} generated.{$etaMsg} Prepare space to receive materials.", 'warehouse', null);
+        $destDesc = ($delivery_destination === 'Warehouse (Central Storage)') ? 'Central Warehouse' : $delivery_destination;
+        $etaMsg = $expected_delivery_date ? " Target ETA: " . date('M d, Y', strtotime($expected_delivery_date)) . "." : "";
+
+        // Notify Management that a new Purchase Order is pending authorization (Two-Step Approval)
+        $supStmt = $pdo->prepare("SELECT company_name FROM suppliers WHERE id = ?");
+        $supStmt->execute([$supplier_id]);
+        $supplierName = $supStmt->fetchColumn() ?: 'Supplier';
+
+        $mgmtNotifTitle = "📝 New PO Pending Authorization: " . $po_no;
+        $mgmtNotifBody = "PO {$po_no} for {$supplierName} (Destination: {$destDesc}) has been submitted by Purchasing and is awaiting Management Authorization.";
+
+        $notifStmt = $pdo->prepare("INSERT INTO notifications (target_role, title, message) VALUES (?, ?, ?)");
+        $notifStmt->execute(['management', $mgmtNotifTitle, $mgmtNotifBody]);
+        $notifStmt->execute(['admin', $mgmtNotifTitle, $mgmtNotifBody]);
+
+        if (function_exists('sendPushNotification')) {
+            sendPushNotification($pdo, $mgmtNotifTitle, $mgmtNotifBody, 'management', null);
+            sendPushNotification($pdo, $mgmtNotifTitle, $mgmtNotifBody, 'admin', null);
+        }
 
         $pdo->commit();
 
@@ -350,13 +388,13 @@ elseif ($action === 'create_po') {
             echo json_encode([
                 'status' => 'success',
                 'success' => true,
-                'message' => "Purchase Order {$po_no} generated and sent to Supplier successfully!"
+                'message' => "Purchase Order {$po_no} generated and submitted to Management for review & authorization!"
             ]);
             exit;
         }
 
-        $_SESSION['message'] = "Purchase Order generated and sent to Supplier successfully!";
-        $_SESSION['msg_type'] = "success";
+        $_SESSION['message'] = "Purchase Order generated and submitted to Management for review & authorization!";
+        $_SESSION['msg_type'] = "info";
         header("Location: ../po");
         exit;
     } catch (Exception $e) {
@@ -364,6 +402,208 @@ elseif ($action === 'create_po') {
             $pdo->rollBack();
         }
         throw $e;
+    }
+}
+
+// --- APPROVE PURCHASE ORDER (MANAGEMENT / ADMIN AUTHORIZATION) ---
+elseif ($action === 'approve_po') {
+    header('Content-Type: application/json; charset=utf-8');
+    if (!in_array($_SESSION['user_role'], ['management', 'admin'])) {
+        echo json_encode(['status' => 'error', 'success' => false, 'message' => 'Unauthorized. Only Management or Admin can approve Purchase Orders.']);
+        exit;
+    }
+
+    $csrfToken = $_POST['csrf_token'] ?? $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
+    if (!empty($csrfToken) && function_exists('validate_csrf_token') && !validate_csrf_token($csrfToken)) {
+        echo json_encode(['status' => 'error', 'success' => false, 'message' => 'Security token invalid or expired. Please refresh the page.']);
+        exit;
+    }
+
+    $po_id = filter_input(INPUT_POST, 'po_id', FILTER_VALIDATE_INT);
+    $approval_notes = trim($_POST['approval_notes'] ?? '');
+
+    if (!$po_id) {
+        echo json_encode(['status' => 'error', 'success' => false, 'message' => 'Invalid Purchase Order ID.']);
+        exit;
+    }
+
+    try {
+        $pdo->beginTransaction();
+
+        $poStmt = $pdo->prepare("SELECT p.*, s.company_name, u.name AS prepared_by_name FROM purchase_orders p LEFT JOIN suppliers s ON p.supplier_id = s.id LEFT JOIN users u ON p.prepared_by = u.id WHERE p.id = ? FOR UPDATE");
+        $poStmt->execute([$po_id]);
+        $po = $poStmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$po) {
+            $pdo->rollBack();
+            echo json_encode(['status' => 'error', 'success' => false, 'message' => 'Purchase Order not found.']);
+            exit;
+        }
+
+        if (!in_array($po['status'], ['Pending Approval', 'Generated'])) {
+            $pdo->rollBack();
+            echo json_encode(['status' => 'error', 'success' => false, 'message' => "Purchase Order is already in status '{$po['status']}' and cannot be re-approved."]);
+            exit;
+        }
+
+        // Fetch Approver signature & name
+        $approverId = (int)$_SESSION['user_id'];
+        $appUserStmt = $pdo->prepare("SELECT name, signature_path FROM users WHERE id = ?");
+        $appUserStmt->execute([$approverId]);
+        $appUser = $appUserStmt->fetch(PDO::FETCH_ASSOC);
+        $approverName = $appUser['name'] ?? 'Management';
+        $approverSig = $appUser['signature_path'] ?? null;
+
+        // Build permanent audit log trail (ISO 9001 Clause 8.5.2)
+        $timestamp = date('Y-m-d H:i:s');
+        $userRole = strtoupper($_SESSION['user_role'] ?? 'MANAGEMENT');
+        $auditReason = "[MANAGEMENT AUTHORIZED — {$timestamp} by {$approverName} ({$userRole})]\nPO Approved & Released for Supplier Dispatch.";
+        if (!empty($approval_notes)) {
+            $auditReason .= "\nAuthorization Notes: {$approval_notes}";
+        }
+
+        $existingRemarks = trim($po['delay_remarks'] ?? '');
+        $newRemarks = $existingRemarks !== '' ? $existingRemarks . "\n\n" . $auditReason : $auditReason;
+
+        // Update PO to Approved
+        $updateStmt = $pdo->prepare("UPDATE purchase_orders SET status = 'Approved', approved_by = ?, approved_signature = ?, approved_at = NOW(), delay_remarks = ? WHERE id = ?");
+        $updateStmt->execute([$approverId, $approverSig, $newRemarks, $po_id]);
+
+        // Cryptographically Re-seal Purchase Order with RSA-2048 PKI Signature
+        try {
+            require_once __DIR__ . '/../../helpers/crypto_helper.php';
+            signPurchaseOrder($pdo, $po_id);
+        } catch (Exception $cryptoEx) {
+            error_log("PO Crypto Signing Notice: " . $cryptoEx->getMessage());
+        }
+
+        // Send notifications to Purchasing and Warehouse
+        $notifTitle = "✅ Purchase Order Approved: " . $po['po_no'];
+        $notifBody = "PO {$po['po_no']} for {$po['company_name']} has been APPROVED by {$approverName}. Ready for supplier dispatch.";
+
+        $notifStmt = $pdo->prepare("INSERT INTO notifications (target_role, title, message) VALUES (?, ?, ?)");
+        $notifStmt->execute(['purchasing', $notifTitle, $notifBody]);
+        $notifStmt->execute(['warehouse', $notifTitle, $notifBody]);
+
+        if (function_exists('sendPushNotification')) {
+            sendPushNotification($pdo, $notifTitle, $notifBody, 'purchasing', null);
+            sendPushNotification($pdo, $notifTitle, $notifBody, 'warehouse', null);
+        }
+
+        $pdo->commit();
+
+        echo json_encode([
+            'status' => 'success',
+            'success' => true,
+            'message' => "Purchase Order {$po['po_no']} has been successfully approved and authorized for dispatch!",
+            'po_id' => $po_id,
+            'po_no' => $po['po_no'],
+            'new_status' => 'Approved'
+        ]);
+        exit;
+    } catch (Exception $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        echo json_encode(['status' => 'error', 'success' => false, 'message' => 'Failed to approve Purchase Order: ' . $e->getMessage()]);
+        exit;
+    }
+}
+
+// --- REJECT PURCHASE ORDER (MANAGEMENT / ADMIN) ---
+elseif ($action === 'reject_po') {
+    header('Content-Type: application/json; charset=utf-8');
+    if (!in_array($_SESSION['user_role'], ['management', 'admin'])) {
+        echo json_encode(['status' => 'error', 'success' => false, 'message' => 'Unauthorized. Only Management or Admin can reject Purchase Orders.']);
+        exit;
+    }
+
+    $csrfToken = $_POST['csrf_token'] ?? $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
+    if (!empty($csrfToken) && function_exists('validate_csrf_token') && !validate_csrf_token($csrfToken)) {
+        echo json_encode(['status' => 'error', 'success' => false, 'message' => 'Security token invalid or expired. Please refresh the page.']);
+        exit;
+    }
+
+    $po_id = filter_input(INPUT_POST, 'po_id', FILTER_VALIDATE_INT);
+    $rejection_reason = trim($_POST['rejection_reason'] ?? '');
+
+    if (!$po_id) {
+        echo json_encode(['status' => 'error', 'success' => false, 'message' => 'Invalid Purchase Order ID.']);
+        exit;
+    }
+
+    if (empty($rejection_reason)) {
+        echo json_encode(['status' => 'error', 'success' => false, 'message' => 'Please provide a reason for rejecting the Purchase Order.']);
+        exit;
+    }
+
+    try {
+        $pdo->beginTransaction();
+
+        $poStmt = $pdo->prepare("SELECT p.*, s.company_name FROM purchase_orders p LEFT JOIN suppliers s ON p.supplier_id = s.id WHERE p.id = ? FOR UPDATE");
+        $poStmt->execute([$po_id]);
+        $po = $poStmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$po) {
+            $pdo->rollBack();
+            echo json_encode(['status' => 'error', 'success' => false, 'message' => 'Purchase Order not found.']);
+            exit;
+        }
+
+        if (!in_array($po['status'], ['Pending Approval', 'Generated'])) {
+            $pdo->rollBack();
+            echo json_encode(['status' => 'error', 'success' => false, 'message' => "Purchase Order is in status '{$po['status']}' and cannot be rejected."]);
+            exit;
+        }
+
+        $timestamp = date('Y-m-d H:i:s');
+        $approverId = (int)$_SESSION['user_id'];
+        $appUserStmt = $pdo->prepare("SELECT name FROM users WHERE id = ?");
+        $appUserStmt->execute([$approverId]);
+        $approverName = $appUserStmt->fetchColumn() ?: 'Management';
+        $userRole = strtoupper($_SESSION['user_role'] ?? 'MANAGEMENT');
+
+        $auditReason = "[MANAGEMENT REJECTED / DISAPPROVED — {$timestamp} by {$approverName} ({$userRole})]\nReason: {$rejection_reason}";
+        $existingRemarks = trim($po['delay_remarks'] ?? '');
+        $newRemarks = $existingRemarks !== '' ? $existingRemarks . "\n\n" . $auditReason : $auditReason;
+
+        // Update PO to Rejected
+        $updateStmt = $pdo->prepare("UPDATE purchase_orders SET status = 'Rejected', approved_by = ?, delay_remarks = ? WHERE id = ?");
+        $updateStmt->execute([$approverId, $newRemarks, $po_id]);
+
+        // Revert linked RS to Approved so purchasing can adjust and re-issue a revised PO
+        if (!empty($po['rs_id'])) {
+            $pdo->prepare("UPDATE requisitions SET status = 'Approved' WHERE id = ?")->execute([$po['rs_id']]);
+        }
+
+        // Notify Purchasing
+        $notifTitle = "❌ Purchase Order Disapproved: " . $po['po_no'];
+        $notifBody = "PO {$po['po_no']} for {$po['company_name']} was rejected by {$approverName}. Reason: {$rejection_reason}";
+
+        $notifStmt = $pdo->prepare("INSERT INTO notifications (target_role, title, message) VALUES ('purchasing', ?, ?)");
+        $notifStmt->execute([$notifTitle, $notifBody]);
+
+        if (function_exists('sendPushNotification')) {
+            sendPushNotification($pdo, $notifTitle, $notifBody, 'purchasing', null);
+        }
+
+        $pdo->commit();
+
+        echo json_encode([
+            'status' => 'success',
+            'success' => true,
+            'message' => "Purchase Order {$po['po_no']} has been rejected and returned to Purchasing.",
+            'po_id' => $po_id,
+            'po_no' => $po['po_no'],
+            'new_status' => 'Rejected'
+        ]);
+        exit;
+    } catch (Exception $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        echo json_encode(['status' => 'error', 'success' => false, 'message' => 'Failed to reject Purchase Order: ' . $e->getMessage()]);
+        exit;
     }
 }
 
@@ -383,8 +623,12 @@ elseif ($action === 'mark_po_delivered') {
     $po_no = trim($_POST['po_no'] ?? '');
     $received_by = (int)$_SESSION['user_id'];
 
+    $supplier_dr_no = trim($_POST['supplier_dr_no'] ?? '');
+    $inspection_notes = trim($_POST['inspection_notes'] ?? '');
     $item_codes = $_POST['item_codes'] ?? [];
     $actual_qtys = $_POST['actual_qtys'] ?? [];
+    $rejected_qtys = $_POST['rejected_qtys'] ?? [];
+    $rejection_reasons = $_POST['rejection_reasons'] ?? [];
     $expected_qtys = $_POST['expected_qtys'] ?? [];
     $unit_prices = $_POST['unit_prices'] ?? [];
     $item_dispositions = $_POST['item_dispositions'] ?? [];
@@ -393,7 +637,7 @@ elseif ($action === 'mark_po_delivered') {
         $pdo->beginTransaction();
 
         // Fetch existing PO record with row lock
-        $poCheckStmt = $pdo->prepare("SELECT id, po_no, status, delay_remarks, proof_of_receipt FROM purchase_orders WHERE id = ? FOR UPDATE");
+        $poCheckStmt = $pdo->prepare("SELECT id, po_no, rs_id, status, delay_remarks, proof_of_receipt, delivery_destination, supplier_dr_no FROM purchase_orders WHERE id = ? FOR UPDATE");
         $poCheckStmt->execute([$po_id]);
         $poRecord = $poCheckStmt->fetch(PDO::FETCH_ASSOC);
 
@@ -441,6 +685,8 @@ elseif ($action === 'mark_po_delivered') {
         $updatePoItem = $pdo->prepare("
             UPDATE po_items 
             SET received_quantity = ?, 
+                rejected_quantity = COALESCE(rejected_quantity, 0) + ?,
+                rejection_reason = CASE WHEN ? IS NOT NULL AND ? != '' THEN ? ELSE rejection_reason END,
                 item_status = ?, 
                 unit_price = CASE WHEN ? > 0 THEN ? ELSE unit_price END 
             WHERE po_id = ? AND item_code = ?
@@ -448,6 +694,7 @@ elseif ($action === 'mark_po_delivered') {
 
         $fetchPoItemStmt = $pdo->prepare("
             SELECT id, item_code, quantity, COALESCE(received_quantity, 0) AS received_quantity, 
+                   COALESCE(rejected_quantity, 0) AS rejected_quantity,
                    COALESCE(item_status, 'Pending') AS item_status, custom_item_name, category, unit, unit_price 
             FROM po_items 
             WHERE po_id = ? AND item_code = ? FOR UPDATE
@@ -455,10 +702,13 @@ elseif ($action === 'mark_po_delivered') {
 
         $batchLogs = [];
         $totalBatchUnitsReceived = 0;
+        $totalBatchUnitsRejected = 0;
 
         for ($i = 0; $i < count($item_codes); $i++) {
             $code = $item_codes[$i];
             $batchActual = max(0, (int)($actual_qtys[$i] ?? 0));
+            $batchRejected = max(0, (int)($rejected_qtys[$i] ?? 0));
+            $defectReason = trim($rejection_reasons[$i] ?? '');
             $unit_price = max(0, (float)($unit_prices[$i] ?? 0));
             $disposition = trim($item_dispositions[$i] ?? 'to_follow');
 
@@ -471,15 +721,21 @@ elseif ($action === 'mark_po_delivered') {
 
             $orderedQty = (int)$poItemRow['quantity'];
             $priorReceived = (int)$poItemRow['received_quantity'];
-            $maxCanReceiveNow = max(0, $orderedQty - $priorReceived);
+            $maxCanAccountNow = max(0, $orderedQty - $priorReceived);
 
-            // Cap the received amount to remaining needed
-            if ($batchActual > $maxCanReceiveNow) {
-                $batchActual = $maxCanReceiveNow;
+            // Cap the combined accepted and rejected amount to remaining needed
+            if (($batchActual + $batchRejected) > $maxCanAccountNow) {
+                if ($batchActual > $maxCanAccountNow) {
+                    $batchActual = $maxCanAccountNow;
+                    $batchRejected = 0;
+                } else {
+                    $batchRejected = $maxCanAccountNow - $batchActual;
+                }
             }
 
             $newTotalReceived = $priorReceived + $batchActual;
             $totalBatchUnitsReceived += $batchActual;
+            $totalBatchUnitsRejected += $batchRejected;
 
             // Determine item status
             if ($newTotalReceived >= $orderedQty) {
@@ -493,9 +749,20 @@ elseif ($action === 'mark_po_delivered') {
             }
 
             // Update po_items line
-            $updatePoItem->execute([$newTotalReceived, $newItemStatus, $unit_price, $unit_price, $po_id, $code]);
+            $updatePoItem->execute([
+                $newTotalReceived,
+                $batchRejected,
+                $defectReason,
+                $defectReason,
+                $defectReason,
+                $newItemStatus,
+                $unit_price,
+                $unit_price,
+                $po_id,
+                $code
+            ]);
 
-            // Check Master Inventory record
+            // Check Master Inventory record (only increment by good accepted units!)
             $checkInv = $pdo->prepare("SELECT id, item_name, unit FROM inventory WHERE item_code = ? FOR UPDATE");
             $checkInv->execute([$code]);
             $existingInv = $checkInv->fetch(PDO::FETCH_ASSOC);
@@ -524,8 +791,12 @@ elseif ($action === 'mark_po_delivered') {
                 }
             }
 
-            // Format line-item batch log
-            $itemLogLine = "- {$itemName} [Code: {$code}]: Received {$batchActual} units today (Total: {$newTotalReceived}/{$orderedQty})";
+            // Format line-item batch log with quality inspection record
+            $itemLogLine = "- {$itemName} [Code: {$code}]: Accepted {$batchActual} units";
+            if ($batchRejected > 0) {
+                $itemLogLine .= " | ❌ REJECTED/DAMAGED: {$batchRejected} units (" . (!empty($defectReason) ? "Defect: {$defectReason}" : "Quality Non-Conformance") . ")";
+            }
+            $itemLogLine .= " (Fulfilled: {$newTotalReceived}/{$orderedQty})";
             if ($unit_price > 0) {
                 $itemLogLine .= " @ ₱" . number_format($unit_price, 2);
             }
@@ -579,24 +850,43 @@ elseif ($action === 'mark_po_delivered') {
         $userStmt->execute([$received_by]);
         $receiverName = $userStmt->fetchColumn() ?: 'Warehouse Officer';
 
-        // Build Audit / Delivery remarks entry
+        // Build Audit / Delivery remarks entry with 3-Way Match Reference & Quality Inspection Notes
         $timestampStr = date('M d, Y g:i A');
-        $batchHeader = "[DELIVERY BATCH — {$timestampStr} by {$receiverName}]:\n" . implode("\n", $batchLogs);
+        $drRef = !empty($supplier_dr_no) ? " (DR: {$supplier_dr_no})" : "";
+        $batchHeader = "[DELIVERY BATCH — {$timestampStr} by {$receiverName}{$drRef}]:";
+        if (!empty($inspection_notes)) {
+            $batchHeader .= "\n  Inspection Remarks: {$inspection_notes}";
+        }
+        $batchHeader .= "\n" . implode("\n", $batchLogs);
 
         $existingRemarks = trim($poRecord['delay_remarks'] ?? '');
         $combinedRemarks = !empty($existingRemarks) 
             ? $existingRemarks . "\n\n" . $batchHeader
             : $batchHeader;
 
-        // Update purchase order header
+        // Update purchase order header with supplier DR number
+        $effectiveDr = !empty($supplier_dr_no) ? $supplier_dr_no : ($poRecord['supplier_dr_no'] ?? null);
         $pdo->prepare("
             UPDATE purchase_orders 
             SET status = ?, 
                 delay_remarks = ?, 
                 proof_of_receipt = COALESCE(?, proof_of_receipt), 
-                received_by = ? 
+                received_by = ?,
+                supplier_dr_no = ?
             WHERE id = ?
-        ")->execute([$finalPoStatus, $combinedRemarks, $proofPath, $received_by, $po_id]);
+        ")->execute([$finalPoStatus, $combinedRemarks, $proofPath, $received_by, $effectiveDr, $po_id]);
+
+        // Quality Non-Conformance Alert (ISO 9001 Clause 8.7)
+        if ($totalBatchUnitsRejected > 0) {
+            $defectAlertTitle = "⚠️ Quality Defect Logged: {$po_no}" . (!empty($supplier_dr_no) ? " (DR: {$supplier_dr_no})" : "");
+            $defectAlertMsg = "Delivery recorded with {$totalBatchUnitsRejected} rejected/damaged unit(s). Please review inspection records and coordinate with supplier for credit memo or replacement.";
+            $pdo->prepare("INSERT INTO notifications (target_role, title, message) VALUES ('purchasing', ?, ?)")->execute([$defectAlertTitle, $defectAlertMsg]);
+            $pdo->prepare("INSERT INTO notifications (target_role, title, message) VALUES ('management', ?, ?)")->execute([$defectAlertTitle, $defectAlertMsg]);
+            if (function_exists('sendPushNotification')) {
+                sendPushNotification($pdo, $defectAlertTitle, $defectAlertMsg, 'purchasing', null);
+                sendPushNotification($pdo, $defectAlertTitle, $defectAlertMsg, 'management', null);
+            }
+        }
 
         // Send role-based notifications & alerts
         if ($finalPoStatus === 'Delivered') {
@@ -636,6 +926,46 @@ elseif ($action === 'mark_po_delivered') {
 
             $_SESSION['message'] = "Delivery finalized. Unsupplied items recorded as Sold Out by supplier. Management and Purchasing alerted.";
             $_SESSION['msg_type'] = "warning";
+        }
+
+        // Synchronize linked Requisition and notify Requestor if applicable (ISO 9001 Clause 8.5.2 & 8.7)
+        $linkedRsId = (int)($poRecord['rs_id'] ?? 0);
+        if ($linkedRsId > 0) {
+            $linkedRsStmt = $pdo->prepare("SELECT id, rs_no, type, project_name, requestor_id FROM requisitions WHERE id = ?");
+            $linkedRsStmt->execute([$linkedRsId]);
+            $linkedRs = $linkedRsStmt->fetch(PDO::FETCH_ASSOC);
+
+            if ($linkedRs) {
+                $poDest = $poRecord['delivery_destination'] ?? 'Warehouse (Central Storage)';
+                $isDirectSite = stripos($poDest, 'Jobsite') !== false || stripos($poDest, 'Direct') !== false;
+
+                if ($finalPoStatus === 'Delivered') {
+                    if ($isDirectSite) {
+                        // Direct-to-site materials arrived directly at jobsite!
+                        $pdo->prepare("UPDATE requisitions SET status = 'Delivered to Site' WHERE id = ?")->execute([$linkedRsId]);
+                        $siteMsg = "Delivery Complete! Materials for {$linkedRs['rs_no']} ({$linkedRs['project_name']}) have arrived 100% complete at {$poDest}. Verified by {$receiverName}.";
+                        if (!empty($linkedRs['requestor_id'])) {
+                            $pdo->prepare("INSERT INTO notifications (target_user_id, title, message) VALUES (?, 'Materials Delivered to Site', ?)")
+                                ->execute([$linkedRs['requestor_id'], $siteMsg]);
+                            sendPushNotification($pdo, 'Materials Delivered to Site', $siteMsg, null, (int)$linkedRs['requestor_id']);
+                        }
+                    } else {
+                        // Warehouse delivery: Materials are now in warehouse stock!
+                        if ($linkedRs['type'] === 'restock' || $linkedRs['project_name'] === 'Warehouse Restock') {
+                            $pdo->prepare("UPDATE requisitions SET status = 'Released' WHERE id = ?")->execute([$linkedRsId]);
+                        } else {
+                            // Project materials stored in warehouse: Ready for express staging & pickup!
+                            $pdo->prepare("UPDATE requisitions SET status = 'Approved' WHERE id = ?")->execute([$linkedRsId]);
+                            $whArrivedMsg = "Materials for {$linkedRs['rs_no']} ({$linkedRs['project_name']}) have arrived from supplier and are stocked in the central warehouse. Ready for warehouse staging/pickup.";
+                            if (!empty($linkedRs['requestor_id'])) {
+                                $pdo->prepare("INSERT INTO notifications (target_user_id, title, message) VALUES (?, 'Materials Ready at Warehouse', ?)")
+                                    ->execute([$linkedRs['requestor_id'], $whArrivedMsg]);
+                                sendPushNotification($pdo, 'Materials Ready at Warehouse', $whArrivedMsg, null, (int)$linkedRs['requestor_id']);
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         $pdo->commit();
