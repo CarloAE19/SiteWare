@@ -49,6 +49,32 @@ if ($action === 'log_viber_order_sent') {
     exit;
 }
 
+// --- LOG PRE-PO VIBER INQUIRY (Method A: Direct Vendor Inquiry) ---
+elseif ($action === 'log_viber_inquiry') {
+    if (!in_array($_SESSION['user_role'], ['purchasing', 'admin'])) {
+        echo json_encode(['status' => 'error', 'message' => 'Unauthorized']);
+        exit;
+    }
+
+    $supplier_id = !empty($_POST['supplier_id']) ? (int) $_POST['supplier_id'] : null;
+    $rawPhone = $_POST['contact_number'] ?? '';
+    $normalizedPhone = (function_exists('normalizeViberPhone') ? normalizeViberPhone($rawPhone) : null) ?? preg_replace('/[^0-9+]/', '', $rawPhone);
+    $inquiryMessage = trim($_POST['message'] ?? '');
+
+    if ($supplier_id && $inquiryMessage) {
+        try {
+            $logStmt = $pdo->prepare("
+                INSERT INTO supplier_viber_logs (supplier_id, po_id, direction, sender_number, receiver_number, message_text, is_read)
+                VALUES (?, NULL, 'outbound', 'VIBER', ?, ?, 1)
+            ");
+            $logStmt->execute([$supplier_id, $normalizedPhone ?: 'SYSTEM', "[Pre-PO Stock Inquiry]\n" . $inquiryMessage]);
+        } catch (PDOException $e) { }
+    }
+
+    echo json_encode(['status' => 'success', 'message' => 'Vendor stock inquiry logged successfully']);
+    exit;
+}
+
 // --- FETCH PO VIBER PREVIEW ---
 elseif ($action === 'fetch_po_viber_preview') {
     if (!in_array($_SESSION['user_role'], ['purchasing', 'admin'])) {
