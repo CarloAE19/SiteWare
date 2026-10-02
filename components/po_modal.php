@@ -15,16 +15,16 @@ $suppliers = $pdo->query("
     GROUP BY s.id
     ORDER BY s.company_name ASC
 ")->fetchAll(PDO::FETCH_ASSOC);
-// Fetch Approved AND Partially Approved Restock Requisitions for PO creation
-// Partially Approved RSes are valid for PO — only their approved items will be included
+// Fetch Approved AND Partially Approved Requisitions for PO creation
+// Supports both Warehouse Restock and Project Requisitions (Direct-to-Jobsite or Central Warehouse Delivery)
 $approvedRS = $pdo->query("
-    SELECT id, rs_no, project_name, status 
-    FROM requisitions 
-    WHERE status IN ('Approved', 'Partially Approved') 
-      AND (type = 'restock' OR project_name = 'Warehouse Restock') 
+    SELECT r.id, r.rs_no, r.project_name, r.status, r.type, p.address AS project_address 
+    FROM requisitions r 
+    LEFT JOIN projects p ON r.project_name = p.project_name 
+    WHERE r.status IN ('Approved', 'Partially Approved') 
     ORDER BY 
-        FIELD(status, 'Approved', 'Partially Approved'),
-        created_at DESC
+        FIELD(r.status, 'Approved', 'Partially Approved'),
+        r.created_at DESC
 ")->fetchAll(PDO::FETCH_ASSOC);
 ?>
 
@@ -39,7 +39,7 @@ $approvedRS = $pdo->query("
                         style="color: var(--gb-yellow);"></i>Generate Purchase Order</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-            <form method="POST" action="process/process.php" id="createPoForm">
+            <form method="POST" action="process/process.php" id="createPoForm" enctype="multipart/form-data">
                 <!-- Added p-4 for premium spacing -->
                 <div class="modal-body bg-light p-4">
                     <?php if (function_exists('generate_csrf_token')): ?>
@@ -57,23 +57,27 @@ $approvedRS = $pdo->query("
                     <div class="mb-4">
                         <label class="form-label fw-bold small text-muted text-uppercase">Select Approved Requisition
                             (RS) <span class="text-danger">*</span></label>
-                        <select class="form-select fw-bold shadow-sm" name="rs_id" id="poRsSelect" required>
+                        <select class="form-select fw-bold shadow-sm" name="rs_id" id="poRsSelect" required onchange="if(typeof window.updatePoDestinationOnRsChange === 'function') window.updatePoDestinationOnRsChange();">
                             <option value="" disabled selected>-- Select an Approved RS --</option>
                             <?php foreach ($approvedRS as $rs):
                                 $isPartial = $rs['status'] === 'Partially Approved';
                                 $statusLabel = $isPartial ? ' ⚠️ [Partially Approved]' : ' ✅ [Approved]';
+                                $isRestock = ($rs['type'] === 'restock' || $rs['project_name'] === 'Warehouse Restock');
+                                $typePrefix = $isRestock ? '📦 [Restock]' : '🏗️ [Project: ' . htmlspecialchars($rs['project_name']) . ']';
                                 ?>
-                                <option value="<?= $rs['id'] ?>"><?= $rs['rs_no'] ?> -
-                                    <?= htmlspecialchars($rs['project_name']) ?>     <?= $statusLabel ?>
+                                <option value="<?= $rs['id'] ?>"
+                                    data-type="<?= htmlspecialchars($rs['type'] ?? 'project') ?>"
+                                    data-project="<?= htmlspecialchars($rs['project_name']) ?>"
+                                    data-address="<?= htmlspecialchars($rs['project_address'] ?? '') ?>">
+                                    <?= $typePrefix ?> <?= $rs['rs_no'] ?>     <?= $statusLabel ?>
                                 </option>
                             <?php endforeach; ?>
                         </select>
                         <small class="text-muted d-block mt-2" style="font-size: 0.75rem;"><i
-                                class="bi bi-info-circle me-1"></i>Approved and Partially Approved RSes appear here.
-                            Only approved items from each RS will be included in the PO.</small>
+                                class="bi bi-info-circle me-1"></i>Approved and Partially Approved RSes (both Warehouse Restock &amp; Project requests) appear here.</small>
                     </div>
 
-                    <!-- NEW: Item History Preview -->
+                    <!-- Item History Preview -->
                     <div class="mb-4 d-none" id="rsItemsPreviewContainer">
                         <label class="form-label fw-bold small text-muted text-uppercase">Items to Purchase &
                             History</label>
@@ -91,6 +95,49 @@ $approvedRS = $pdo->query("
                                     <!-- Populated via AJAX -->
                                 </tbody>
                             </table>
+                        </div>
+                    </div>
+
+                    <!-- Delivery Destination & Routing Card (ISO 9001 / Direct-to-Jobsite Architecture) -->
+                    <div class="mb-4 p-3 bg-white border rounded shadow-sm" id="poDeliveryRoutingCard">
+                        <label class="form-label fw-bold small text-muted text-uppercase d-flex align-items-center justify-content-between mb-2">
+                            <span><i class="bi bi-geo-alt-fill text-danger me-1"></i> Delivery Destination & Routing</span>
+                            <span class="badge bg-light text-secondary border font-monospace" id="rsTypeBadge" style="font-size: 0.70rem;">Central Storage</span>
+                        </label>
+
+                        <div class="row g-2 mb-2">
+                            <div class="col-12 col-sm-6">
+                                <div class="form-check p-2.5 border rounded-3 bg-light h-100 destination-radio-wrap" id="destRadioWarehouseWrap">
+                                    <input class="form-check-input ms-1" type="radio" name="delivery_destination_type" id="destTypeWarehouse" value="warehouse" checked onchange="togglePoDestinationFields()">
+                                    <label class="form-check-label fw-bold small text-dark ms-2" for="destTypeWarehouse">
+                                        <i class="bi bi-building-down text-primary me-1"></i> Central Warehouse
+                                        <small class="d-block text-muted fw-normal" style="font-size: 0.72rem;">Stocked into warehouse inventory</small>
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-12 col-sm-6">
+                                <div class="form-check p-2.5 border rounded-3 bg-light h-100 destination-radio-wrap" id="destRadioJobsiteWrap">
+                                    <input class="form-check-input ms-1" type="radio" name="delivery_destination_type" id="destTypeJobsite" value="jobsite" onchange="togglePoDestinationFields()">
+                                    <label class="form-check-label fw-bold small text-dark ms-2" for="destTypeJobsite">
+                                        <i class="bi bi-truck text-success me-1"></i> Direct to Jobsite
+                                        <small class="d-block text-muted fw-normal" style="font-size: 0.72rem;">Delivered directly to project location</small>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Hidden input holding actual destination string sent to backend -->
+                        <input type="hidden" name="delivery_destination" id="poDeliveryDestination" value="Warehouse (Central Storage)">
+
+                        <!-- Address / Drop Location (Shown when Direct to Jobsite is selected) -->
+                        <div id="jobsiteAddressGroup" class="d-none mt-2">
+                            <label class="form-label fw-bold small text-muted text-uppercase mb-1" style="font-size: 0.72rem;">
+                                Jobsite Address / Drop Instructions
+                            </label>
+                            <textarea class="form-control form-control-sm bg-light shadow-sm" name="delivery_address" id="poDeliveryAddress" rows="2" placeholder="e.g. Lot 4 Block 2, MacArthur Highway Site Gate 1 (Contact: Engr. Santos)"></textarea>
+                            <small class="text-muted d-block mt-1" style="font-size: 0.72rem;">
+                                <i class="bi bi-info-circle me-1"></i>Printed on the Purchase Order for supplier trucking and site receiving.
+                            </small>
                         </div>
                     </div>
 
@@ -253,16 +300,52 @@ $approvedRS = $pdo->query("
                     <input type="hidden" name="action" value="mark_po_delivered">
                     <input type="hidden" name="po_id" id="receivePoId">
                     <input type="hidden" name="po_no" id="receivePoNo">
+                                    <!-- 3-Way Match Reference: Supplier Delivery Receipt & Quality Inspection -->
+                    <div class="card border border-success-subtle shadow-xs mb-3 bg-white">
+                        <div class="card-body p-3">
+                            <div class="d-flex align-items-center justify-content-between mb-2 pb-2 border-bottom">
+                                <span class="text-uppercase fw-bold text-success small" style="font-size: 0.72rem; letter-spacing: 0.5px;">
+                                    <i class="bi bi-shield-check me-1"></i> 3-Way Match & Quality Inspection
+                                </span>
+                                <span class="badge bg-light text-dark border font-monospace" id="receivePoNoBadge" style="font-size: 0.75rem;">PO-0000</span>
+                            </div>
+                            <div class="row g-2">
+                                <div class="col-12 col-md-6">
+                                    <label class="form-label fw-bold text-dark small text-uppercase mb-1">
+                                        Supplier DR / Sales Invoice No. <span class="text-danger">*</span>
+                                    </label>
+                                    <div class="input-group shadow-sm">
+                                        <span class="input-group-text bg-white text-muted"><i class="bi bi-receipt"></i></span>
+                                        <input type="text" class="form-control fw-bold text-dark" name="supplier_dr_no" id="receiveSupplierDrNo"
+                                            placeholder="e.g. DR-2026-9041 or SI-88219" required>
+                                    </div>
+                                    <small class="text-muted d-block mt-1" style="font-size: 0.72rem;">
+                                        <i class="bi bi-info-circle me-1"></i>Official vendor Delivery Receipt or Invoice reference for 3-way matching.
+                                    </small>
+                                </div>
+                                <div class="col-12 col-md-6">
+                                    <label class="form-label fw-bold text-dark small text-uppercase mb-1">
+                                        Quality Inspection Remarks <span class="text-muted fw-normal">(Optional)</span>
+                                    </label>
+                                    <div class="input-group shadow-sm">
+                                        <span class="input-group-text bg-white text-muted"><i class="bi bi-chat-left-text"></i></span>
+                                        <input type="text" class="form-control" name="inspection_notes" id="receiveInspectionNotes"
+                                            placeholder="e.g. Vehicle plate ABC-1234, packaging intact, moisture-free">
+                                    </div>
+                                    <small class="text-muted d-block mt-1" style="font-size: 0.72rem;">
+                                        <i class="bi bi-card-checklist me-1"></i>Physical condition, batch LOT numbers, seals, or delivery driver notes.
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
 
                     <!-- Info Alert Explaining Partial Deliveries -->
                     <div class="alert alert-info border-0 shadow-sm mb-3 d-flex align-items-center py-2 px-3 rounded-3"
                         style="font-size: 0.85rem; background-color: #e8f4fd; color: #0d47a1;">
                         <i class="bi bi-info-circle-fill fs-5 me-2 flex-shrink-0 text-primary"></i>
                         <div>
-                            <strong>Multi-Stage Delivery:</strong> Enter the quantity physically arriving in this
-                            shipment. If fewer units arrive, choose whether the remainder is <strong>To Follow</strong>
-                            (supplier has pending stock, keeps PO open) or <strong>Sold Out</strong> (supplier
-                            cancelled). Master Inventory only increments by the units received today.
+                            <strong>Multi-Stage Delivery & Quality Control:</strong> Enter accepted good units (stocked into Master Inventory) and damaged/rejected units (logged for debit memo/replacement). If remaining units are unsupplied, designate them as <strong>To Follow</strong> or <strong>Sold Out</strong>.
                         </div>
                     </div>
 
@@ -354,14 +437,15 @@ $approvedRS = $pdo->query("
                         <table class="table table-hover align-middle mb-0 text-nowrap" id="receiveItemsTable">
                             <thead class="table-light text-muted" style="font-size: 0.8rem;">
                                 <tr>
-                                    <th style="min-width: 180px;">Item Description</th>
-                                    <th class="text-center" style="width: 75px;">Ordered</th>
-                                    <th class="text-center" style="width: 75px;">Prior Recv</th>
-                                    <th class="text-center" style="width: 80px;">Remaining</th>
-                                    <th class="text-center" style="min-width: 165px; width: 170px;">Receive Today</th>
-                                    <th class="text-center" style="min-width: 125px; width: 130px;">Unit Price (₱)</th>
-                                    <th class="text-center" style="min-width: 200px;">Supplier Status / If Incomplete
-                                    </th>
+                                    <th style="min-width: 170px;">Item Description</th>
+                                    <th class="text-center" style="width: 70px;">Ordered</th>
+                                    <th class="text-center" style="width: 70px;">Prior</th>
+                                    <th class="text-center" style="width: 75px;">Remaining</th>
+                                    <th class="text-center" style="min-width: 145px; width: 150px;">Accepted Today</th>
+                                    <th class="text-center" style="min-width: 125px; width: 130px;">Damaged / Defect</th>
+                                    <th class="text-center" style="min-width: 180px;">Defect Reason (If Any)</th>
+                                    <th class="text-center" style="min-width: 120px; width: 125px;">Unit Price (₱)</th>
+                                    <th class="text-center" style="min-width: 185px;">Supplier Status / Remainder</th>
                                     <th class="text-end" style="width: 110px;">Batch Subtotal</th>
                                 </tr>
                             </thead>
@@ -370,10 +454,8 @@ $approvedRS = $pdo->query("
                             </tbody>
                             <tfoot class="table-light border-top">
                                 <tr>
-                                    <td colspan="7" class="text-end fw-bold text-muted text-uppercase small py-2">Batch
-                                        Delivery Total:</td>
-                                    <td class="text-end fw-bold text-success fs-6 py-2" id="receiveBatchTotalVal">₱0.00
-                                    </td>
+                                    <td colspan="9" class="text-end fw-bold text-muted text-uppercase small py-2">Batch Accepted Total:</td>
+                                    <td class="text-end fw-bold text-success fs-6 py-2" id="receiveBatchTotalVal">₱0.00</td>
                                 </tr>
                             </tfoot>
                         </table>
@@ -752,8 +834,18 @@ $approvedRS = $pdo->query("
                                 <strong>Payment Terms:</strong>
                                 <span id="printPoTerms" class="fw-bold text-dark">-</span>
                             </div>
+                            <div class="text-truncate" style="font-size: 0.72rem; line-height: 1.25;">
+                                <strong>Delivery Destination:</strong>
+                                <span id="printDeliveryDestination" class="fw-bold text-primary">-</span>
+                            </div>
+                            <div id="printDeliveryAddressRow" class="text-secondary d-none" style="font-size: 0.70rem; line-height: 1.2; word-break: break-word;">
+                                <strong>Drop Location:</strong> <span id="printDeliveryAddress">-</span>
+                            </div>
                             <div class="text-danger fw-bold" style="font-size: 0.72rem; line-height: 1.25;">
                                 <strong>Warehouse Target ETA:</strong> <span id="printPoEta">-</span>
+                            </div>
+                            <div id="printSupplierDrRow" class="text-success fw-bold d-none" style="font-size: 0.72rem; line-height: 1.25;">
+                                <strong>Supplier DR / SI No.:</strong> <span id="printSupplierDrNo" class="badge bg-success-subtle text-success border border-success-subtle font-monospace">-</span>
                             </div>
                         </div>
                     </div>
@@ -1195,7 +1287,276 @@ $approvedRS = $pdo->query("
     </div>
 </div>
 
+<!-- ==========================================
+  9. MODAL: MANAGEMENT PO AUTHORIZATION (TWO-STEP APPROVAL)
+=========================================== -->
+<div class="modal fade" id="approvePoModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-fullscreen-sm-down">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header" style="background-color: var(--gb-dark, #1e293b); color: white;">
+                <h5 class="modal-title fw-bold">
+                    <i class="bi bi-shield-check me-2 text-success"></i>Management PO Authorization
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="approvePoForm" onsubmit="handleAuthorizePoSubmit(event)">
+                <div class="modal-body bg-light p-3 p-md-4">
+                    <?php if (function_exists('generate_csrf_token')): ?>
+                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(generate_csrf_token()) ?>">
+                    <?php endif; ?>
+                    <input type="hidden" name="action" id="authPoAction" value="approve_po">
+                    <input type="hidden" name="po_id" id="authPoId" value="">
+
+                    <!-- Order Summary Card -->
+                    <div class="card border border-primary-subtle shadow-xs mb-3 bg-white">
+                        <div class="card-body p-3">
+                            <div class="d-flex align-items-center justify-content-between mb-2 pb-2 border-bottom">
+                                <div>
+                                    <span class="text-muted small text-uppercase fw-bold" style="font-size: 0.70rem;">Purchase Order</span>
+                                    <h5 class="mb-0 fw-bold text-primary font-monospace" id="authPoNoDisplay">PO-0000</h5>
+                                </div>
+                                <span class="badge bg-warning text-dark border px-2.5 py-1.5 fw-semibold" id="authPoStatusDisplay" style="font-size: 0.72rem;">
+                                    <i class="bi bi-hourglass-split me-1"></i>Pending Authorization
+                                </span>
+                            </div>
+
+                            <div class="row g-2" style="font-size: 0.82rem;">
+                                <div class="col-6">
+                                    <span class="text-muted d-block small">Supplier:</span>
+                                    <strong class="text-dark d-block text-truncate" id="authPoSupplierDisplay">-</strong>
+                                </div>
+                                <div class="col-6">
+                                    <span class="text-muted d-block small">Project / RS:</span>
+                                    <strong class="text-dark d-block text-truncate" id="authPoProjectDisplay">-</strong>
+                                </div>
+                                <div class="col-12 mt-1">
+                                    <span class="text-muted d-block small">Destination:</span>
+                                    <span class="badge bg-light text-dark border px-2 py-0.5 fw-semibold" id="authPoDestinationDisplay">-</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Authorization Remarks -->
+                    <div class="mb-3" id="authPoNotesGroup">
+                        <label for="authPoNotes" class="form-label fw-bold text-dark small text-uppercase">
+                            Authorization Notes / Internal Remarks <span class="text-muted fw-normal">(Optional)</span>
+                        </label>
+                        <textarea class="form-control bg-white shadow-sm" id="authPoNotes" name="approval_notes" rows="2"
+                            placeholder="e.g. Reviewed order specifications and approved for supplier release."></textarea>
+                    </div>
+
+                    <!-- Rejection Reason Group (Hidden by default, shown in reject mode) -->
+                    <div class="mb-3 d-none" id="authPoRejectGroup">
+                        <label for="authPoRejectReason" class="form-label fw-bold text-danger small text-uppercase">
+                            Rejection / Disapproval Reason <span class="text-danger">*</span>
+                        </label>
+                        <textarea class="form-control bg-white border-danger shadow-sm" id="authPoRejectReason" name="rejection_reason" rows="2"
+                            placeholder="Please specify why this purchase order is rejected (e.g. Incorrect pricing, change of supplier, budget constraint)..."></textarea>
+                        <small class="text-danger d-block mt-1" style="font-size: 0.72rem;">
+                            <i class="bi bi-exclamation-circle me-1"></i>Disapproval will revert the linked Requisition to Approved so Purchasing can prepare an amended PO.
+                        </small>
+                    </div>
+
+                    <div class="alert alert-info px-3 py-2 mb-0 shadow-sm" style="font-size: 0.78rem;">
+                        <i class="bi bi-info-circle-fill me-1 text-primary"></i>
+                        Authorizing Officer: <strong><?= htmlspecialchars($_SESSION['user_name'] ?? 'Authorized Officer') ?></strong> (<?= strtoupper($_SESSION['user_role'] ?? 'OFFICER') ?>).
+                    </div>
+                </div>
+
+                <div class="modal-footer justify-content-between bg-white border-top p-3 flex-wrap gap-2">
+                    <div>
+                        <button type="button" class="btn btn-outline-danger fw-bold px-3 d-flex align-items-center justify-content-center" id="toggleRejectPoBtn" onclick="toggleAuthPoRejectMode()" style="min-height: 44px;">
+                            <i class="bi bi-x-circle me-1"></i> Disapprove PO
+                        </button>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-light text-muted fw-bold px-3 d-flex align-items-center justify-content-center" data-bs-dismiss="modal" style="min-height: 44px;">Cancel</button>
+                        <button type="submit" id="confirmAuthPoBtn" class="btn btn-success fw-bold px-4 shadow-sm d-flex align-items-center justify-content-center" style="min-height: 44px;">
+                            <i class="bi bi-check2-circle me-1"></i> Authorize &amp; Approve PO
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <script>
+    window.openApprovePoModal = function (id, poNo, supplierName, projectName, destination) {
+        document.getElementById('authPoId').value = id;
+        document.getElementById('authPoNoDisplay').innerText = poNo || ('PO-' + id);
+        document.getElementById('authPoSupplierDisplay').innerText = supplierName || '-';
+        document.getElementById('authPoProjectDisplay').innerText = projectName || '-';
+        document.getElementById('authPoDestinationDisplay').innerText = destination || 'Warehouse (Central Storage)';
+        document.getElementById('authPoNotes').value = '';
+        document.getElementById('authPoRejectReason').value = '';
+
+        // Reset to approve mode
+        const rejectGroup = document.getElementById('authPoRejectGroup');
+        const notesGroup = document.getElementById('authPoNotesGroup');
+        const toggleBtn = document.getElementById('toggleRejectPoBtn');
+        const confirmBtn = document.getElementById('confirmAuthPoBtn');
+        const actionInput = document.getElementById('authPoAction');
+
+        if (rejectGroup) rejectGroup.classList.add('d-none');
+        if (notesGroup) notesGroup.classList.remove('d-none');
+        if (toggleBtn) {
+            toggleBtn.innerHTML = '<i class="bi bi-x-circle me-1"></i> Disapprove PO';
+            toggleBtn.className = 'btn btn-outline-danger btn-sm fw-bold px-3';
+        }
+        if (confirmBtn) {
+            confirmBtn.innerHTML = '<i class="bi bi-check2-circle me-1"></i> Authorize &amp; Approve PO';
+            confirmBtn.className = 'btn btn-success fw-bold px-4 shadow-sm';
+        }
+        if (actionInput) actionInput.value = 'approve_po';
+
+        var myModalEl = document.getElementById('approvePoModal');
+        var authModal = bootstrap.Modal.getInstance(myModalEl);
+        if (!authModal) {
+            authModal = new bootstrap.Modal(myModalEl);
+        }
+        authModal.show();
+    };
+
+    window.toggleAuthPoRejectMode = function () {
+        const rejectGroup = document.getElementById('authPoRejectGroup');
+        const notesGroup = document.getElementById('authPoNotesGroup');
+        const toggleBtn = document.getElementById('toggleRejectPoBtn');
+        const confirmBtn = document.getElementById('confirmAuthPoBtn');
+        const actionInput = document.getElementById('authPoAction');
+        const isCurrentlyReject = actionInput && actionInput.value === 'reject_po';
+
+        if (isCurrentlyReject) {
+            // Switch back to Approve
+            if (actionInput) actionInput.value = 'approve_po';
+            if (rejectGroup) rejectGroup.classList.add('d-none');
+            if (notesGroup) notesGroup.classList.remove('d-none');
+            if (toggleBtn) {
+                toggleBtn.innerHTML = '<i class="bi bi-x-circle me-1"></i> Disapprove PO';
+                toggleBtn.className = 'btn btn-outline-danger fw-bold px-3 d-flex align-items-center justify-content-center';
+            }
+            if (confirmBtn) {
+                confirmBtn.innerHTML = '<i class="bi bi-check2-circle me-1"></i> Authorize &amp; Approve PO';
+                confirmBtn.className = 'btn btn-success fw-bold px-4 shadow-sm d-flex align-items-center justify-content-center';
+            }
+        } else {
+            // Switch to Reject
+            if (actionInput) actionInput.value = 'reject_po';
+            if (rejectGroup) rejectGroup.classList.remove('d-none');
+            if (notesGroup) notesGroup.classList.add('d-none');
+            if (toggleBtn) {
+                toggleBtn.innerHTML = '<i class="bi bi-arrow-counterclockwise me-1"></i> Back to Approve';
+                toggleBtn.className = 'btn btn-outline-secondary fw-bold px-3 d-flex align-items-center justify-content-center';
+            }
+            if (confirmBtn) {
+                confirmBtn.innerHTML = '<i class="bi bi-x-circle me-1"></i> Confirm Disapproval';
+                confirmBtn.className = 'btn btn-danger fw-bold px-4 shadow-sm d-flex align-items-center justify-content-center';
+            }
+            const reasonInput = document.getElementById('authPoRejectReason');
+            if (reasonInput) reasonInput.focus();
+        }
+    };
+
+    window.handleAuthorizePoSubmit = function (event) {
+        event.preventDefault();
+        const form = document.getElementById('approvePoForm');
+        if (!form) return;
+
+        const action = document.getElementById('authPoAction')?.value || 'approve_po';
+        const confirmBtn = document.getElementById('confirmAuthPoBtn');
+
+        if (action === 'reject_po') {
+            const reason = document.getElementById('authPoRejectReason')?.value?.trim();
+            if (!reason) {
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Disapproval Reason Required',
+                        text: 'Please specify the reason for rejecting/disapproving this Purchase Order.'
+                    });
+                } else {
+                    alert('Please specify the reason for rejecting/disapproving this Purchase Order.');
+                }
+                document.getElementById('authPoRejectReason')?.focus();
+                return;
+            }
+        }
+
+        const originalBtnHtml = confirmBtn ? confirmBtn.innerHTML : '';
+        if (confirmBtn) {
+            confirmBtn.disabled = true;
+            confirmBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Processing...';
+        }
+
+        const formData = new FormData(form);
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+        const headers = {
+            'X-Requested-With': 'XMLHttpRequest',
+            'Accept': 'application/json'
+        };
+        if (csrfToken) {
+            headers['X-CSRF-Token'] = csrfToken;
+        }
+
+        (window.cimsFetchWithTimeout || fetch)('process/process.php', {
+            method: 'POST',
+            body: formData,
+            headers: headers
+        })
+            .then(res => res.json())
+            .then(async data => {
+                const isSuccess = data.status === 'success' || data.success === true || (data.status && data.status.toLowerCase() === 'ok');
+                if (isSuccess) {
+                    const myModalEl = document.getElementById('approvePoModal');
+                    const authModal = bootstrap.Modal.getInstance(myModalEl);
+                    if (authModal) authModal.hide();
+
+                    if (typeof loadCombinedAlerts === 'function') loadCombinedAlerts();
+
+                    if (typeof Swal !== 'undefined') {
+                        await Swal.fire({
+                            icon: 'success',
+                            title: action === 'reject_po' ? 'PO Disapproved' : 'PO Authorized!',
+                            text: data.message || (action === 'reject_po' ? 'Purchase order has been disapproved.' : 'Purchase order has been authorized and digitally approved.'),
+                            timer: 1600,
+                            showConfirmButton: false
+                        });
+                    }
+                    location.reload();
+                } else {
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Authorization Failed',
+                            text: data.message || 'Failed to process PO authorization.'
+                        });
+                    } else {
+                        alert(data.message || 'Failed to process PO authorization.');
+                    }
+                    if (confirmBtn) {
+                        confirmBtn.disabled = false;
+                        confirmBtn.innerHTML = originalBtnHtml;
+                    }
+                }
+            })
+            .catch(err => {
+                console.error('Error authorizing PO:', err);
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Network Error',
+                        text: 'An error occurred while connecting to the server. Please try again.'
+                    });
+                } else {
+                    alert('An error occurred. Please try again.');
+                }
+                if (confirmBtn) {
+                    confirmBtn.disabled = false;
+                    confirmBtn.innerHTML = originalBtnHtml;
+                }
+            });
+    };
     window.openUploadReceiptModal = function (id, poNo, supplierName, hasExisting) {
         document.getElementById('uploadReceiptPoId').value = id;
         document.getElementById('uploadReceiptPoNoDisplay').value = poNo || ('PO-' + id);
@@ -1362,6 +1723,76 @@ $approvedRS = $pdo->query("
             delayModal = new bootstrap.Modal(myModalEl);
         }
         delayModal.show();
+    };
+
+    // ==========================================================
+    // DELIVERY DESTINATION TOGGLE (Warehouse vs Direct to Jobsite)
+    // ==========================================================
+    window.togglePoDestinationFields = function () {
+        const destTypeJobsite = document.getElementById('destTypeJobsite');
+        const hiddenDest = document.getElementById('poDeliveryDestination');
+        const addressGroup = document.getElementById('jobsiteAddressGroup');
+        const addressInput = document.getElementById('poDeliveryAddress');
+        const rsSelect = document.getElementById('poRsSelect');
+
+        let projectName = '';
+        if (rsSelect && rsSelect.selectedIndex >= 0) {
+            const opt = rsSelect.options[rsSelect.selectedIndex];
+            projectName = opt ? (opt.getAttribute('data-project') || '') : '';
+        }
+
+        if (destTypeJobsite && destTypeJobsite.checked) {
+            if (hiddenDest) {
+                hiddenDest.value = projectName ? `Direct to Jobsite: ${projectName}` : 'Direct to Jobsite';
+            }
+            if (addressGroup) addressGroup.classList.remove('d-none');
+        } else {
+            if (hiddenDest) {
+                hiddenDest.value = 'Warehouse (Central Storage)';
+            }
+            if (addressGroup) addressGroup.classList.add('d-none');
+        }
+    };
+
+    window.updatePoDestinationOnRsChange = function () {
+        const rsSelect = document.getElementById('poRsSelect');
+        if (!rsSelect || rsSelect.selectedIndex < 0) return;
+
+        const opt = rsSelect.options[rsSelect.selectedIndex];
+        if (!opt || !opt.value) return;
+
+        const rsType = opt.getAttribute('data-type') || 'project';
+        const projectName = opt.getAttribute('data-project') || '';
+        const projectAddress = opt.getAttribute('data-address') || '';
+
+        const badge = document.getElementById('rsTypeBadge');
+        const destWarehouse = document.getElementById('destTypeWarehouse');
+        const destJobsite = document.getElementById('destTypeJobsite');
+        const addressInput = document.getElementById('poDeliveryAddress');
+
+        const isRestock = (rsType === 'restock' || projectName === 'Warehouse Restock');
+
+        if (badge) {
+            badge.innerText = isRestock ? 'Central Storage' : (projectName || 'Jobsite');
+        }
+
+        if (isRestock) {
+            if (destWarehouse) destWarehouse.checked = true;
+            if (destJobsite) {
+                destJobsite.disabled = true;
+                destJobsite.closest('.destination-radio-wrap')?.classList.add('opacity-50');
+            }
+        } else {
+            if (destJobsite) {
+                destJobsite.disabled = false;
+                destJobsite.closest('.destination-radio-wrap')?.classList.remove('opacity-50');
+                destJobsite.checked = true;
+            }
+            if (addressInput && projectAddress && !addressInput.value) {
+                addressInput.value = projectAddress;
+            }
+        }
+        window.togglePoDestinationFields();
     };
 
     // ==========================================================
@@ -1569,6 +2000,21 @@ $approvedRS = $pdo->query("
                 }
                 const preview = document.getElementById('rsItemsPreviewContainer');
                 if (preview) preview.classList.add('d-none');
+                
+                // Reset destination fields
+                const badge = document.getElementById('rsTypeBadge');
+                if (badge) badge.innerText = 'Central Storage';
+                const destWarehouse = document.getElementById('destTypeWarehouse');
+                if (destWarehouse) destWarehouse.checked = true;
+                const destJobsite = document.getElementById('destTypeJobsite');
+                if (destJobsite) {
+                    destJobsite.disabled = false;
+                    destJobsite.closest('.destination-radio-wrap')?.classList.remove('opacity-50');
+                }
+                const addressGroup = document.getElementById('jobsiteAddressGroup');
+                if (addressGroup) addressGroup.classList.add('d-none');
+                const hiddenDest = document.getElementById('poDeliveryDestination');
+                if (hiddenDest) hiddenDest.value = 'Warehouse (Central Storage)';
             });
         }
 
@@ -1612,8 +2058,21 @@ $approvedRS = $pdo->query("
         const receiveModal = document.getElementById('receiveModal');
         if (receiveModal && !receiveModal.dataset.boundLifecycle) {
             receiveModal.dataset.boundLifecycle = 'true';
+            receiveModal.addEventListener('shown.bs.modal', function () {
+                const drInput = document.getElementById('receiveSupplierDrNo');
+                if (drInput) drInput.focus();
+            });
             receiveModal.addEventListener('hidden.bs.modal', function () {
                 if (typeof stopReceiptCamera === 'function') stopReceiptCamera();
+                const form = document.getElementById('receiveForm');
+                if (form) {
+                    form.reset();
+                    form.classList.remove('was-validated');
+                }
+                const drInput = document.getElementById('receiveSupplierDrNo');
+                if (drInput) drInput.value = '';
+                const notesInput = document.getElementById('receiveInspectionNotes');
+                if (notesInput) notesInput.value = '';
                 const submitBtn = document.getElementById('confirmReceiveBtn');
                 if (submitBtn) {
                     submitBtn.disabled = false;
@@ -1650,6 +2109,46 @@ $approvedRS = $pdo->query("
                 if (submitBtn) {
                     submitBtn.disabled = false;
                     submitBtn.innerHTML = '<i class="bi bi-slash-circle me-1"></i> Void Purchase Order';
+                }
+            });
+        }
+
+        const approvePoModal = document.getElementById('approvePoModal');
+        if (approvePoModal && !approvePoModal.dataset.boundLifecycle) {
+            approvePoModal.dataset.boundLifecycle = 'true';
+            approvePoModal.addEventListener('shown.bs.modal', function () {
+                const action = document.getElementById('authPoAction')?.value;
+                if (action === 'reject_po') {
+                    const reason = document.getElementById('authPoRejectReason');
+                    if (reason) reason.focus();
+                } else {
+                    const notes = document.getElementById('authPoNotes');
+                    if (notes) notes.focus();
+                }
+            });
+            approvePoModal.addEventListener('hidden.bs.modal', function () {
+                const form = document.getElementById('approvePoForm');
+                if (form) {
+                    form.reset();
+                    form.classList.remove('was-validated');
+                }
+                const confirmBtn = document.getElementById('confirmAuthPoBtn');
+                if (confirmBtn) {
+                    confirmBtn.disabled = false;
+                    confirmBtn.innerHTML = '<i class="bi bi-check2-circle me-1"></i> Authorize &amp; Approve PO';
+                    confirmBtn.className = 'btn btn-success fw-bold px-4 shadow-sm';
+                }
+                // Reset mode back to approve
+                const rejectGroup = document.getElementById('authPoRejectGroup');
+                const notesGroup = document.getElementById('authPoNotesGroup');
+                const toggleBtn = document.getElementById('toggleRejectPoBtn');
+                const actionInput = document.getElementById('authPoAction');
+                if (actionInput) actionInput.value = 'approve_po';
+                if (rejectGroup) rejectGroup.classList.add('d-none');
+                if (notesGroup) notesGroup.classList.remove('d-none');
+                if (toggleBtn) {
+                    toggleBtn.innerHTML = '<i class="bi bi-x-circle me-1"></i> Disapprove PO';
+                    toggleBtn.className = 'btn btn-outline-danger btn-sm fw-bold px-3';
                 }
             });
         }
