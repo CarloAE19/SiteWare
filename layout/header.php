@@ -671,12 +671,12 @@ foreach ($notifications as $n) {
                                         <div class="d-flex align-items-center gap-2">
                                             <button id="markAllNotifsBtn"
                                                 class="btn btn-sm btn-link text-white-50 text-decoration-none p-0 fw-semibold <?= ($unreadCount > 0) ? '' : 'd-none' ?>"
-                                                onclick="markAllNotifsRead()" style="font-size: 0.72rem;" title="Mark all as read">
+                                                onclick="if (typeof markAllNotifsRead === 'function') { markAllNotifsRead(); }" style="font-size: 0.72rem;" title="Mark all as read">
                                                 <i class="bi bi-check2-all me-1"></i>Mark read
                                             </button>
                                             <button id="clearAllNotifsBtn"
                                                 class="btn btn-sm btn-link text-white-50 text-decoration-none p-0 fw-semibold <?= (count($notifications) > 0) ? '' : 'd-none' ?>"
-                                                onclick="clearAllNotifs()" style="font-size: 0.72rem;" title="Clear notification tray">
+                                                onclick="if (typeof clearAllNotifs === 'function') { clearAllNotifs(); }" style="font-size: 0.72rem;" title="Clear notification tray">
                                                 <i class="bi bi-trash3 me-1"></i>Clear all
                                             </button>
                                         </div>
@@ -759,7 +759,7 @@ foreach ($notifications as $n) {
                                                     <div class="d-flex align-items-center gap-1 ms-2">
                                                         <small class="badge bg-light text-secondary border text-nowrap" style="font-size: 0.68rem;"><?= time_elapsed_string($notif['created_at']) ?></small>
                                                         <button type="button" class="btn btn-sm btn-link text-muted p-0 text-decoration-none dismiss-notif-btn" 
-                                                            onclick="event.stopPropagation(); dismissSingleNotif(<?= (int)$notif['id'] ?>, this);" 
+                                                            onclick="event.stopPropagation(); if (typeof dismissSingleNotif === 'function') { dismissSingleNotif(<?= (int)$notif['id'] ?>, this); }" 
                                                             title="Dismiss notification" style="line-height: 1; font-size: 0.75rem; min-width: 22px; min-height: 22px;">
                                                             <i class="bi bi-x-lg"></i>
                                                         </button>
@@ -771,18 +771,18 @@ foreach ($notifications as $n) {
                                                 <div class="d-flex align-items-center gap-2 mt-2 pt-1 border-top border-light">
                                                     <?php if ($extractedPo && $currentUserRole !== 'requestor'): ?>
                                                         <button type="button" class="btn btn-sm btn-outline-primary py-1 px-2 fw-bold text-nowrap" style="font-size: 0.72rem;"
-                                                            onclick="event.stopPropagation(); markSingleNotifRead(<?= (int)$notif['id'] ?>, this); if (typeof openPoModalByNo === 'function') { openPoModalByNo('<?= htmlspecialchars($extractedPo, ENT_QUOTES) ?>'); } else { window.location.href='po?search=<?= urlencode($extractedPo) ?>'; }"
+                                                            onclick="event.stopPropagation(); if (typeof markSingleNotifRead === 'function') { markSingleNotifRead(<?= (int)$notif['id'] ?>, this); } if (typeof openPoModalByNo === 'function') { openPoModalByNo('<?= htmlspecialchars($extractedPo, ENT_QUOTES) ?>'); } else { window.location.href='po?search=<?= urlencode($extractedPo) ?>'; }"
                                                             title="Preview <?= htmlspecialchars($extractedPo) ?>">
                                                             <i class="bi bi-file-earmark-text me-1"></i>Quick View
                                                         </button>
                                                     <?php elseif ($extractedRs): ?>
                                                         <button type="button" class="btn btn-sm btn-outline-primary py-1 px-2 fw-bold text-nowrap" style="font-size: 0.72rem;"
-                                                            onclick="event.stopPropagation(); markSingleNotifRead(<?= (int)$notif['id'] ?>, this); if (typeof openRsModalByNo === 'function') { openRsModalByNo('<?= htmlspecialchars($extractedRs, ENT_QUOTES) ?>'); } else { window.location.href='requisitions?search=<?= urlencode($extractedRs) ?>'; }"
+                                                            onclick="event.stopPropagation(); if (typeof markSingleNotifRead === 'function') { markSingleNotifRead(<?= (int)$notif['id'] ?>, this); } if (typeof openRsModalByNo === 'function') { openRsModalByNo('<?= htmlspecialchars($extractedRs, ENT_QUOTES) ?>'); } else { window.location.href='requisitions?search=<?= urlencode($extractedRs) ?>'; }"
                                                             title="Preview <?= htmlspecialchars($extractedRs) ?>">
                                                             <i class="bi bi-file-earmark-text me-1"></i>Quick View
                                                         </button>
                                                     <?php endif; ?>
-                                                    <a href="<?= $targetLink ?>" onclick="markSingleNotifRead(<?= (int)$notif['id'] ?>, this)"
+                                                    <a href="<?= $targetLink ?>" onclick="if (typeof markSingleNotifRead === 'function') { markSingleNotifRead(<?= (int)$notif['id'] ?>, this); }"
                                                         class="btn btn-sm btn-link text-muted p-0 ms-auto text-decoration-none" style="font-size: 0.72rem;"
                                                         title="Open in module">
                                                         Open <i class="bi bi-arrow-right"></i>
@@ -800,6 +800,13 @@ foreach ($notifications as $n) {
                                 </div>
                             </ul>
                         </div>
+                        <script>
+                            // Fallback stubs so clicks never throw ReferenceError if notifications.js is slow or fails to load
+                            window.markSingleNotifRead = window.markSingleNotifRead || function() {};
+                            window.dismissSingleNotif = window.dismissSingleNotif || function() {};
+                            window.markAllNotifsRead = window.markAllNotifsRead || function() {};
+                            window.clearAllNotifs = window.clearAllNotifs || function() {};
+                        </script>
 
                         <div class="dropdown">
                             <a href="#" class="d-flex align-items-center text-decoration-none dropdown-toggle text-body"
