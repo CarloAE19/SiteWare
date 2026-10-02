@@ -3,9 +3,16 @@
  * ========================================================== */
 
 // 1. SPA-Safe Modal Trigger 
-window.viewRsDetails = function(rsNo, project, remarks, status, requestor, date, itemsB64, type = 'project') {
+window.viewRsDetails = function(rsNo, project, remarks, status, requestor, date, itemsB64, type = 'project', rsId = null) {
     document.getElementById('viewRsNo').innerText = rsNo;
     document.getElementById('viewRsProject').innerText = project;
+
+    if (!rsId) {
+        const row = document.querySelector(`.rs-row[data-rs-no="${rsNo}"]`);
+        if (row && row.dataset.rsId) {
+            rsId = row.dataset.rsId;
+        }
+    }
     
     const statusEl = document.getElementById('viewRsStatus');
     if (statusEl) {
@@ -51,6 +58,38 @@ window.viewRsDetails = function(rsNo, project, remarks, status, requestor, date,
             printBtn.classList.remove('d-none');
         } else {
             printBtn.classList.add('d-none');
+        }
+    }
+
+    // Dynamic Review for Approval Action
+    const reviewBtn = document.getElementById('viewRsReviewBtn');
+    if (reviewBtn) {
+        if (status === 'Pending Approval') {
+            reviewBtn.classList.remove('d-none');
+            reviewBtn.onclick = function() {
+                const viewModalEl = document.getElementById('viewRsModal');
+                const viewModalInst = bootstrap.Modal.getInstance(viewModalEl);
+                if (viewModalInst) {
+                    viewModalInst.hide();
+                }
+                if (typeof window.openApproveItemsModal === 'function') {
+                    window.openApproveItemsModal(rsId, rsNo, itemsB64);
+                }
+            };
+        } else {
+            reviewBtn.classList.add('d-none');
+            reviewBtn.onclick = null;
+        }
+    }
+
+    // Dynamic Generate PO Action (Purchasing / Admin)
+    const createPoBtn = document.getElementById('viewRsCreatePoBtn');
+    if (createPoBtn) {
+        if (status === 'Approved' || status === 'Partially Approved') {
+            createPoBtn.classList.remove('d-none');
+            createPoBtn.href = `po?action=new&rs_id=${encodeURIComponent(rsId || '')}&rs_no=${encodeURIComponent(rsNo)}`;
+        } else {
+            createPoBtn.classList.add('d-none');
         }
     }
     
