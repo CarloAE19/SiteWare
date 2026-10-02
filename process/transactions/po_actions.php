@@ -329,27 +329,108 @@ elseif ($action === 'create_po') {
         ]);
         $po_id = $pdo->lastInsertId();
 
-        // Only copy items that management approved (excludes rejected items from Partially Approved RSes)
+        // Fetch all approved items for this requisition and their remaining un-ordered quantities
         $rsItemsStmt = $pdo->prepare("
-            SELECT ri.item_code, ri.quantity, ri.is_new_item, ri.new_item_name, ri.new_category, ri.new_unit, i.unit_price 
+            SELECT 
+                ri.item_code, 
+                ri.quantity AS requested_qty, 
+                ri.is_new_item, 
+                ri.new_item_name, 
+                ri.new_category, 
+                ri.new_unit, 
+                COALESCE(i.unit_price, 0.00) AS default_price,
+                COALESCE((
+                    SELECT SUM(pi.quantity) 
+                    FROM po_items pi 
+                    JOIN purchase_orders po ON pi.po_id = po.id 
+                    WHERE po.rs_id = ri.requisition_id 
+                      AND pi.item_code = ri.item_code 
+                      AND po.status != 'Cancelled'
+                ), 0) AS ordered_qty
             FROM requisition_items ri 
             LEFT JOIN inventory i ON ri.item_code = i.item_code 
             WHERE ri.requisition_id = ? AND ri.item_status = 'Approved'
+            ORDER BY ri.id ASC
         ");
         $rsItemsStmt->execute([$rs_id]);
-        $rsItems = $rsItemsStmt->fetchAll(PDO::FETCH_ASSOC);
+        $approvedItems = $rsItemsStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        if (empty($approvedItems)) {
+            throw new Exception("No approved items found for this Requisition.");
+        }
+
+        // Map items by item_code for O(1) lookups
+        $itemMap = [];
+        foreach ($approvedItems as $it) {
+            $remaining = max(0, (int)$it['requested_qty'] - (int)$it['ordered_qty']);
+            $it['remaining_qty'] = $remaining;
+            $itemMap[$it['item_code']] = $it;
+        }
+
+        $selectedItemCodes = $_POST['selected_items'] ?? [];
+        $submittedQtys = $_POST['item_qty'] ?? [];
+        $submittedPrices = $_POST['item_price'] ?? [];
+
+        // If form explicitly posted split selection but selected none
+        if (isset($_POST['has_item_selection']) && empty($selectedItemCodes)) {
+            throw new Exception("Please select at least one item from the requisition to purchase from this supplier.");
+        }
+
+        // Fallback / legacy compatibility: if no explicit selection was submitted, select all items with remaining qty
+        if (empty($selectedItemCodes)) {
+            foreach ($itemMap as $code => $data) {
+                if ($data['remaining_qty'] > 0) {
+                    $selectedItemCodes[] = $code;
+                }
+            }
+        }
+
+        if (empty($selectedItemCodes)) {
+            throw new Exception("All items on this Requisition have already been fully ordered on other Purchase Orders.");
+        }
 
         $poItemStmt = $pdo->prepare("
             INSERT INTO po_items (po_id, item_code, quantity, unit_price, is_new_item, custom_item_name, category, unit) 
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         ");
-        foreach ($rsItems as $item) {
-            $price = $item['unit_price'] ?? 0.00;
+
+        $itemsInsertedCount = 0;
+        foreach ($selectedItemCodes as $code) {
+            if (!isset($itemMap[$code])) {
+                continue;
+            }
+            $item = $itemMap[$code];
+            $remaining = (int)$item['remaining_qty'];
+            if ($remaining <= 0) {
+                continue; // Skip items already 100% fulfilled on other active POs
+            }
+
+            // Determine order quantity (user specified or remaining)
+            $orderQty = isset($submittedQtys[$code]) ? (int)$submittedQtys[$code] : $remaining;
+            if ($orderQty <= 0) {
+                continue;
+            }
+            // Clamped to remaining quantity to prevent accidental over-ordering
+            if ($orderQty > $remaining) {
+                $orderQty = $remaining;
+            }
+
+            // Determine price
+            $unitPrice = isset($submittedPrices[$code]) && is_numeric($submittedPrices[$code]) && (float)$submittedPrices[$code] >= 0
+                ? (float)$submittedPrices[$code]
+                : (float)$item['default_price'];
+
             $isNew = (int)($item['is_new_item'] ?? 0);
             $cName = $isNew ? $item['new_item_name'] : null;
             $cCat = $isNew ? $item['new_category'] : null;
             $cUnit = $isNew ? $item['new_unit'] : null;
-            $poItemStmt->execute([$po_id, $item['item_code'], $item['quantity'], $price, $isNew, $cName, $cCat, $cUnit]);
+
+            $poItemStmt->execute([$po_id, $code, $orderQty, $unitPrice, $isNew, $cName, $cCat, $cUnit]);
+            $itemsInsertedCount++;
+        }
+
+        if ($itemsInsertedCount === 0) {
+            throw new Exception("No valid items or quantities were selected for this Purchase Order.");
         }
 
         // Cryptographically Seal Purchase Order with RSA-2048 PKI Signature
@@ -360,7 +441,26 @@ elseif ($action === 'create_po') {
             error_log("PO Crypto Signing Notice: " . $cryptoEx->getMessage());
         }
 
-        $pdo->prepare("UPDATE requisitions SET status = 'PO Created' WHERE id = ?")->execute([$rs_id]);
+        // Check if there are still approved items on this Requisition with remaining un-ordered quantity
+        $remainingCheckStmt = $pdo->prepare("
+            SELECT COUNT(*) 
+            FROM requisition_items ri 
+            WHERE ri.requisition_id = ? 
+              AND ri.item_status = 'Approved'
+              AND (ri.quantity - COALESCE((
+                  SELECT SUM(pi.quantity) 
+                  FROM po_items pi 
+                  JOIN purchase_orders po ON pi.po_id = po.id 
+                  WHERE po.rs_id = ri.requisition_id 
+                    AND pi.item_code = ri.item_code 
+                    AND po.status != 'Cancelled'
+              ), 0)) > 0
+        ");
+        $remainingCheckStmt->execute([$rs_id]);
+        $hasRemainingUnordered = ((int)$remainingCheckStmt->fetchColumn()) > 0;
+
+        $newRsStatus = $hasRemainingUnordered ? 'Partially Ordered' : 'PO Created';
+        $pdo->prepare("UPDATE requisitions SET status = ? WHERE id = ?")->execute([$newRsStatus, $rs_id]);
 
         $destDesc = ($delivery_destination === 'Warehouse (Central Storage)') ? 'Central Warehouse' : $delivery_destination;
         $etaMsg = $expected_delivery_date ? " Target ETA: " . date('M d, Y', strtotime($expected_delivery_date)) . "." : "";
@@ -1177,14 +1277,37 @@ elseif ($action === 'cancel_po') {
         // 2. Mark remaining unfulfilled items in po_items as Cancelled
         $pdo->prepare("UPDATE po_items SET item_status = 'Cancelled' WHERE po_id = ? AND item_status != 'Delivered'")->execute([$po_id]);
 
-        // 3. If linked to an RS, check if any other active PO is linked to that RS. If none, revert RS to 'Approved'
-        if (!empty($po['rs_id'])) {
+        // 3. If linked to an RS, recalculate requisition fulfillment status
+        $linkedRsId = !empty($po['rs_id']) ? (int)$po['rs_id'] : null;
+        if ($linkedRsId) {
             $otherActivePoStmt = $pdo->prepare("SELECT COUNT(*) FROM purchase_orders WHERE rs_id = ? AND id != ? AND status != 'Cancelled'");
-            $otherActivePoStmt->execute([$po['rs_id'], $po_id]);
+            $otherActivePoStmt->execute([$linkedRsId, $po_id]);
             $otherActiveCount = (int)$otherActivePoStmt->fetchColumn();
 
             if ($otherActiveCount === 0) {
-                $pdo->prepare("UPDATE requisitions SET status = 'Approved' WHERE id = ?")->execute([$po['rs_id']]);
+                // No remaining active POs: completely restore RS to Approved
+                $pdo->prepare("UPDATE requisitions SET status = 'Approved' WHERE id = ?")->execute([$linkedRsId]);
+            } else {
+                // Other active POs exist: check if there are still remaining un-ordered items
+                $remStmt = $pdo->prepare("
+                    SELECT COUNT(*) 
+                    FROM requisition_items ri 
+                    WHERE ri.requisition_id = ? 
+                      AND ri.item_status = 'Approved'
+                      AND (ri.quantity - COALESCE((
+                          SELECT SUM(pi.quantity) 
+                          FROM po_items pi 
+                          JOIN purchase_orders po ON pi.po_id = po.id 
+                          WHERE po.rs_id = ri.requisition_id 
+                            AND pi.item_code = ri.item_code 
+                            AND po.id != ?
+                            AND po.status != 'Cancelled'
+                      ), 0)) > 0
+                ");
+                $remStmt->execute([$linkedRsId, $po_id]);
+                $remCount = (int)$remStmt->fetchColumn();
+                $newStatus = ($remCount > 0) ? 'Partially Ordered' : 'PO Created';
+                $pdo->prepare("UPDATE requisitions SET status = ? WHERE id = ?")->execute([$newStatus, $linkedRsId]);
             }
         }
 
@@ -1202,8 +1325,10 @@ elseif ($action === 'cancel_po') {
 
         echo json_encode([
             'status' => 'success',
+            'success' => true,
             'message' => "Purchase Order {$po['po_no']} has been voided/cancelled successfully.",
-            'po_no' => $po['po_no']
+            'po_no' => $po['po_no'],
+            'rs_id' => $linkedRsId
         ]);
         exit;
     } catch (Exception $e) {
