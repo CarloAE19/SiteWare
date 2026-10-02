@@ -340,6 +340,39 @@ window.openRsModalByNo = async function(rsNo) {
             }
         }
 
+        // Dynamic Review for Approval Action
+        const reviewBtn = document.getElementById('viewRsReviewBtn');
+        if (reviewBtn) {
+            if (rs.status === 'Pending Approval') {
+                reviewBtn.classList.remove('d-none');
+                reviewBtn.onclick = function() {
+                    const viewModalEl = document.getElementById('viewRsModal');
+                    const viewModalInst = bootstrap.Modal.getInstance(viewModalEl);
+                    if (viewModalInst) {
+                        viewModalInst.hide();
+                    }
+                    const itemsB64 = btoa(unescape(encodeURIComponent(JSON.stringify(items || []))));
+                    if (typeof window.openApproveItemsModal === 'function') {
+                        window.openApproveItemsModal(rs.id, rs.rs_no, itemsB64);
+                    }
+                };
+            } else {
+                reviewBtn.classList.add('d-none');
+                reviewBtn.onclick = null;
+            }
+        }
+
+        // Dynamic Generate PO Action (Purchasing / Admin)
+        const createPoBtn = document.getElementById('viewRsCreatePoBtn');
+        if (createPoBtn) {
+            if (rs.status === 'Approved' || rs.status === 'Partially Approved') {
+                createPoBtn.classList.remove('d-none');
+                createPoBtn.href = `po?action=new&rs_id=${encodeURIComponent(rs.id)}&rs_no=${encodeURIComponent(rs.rs_no)}`;
+            } else {
+                createPoBtn.classList.add('d-none');
+            }
+        }
+
         const tbody = document.getElementById('viewRsItemsBody');
         if (tbody) {
             tbody.innerHTML = '';
@@ -374,19 +407,51 @@ window.openRsModalByNo = async function(rsNo) {
                             formattedDetails = entries.map(entry => {
                                 const match = entry.match(/(.+) \[(.+) by (.+)\]/);
                                 if (match) {
-                                    return `<div class="mb-1 pb-1 border-bottom-dashed small"><div class="fw-bold text-dark text-truncate" style="max-width:180px;" title="${match[1]}">${match[1]}</div><div class="d-flex justify-content-between text-muted" style="font-size:0.65rem;"><span>Qty: <b>${match[2]}</b></span><span>By: <b>${match[3]}</b></span></div></div>`;
+                                    const project = match[1];
+                                    const qty = match[2];
+                                    const name = match[3];
+                                    return `
+                                        <div class="pending-demand-item p-2 mb-1.5 rounded-2 border bg-light-subtle">
+                                            <div class="d-flex align-items-center justify-content-between gap-2 mb-1">
+                                                <span class="fw-bold text-body text-truncate small" style="max-width: 170px;" title="${project}">
+                                                    <i class="bi bi-geo-alt-fill text-danger me-1"></i>${project}
+                                                </span>
+                                                <span class="badge bg-warning text-dark border border-warning px-1.5 py-0.5" style="font-size: 0.7rem;">
+                                                    ${qty}
+                                                </span>
+                                            </div>
+                                            <div class="text-secondary small d-flex align-items-center" style="font-size: 0.72rem;">
+                                                <i class="bi bi-person-fill text-primary me-1"></i>
+                                                <span class="text-truncate" title="${name}">By: <b>${name}</b></span>
+                                            </div>
+                                        </div>
+                                    `;
                                 }
-                                return `<div>${entry}</div>`;
+                                return `<div class="small py-1 text-muted">${entry}</div>`;
                             }).join('');
                         }
                         pendingDisplay = `
                             <div class="dropdown d-inline-block">
-                                <button class="btn btn-sm btn-outline-warning text-dark dropdown-toggle py-0 px-2 fw-bold shadow-sm" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="font-size: 0.75rem;">
+                                <button class="btn btn-sm btn-outline-warning text-dark dropdown-toggle py-0 px-2 fw-bold shadow-sm" 
+                                        type="button" 
+                                        data-bs-toggle="dropdown" 
+                                        data-bs-auto-close="true"
+                                        data-bs-popper-config='{"strategy":"fixed"}'
+                                        aria-expanded="false" 
+                                        style="font-size: 0.75rem;">
                                     ${totalPending} ${unit} Pending
                                 </button>
-                                <div class="dropdown-menu dropdown-menu-end p-3 shadow-lg border-0" style="min-width: 240px;">
-                                    <h6 class="dropdown-header px-0 text-uppercase fw-bold text-muted small border-bottom pb-2 mb-2">Pending RS Demand Details</h6>
-                                    ${formattedDetails}
+                                <div class="dropdown-menu dropdown-menu-end p-2.5 shadow-lg border rounded-3" style="min-width: 270px; max-width: 320px; z-index: 1080;">
+                                    <div class="d-flex align-items-center justify-content-between border-bottom pb-2 mb-2 px-1">
+                                        <div class="d-flex align-items-center gap-1.5">
+                                            <i class="bi bi-diagram-3-fill text-warning"></i>
+                                            <span class="fw-bold text-uppercase small text-body" style="font-size: 0.72rem; letter-spacing: 0.5px;">Pending RS Demand</span>
+                                        </div>
+                                        <span class="badge bg-warning-subtle text-dark border border-warning-subtle" style="font-size: 0.68rem;">Total: ${totalPending}</span>
+                                    </div>
+                                    <div class="pending-demand-list" style="max-height: 200px; overflow-y: auto;">
+                                        ${formattedDetails}
+                                    </div>
                                 </div>
                             </div>
                         `;
@@ -1069,4 +1134,239 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
     alertObserver.observe(document.body, { childList: true, subtree: true });
+});
+
+/* ==========================================================
+ * GLOBAL REQUISITION APPROVAL MODAL CONTROLLER
+ * Ensures Review & Approve Items works from any page / modal
+ * ========================================================== */
+if (!window.openApproveItemsModal) {
+    window.openApproveItemsModal = function(rsId, rsNo, itemsB64) {
+        const rsIdField = document.getElementById('approveRsIdField');
+        if (rsIdField) rsIdField.value = rsId;
+
+        const rsNoLabel = document.getElementById('approveRsNoLabel');
+        if (rsNoLabel) rsNoLabel.innerText = rsNo;
+
+        const list = document.getElementById('approveItemsList');
+        if (!list) return;
+
+        if (typeof window.cimsRenderCardSkeleton === 'function') {
+            window.cimsRenderCardSkeleton(list, 2);
+        } else {
+            list.innerHTML = '<div class="text-center text-muted py-4"><i class="bi bi-hourglass-split me-2"></i>Loading items...</div>';
+        }
+
+        try {
+            let items = [];
+            if (typeof itemsB64 === 'string') {
+                try {
+                    items = JSON.parse(decodeURIComponent(escape(atob(itemsB64))));
+                } catch (e1) {
+                    items = JSON.parse(atob(itemsB64));
+                }
+            } else if (Array.isArray(itemsB64)) {
+                items = itemsB64;
+            }
+
+            if (!items || items.length === 0) {
+                list.innerHTML = '<div class="alert alert-warning">No items found for this requisition.</div>';
+            } else {
+                list.innerHTML = items.map((item) => {
+                    const itemId    = item.item_id || '';
+                    const isNewItem = parseInt(item.is_new_item) === 1;
+                    const rawName   = item.item_name || item.item_code || 'Unknown Item';
+                    const qty       = parseInt(item.quantity) || 0;
+                    const unit      = item.unit || '';
+                    const notes     = item.item_notes
+                        ? `<div class="text-muted small fst-italic mt-1"><i class="bi bi-chat-left-text me-1"></i>${item.item_notes}</div>`
+                        : '';
+
+                    const newBadge = isNewItem ? `<span class="badge bg-success ms-2 shadow-sm" style="font-size:0.65rem;"><i class="bi bi-sparkles me-1"></i>NEW / UNLISTED ITEM</span>` : '';
+
+                    const typoEditHtml = isNewItem ? `
+                        <div class="mt-2 p-2 bg-success-subtle rounded border border-success-subtle">
+                            <label class="form-label text-success-emphasis small fw-bold mb-1 d-flex align-items-center">
+                                <i class="bi bi-pencil-square me-1"></i>Edit Item Name (Fix typo/spelling if needed):
+                            </label>
+                            <input type="text" class="form-control form-control-sm fw-bold border-success" name="item_names[${itemId}]" value="${rawName.replace(/"/g, '&quot;')}" placeholder="Correct item name...">
+                        </div>
+                    ` : '';
+
+                    return `
+                    <div class="card border shadow-sm mb-3 approve-item-card" data-item-id="${itemId}">
+                        <div class="card-body py-3 px-3">
+                            <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+                                <div class="flex-grow-1 me-3">
+                                    <div class="fw-bold text-dark fs-6 d-flex align-items-center flex-wrap gap-1">
+                                        <span>${rawName}</span>
+                                        ${newBadge}
+                                        <span class="badge bg-light text-muted border item-decision-pill ms-auto" style="font-size:0.7rem;"><i class="bi bi-question-circle me-1"></i>Decision Required</span>
+                                    </div>
+                                    <div class="text-muted small mt-1">
+                                        <span class="badge bg-light text-dark border me-1">${item.item_code}</span>
+                                        <span>Quantity: <strong>${qty} ${unit}</strong></span>
+                                    </div>
+                                    ${notes}
+                                    ${typoEditHtml}
+                                </div>
+                                <div class="btn-group btn-group-sm shadow-sm" role="group">
+                                    <input type="radio" class="btn-check" name="item_statuses[${itemId}]" id="approve_${itemId}" value="Approved" required>
+                                    <label class="btn btn-outline-success fw-bold px-3" for="approve_${itemId}"><i class="bi bi-check-lg me-1"></i>Approve</label>
+                                    <input type="radio" class="btn-check" name="item_statuses[${itemId}]" id="reject_${itemId}" value="Rejected">
+                                    <label class="btn btn-outline-danger fw-bold px-3" for="reject_${itemId}"><i class="bi bi-x-lg me-1"></i>Reject</label>
+                                </div>
+                            </div>
+                            <div class="mt-2 remark-field">
+                                <input type="text" class="form-control form-control-sm" name="item_remarks[${itemId}]" placeholder="Remark (optional)..." maxlength="255">
+                            </div>
+                        </div>
+                    </div>`;
+                }).join('');
+
+                list.querySelectorAll('input[type="radio"]').forEach(radio => {
+                    radio.addEventListener('change', function() {
+                        const card = this.closest('.approve-item-card');
+                        const remarkInput = card.querySelector('.remark-field input');
+                        const pill = card.querySelector('.item-decision-pill');
+                        if (this.value === 'Rejected') {
+                            card.classList.remove('border-success-subtle');
+                            card.classList.add('border-danger-subtle');
+                            if (pill) {
+                                pill.className = 'badge bg-danger text-white shadow-sm ms-auto item-decision-pill';
+                                pill.innerHTML = '<i class="bi bi-x-circle-fill me-1"></i>Rejected';
+                            }
+                            remarkInput.classList.add('border-danger');
+                            remarkInput.placeholder = 'Reason for rejection (required)...';
+                            remarkInput.required = true;
+                        } else if (this.value === 'Approved') {
+                            card.classList.remove('border-danger-subtle');
+                            card.classList.add('border-success-subtle');
+                            if (pill) {
+                                pill.className = 'badge bg-success text-white shadow-sm ms-auto item-decision-pill';
+                                pill.innerHTML = '<i class="bi bi-check-circle-fill me-1"></i>Approved';
+                            }
+                            remarkInput.classList.remove('border-danger');
+                            remarkInput.placeholder = 'Remark (optional)...';
+                            remarkInput.required = false;
+                        }
+                    });
+                });
+            }
+        } catch(e) {
+            console.error('Error rendering approval items list:', e);
+            list.innerHTML = '<div class="alert alert-danger">Error loading items. Please try again.</div>';
+        }
+
+        const approveModalEl = document.getElementById('approveItemsModal');
+        if (approveModalEl) {
+            new bootstrap.Modal(approveModalEl).show();
+        }
+    };
+}
+
+if (!window.setAllItemStatuses) {
+    window.setAllItemStatuses = function(status) {
+        const radioPrefix = status === 'Approved' ? 'approve_' : 'reject_';
+        document.querySelectorAll('#approveItemsList .approve-item-card').forEach(card => {
+            const itemId = card.dataset.itemId;
+            const radio = document.getElementById(radioPrefix + itemId);
+            if (radio) {
+                radio.checked = true;
+                radio.dispatchEvent(new Event('change'));
+            }
+        });
+    };
+}
+
+// Global AJAX Submission Handler for approveItemsForm
+document.addEventListener('DOMContentLoaded', () => {
+    const approveForm = document.getElementById('approveItemsForm');
+    const approveModalEl = document.getElementById('approveItemsModal');
+    if (approveForm && !approveForm.dataset.bound) {
+        approveForm.dataset.bound = 'true';
+        approveForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const submitBtn = document.getElementById('approveItemsSubmitBtn');
+            const originalText = submitBtn ? submitBtn.innerHTML : '<i class="bi bi-send me-2"></i>Submit Decision';
+
+            if (!approveForm.checkValidity()) {
+                const unselectedCard = Array.from(approveForm.querySelectorAll('.approve-item-card')).find(card => {
+                    return !card.querySelector('input[type="radio"]:checked');
+                });
+                if (unselectedCard) {
+                    unselectedCard.classList.add('border-warning', 'border-2', 'shadow');
+                    unselectedCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    setTimeout(() => unselectedCard.classList.remove('border-warning', 'border-2', 'shadow'), 3000);
+                }
+                approveForm.reportValidity();
+                return;
+            }
+
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Submitting Decision...';
+            }
+
+            try {
+                const formData = new FormData(approveForm);
+                const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+                const headers = { 'X-Requested-With': 'XMLHttpRequest' };
+                if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
+
+                const basePath = window.cimsBasePath || '';
+                const response = await fetch(`${basePath}/process/process.php`, {
+                    method: 'POST',
+                    body: formData,
+                    headers: headers
+                });
+
+                const rawText = await response.text();
+                let result;
+                try {
+                    result = JSON.parse(rawText);
+                } catch (jsonErr) {
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = rawText;
+                    const cleanText = (tempDiv.textContent || tempDiv.innerText || rawText).trim();
+                    throw new Error(cleanText.substring(0, 250) || 'Server returned an invalid response.');
+                }
+
+                const isSuccess = result.status === 'success' || result.success === true || (result.status && result.status.toLowerCase() === 'ok');
+                if (isSuccess) {
+                    const modalInstance = bootstrap.Modal.getInstance(approveModalEl);
+                    if (modalInstance) modalInstance.hide();
+
+                    if (typeof Swal !== 'undefined') {
+                        await Swal.fire({
+                            icon: 'success',
+                            title: 'Decision Recorded!',
+                            text: result.message || 'Requisition items review has been saved.',
+                            timer: 2000,
+                            showConfirmButton: false
+                        });
+                    }
+                    window.location.reload();
+                } else {
+                    throw new Error(result.message || 'Failed to submit approval decision.');
+                }
+            } catch (err) {
+                console.error('Error approving RS items:', err);
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Decision Failed',
+                        text: err.message || 'An error occurred while saving the review decision.'
+                    });
+                } else {
+                    alert(err.message || 'An error occurred while saving the review decision.');
+                }
+            } finally {
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalText;
+                }
+            }
+        });
+    }
 });
