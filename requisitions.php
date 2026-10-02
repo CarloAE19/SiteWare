@@ -136,7 +136,7 @@ include 'layout/header.php';
     #viewRsModal .table-container-custom {
         border: 1px solid #e2e8f0;
         border-radius: 10px;
-        overflow: hidden;
+        overflow: visible;
         background: #ffffff;
     }
     #viewRsModal .table {
@@ -918,6 +918,7 @@ include 'layout/header.php';
                     <?php if (count($requisitions) > 0): ?>
                         <?php foreach ($requisitions as $rs): ?>
                             <tr class="rs-row" 
+                                data-rs-id="<?= (int)$rs['id'] ?>"
                                 data-rs-no="<?= htmlspecialchars($rs['rs_no']) ?>"
                                 data-requestor-id="<?= htmlspecialchars($rs['requestor_id'] ?? '') ?>"
                                 data-requestor-name="<?= htmlspecialchars($rs['requestor_name'] ?? '') ?>"
@@ -987,7 +988,7 @@ include 'layout/header.php';
                                     ?>
 
                                     <button class="btn btn-sm btn-outline-secondary fw-bold shadow-sm me-1" title="View Details" aria-label="View Details for <?= $rs['rs_no'] ?>"
-                                        onclick="viewRsDetails('<?= $rs['rs_no'] ?>', '<?= $cleanProject ?>', '<?= $cleanRemarks ?>', '<?= $rs['status'] ?>', '<?= $cleanRequestor ?>', '<?= $formattedDateLog ?>', '<?= $itemsB64 ?>', '<?= $rs['type'] ?? 'project' ?>')">
+                                        onclick="viewRsDetails('<?= $rs['rs_no'] ?>', '<?= $cleanProject ?>', '<?= $cleanRemarks ?>', '<?= $rs['status'] ?>', '<?= $cleanRequestor ?>', '<?= $formattedDateLog ?>', '<?= $itemsB64 ?>', '<?= $rs['type'] ?? 'project' ?>', <?= (int)$rs['id'] ?>)">
                                         <i class="bi bi-file-earmark-text me-1" aria-hidden="true"></i> View
                                     </button>
 
@@ -1024,8 +1025,13 @@ include 'layout/header.php';
                                         </form>
                                     <?php endif; ?>
 
-                                    <?php if ($role === 'purchasing' && $rs['status'] === 'Approved'): ?>
-                                        <button class="btn btn-sm btn-outline-primary shadow-sm" title="Generate Purchase Order" aria-label="Generate Purchase Order for <?= $rs['rs_no'] ?>"><i class="bi bi-file-earmark-plus" aria-hidden="true"></i> PO</button>
+                                    <?php if (in_array($role, ['purchasing', 'admin']) && in_array($rs['status'], ['Approved', 'Partially Approved'])): ?>
+                                        <a href="po?action=new&rs_id=<?= (int)$rs['id'] ?>&rs_no=<?= urlencode($rs['rs_no']) ?>" 
+                                            class="btn btn-sm btn-outline-primary fw-bold shadow-sm" 
+                                            title="Generate Purchase Order for <?= htmlspecialchars($rs['rs_no']) ?>" 
+                                            aria-label="Generate Purchase Order for <?= htmlspecialchars($rs['rs_no']) ?>">
+                                            <i class="bi bi-file-earmark-plus me-1" aria-hidden="true"></i>PO
+                                        </a>
                                     <?php endif; ?>
                                 </td>
                             </tr>
@@ -1084,7 +1090,7 @@ include 'layout/header.php';
                     $canEdit = ($isOwnRequest || in_array($role, ['admin', 'management'])) && in_array($rs['status'], ['Pending Approval', 'Rejected']);
                     $canApprove = in_array($role, ['management', 'admin']) && $rs['status'] === 'Pending Approval';
                     $canStage = in_array($role, ['warehouse', 'admin']) && $rs['status'] === 'Approved' && !$isRestock;
-                    $canPo = ($role === 'purchasing' && $rs['status'] === 'Approved');
+                    $canPo = in_array($role, ['purchasing', 'admin']) && in_array($rs['status'], ['Approved', 'Partially Approved']);
                     ?>
                     <div class="cims-mobile-card rs-card"
                         data-rs-no="<?= htmlspecialchars($rs['rs_no']) ?>"
@@ -1232,9 +1238,11 @@ include 'layout/header.php';
                                     </button>
                                 </div>
                                 <div class="col-6">
-                                    <button type="button" class="btn btn-outline-primary w-100 fw-bold shadow-sm" title="Generate Purchase Order">
+                                    <a href="po?action=new&rs_id=<?= (int)$rs['id'] ?>&rs_no=<?= urlencode($rs['rs_no']) ?>" 
+                                        class="btn btn-primary w-100 fw-bold shadow-sm d-inline-flex align-items-center justify-content-center" 
+                                        title="Generate Purchase Order for <?= htmlspecialchars($rs['rs_no']) ?>">
                                         <i class="bi bi-file-earmark-plus me-1"></i> Create PO
-                                    </button>
+                                    </a>
                                 </div>
                             <?php else: ?>
                                 <div class="col-12">
