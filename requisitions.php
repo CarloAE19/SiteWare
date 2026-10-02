@@ -70,7 +70,7 @@ foreach ($allItems as $item) {
 
 $totalRS = count($requisitions);
 $pendingRS = count(array_filter($requisitions, fn($r) => $r['status'] === 'Pending Approval'));
-$approvedRS = count(array_filter($requisitions, fn($r) => in_array($r['status'], ['Approved', 'Partially Approved', 'PO Created', 'Staged (Ready for Pickup)'])));
+$approvedRS = count(array_filter($requisitions, fn($r) => in_array($r['status'], ['Approved', 'Partially Approved', 'Partially Ordered', 'PO Created', 'Staged (Ready for Pickup)'])));
 $stagedRS = count(array_filter($requisitions, fn($r) => $r['status'] === 'Staged (Ready for Pickup)'));
 
 include 'layout/header.php';
@@ -970,6 +970,7 @@ include 'layout/header.php';
                                     if ($rs['status'] == 'Pending Approval') $statusClass = 'bg-warning text-dark';
                                     if ($rs['status'] == 'Approved') $statusClass = 'bg-success';
                                     if ($rs['status'] == 'Partially Approved') $statusClass = 'bg-warning text-dark';
+                                    if ($rs['status'] == 'Partially Ordered') $statusClass = 'bg-warning-subtle text-warning-emphasis border border-warning-subtle';
                                     if ($rs['status'] == 'Staged (Ready for Pickup)') $statusClass = 'bg-info text-dark';
                                     if ($rs['status'] == 'Rejected') $statusClass = 'bg-danger';
                                     if ($rs['status'] == 'PO Created') $statusClass = 'bg-info text-dark';
@@ -1025,7 +1026,7 @@ include 'layout/header.php';
                                         </form>
                                     <?php endif; ?>
 
-                                    <?php if (in_array($role, ['purchasing', 'admin']) && in_array($rs['status'], ['Approved', 'Partially Approved'])): ?>
+                                    <?php if (in_array($role, ['purchasing', 'admin']) && in_array($rs['status'], ['Approved', 'Partially Approved', 'Partially Ordered'])): ?>
                                         <a href="po?action=new&rs_id=<?= (int)$rs['id'] ?>&rs_no=<?= urlencode($rs['rs_no']) ?>" 
                                             class="btn btn-sm btn-outline-primary fw-bold shadow-sm" 
                                             title="Generate Purchase Order for <?= htmlspecialchars($rs['rs_no']) ?>" 
@@ -1075,6 +1076,7 @@ include 'layout/header.php';
                     if ($rs['status'] == 'Pending Approval') $statusClass = 'bg-warning text-dark';
                     if ($rs['status'] == 'Approved') $statusClass = 'bg-success';
                     if ($rs['status'] == 'Partially Approved') $statusClass = 'bg-warning text-dark';
+                    if ($rs['status'] == 'Partially Ordered') $statusClass = 'bg-warning-subtle text-warning-emphasis border border-warning-subtle';
                     if ($rs['status'] == 'Staged (Ready for Pickup)') $statusClass = 'bg-info text-dark';
                     if ($rs['status'] == 'Rejected') $statusClass = 'bg-danger';
                     if ($rs['status'] == 'PO Created') $statusClass = 'bg-info text-dark';
@@ -1090,7 +1092,7 @@ include 'layout/header.php';
                     $canEdit = ($isOwnRequest || in_array($role, ['admin', 'management'])) && in_array($rs['status'], ['Pending Approval', 'Rejected']);
                     $canApprove = in_array($role, ['management', 'admin']) && $rs['status'] === 'Pending Approval';
                     $canStage = in_array($role, ['warehouse', 'admin']) && $rs['status'] === 'Approved' && !$isRestock;
-                    $canPo = in_array($role, ['purchasing', 'admin']) && in_array($rs['status'], ['Approved', 'Partially Approved']);
+                    $canPo = in_array($role, ['purchasing', 'admin']) && in_array($rs['status'], ['Approved', 'Partially Approved', 'Partially Ordered']);
                     ?>
                     <div class="cims-mobile-card rs-card"
                         data-rs-no="<?= htmlspecialchars($rs['rs_no']) ?>"
