@@ -21,9 +21,9 @@ $approvedRS = $pdo->query("
     SELECT r.id, r.rs_no, r.project_name, r.status, r.type, p.address AS project_address 
     FROM requisitions r 
     LEFT JOIN projects p ON r.project_name = p.project_name 
-    WHERE r.status IN ('Approved', 'Partially Approved') 
+    WHERE r.status IN ('Approved', 'Partially Approved', 'Partially Ordered') 
     ORDER BY 
-        FIELD(r.status, 'Approved', 'Partially Approved'),
+        FIELD(r.status, 'Partially Ordered', 'Approved', 'Partially Approved'),
         r.created_at DESC
 ")->fetchAll(PDO::FETCH_ASSOC);
 ?>
@@ -46,6 +46,7 @@ $approvedRS = $pdo->query("
                         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(generate_csrf_token()) ?>">
                     <?php endif; ?>
                     <input type="hidden" name="action" value="create_po">
+                    <input type="hidden" name="has_item_selection" value="1">
 
                     <div class="mb-4">
                         <label class="form-label fw-bold small text-muted text-uppercase">Auto-Generated PO
@@ -60,41 +61,73 @@ $approvedRS = $pdo->query("
                         <select class="form-select fw-bold shadow-sm" name="rs_id" id="poRsSelect" required onchange="if(typeof window.updatePoDestinationOnRsChange === 'function') window.updatePoDestinationOnRsChange();">
                             <option value="" disabled selected>-- Select an Approved RS --</option>
                             <?php foreach ($approvedRS as $rs):
-                                $isPartial = $rs['status'] === 'Partially Approved';
-                                $statusLabel = $isPartial ? ' ⚠️ [Partially Approved]' : ' ✅ [Approved]';
+                                $isPartialApp = $rs['status'] === 'Partially Approved';
+                                $isPartiallyOrdered = $rs['status'] === 'Partially Ordered';
+                                $statusLabel = $isPartiallyOrdered ? ' ⏳ [Partially Ordered - Split PO]' : ($isPartialApp ? ' ⚠️ [Partially Approved]' : ' ✅ [Approved]');
                                 $isRestock = ($rs['type'] === 'restock' || $rs['project_name'] === 'Warehouse Restock');
                                 $typePrefix = $isRestock ? '📦 [Restock]' : '🏗️ [Project: ' . htmlspecialchars($rs['project_name']) . ']';
                                 ?>
                                 <option value="<?= $rs['id'] ?>"
                                     data-type="<?= htmlspecialchars($rs['type'] ?? 'project') ?>"
                                     data-project="<?= htmlspecialchars($rs['project_name']) ?>"
-                                    data-address="<?= htmlspecialchars($rs['project_address'] ?? '') ?>">
+                                    data-address="<?= htmlspecialchars($rs['project_address'] ?? '') ?>"
+                                    data-status="<?= htmlspecialchars($rs['status']) ?>">
                                     <?= $typePrefix ?> <?= $rs['rs_no'] ?>     <?= $statusLabel ?>
                                 </option>
                             <?php endforeach; ?>
                         </select>
                         <small class="text-muted d-block mt-2" style="font-size: 0.75rem;"><i
-                                class="bi bi-info-circle me-1"></i>Approved and Partially Approved RSes (both Warehouse Restock &amp; Project requests) appear here.</small>
+                                class="bi bi-info-circle me-1"></i>Approved and Partially Ordered RSes (Warehouse Restock &amp; Project requests) appear here.</small>
                     </div>
 
-                    <!-- Item History Preview -->
+                    <!-- Interactive Split-PO Item Selection & Allocation -->
                     <div class="mb-4 d-none" id="rsItemsPreviewContainer">
-                        <label class="form-label fw-bold small text-muted text-uppercase">Items to Purchase &
-                            History</label>
-                        <div class="table-responsive border rounded shadow-sm bg-white">
-                            <table class="table table-sm table-hover align-middle mb-0 text-nowrap"
-                                style="font-size: 0.85rem;">
-                                <thead class="table-light text-muted">
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            <div>
+                                <label class="form-label fw-bold small text-muted text-uppercase mb-0">
+                                    <i class="bi bi-check2-square text-primary me-1"></i>Select Items For This Supplier <span class="text-danger">*</span>
+                                </label>
+                                <small class="text-muted d-block" style="font-size: 0.73rem;">
+                                    Check items this vendor fulfills. Unselected items stay on the RS for another PO.
+                                </small>
+                            </div>
+                            <div class="d-flex align-items-center gap-1">
+                                <button type="button" class="btn btn-sm btn-outline-secondary py-0.5 px-2" onclick="toggleAllPoItems(true)" style="font-size: 0.72rem;">Select All</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary py-0.5 px-2" onclick="toggleAllPoItems(false)" style="font-size: 0.72rem;">Deselect All</button>
+                            </div>
+                        </div>
+
+                        <div class="table-responsive border rounded shadow-sm bg-white" style="max-height: 280px; overflow-y: auto;">
+                            <table class="table table-sm table-hover align-middle mb-0" style="font-size: 0.85rem;">
+                                <thead class="table-light text-muted sticky-top">
                                     <tr>
-                                        <th>Item Name</th>
-                                        <th class="text-center">Qty</th>
-                                        <th>Past Supplier</th>
+                                        <th style="width: 36px;" class="text-center ps-2">
+                                            <input type="checkbox" class="form-check-input" id="checkAllPoItems" onchange="toggleAllPoItems(this.checked)" title="Select/Deselect All">
+                                        </th>
+                                        <th>Item Description</th>
+                                        <th class="text-center" style="width: 120px;">Order Qty</th>
+                                        <th class="text-end pe-3" style="width: 110px;">Est. Subtotal</th>
                                     </tr>
                                 </thead>
                                 <tbody id="rsItemsPreviewBody">
                                     <!-- Populated via AJAX -->
                                 </tbody>
                             </table>
+                        </div>
+
+                        <!-- Allocation Summary Footer -->
+                        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 p-2 mt-1 bg-white border rounded small">
+                            <span class="text-muted fw-semibold" id="poSelectedCountBadge">
+                                <i class="bi bi-box-seam me-1 text-primary"></i>0 items selected
+                            </span>
+                            <div class="d-flex align-items-center gap-2">
+                                <button type="button" class="btn btn-xs fw-bold px-2 py-1 text-white shadow-sm" onclick="openPrePoInquiryModal()" style="background-color: #7360f2; font-size: 0.73rem; border-radius: 6px;" title="Send quick stock & price inquiry to supplier via Viber">
+                                    <i class="fa-brands fa-viber me-1"></i> Inquire Checked Items
+                                </button>
+                                <span class="fw-bold text-dark">
+                                    Est. Total: <span class="text-success font-monospace fs-6" id="poSelectedTotalDisplay">₱0.00</span>
+                                </span>
+                            </div>
                         </div>
                     </div>
 
@@ -142,9 +175,17 @@ $approvedRS = $pdo->query("
                     </div>
 
                     <div class="mb-2">
-                        <label class="form-label fw-bold small text-muted text-uppercase">Select Supplier <span
-                                class="text-danger">*</span></label>
-                        <select class="form-select fw-bold shadow-sm" name="supplier_id" required>
+                        <div class="d-flex align-items-center justify-content-between mb-1">
+                            <label class="form-label fw-bold small text-muted text-uppercase mb-0">Select Supplier <span
+                                    class="text-danger">*</span></label>
+                            <button type="button" class="btn btn-sm fw-bold px-2.5 py-0.5 shadow-sm text-white"
+                                id="btnQuickViberInquiry" onclick="openPrePoInquiryModal()"
+                                title="Send quick stock availability & price inquiry to this supplier via Viber or Copy message"
+                                style="background-color: #7360f2; border-color: #7360f2; font-size: 0.75rem; border-radius: 6px;">
+                                <i class="fa-brands fa-viber me-1"></i> Quick Viber Inquiry
+                            </button>
+                        </div>
+                        <select class="form-select fw-bold shadow-sm" name="supplier_id" id="poSupplierSelect" required onchange="if(typeof window.onPoSupplierChange === 'function') window.onPoSupplierChange();">
                             <option value="" disabled selected>-- Select Supplier --</option>
                             <?php foreach ($suppliers as $sup):
                                 $total = (int) $sup['total_po'];
@@ -165,7 +206,10 @@ $approvedRS = $pdo->query("
                                     $score = ' — ' . $sc . '%';
                                 }
                                 ?>
-                                <option value="<?= $sup['id'] ?>">
+                                <option value="<?= $sup['id'] ?>"
+                                    data-phone="<?= htmlspecialchars($sup['contact_number'] ?? '') ?>"
+                                    data-company="<?= htmlspecialchars($sup['company_name']) ?>"
+                                    data-contact="<?= htmlspecialchars($sup['contact_person'] ?? '') ?>">
                                     <?= htmlspecialchars($sup['company_name']) ?> [<?= $tier ?><?= $score ?>]
                                 </option>
                             <?php endforeach; ?>
@@ -654,6 +698,102 @@ $approvedRS = $pdo->query("
                         onclick="triggerViberPoSend()"><i class="fa-brands fa-viber me-1"></i> Send via Viber</button>
                 </div>
             </form>
+        </div>
+    </div>
+</div>
+
+<!-- ==========================================
+  MODAL: PRE-PO VIBER / STOCK INQUIRY (Method A: Direct Vendor Inquiry)
+=========================================== -->
+<div class="modal fade" id="prePoInquiryModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" style="z-index: 1065;">
+    <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable modal-fullscreen-sm-down">
+        <div class="modal-content border-0 shadow-lg" style="border-top: 4px solid #7360f2 !important;">
+            <div class="modal-header bg-white pb-2">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="rounded-circle d-flex align-items-center justify-content-center" style="width: 36px; height: 36px; background-color: rgba(115, 96, 242, 0.12); color: #7360f2;">
+                        <i class="fa-brands fa-viber fs-5"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title fw-bold mb-0" style="color: #7360f2;">Quick Vendor Stock &amp; Price Inquiry</h5>
+                        <small class="text-muted" style="font-size: 0.75rem;">Inquire availability &amp; pricing with supplier prior to PO finalization</small>
+                    </div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-3 p-md-4 bg-light">
+                <!-- Informative Callout -->
+                <div class="alert alert-info py-2 px-3 mb-3 border-0 shadow-sm d-flex align-items-start gap-2" style="font-size: 0.8rem; background-color: #eff6ff; color: #1e40af; border-left: 3px solid #3b82f6 !important;">
+                    <i class="bi bi-info-circle-fill fs-6 mt-0.5 text-primary flex-shrink-0"></i>
+                    <div>
+                        <strong>Pre-Order Verification:</strong> Contact the vendor via Viber or chat to confirm that these items are on hand. If they only have partial items, you can keep those selected in the PO and order the remaining items from another supplier!
+                    </div>
+                </div>
+
+                <!-- Supplier & Contact Card -->
+                <div class="card border-0 shadow-sm rounded-3 mb-3 bg-white">
+                    <div class="card-body p-3">
+                        <div class="row g-2 align-items-center">
+                            <div class="col-12 col-md-7">
+                                <div class="text-muted small text-uppercase fw-bold" style="font-size: 0.70rem;">Target Supplier</div>
+                                <div class="fw-bold text-dark fs-6" id="prePoInquirySupplierName">-</div>
+                                <div class="text-muted small" id="prePoInquiryContactPerson"><i class="bi bi-person me-1"></i>Contact: <span>-</span></div>
+                            </div>
+                            <div class="col-12 col-md-5 text-md-end">
+                                <div class="text-muted small text-uppercase fw-bold" style="font-size: 0.70rem;">Recipient Contact Number</div>
+                                <div class="d-inline-flex align-items-center gap-1.5 mt-0.5">
+                                    <span class="font-monospace fw-bold text-dark" id="prePoInquiryPhoneDisplay">-</span>
+                                    <span id="prePoInquiryViberBadge" class="badge shadow-sm" style="font-size: 0.68rem; background-color: #7360f2; color: #fff;">
+                                        <i class="fa-brands fa-viber me-1"></i>Viber Ready
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Selected Items Preview Chips -->
+                <div class="mb-3">
+                    <div class="d-flex align-items-center justify-content-between mb-1.5">
+                        <label class="form-label fw-bold small text-muted text-uppercase mb-0" style="font-size: 0.75rem;">
+                            <i class="bi bi-boxes me-1 text-primary"></i>Items To Inquire (<span id="prePoInquiryItemCount">0</span> items selected)
+                        </label>
+                        <span class="badge bg-light text-secondary border font-monospace" id="prePoInquiryRsRef">RS Ref: -</span>
+                    </div>
+                    <div class="p-2.5 bg-white border rounded-3 shadow-sm" style="max-height: 140px; overflow-y: auto;" id="prePoInquiryItemsChips">
+                        <!-- Dynamic items rendered via JS -->
+                    </div>
+                </div>
+
+                <!-- Generated Inquiry Message Editor -->
+                <div class="mb-2">
+                    <div class="d-flex align-items-center justify-content-between mb-1">
+                        <label class="form-label fw-bold small text-muted text-uppercase mb-0" style="font-size: 0.75rem;">
+                            <i class="bi bi-chat-left-dots text-primary me-1"></i>Inquiry Message Text
+                        </label>
+                        <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none fw-semibold text-primary" onclick="resetPrePoInquiryMessage()" style="font-size: 0.72rem;">
+                            <i class="bi bi-arrow-counterclockwise me-1"></i>Reset to Template
+                        </button>
+                    </div>
+                    <textarea class="form-control fw-medium text-dark shadow-sm bg-white" id="prePoInquiryMessage" rows="7"
+                        style="font-family: SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 0.85rem; line-height: 1.45;"></textarea>
+                    <small class="text-muted d-block mt-1" style="font-size: 0.72rem;">
+                        <i class="bi bi-pencil me-1"></i>You can review and edit this message before copying or launching Viber.
+                    </small>
+                </div>
+            </div>
+            <div class="modal-footer bg-white border-top justify-content-between p-3">
+                <button type="button" class="btn btn-light text-muted fw-bold px-3" data-bs-dismiss="modal">
+                    <i class="bi bi-arrow-left me-1"></i> Back to PO Form
+                </button>
+                <div class="d-flex align-items-center gap-2">
+                    <button type="button" class="btn btn-outline-secondary fw-bold px-3 shadow-sm" id="btnCopyPrePoInquiry" onclick="copyPrePoInquiryText()">
+                        <i class="bi bi-clipboard me-1"></i> Copy Message
+                    </button>
+                    <a id="btnLaunchPrePoViber" href="#" target="_blank" class="btn fw-bold px-4 text-white shadow-sm" onclick="onLaunchPrePoViberClick(event)" style="background-color: #7360f2; border-color: #7360f2;">
+                        <i class="fa-brands fa-viber me-1"></i> Open Chat in Viber
+                    </a>
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -1201,11 +1341,15 @@ $approvedRS = $pdo->query("
                     </div>
                 </div>
                 <div class="modal-footer justify-content-between bg-white border-top-0 p-3">
-                    <button type="button" class="btn btn-light text-muted fw-bold px-4" data-bs-dismiss="modal">Keep
-                        Order Active</button>
-                    <button type="submit" id="confirmCancelPoBtn" class="btn btn-danger fw-bold px-4 shadow-sm">
-                        <i class="bi bi-slash-circle me-1"></i> Void Purchase Order
-                    </button>
+                    <button type="button" class="btn btn-light text-muted fw-bold px-3" data-bs-dismiss="modal">Keep Order Active</button>
+                    <div class="d-flex align-items-center gap-2">
+                        <button type="button" id="btnSwitchSupplierPo" class="btn btn-warning fw-bold px-3 shadow-sm" onclick="handleCancelPoSubmit(event, true)">
+                            <i class="bi bi-arrow-repeat me-1"></i> Void &amp; Switch Supplier
+                        </button>
+                        <button type="submit" id="confirmCancelPoBtn" class="btn btn-danger fw-bold px-3 shadow-sm">
+                            <i class="bi bi-slash-circle me-1"></i> Void Purchase Order
+                        </button>
+                    </div>
                 </div>
             </form>
         </div>
