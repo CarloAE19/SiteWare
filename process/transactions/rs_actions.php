@@ -80,24 +80,44 @@ if ($action === 'fetch_rs_data') {
     exit;
 }
 
-// --- AJAX: FETCH RS ITEMS WITH SUPPLIER HISTORY ---
+// --- AJAX: FETCH RS ITEMS WITH SUPPLIER HISTORY & REMAINING FULFILLMENT ---
 elseif ($action === 'fetch_rs_with_history') {
     if (!in_array($_SESSION['user_role'], ['purchasing', 'admin'])) {
         echo json_encode(['status' => 'error', 'message' => 'Unauthorized.']);
         exit;
     }
 
-    $rs_id = $_POST['rs_id'] ?? 0;
+    $rs_id = filter_input(INPUT_POST, 'rs_id', FILTER_VALIDATE_INT) ?: 0;
 
     // Only return items that are Approved (excludes Rejected items from Partially Approved RSes)
+    // Computes previously ordered quantities from active (non-cancelled) POs to support Split-PO line-item allocation
     $stmt = $pdo->prepare("
-        SELECT ri.item_code, ri.quantity, COALESCE(i.item_name, ri.new_item_name) as item_name, ri.is_new_item, ri.new_category, ri.new_unit 
+        SELECT 
+            ri.id AS req_item_id,
+            ri.item_code, 
+            ri.quantity AS requested_qty, 
+            COALESCE(i.item_name, ri.new_item_name, ri.item_code) AS item_name, 
+            ri.is_new_item, 
+            COALESCE(i.category, ri.new_category, 'General') AS category, 
+            COALESCE(i.unit, ri.new_unit, 'pcs') AS unit,
+            COALESCE(i.unit_price, 0.00) AS unit_price,
+            COALESCE((
+                SELECT SUM(pi.quantity) 
+                FROM po_items pi 
+                JOIN purchase_orders po ON pi.po_id = po.id 
+                WHERE po.rs_id = ri.requisition_id 
+                  AND pi.item_code = ri.item_code 
+                  AND po.status != 'Cancelled'
+            ), 0) AS ordered_qty
         FROM requisition_items ri 
         LEFT JOIN inventory i ON ri.item_code = i.item_code 
         WHERE ri.requisition_id = ? AND ri.item_status = 'Approved'
+        ORDER BY ri.id ASC
     ");
     $stmt->execute([$rs_id]);
     $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $availableToOrderCount = 0;
 
     if (!empty($items)) {
         $histStmt = $pdo->prepare("
@@ -105,12 +125,24 @@ elseif ($action === 'fetch_rs_with_history') {
             FROM po_items pi 
             JOIN purchase_orders po ON pi.po_id = po.id 
             JOIN suppliers s ON po.supplier_id = s.id 
-            WHERE pi.item_code = ? AND po.status != 'Generated'
+            WHERE pi.item_code = ? AND po.status != 'Cancelled'
             ORDER BY po.created_at DESC 
             LIMIT 1
         ");
 
         foreach ($items as &$item) {
+            $requested = (int)$item['requested_qty'];
+            $ordered = (int)$item['ordered_qty'];
+            $remaining = max(0, $requested - $ordered);
+
+            $item['quantity'] = $requested; // Backwards compatibility for existing UI
+            $item['remaining_qty'] = $remaining;
+            $item['is_fully_ordered'] = ($remaining <= 0);
+
+            if ($remaining > 0) {
+                $availableToOrderCount++;
+            }
+
             $histStmt->execute([$item['item_code']]);
             $history = $histStmt->fetch(PDO::FETCH_ASSOC);
 
@@ -122,9 +154,15 @@ elseif ($action === 'fetch_rs_with_history') {
                 $item['last_purchased'] = '';
             }
         }
+        unset($item);
     }
 
-    echo json_encode(['status' => 'success', 'items' => $items]);
+    echo json_encode([
+        'status' => 'success', 
+        'items' => $items, 
+        'available_count' => $availableToOrderCount,
+        'total_items' => count($items)
+    ]);
     exit;
 }
 
