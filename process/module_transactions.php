@@ -22,7 +22,7 @@ elseif ($action === 'create_withdrawal') {
     require __DIR__ . '/transactions/withdrawal_actions.php';
 }
 // 4. Viber Messaging Actions
-elseif (in_array($action, ['log_viber_order_sent', 'fetch_po_viber_preview'])) {
+elseif (in_array($action, ['log_viber_order_sent', 'log_viber_inquiry', 'fetch_po_viber_preview'])) {
     require __DIR__ . '/transactions/viber_actions.php';
 }
 // 5. Alert Actions
