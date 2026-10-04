@@ -66,8 +66,7 @@ if (usernameField && jsErrorBlock && jsErrorMessage && usernameFloat) {
             usernameFloat.classList.remove('has-error');
             if (signInBtn) signInBtn.disabled = false;
 
-            if (phpErrorBlock) phpErrorBlock.style.display = 'flex';
-            if (phpUsernameErrorBlock) phpUsernameErrorBlock.style.display = 'none'; // Once corrected by JS, keep PHP fallback hidden
+            if (phpUsernameErrorBlock) phpUsernameErrorBlock.style.display = 'none';
         }
     };
 
@@ -219,11 +218,15 @@ if (loginForm) {
     });
 
     // Auto-dismiss previous error block as soon as user edits credentials
+    const dismissServerError = () => {
+        const errBlock = document.getElementById('phpErrorBlock');
+        if (errBlock) errBlock.style.display = 'none';
+    };
     if (passwordField) {
-        passwordField.addEventListener('input', () => {
-            const errBlock = document.getElementById('phpErrorBlock');
-            if (errBlock) errBlock.style.display = 'none';
-        });
+        passwordField.addEventListener('input', dismissServerError);
+    }
+    if (usernameField) {
+        usernameField.addEventListener('input', dismissServerError);
     }
 }
 
