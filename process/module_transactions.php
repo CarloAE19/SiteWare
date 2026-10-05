@@ -28,6 +28,10 @@ elseif (in_array($action, ['log_viber_order_sent', 'log_viber_inquiry', 'fetch_p
 // 5. Alert Actions
 elseif ($action === 'fetch_combined_alerts') {
     require __DIR__ . '/transactions/alert_actions.php';
+}
+// 6. Supplier Inquiry Actions
+elseif (in_array($action, ['create_supplier_inquiry', 'fetch_supplier_inquiry_details', 'fetch_active_inquiries', 'cancel_supplier_inquiry'])) {
+    require __DIR__ . '/transactions/supplier_inquiry_actions.php';
 } else {
     throw new Exception("Unknown transaction action: " . htmlspecialchars($action));
 }
