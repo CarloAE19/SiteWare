@@ -4,7 +4,7 @@
 
 # 1. DISABLE DIRECTORY BROWSING (Crucial!)
 # Prevents hackers from seeing a list of files in folders that don't have an index.php
-Options -Indexes
+Options -Indexes -MultiViews
 
 # 2. BLOCK SENSITIVE FILES
 # Prevents anyone from downloading your database credentials or server config
@@ -28,6 +28,13 @@ RewriteEngine On
 RewriteRule ^secure-image$ secure_image.php [QSA,L]
 RewriteRule ^media/([^/]+)/([^/]+)$ secure_image.php?type=$1&file=$2 [QSA,L]
 
+# Clean Supplier Portal Routes
+# Supports both: /CIMS/supplier_inquiry/<token> and /CIMS/inquiry/<token>
+RewriteRule ^supplier_inquiry/([a-zA-Z0-9]+)$ supplier_inquiry.php?token=$1 [QSA,L]
+RewriteRule ^inquiry/([a-zA-Z0-9]+)$ supplier_inquiry.php?token=$1 [QSA,L]
+RewriteRule ^supplier_inquiry$ supplier_inquiry.php [QSA,L]
+RewriteRule ^supplier_inquiries$ supplier_inquiries.php [QSA,L]
+
 # Redirect direct .php requests to clean URL (e.g. /login.php -> /login)
 RewriteCond %{REQUEST_METHOD} !POST
 RewriteCond %{THE_REQUEST} \s/+(.+)\.php[\s?] [NC]
@@ -38,7 +45,7 @@ RewriteRule ^ /%1 [R=301,L]
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME}.php -f
-RewriteRule ^([^\.]+)$ $1.php [NC,L]
+RewriteRule ^([^\.]+)$ $1.php [QSA,NC,L]
 
 # 4. INJECT SECURITY HEADERS (Anti-Hacking)
 <IfModule mod_headers.c>
