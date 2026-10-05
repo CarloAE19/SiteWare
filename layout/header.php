@@ -549,6 +549,10 @@ foreach ($notifications as $n) {
                             class="bi bi-tools"></i> Material Withdrawals</a></li>
                 <li class="<?= $currentPage == 'requisitions.php' ? 'active' : '' ?>"><a href="requisitions"><i
                             class="bi bi-card-checklist"></i> Requisitions (RS)</a></li>
+                <?php if (in_array($_SESSION['user_role'], ['admin', 'management', 'purchasing'])): ?>
+                    <li class="<?= in_array($currentPage, ['supplier_inquiries.php']) ? 'active' : '' ?>"><a href="supplier_inquiries"><i
+                                class="bi bi-chat-left-dots"></i> Supplier Inquiries</a></li>
+                <?php endif; ?>
                 <?php if (in_array($_SESSION['user_role'], ['admin', 'management', 'purchasing', 'warehouse'])): ?>
                     <li class="<?= $currentPage == 'po.php' ? 'active' : '' ?>"><a href="po"><i
                                 class="bi bi-file-earmark-text"></i> Purchase Orders (PO)</a></li>
