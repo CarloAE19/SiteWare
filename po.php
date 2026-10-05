@@ -1898,6 +1898,9 @@ include 'layout/header.php';
                         const checkAll = document.getElementById('checkAllPoItems');
                         if (checkAll) checkAll.checked = true;
                         window.updatePoSelectedTotal();
+                        if (typeof window.checkActiveSupplierInquiries === 'function') {
+                            window.checkActiveSupplierInquiries();
+                        }
                     } else {
                         tbody.innerHTML = `<tr><td colspan="4" class="text-center text-danger py-3">Error loading items: ${data.message}</td></tr>`;
                     }
@@ -4250,7 +4253,11 @@ include 'layout/header.php';
     // ==========================================
     // METHOD A: PRE-PO VIBER / STOCK & PRICING INQUIRY
     // ==========================================
+    // METHOD A: PRE-PO VIBER / STOCK & PRICING INQUIRY WITH TOKENIZED PORTAL
+    // ==========================================
     window._lastGeneratedPrePoTemplate = '';
+    window._activeInquiriesList = [];
+    window._lastSelectedInquiryId = null;
 
     window.onPoSupplierChange = function() {
         const supplierSelect = document.getElementById('poSupplierSelect');
@@ -4273,6 +4280,60 @@ include 'layout/header.php';
                 btn.style.color = '#ffffff';
                 btn.title = 'Supplier has no Viber mobile registered. Copy message mode enabled.';
             }
+        }
+
+        if (typeof window.checkActiveSupplierInquiries === 'function') {
+            window.checkActiveSupplierInquiries();
+        }
+    };
+
+    window.checkActiveSupplierInquiries = async function() {
+        const rsSelect = document.getElementById('poRsSelect');
+        const supplierSelect = document.getElementById('poSupplierSelect');
+        const rsId = rsSelect ? rsSelect.value : '';
+        const supplierId = supplierSelect ? supplierSelect.value : '';
+        const noticeBox = document.getElementById('poInquiryResponseNotice');
+        const summaryEl = document.getElementById('poInquiryResponseSummary');
+        const badgeCountEl = document.getElementById('inquiriesBadgeCount');
+        const btnList = document.getElementById('btnViewInquiriesList');
+
+        if (!rsId && !supplierId) {
+            if (noticeBox) noticeBox.classList.add('d-none');
+            if (btnList) btnList.classList.add('d-none');
+            return;
+        }
+
+        let fd = new FormData();
+        fd.append('action', 'fetch_active_inquiries');
+        if (rsId) fd.append('rs_id', rsId);
+        if (supplierId) fd.append('supplier_id', supplierId);
+
+        try {
+            const res = await (window.cimsFetchWithTimeout || fetch)('process/process.php', { method: 'POST', body: fd });
+            const data = await res.json();
+            if (data.status === 'success' && data.inquiries && data.inquiries.length > 0) {
+                window._activeInquiriesList = data.inquiries;
+                if (badgeCountEl) badgeCountEl.textContent = data.inquiries.length;
+                if (btnList) btnList.classList.remove('d-none');
+
+                // Check if there is a responded inquiry for the currently selected supplier
+                const respondedInq = data.inquiries.find(inq => inq.status === 'Responded' && (!supplierId || inq.supplier_id == supplierId));
+                if (respondedInq && noticeBox && summaryEl) {
+                    window._lastSelectedInquiryId = respondedInq.id;
+                    const availCount = parseInt(respondedInq.available_items || 0);
+                    const totalCount = parseInt(respondedInq.total_items || 0);
+                    const unavailCount = parseInt(respondedInq.unavailable_items || 0);
+                    summaryEl.innerHTML = `<strong>${respondedInq.company_name}</strong> confirmed: <span class="badge bg-success">${availCount}/${totalCount} Available</span> ${unavailCount > 0 ? `<span class="badge bg-danger">${unavailCount} Out of Stock</span>` : ''} on ${new Date(respondedInq.responded_at || respondedInq.created_at).toLocaleDateString()}`;
+                    noticeBox.classList.remove('d-none');
+                } else if (noticeBox) {
+                    noticeBox.classList.add('d-none');
+                }
+            } else {
+                if (noticeBox) noticeBox.classList.add('d-none');
+                if (btnList) btnList.classList.add('d-none');
+            }
+        } catch (e) {
+            console.error('Failed to check supplier inquiries', e);
         }
     };
 
@@ -4387,15 +4448,25 @@ include 'layout/header.php';
         // Build item lines & preview chips
         let itemsListText = '';
         let chipsHtml = '';
+        const itemsArray = [];
 
         checkedBoxes.forEach(cb => {
             const tr = cb.closest('tr');
-            const name = cb.getAttribute('data-name') || tr?.querySelector('.fw-bold.text-dark')?.textContent.trim() || cb.value;
+            const code = cb.value;
+            const name = cb.getAttribute('data-name') || tr?.querySelector('.fw-bold.text-dark')?.textContent.trim() || code;
             const unit = cb.getAttribute('data-unit') || tr?.querySelector('.input-group-text')?.textContent.trim() || 'pcs';
             const price = parseFloat(cb.getAttribute('data-price') || tr?.querySelector('.po-item-price')?.value || 0);
             const qtyInput = tr?.querySelector('.po-item-qty');
-            const qty = qtyInput ? qtyInput.value : '1';
+            const qty = parseInt(qtyInput ? qtyInput.value : '1') || 1;
             const priceInfo = price > 0 ? ` (Est. ₱${price.toLocaleString('en-US', {minimumFractionDigits: 2})}/${unit})` : '';
+
+            itemsArray.push({
+                item_code: code,
+                item_name: name,
+                unit: unit,
+                quantity: qty,
+                price: price
+            });
 
             itemsListText += `• ${qty} ${unit} - ${name}${priceInfo}\n`;
             chipsHtml += `
@@ -4417,9 +4488,15 @@ include 'layout/header.php';
         const chipsEl = document.getElementById('prePoInquiryItemsChips');
         if (chipsEl) chipsEl.innerHTML = chipsHtml;
 
-        // Inquiry message template
+        // Reset Portal URL inputs
+        const portalInput = document.getElementById('prePoInquiryPortalUrl');
+        const previewBtn = document.getElementById('btnPreviewInquiryPortalLink');
+        if (portalInput) portalInput.value = 'Generating secure link...';
+        if (previewBtn) previewBtn.setAttribute('href', '#');
+
+        // Initial message template
         const greeting = contactPerson ? `Good day ${companyName} (${contactPerson})!` : `Good day ${companyName}!`;
-        const templateMsg = `${greeting}
+        let templateMsg = `${greeting}
 
 This is Purchasing from GB Construction & Enterprise Inc.
 We are preparing an official Purchase Order (${rsNo}) and would like to confirm current stock availability, lead time, and unit pricing for the following materials:
@@ -4434,12 +4511,308 @@ Kindly let us know if these items are on hand and your latest prices so we can f
         const msgTextarea = document.getElementById('prePoInquiryMessage');
         if (msgTextarea) msgTextarea.value = templateMsg;
 
-        // Show modal
+        // Show modal immediately
         const modalEl = document.getElementById('prePoInquiryModal');
         if (modalEl) {
             let instance = bootstrap.Modal.getInstance(modalEl);
             if (!instance) instance = new bootstrap.Modal(modalEl);
             instance.show();
+        }
+
+        // Asynchronously generate the secure tokenized supplier portal link
+        let inqFd = new FormData();
+        inqFd.append('action', 'create_supplier_inquiry');
+        inqFd.append('supplier_id', supplierSelect.value);
+        inqFd.append('rs_id', rsSelect.value);
+        inqFd.append('delivery_destination', destText);
+        inqFd.append('expected_delivery_date', expectedDate || '');
+        inqFd.append('items', JSON.stringify(itemsArray));
+
+        fetch('process/process.php', { method: 'POST', body: inqFd })
+            .then(r => r.json())
+            .then(res => {
+                if (res.status === 'success' && res.portal_url) {
+                    if (portalInput) portalInput.value = res.portal_url;
+                    if (previewBtn) previewBtn.setAttribute('href', res.portal_url);
+
+                    const linkSection = `\n\n📲 Direct Vendor Portal Link (Tap to confirm stock & pricing with 1-tap):\n${res.portal_url}`;
+                    templateMsg += linkSection;
+                    window._lastGeneratedPrePoTemplate = templateMsg;
+                    if (msgTextarea) msgTextarea.value = templateMsg;
+
+                    if (typeof window.checkActiveSupplierInquiries === 'function') {
+                        window.checkActiveSupplierInquiries();
+                    }
+                } else {
+                    if (portalInput) portalInput.value = 'Direct Chat Mode';
+                }
+            })
+            .catch(() => {
+                if (portalInput) portalInput.value = 'Direct Chat Mode';
+            });
+    };
+
+    window.copyInquiryPortalLink = function() {
+        const input = document.getElementById('prePoInquiryPortalUrl');
+        if (!input || !input.value || input.value.includes('Generating')) return;
+        navigator.clipboard?.writeText(input.value);
+        if (typeof Swal !== 'undefined' && Swal.mixin) {
+            const Toast = Swal.mixin({ toast: true, position: 'top-end', showConfirmButton: false, timer: 2000 });
+            Toast.fire({ icon: 'success', title: 'Supplier portal link copied!' });
+        }
+    };
+
+    window.openActiveInquiriesModal = function() {
+        const modalEl = document.getElementById('activeInquiriesModal');
+        if (modalEl) {
+            let instance = bootstrap.Modal.getInstance(modalEl);
+            if (!instance) instance = new bootstrap.Modal(modalEl);
+            instance.show();
+            window.loadActiveInquiriesList();
+        }
+    };
+
+    window.loadActiveInquiriesList = async function() {
+        const rsSelect = document.getElementById('poRsSelect');
+        const supplierSelect = document.getElementById('poSupplierSelect');
+        const rsId = rsSelect ? rsSelect.value : '';
+        const supplierId = supplierSelect ? supplierSelect.value : '';
+        const container = document.getElementById('activeInquiriesContainer');
+        if (!container) return;
+
+        container.innerHTML = '<div class="text-center text-muted py-4"><span class="spinner-border spinner-border-sm me-2"></span> Loading inquiries...</div>';
+
+        let fd = new FormData();
+        fd.append('action', 'fetch_active_inquiries');
+        if (rsId) fd.append('rs_id', rsId);
+        if (supplierId) fd.append('supplier_id', supplierId);
+
+        try {
+            const res = await (window.cimsFetchWithTimeout || fetch)('process/process.php', { method: 'POST', body: fd });
+            const data = await res.json();
+            if (data.status === 'success' && data.inquiries && data.inquiries.length > 0) {
+                let html = '';
+                data.inquiries.forEach(inq => {
+                    const isResponded = (inq.status === 'Responded');
+                    const isPending = (inq.status === 'Pending');
+                    let badge = '';
+                    if (isResponded) {
+                        badge = `<span class="badge bg-success-subtle text-success border border-success-subtle px-2.5 py-1"><i class="bi bi-check-circle-fill me-1"></i>Responded</span>`;
+                    } else if (isPending) {
+                        badge = `<span class="badge bg-warning-subtle text-dark border border-warning-subtle px-2.5 py-1"><i class="bi bi-clock-history me-1"></i>Awaiting Reply</span>`;
+                    } else {
+                        badge = `<span class="badge bg-secondary text-white px-2.5 py-1">${inq.status}</span>`;
+                    }
+
+                    const portalUrl = `${window.location.origin}${window.location.pathname.replace(/\/[^/]*$/, '')}/supplier_inquiry?token=${inq.token}`;
+
+                    html += `
+                        <div class="card border rounded-3 bg-white p-3 shadow-xs">
+                            <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-2">
+                                <div>
+                                    <div class="d-flex align-items-center gap-1.5 mb-1">
+                                        <span class="badge bg-light text-primary border font-monospace">${inq.inquiry_no}</span>
+                                        ${badge}
+                                    </div>
+                                    <h6 class="fw-bold text-dark mb-0">${inq.company_name}</h6>
+                                    <small class="text-muted"><i class="bi bi-calendar3 me-1"></i>Created: ${new Date(inq.created_at).toLocaleString()}</small>
+                                </div>
+                                <div class="text-end">
+                                    <span class="badge bg-primary-subtle text-primary border">${inq.total_items} Items</span>
+                                    ${isResponded ? `<div class="mt-1 small"><strong class="text-success">${inq.available_items} Available</strong> ${inq.unavailable_items > 0 ? `&bull; <strong class="text-danger">${inq.unavailable_items} Out</strong>` : ''}</div>` : ''}
+                                </div>
+                            </div>
+                            <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 pt-2 border-top">
+                                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="navigator.clipboard?.writeText('${portalUrl}'); Swal.fire({toast:true,position:'top-end',icon:'success',title:'Link Copied!',showConfirmButton:false,timer:1800});">
+                                    <i class="bi bi-link-45deg me-1"></i> Copy Link
+                                </button>
+                                <div class="d-flex align-items-center gap-1.5">
+                                    <button type="button" class="btn btn-sm btn-outline-primary fw-bold" onclick="window.viewInquiryResponseDetails(${inq.id})">
+                                        <i class="bi bi-eye me-1"></i> View Details
+                                    </button>
+                                    ${isResponded ? `
+                                        <button type="button" class="btn btn-sm btn-success fw-bold px-3 shadow-sm" onclick="window.applyInquiryResponseToPo(${inq.id})">
+                                            <i class="bi bi-magic me-1"></i> Apply to PO
+                                        </button>
+                                    ` : ''}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+                container.innerHTML = html;
+            } else {
+                container.innerHTML = '<div class="text-center text-muted py-4"><i class="bi bi-inbox fs-4 d-block mb-1"></i>No inquiries found for this selection.</div>';
+            }
+        } catch (e) {
+            container.innerHTML = '<div class="text-center text-danger py-4">Error loading inquiries.</div>';
+        }
+    };
+
+    window.viewInquiryResponseDetails = async function(inquiryId) {
+        window._lastSelectedInquiryId = inquiryId;
+        let fd = new FormData();
+        fd.append('action', 'fetch_supplier_inquiry_details');
+        fd.append('inquiry_id', inquiryId);
+
+        try {
+            const res = await (window.cimsFetchWithTimeout || fetch)('process/process.php', { method: 'POST', body: fd });
+            const data = await res.json();
+            if (data.status === 'success' && data.inquiry) {
+                const inq = data.inquiry;
+                document.getElementById('inqRespInqNo').textContent = inq.inquiry_no;
+                document.getElementById('inqRespSupplierName').textContent = inq.company_name;
+                document.getElementById('inqRespContact').textContent = 'Contact: ' + (inq.contact_person || 'N/A') + ' (' + (inq.contact_number || 'N/A') + ')';
+                
+                const badge = document.getElementById('inqRespStatusBadge');
+                if (badge) {
+                    if (inq.status === 'Responded') {
+                        badge.className = 'badge bg-success text-white px-3 py-1.5 shadow-sm';
+                        badge.innerHTML = '<i class="bi bi-check-circle-fill me-1"></i> Responded';
+                    } else {
+                        badge.className = 'badge bg-warning text-dark px-3 py-1.5 shadow-sm';
+                        badge.textContent = inq.status;
+                    }
+                }
+
+                const ts = document.getElementById('inqRespTimestamp');
+                if (ts) ts.textContent = inq.responded_at ? ('Responded on ' + new Date(inq.responded_at).toLocaleString()) : ('Expires: ' + inq.expires_at);
+
+                const notesWrap = document.getElementById('inqRespGeneralNotesWrap');
+                const notesEl = document.getElementById('inqRespGeneralNotes');
+                if (notesWrap && notesEl) {
+                    if (inq.supplier_notes && inq.supplier_notes.trim() !== '') {
+                        notesEl.textContent = inq.supplier_notes;
+                        notesWrap.classList.remove('d-none');
+                    } else {
+                        notesWrap.classList.add('d-none');
+                    }
+                }
+
+                const tbody = document.getElementById('inqRespItemsBody');
+                tbody.innerHTML = '';
+                (data.items || []).forEach(itm => {
+                    const tr = document.createElement('tr');
+                    let stBadge = '';
+                    if (itm.availability_status === 'Available') {
+                        stBadge = '<span class="badge bg-success-subtle text-success border border-success-subtle"><i class="bi bi-check-circle-fill me-1"></i>Available</span>';
+                    } else if (itm.availability_status === 'Partial') {
+                        stBadge = '<span class="badge bg-warning-subtle text-dark border border-warning-subtle"><i class="bi bi-pie-chart-fill me-1"></i>Partial</span>';
+                    } else if (itm.availability_status === 'Unavailable') {
+                        stBadge = '<span class="badge bg-danger-subtle text-danger border border-danger-subtle"><i class="bi bi-x-circle-fill me-1"></i>Out of Stock</span>';
+                    } else {
+                        stBadge = '<span class="badge bg-light text-muted border">Pending</span>';
+                    }
+
+                    const priceDisplay = (itm.offered_price !== null && itm.offered_price > 0) 
+                        ? `<strong class="text-primary">₱${parseFloat(itm.offered_price).toLocaleString('en-US', {minimumFractionDigits: 2})}</strong>`
+                        : '<span class="text-muted">-</span>';
+
+                    tr.innerHTML = `
+                        <td class="py-2 px-3">
+                            <div class="fw-bold text-dark">${itm.item_name}</div>
+                            <span class="badge bg-light text-muted border font-monospace" style="font-size:0.68rem;">${itm.item_code}</span>
+                        </td>
+                        <td class="text-center py-2 px-2 fw-bold text-secondary">${itm.requested_qty} ${itm.unit || ''}</td>
+                        <td class="text-center py-2 px-2">${stBadge}</td>
+                        <td class="text-center py-2 px-2 fw-bold ${itm.available_qty > 0 ? 'text-success' : 'text-danger'}">${itm.available_qty !== null ? itm.available_qty : '-'} ${itm.unit || ''}</td>
+                        <td class="text-end py-2 px-2 font-monospace">${priceDisplay}</td>
+                        <td class="py-2 px-3 text-muted small">${itm.item_remarks || '-'}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+
+                const modalEl = document.getElementById('viewInquiryResponseModal');
+                if (modalEl) {
+                    let inst = bootstrap.Modal.getInstance(modalEl);
+                    if (!inst) inst = new bootstrap.Modal(modalEl);
+                    inst.show();
+                }
+            }
+        } catch (e) {
+            console.error('Failed to view inquiry details', e);
+        }
+    };
+
+    window.applyInquiryResponseToPoFromModal = function() {
+        window.applyInquiryResponseToPo(window._lastSelectedInquiryId);
+    };
+
+    window.applyInquiryResponseToPo = async function(inquiryId) {
+        const idToApply = inquiryId || window._lastSelectedInquiryId;
+        if (!idToApply) return;
+
+        let fd = new FormData();
+        fd.append('action', 'fetch_supplier_inquiry_details');
+        fd.append('inquiry_id', idToApply);
+
+        try {
+            const res = await (window.cimsFetchWithTimeout || fetch)('process/process.php', { method: 'POST', body: fd });
+            const data = await res.json();
+            if (data.status === 'success' && data.items) {
+                const inqItems = data.items;
+                let appliedCount = 0;
+                let unavailCount = 0;
+
+                inqItems.forEach(inqItem => {
+                    const cb = document.querySelector(`#rsItemsPreviewBody input.po-item-checkbox[value="${inqItem.item_code}"]`);
+                    if (cb && !cb.disabled) {
+                        const tr = cb.closest('tr');
+                        const qtyInput = tr ? tr.querySelector('.po-item-qty') : null;
+                        const priceInput = tr ? tr.querySelector('.po-item-price') : null;
+                        const priceLabel = tr ? tr.querySelector('.po-item-subtotal + small') : null;
+
+                        if (inqItem.availability_status === 'Available' || inqItem.availability_status === 'Partial') {
+                            cb.checked = true;
+                            cb.closest('tr')?.classList.remove('table-danger', 'opacity-60');
+                            appliedCount++;
+
+                            if (inqItem.available_qty > 0 && qtyInput) {
+                                const maxAllowed = parseInt(qtyInput.getAttribute('max') || inqItem.available_qty);
+                                qtyInput.value = Math.min(inqItem.available_qty, maxAllowed);
+                            }
+                            if (inqItem.offered_price > 0 && priceInput) {
+                                priceInput.value = inqItem.offered_price;
+                                if (priceLabel) {
+                                    priceLabel.innerHTML = `@ ₱${parseFloat(inqItem.offered_price).toLocaleString('en-US', {minimumFractionDigits: 2})}/${inqItem.unit || 'pcs'} <span class="badge bg-success-subtle text-success border">Quoted</span>`;
+                                }
+                            }
+                        } else if (inqItem.availability_status === 'Unavailable') {
+                            cb.checked = false;
+                            unavailCount++;
+                            cb.closest('tr')?.classList.add('table-danger', 'opacity-75');
+                            if (priceLabel) {
+                                priceLabel.innerHTML = `<span class="badge bg-danger text-white">Out of Stock by Vendor</span>`;
+                            }
+                        }
+                    }
+                });
+
+                if (typeof window.updatePoSelectedTotal === 'function') {
+                    window.updatePoSelectedTotal();
+                }
+
+                // Hide the notice once applied
+                const noticeBox = document.getElementById('poInquiryResponseNotice');
+                if (noticeBox) noticeBox.classList.add('d-none');
+
+                // Close view modal if open
+                const respModalEl = document.getElementById('viewInquiryResponseModal');
+                if (respModalEl) bootstrap.Modal.getInstance(respModalEl)?.hide();
+                const actModalEl = document.getElementById('activeInquiriesModal');
+                if (actModalEl) bootstrap.Modal.getInstance(actModalEl)?.hide();
+
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Supplier Response Applied!',
+                        html: `Loaded <strong>${appliedCount} available items</strong> with vendor-confirmed prices and quantities.<br>${unavailCount > 0 ? `<br><small class="text-danger"><i class="bi bi-x-circle me-1"></i><strong>${unavailCount} out-of-stock items</strong> were automatically unselected so you can place them with another supplier.</small>` : ''}`,
+                        confirmButtonColor: '#002B49'
+                    });
+                }
+            }
+        } catch (e) {
+            console.error('Error applying supplier inquiry response', e);
         }
     };
 
