@@ -85,12 +85,18 @@ if (empty($_SESSION['po_schema_patched_v5'])) {
 $query = "
     SELECT p.*, s.company_name, s.contact_number, r.rs_no, r.project_name, 
            u.name AS prepared_by_name,
-           appr.name AS approved_by_name
+           appr.name AS approved_by_name,
+           COALESCE(def.total_rejected, 0) AS total_rejected
     FROM purchase_orders p 
     LEFT JOIN suppliers s ON p.supplier_id = s.id 
     LEFT JOIN requisitions r ON p.rs_id = r.id 
     LEFT JOIN users u ON p.prepared_by = u.id
     LEFT JOIN users appr ON p.approved_by = appr.id
+    LEFT JOIN (
+        SELECT po_id, SUM(rejected_quantity) AS total_rejected 
+        FROM po_items 
+        GROUP BY po_id
+    ) def ON p.id = def.po_id
     ORDER BY p.created_at DESC
 ";
 $pos = $pdo->query($query)->fetchAll(PDO::FETCH_ASSOC);
@@ -970,6 +976,7 @@ include 'layout/header.php';
                                 data-created-date="<?= !empty($po['created_at']) ? date('Y-m-d', strtotime($po['created_at'])) : '' ?>"
                                 data-status="<?= htmlspecialchars($po['status'] ?? 'Generated') ?>"
                                 data-project="<?= htmlspecialchars($po['project_name'] ?? 'Warehouse Restock') ?>"
+                                data-dr="<?= htmlspecialchars(strtolower($po['supplier_dr_no'] ?? '')) ?>"
                                 data-eta-urgency="<?= $etaUrgencyVal ?>">
                                 <td class="fw-bold text-dark po-no" data-label="PO Number">
                                     <a href="javascript:void(0)" class="text-dark text-decoration-none po-no-link d-inline-flex align-items-center gap-1"
@@ -978,6 +985,20 @@ include 'layout/header.php';
                                         <span><?= htmlspecialchars($po['po_no']) ?></span>
                                         <i class="bi bi-box-arrow-up-right text-muted small" style="font-size: 0.70rem;"></i>
                                     </a>
+                                    <?php if (!empty($po['supplier_dr_no'])): ?>
+                                        <div class="mt-1">
+                                            <span class="badge bg-success-subtle text-success border border-success-subtle font-monospace" style="font-size: 0.68rem;" title="Supplier Delivery Receipt / Sales Invoice (3-Way Match)">
+                                                <i class="bi bi-receipt me-1"></i>DR: <?= htmlspecialchars($po['supplier_dr_no']) ?>
+                                            </span>
+                                        </div>
+                                    <?php endif; ?>
+                                    <?php if ((int)($po['total_rejected'] ?? 0) > 0): ?>
+                                        <div class="mt-0.5">
+                                            <span class="badge bg-danger-subtle text-danger border border-danger-subtle font-monospace" style="font-size: 0.65rem;" title="Quality Non-Conformance: Damaged / Rejected items logged">
+                                                <i class="bi bi-x-octagon me-1"></i><?= (int)$po['total_rejected'] ?> Defect(s)
+                                            </span>
+                                        </div>
+                                    <?php endif; ?>
                                 </td>
 
                                 <td data-label="Date & Time Created" data-sort-value="<?= !empty($po['created_at']) ? strtotime($po['created_at']) : 0 ?>">
@@ -1149,6 +1170,7 @@ include 'layout/header.php';
                                                 data-status="<?= htmlspecialchars($po['status']) ?>"
                                                 data-remarks="<?= htmlspecialchars($po['delay_remarks'] ?? 'No delivery remarks logged yet.') ?>"
                                                 data-proof="<?= htmlspecialchars($secureReceiptUrl) ?>" 
+                                                data-dr="<?= htmlspecialchars($po['supplier_dr_no'] ?? '') ?>"
                                                 onclick="viewDiscrepancy(this)">
                                                 <i class="bi <?= $btnIcon ?>"></i> <span class="ms-1"><?= $btnText ?></span>
                                             </button>
@@ -1416,6 +1438,7 @@ include 'layout/header.php';
                         data-supplier-id="<?= htmlspecialchars($po['supplier_id'] ?? '') ?>"
                         data-supplier-name="<?= htmlspecialchars($po['company_name'] ?? '') ?>"
                         data-po-no="<?= htmlspecialchars($po['po_no'] ?? '') ?>"
+                        data-dr="<?= htmlspecialchars(strtolower($po['supplier_dr_no'] ?? '')) ?>"
                         data-created-date="<?= !empty($po['created_at']) ? date('Y-m-d', strtotime($po['created_at'])) : '' ?>"
                         data-created-timestamp="<?= !empty($po['created_at']) ? strtotime($po['created_at']) : 0 ?>"
                         data-status="<?= htmlspecialchars($po['status'] ?? 'Generated') ?>"
@@ -1435,7 +1458,21 @@ include 'layout/header.php';
                                         <span class="fs-6"><?= htmlspecialchars($po['po_no']) ?></span>
                                         <i class="bi bi-box-arrow-up-right text-muted" style="font-size: 0.70rem;"></i>
                                     </a>
-                                    <div class="text-primary fw-semibold text-truncate po-supplier" style="font-size: 0.78rem;">
+                                    <?php if (!empty($po['supplier_dr_no'])): ?>
+                                        <div class="mt-0.5">
+                                            <span class="badge bg-success-subtle text-success border border-success-subtle font-monospace" style="font-size: 0.64rem;" title="Supplier DR / Sales Invoice">
+                                                <i class="bi bi-receipt me-1"></i>DR: <?= htmlspecialchars($po['supplier_dr_no']) ?>
+                                            </span>
+                                        </div>
+                                    <?php endif; ?>
+                                    <?php if ((int)($po['total_rejected'] ?? 0) > 0): ?>
+                                        <div class="mt-0.5">
+                                            <span class="badge bg-danger-subtle text-danger border border-danger-subtle font-monospace" style="font-size: 0.62rem;" title="Quality Non-Conformance: Damaged / Rejected items logged">
+                                                <i class="bi bi-x-octagon me-1"></i><?= (int)$po['total_rejected'] ?> Defect(s)
+                                            </span>
+                                        </div>
+                                    <?php endif; ?>
+                                    <div class="text-primary fw-semibold text-truncate po-supplier mt-0.5" style="font-size: 0.78rem;">
                                         <i class="bi bi-building me-1 text-muted"></i><?= htmlspecialchars($po['company_name']) ?>
                                     </div>
                                     <div class="mt-0.5">
@@ -1563,6 +1600,7 @@ include 'layout/header.php';
                                         data-status="<?= htmlspecialchars($po['status']) ?>"
                                         data-remarks="<?= htmlspecialchars($po['delay_remarks'] ?? 'No delivery remarks logged yet.') ?>"
                                         data-proof="<?= htmlspecialchars($secureReceiptUrl) ?>" 
+                                        data-dr="<?= htmlspecialchars($po['supplier_dr_no'] ?? '') ?>"
                                         onclick="viewDiscrepancy(this)">
                                         <i class="bi <?= $btnIcon ?> me-1"></i> <?= $btnText ?>
                                     </button>
@@ -2043,7 +2081,10 @@ include 'layout/header.php';
                     const dispInput = tr.querySelector('.disposition-input');
                     const dispSelect = tr.querySelector('.disposition-dropdown');
 
-                    const updateRowState = () => {
+                    const stepMinus = tr.querySelector('.qty-step-minus');
+                    const stepPlus = tr.querySelector('.qty-step-plus');
+
+                    const updateRowState = (e) => {
                         let accepted = parseInt(qtyInput ? qtyInput.value : 0) || 0;
                         let rejected = parseInt(rejectedInput ? rejectedInput.value : 0) || 0;
                         const maxQ = parseInt((qtyInput ? qtyInput.getAttribute('data-remaining') : 0) || 0);
@@ -2053,14 +2094,29 @@ include 'layout/header.php';
 
                         // Combined accounted units cannot exceed remaining needed
                         if ((accepted + rejected) > maxQ) {
-                            if (accepted > maxQ) {
-                                accepted = maxQ;
-                                if (qtyInput) qtyInput.value = maxQ;
-                                rejected = 0;
-                                if (rejectedInput) rejectedInput.value = 0;
+                            const isEditingRejected = (e && e.target === rejectedInput) || (document.activeElement === rejectedInput);
+                            if (isEditingRejected) {
+                                // User actively changed rejected input, so adjust accepted
+                                if (rejected > maxQ) {
+                                    rejected = maxQ;
+                                    if (rejectedInput) rejectedInput.value = maxQ;
+                                    accepted = 0;
+                                    if (qtyInput) qtyInput.value = 0;
+                                } else {
+                                    accepted = Math.max(0, maxQ - rejected);
+                                    if (qtyInput) qtyInput.value = accepted;
+                                }
                             } else {
-                                rejected = maxQ - accepted;
-                                if (rejectedInput) rejectedInput.value = rejected;
+                                // User changed accepted input or stepper
+                                if (accepted > maxQ) {
+                                    accepted = maxQ;
+                                    if (qtyInput) qtyInput.value = maxQ;
+                                    rejected = 0;
+                                    if (rejectedInput) rejectedInput.value = 0;
+                                } else {
+                                    rejected = Math.max(0, maxQ - accepted);
+                                    if (rejectedInput) rejectedInput.value = rejected;
+                                }
                             }
                         }
 
@@ -2109,14 +2165,44 @@ include 'layout/header.php';
                         updateGrandTotal();
                     };
 
+                    if (stepMinus && !isAlreadyCompleted) {
+                        stepMinus.addEventListener('click', (ev) => {
+                            ev.preventDefault();
+                            let cur = parseInt(qtyInput ? qtyInput.value : 0) || 0;
+                            if (cur > 0) {
+                                qtyInput.value = cur - 1;
+                                updateRowState({ target: qtyInput });
+                            }
+                        });
+                    }
+                    if (stepPlus && !isAlreadyCompleted) {
+                        stepPlus.addEventListener('click', (ev) => {
+                            ev.preventDefault();
+                            let cur = parseInt(qtyInput ? qtyInput.value : 0) || 0;
+                            const maxQ = parseInt((qtyInput ? qtyInput.getAttribute('data-remaining') : 0) || 0);
+                            let rej = parseInt(rejectedInput ? rejectedInput.value : 0) || 0;
+                            if (cur + rej < maxQ) {
+                                qtyInput.value = cur + 1;
+                                updateRowState({ target: qtyInput });
+                            } else if (cur < maxQ && rej > 0) {
+                                qtyInput.value = cur + 1;
+                                if (rejectedInput) rejectedInput.value = Math.max(0, rej - 1);
+                                updateRowState({ target: qtyInput });
+                            }
+                        });
+                    }
+
                     if (qtyInput && !isAlreadyCompleted) {
-                        qtyInput.addEventListener('input', updateRowState);
+                        qtyInput.addEventListener('input', (e) => updateRowState(e));
                     }
                     if (rejectedInput && !isAlreadyCompleted) {
-                        rejectedInput.addEventListener('input', updateRowState);
+                        rejectedInput.addEventListener('input', (e) => updateRowState(e));
                     }
                     if (priceInput) {
-                        priceInput.addEventListener('input', updateRowState);
+                        priceInput.addEventListener('input', (e) => updateRowState(e));
+                    }
+                    if (reasonSelect && !isAlreadyCompleted) {
+                        reasonSelect.addEventListener('change', (e) => updateRowState(e));
                     }
                 });
 
@@ -2145,11 +2231,22 @@ include 'layout/header.php';
         const poNo = btnElem.getAttribute('data-pono') || '';
         const poStatus = btnElem.getAttribute('data-status') || '';
         const poId = btnElem.getAttribute('data-poid') || '';
+        const supplierDr = btnElem.getAttribute('data-dr') || '';
         const rawText = (btnElem.getAttribute('data-remarks') || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim();
 
         // 1. Update Header Information
         const poNoElem = document.getElementById('discPoNo');
         if (poNoElem) poNoElem.innerText = poNo;
+
+        const drBadgeElem = document.getElementById('discSupplierDrBadge');
+        if (drBadgeElem) {
+            if (supplierDr) {
+                drBadgeElem.innerHTML = `<i class="bi bi-receipt me-1 text-primary"></i>DR/SI: <span class="fw-bold">${supplierDr}</span>`;
+                drBadgeElem.classList.remove('d-none');
+            } else {
+                drBadgeElem.classList.add('d-none');
+            }
+        }
 
         const isPartial = (poStatus === 'Partially Delivered' || poStatus === 'Partially Received');
         const isDiscrepancy = (poStatus === 'Delivered (Discrepancy)');
@@ -3168,6 +3265,35 @@ include 'layout/header.php';
 
                 document.getElementById('printPoTotalValue').innerText = '₱' + parseFloat(data.total_amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+                // 3-Way Match Verification Banner & Quality Defect Banner
+                const matchBanner = document.getElementById('print3WayMatchBanner');
+                const matchBadge = document.getElementById('print3WayMatchDrBadge');
+                const isReceivedStatus = ['Delivered', 'Partially Delivered', 'Partially Received', 'Delivered (Discrepancy)'].includes(po.status);
+                if (matchBanner && matchBadge) {
+                    if (po.supplier_dr_no && po.supplier_dr_no.trim() !== '' && isReceivedStatus) {
+                        matchBadge.innerHTML = `<i class="bi bi-receipt me-1"></i>DR/SI: ${po.supplier_dr_no}`;
+                        matchBanner.classList.remove('d-none');
+                    } else {
+                        matchBanner.classList.add('d-none');
+                    }
+                }
+
+                const defectBanner = document.getElementById('printQualityDefectBanner');
+                const defectBadge = document.getElementById('printDefectTotalBadge');
+                const defectText = document.getElementById('printDefectSummaryText');
+                const totalDefects = (data.items || []).reduce((acc, itm) => acc + (parseInt(itm.rejected_quantity || itm.rejected_qty || 0) || 0), 0);
+                if (defectBanner && defectBadge) {
+                    if (totalDefects > 0) {
+                        defectBadge.innerHTML = `<i class="bi bi-x-octagon-fill me-1"></i>${totalDefects} Units Rejected`;
+                        if (defectText) {
+                            defectText.innerText = `${totalDefects} item unit(s) flagged non-conforming or damaged during delivery quality inspection.`;
+                        }
+                        defectBanner.classList.remove('d-none');
+                    } else {
+                        defectBanner.classList.add('d-none');
+                    }
+                }
+
                 // Logistics / Discrepancy Remarks
                 const remarksSec = document.getElementById('printRemarksSection');
                 const remarksText = document.getElementById('printPoRemarks');
@@ -3726,6 +3852,7 @@ include 'layout/header.php';
         const checkItemMatches = (el) => {
             const no = (el.querySelector('.po-no')?.textContent || '').toLowerCase();
             const sup = (el.querySelector('.po-supplier')?.textContent || '').toLowerCase();
+            const dr = (el.getAttribute('data-dr') || '').toLowerCase();
             const rowCreator = el.getAttribute('data-prepared-by') || '';
             const rowSupplier = el.getAttribute('data-supplier-id') || '';
             const rowDate = el.getAttribute('data-created-date') || '';
@@ -3733,7 +3860,7 @@ include 'layout/header.php';
             const rowProject = el.getAttribute('data-project') || '';
             const rowUrgency = el.getAttribute('data-eta-urgency') || '';
 
-            const matchesSearch = !searchTerm || no.includes(searchTerm) || sup.includes(searchTerm);
+            const matchesSearch = !searchTerm || no.includes(searchTerm) || sup.includes(searchTerm) || dr.includes(searchTerm);
 
             // KPI Stat Tile Filter
             let matchesTileStatus = true;
