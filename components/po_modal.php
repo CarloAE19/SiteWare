@@ -547,8 +547,12 @@ $approvedRS = $pdo->query("
                             <span class="text-muted small fw-bold text-uppercase d-block mb-1">
                                 <i class="bi bi-file-earmark-text me-1 text-primary"></i>Purchase Order
                             </span>
-                            <span id="discPoNo"
-                                class="fw-bold font-monospace text-primary fs-6 bg-light px-3 py-1 rounded border"></span>
+                            <div class="d-flex align-items-center flex-wrap gap-2">
+                                <span id="discPoNo"
+                                    class="fw-bold font-monospace text-primary fs-6 bg-light px-3 py-1 rounded border"></span>
+                                <span id="discSupplierDrBadge"
+                                    class="badge bg-secondary-subtle text-dark border border-secondary-subtle px-2.5 py-1.5 font-monospace d-none"></span>
+                            </div>
                         </div>
                         <div class="text-end">
                             <span class="text-muted small fw-bold text-uppercase d-block mb-1">Order Status</span>
@@ -988,6 +992,29 @@ $approvedRS = $pdo->query("
                                 <strong>Supplier DR / SI No.:</strong> <span id="printSupplierDrNo" class="badge bg-success-subtle text-success border border-success-subtle font-monospace">-</span>
                             </div>
                         </div>
+                    </div>
+
+                    <!-- 3-Way Match Verification Banner & Quality Defect Banner -->
+                    <div id="print3WayMatchBanner" class="alert alert-success d-flex align-items-center justify-content-between p-2 mb-2 border border-success-subtle rounded d-none" style="font-size: 0.72rem; background-color: #e8f5e9;">
+                        <div class="d-flex align-items-center gap-2">
+                            <i class="bi bi-shield-check text-success fs-5"></i>
+                            <div>
+                                <strong class="text-success text-uppercase">3-Way Match Verified (Audit Ready):</strong>
+                                <span class="text-muted d-block" style="font-size: 0.68rem;">Purchase Order matched against Supplier Delivery Receipt / Sales Invoice & Physical Receiving Manifest.</span>
+                            </div>
+                        </div>
+                        <span id="print3WayMatchDrBadge" class="badge bg-success text-white font-monospace px-2 py-1"></span>
+                    </div>
+
+                    <div id="printQualityDefectBanner" class="alert alert-warning d-flex align-items-center justify-content-between p-2 mb-2 border border-warning-subtle rounded d-none" style="font-size: 0.72rem; background-color: #fff9e6;">
+                        <div class="d-flex align-items-center gap-2">
+                            <i class="bi bi-exclamation-triangle-fill text-warning fs-5"></i>
+                            <div>
+                                <strong class="text-dark text-uppercase">Quality Non-Conformance Recorded:</strong>
+                                <span id="printDefectSummaryText" class="text-muted d-block" style="font-size: 0.68rem;">Defective or damaged items flagged during receiving inspection.</span>
+                            </div>
+                        </div>
+                        <span id="printDefectTotalBadge" class="badge bg-danger text-white font-monospace px-2 py-1"></span>
                     </div>
 
                     <!-- Itemized Order Table -->
