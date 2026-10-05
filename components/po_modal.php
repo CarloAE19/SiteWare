@@ -178,12 +178,20 @@ $approvedRS = $pdo->query("
                         <div class="d-flex align-items-center justify-content-between mb-1">
                             <label class="form-label fw-bold small text-muted text-uppercase mb-0">Select Supplier <span
                                     class="text-danger">*</span></label>
-                            <button type="button" class="btn btn-sm fw-bold px-2.5 py-0.5 shadow-sm text-white"
-                                id="btnQuickViberInquiry" onclick="openPrePoInquiryModal()"
-                                title="Send quick stock availability & price inquiry to this supplier via Viber or Copy message"
-                                style="background-color: #7360f2; border-color: #7360f2; font-size: 0.75rem; border-radius: 6px;">
-                                <i class="fa-brands fa-viber me-1"></i> Quick Viber Inquiry
-                            </button>
+                            <div class="d-flex align-items-center gap-1.5">
+                                <button type="button" class="btn btn-sm btn-outline-primary fw-bold px-2 py-0.5 shadow-sm d-none"
+                                    id="btnViewInquiriesList" onclick="openActiveInquiriesModal()"
+                                    title="View recent vendor stock inquiries and responses"
+                                    style="font-size: 0.72rem; border-radius: 6px;">
+                                    <i class="bi bi-clock-history me-1"></i> Responses (<span id="inquiriesBadgeCount">0</span>)
+                                </button>
+                                <button type="button" class="btn btn-sm fw-bold px-2.5 py-0.5 shadow-sm text-white"
+                                    id="btnQuickViberInquiry" onclick="openPrePoInquiryModal()"
+                                    title="Send quick stock availability & price inquiry to this supplier via Viber or Copy message"
+                                    style="background-color: #7360f2; border-color: #7360f2; font-size: 0.75rem; border-radius: 6px;">
+                                    <i class="fa-brands fa-viber me-1"></i> Quick Viber Inquiry
+                                </button>
+                            </div>
                         </div>
                         <select class="form-select fw-bold shadow-sm" name="supplier_id" id="poSupplierSelect" required onchange="if(typeof window.onPoSupplierChange === 'function') window.onPoSupplierChange();">
                             <option value="" disabled selected>-- Select Supplier --</option>
@@ -214,6 +222,18 @@ $approvedRS = $pdo->query("
                                 </option>
                             <?php endforeach; ?>
                         </select>
+                        <div id="poInquiryResponseNotice" class="alert alert-success border border-success-subtle shadow-xs py-2 px-3 my-2 d-none d-flex align-items-center justify-content-between rounded-3" style="background-color: #f0fdf4;">
+                            <div class="d-flex align-items-center gap-2">
+                                <i class="bi bi-patch-check-fill text-success fs-5"></i>
+                                <div>
+                                    <strong class="text-success small d-block" id="poInquiryNoticeTitle">Supplier Stock Confirmed!</strong>
+                                    <span id="poInquiryResponseSummary" class="text-muted small" style="font-size: 0.74rem;">-</span>
+                                </div>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-success fw-bold px-2.5 py-1 shadow-sm" onclick="applyInquiryResponseToPo()" style="font-size: 0.74rem;">
+                                <i class="bi bi-magic me-1"></i> Apply Response
+                            </button>
+                        </div>
                         <small class="text-muted d-block mt-2" style="font-size: 0.75rem;"><i
                                 class="bi bi-bar-chart-line me-1"></i>Performance score based on delivery history. 🟢
                             Excellent ≥90% &nbsp; 🟡 Average ≥70% &nbsp; 🔴 Poor &lt;70%</small>
@@ -768,6 +788,33 @@ $approvedRS = $pdo->query("
                     </div>
                 </div>
 
+                <!-- Dedicated Supplier Portal Link Card -->
+                <div class="card border-0 shadow-sm rounded-3 mb-3 bg-white" style="border-left: 4px solid #004B87 !important;">
+                    <div class="card-body p-3">
+                        <div class="d-flex align-items-center justify-content-between mb-1.5 flex-wrap gap-1">
+                            <span class="text-uppercase fw-bold text-primary small" style="font-size: 0.72rem;">
+                                <i class="bi bi-link-45deg me-1"></i>Direct Supplier Portal Link (No Login Needed)
+                            </span>
+                            <span class="badge bg-success-subtle text-success border border-success-subtle font-monospace" style="font-size: 0.68rem;">
+                                <i class="bi bi-shield-check me-0.5"></i>Secure Cryptographic Token
+                            </span>
+                        </div>
+                        <div class="input-group input-group-sm mb-1.5">
+                            <span class="input-group-text bg-light text-muted"><i class="bi bi-globe2"></i></span>
+                            <input type="text" id="prePoInquiryPortalUrl" class="form-control font-monospace text-dark bg-light" readonly value="Generating secure link..." onclick="this.select()">
+                            <button type="button" class="btn btn-outline-primary fw-bold" id="btnCopyInquiryPortalLink" onclick="copyInquiryPortalLink()" title="Copy link only">
+                                <i class="bi bi-clipboard me-1"></i> Copy Link
+                            </button>
+                            <a id="btnPreviewInquiryPortalLink" href="#" target="_blank" class="btn btn-outline-secondary fw-bold" title="Open and preview what the supplier sees on mobile">
+                                <i class="bi bi-box-arrow-up-right me-1"></i> Preview
+                            </a>
+                        </div>
+                        <small class="text-muted d-block" style="font-size: 0.70rem;">
+                            <i class="bi bi-info-circle me-1"></i>This link is embedded in the message below. The supplier can tap it on their phone to confirm quantities & prices with 1 tap.
+                        </small>
+                    </div>
+                </div>
+
                 <!-- Generated Inquiry Message Editor -->
                 <div class="mb-2">
                     <div class="d-flex align-items-center justify-content-between mb-1">
@@ -797,6 +844,111 @@ $approvedRS = $pdo->query("
                         <i class="fa-brands fa-viber me-1"></i> Open Chat in Viber
                     </a>
                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==========================================
+  MODAL: ACTIVE SUPPLIER INQUIRIES TRACKER
+=========================================== -->
+<div class="modal fade" id="activeInquiriesModal" tabindex="-1" aria-hidden="true" style="z-index: 1070;">
+    <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable modal-fullscreen-sm-down">
+        <div class="modal-content border-0 shadow-lg" style="border-top: 4px solid #004B87 !important;">
+            <div class="modal-header bg-white pb-2">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="rounded-circle d-flex align-items-center justify-content-center bg-primary-subtle text-primary" style="width: 38px; height: 38px;">
+                        <i class="bi bi-chat-square-quote-fill fs-5"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title fw-bold text-dark mb-0">Supplier Availability &amp; Pricing Inquiries</h5>
+                        <small class="text-muted" style="font-size: 0.75rem;">Track live responses from vendors via their dedicated mobile links</small>
+                    </div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-3 p-md-4 bg-light">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <span class="text-secondary small fw-bold text-uppercase" style="font-size: 0.72rem;">
+                        <i class="bi bi-clock-history me-1"></i> Recent Inquiries for this Requisition / Supplier
+                    </span>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="loadActiveInquiriesList()">
+                        <i class="bi bi-arrow-clockwise me-1"></i> Refresh
+                    </button>
+                </div>
+                <div id="activeInquiriesContainer" class="d-flex flex-column gap-2.5">
+                    <!-- Populated dynamically via JS -->
+                </div>
+            </div>
+            <div class="modal-footer bg-white border-top p-2.5">
+                <button type="button" class="btn btn-secondary fw-bold px-3" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==========================================
+  MODAL: VIEW SUPPLIER RESPONSE BREAKDOWN
+=========================================== -->
+<div class="modal fade" id="viewInquiryResponseModal" tabindex="-1" aria-hidden="true" style="z-index: 1075;">
+    <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable modal-fullscreen-sm-down">
+        <div class="modal-content border-0 shadow-lg" style="border-top: 4px solid #10b981 !important;">
+            <div class="modal-header bg-white pb-2">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="rounded-circle d-flex align-items-center justify-content-center bg-success-subtle text-success" style="width: 38px; height: 38px;">
+                        <i class="bi bi-patch-check-fill fs-5"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title fw-bold text-dark mb-0" id="inqRespModalTitle">Supplier Response Details</h5>
+                        <small class="text-muted" id="inqRespModalSubtitle">Vendor stock confirmation &amp; quoted unit prices</small>
+                    </div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-3 p-md-4 bg-light">
+                <!-- Response Header Card -->
+                <div class="card border-0 shadow-sm rounded-3 mb-3 bg-white p-3">
+                    <div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
+                        <div>
+                            <span class="badge bg-primary text-white font-monospace px-2.5 py-1 mb-1" id="inqRespInqNo">-</span>
+                            <h5 class="fw-bold text-dark mb-0" id="inqRespSupplierName">-</h5>
+                            <small class="text-muted" id="inqRespContact">-</small>
+                        </div>
+                        <div class="text-sm-end">
+                            <span id="inqRespStatusBadge" class="badge px-3 py-1.5 shadow-sm text-uppercase"></span>
+                            <small class="text-muted d-block mt-1" id="inqRespTimestamp">-</small>
+                        </div>
+                    </div>
+                    <div id="inqRespGeneralNotesWrap" class="mt-2.5 pt-2.5 border-top d-none">
+                        <strong class="text-dark small"><i class="bi bi-chat-quote me-1 text-primary"></i>Supplier Remarks:</strong>
+                        <div class="text-muted small ps-3 mt-0.5" id="inqRespGeneralNotes">-</div>
+                    </div>
+                </div>
+
+                <!-- Items Breakdown Table -->
+                <div class="table-responsive border rounded-3 bg-white shadow-sm mb-2">
+                    <table class="table table-sm table-hover align-middle mb-0" style="font-size: 0.82rem;">
+                        <thead class="table-light text-uppercase" style="font-size: 0.72rem;">
+                            <tr>
+                                <th class="py-2 px-3">Item Description</th>
+                                <th class="text-center py-2 px-2">Requested</th>
+                                <th class="text-center py-2 px-2">Status</th>
+                                <th class="text-center py-2 px-2">Available</th>
+                                <th class="text-end py-2 px-2">Quoted Price</th>
+                                <th class="py-2 px-3">Vendor Remarks</th>
+                            </tr>
+                        </thead>
+                        <tbody id="inqRespItemsBody">
+                            <!-- Populated via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer bg-white border-top justify-content-between p-3">
+                <button type="button" class="btn btn-light fw-bold text-muted px-3" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-success fw-bold px-4 shadow-sm" id="btnApplyInquiryFromModal" onclick="applyInquiryResponseToPoFromModal()">
+                    <i class="bi bi-magic me-1"></i> Apply Response to Purchase Order
+                </button>
             </div>
         </div>
     </div>
