@@ -113,6 +113,14 @@ function _fcm_get_access_token(): ?string {
 // 3. Single FCM Message Sender
 // ----------------------------------------------------------
 function _fcm_send_one(string $deviceToken, string $title, string $body, string $accessToken): void {
+    $appBase = '';
+    if (!empty($_SERVER['SCRIPT_NAME'])) {
+        $scriptDir = str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME']));
+        if (preg_match('#^(/[^/]+)#', $scriptDir, $matches) && strtolower($matches[1]) === '/cims') {
+            $appBase = '/CIMS';
+        }
+    }
+
     $payload = json_encode([
         'message' => [
             'token' => $deviceToken,
@@ -122,9 +130,9 @@ function _fcm_send_one(string $deviceToken, string $title, string $body, string 
             ],
             'webpush' => [
                 'notification' => [
-                    'icon'         => '/CIMS/assets/LogoGB.png',
-                    'badge'        => '/CIMS/assets/favicon.ico',
-                    'click_action' => '/CIMS/',
+                    'icon'         => ($appBase ?: '') . '/assets/LogoGB.png',
+                    'badge'        => ($appBase ?: '') . '/assets/favicon.ico',
+                    'click_action' => ($appBase ? $appBase . '/' : '/'),
                 ],
             ],
         ],
