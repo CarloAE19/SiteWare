@@ -32,243 +32,309 @@ $approvedRS = $pdo->query("
   1. MODAL: CREATE NEW PURCHASE ORDER
 =========================================== -->
 <div class="modal fade" id="poModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-fullscreen-sm-down">
-        <div class="modal-content border-0 shadow-lg">
-            <div class="modal-header" style="background-color: var(--gb-dark); color: white;">
-                <h5 class="modal-title fw-bold"><i class="bi bi-file-earmark-plus me-2"
-                        style="color: var(--gb-yellow);"></i>Generate Purchase Order</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+    <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable modal-fullscreen-lg-down">
+        <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+            <!-- Modal Header -->
+            <div class="modal-header py-3 px-4" style="background: linear-gradient(135deg, #002B49 0%, #004B87 100%); color: #ffffff;">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="rounded-circle bg-white text-primary p-2 d-flex align-items-center justify-content-center shadow-sm flex-shrink-0" style="width: 44px; height: 44px;">
+                        <i class="bi bi-file-earmark-plus-fill fs-4" style="color: var(--gb-blue, #0033CC);"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title fw-bold mb-0 text-white" style="font-size: 1.25rem;">Create Purchase Order</h5>
+                        <small class="text-white-50" style="font-size: 0.82rem;">
+                            Issue purchase orders from approved requisition requests
+                        </small>
+                    </div>
+                </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
+
+            <!-- Form -->
             <form method="POST" action="process/process.php" id="createPoForm" enctype="multipart/form-data">
-                <!-- Added p-4 for premium spacing -->
-                <div class="modal-body bg-light p-4">
+                <div class="modal-body bg-light p-3 p-md-4">
                     <?php if (function_exists('generate_csrf_token')): ?>
                         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(generate_csrf_token()) ?>">
                     <?php endif; ?>
                     <input type="hidden" name="action" value="create_po">
                     <input type="hidden" name="has_item_selection" value="1">
 
-                    <div class="mb-4">
-                        <label class="form-label fw-bold small text-muted text-uppercase">Auto-Generated PO
-                            Number</label>
-                        <input type="text" class="form-control fw-bold text-primary bg-white shadow-sm" name="po_no"
-                            value="PO-<?= date('Ymd') ?>-<?= rand(100, 999) ?>" readonly>
-                    </div>
-
-                    <div class="mb-4">
-                        <label class="form-label fw-bold small text-muted text-uppercase">Select Approved Requisition
-                            (RS) <span class="text-danger">*</span></label>
-                        <select class="form-select fw-bold shadow-sm" name="rs_id" id="poRsSelect" required onchange="if(typeof window.updatePoDestinationOnRsChange === 'function') window.updatePoDestinationOnRsChange();">
-                            <option value="" disabled selected>-- Select an Approved RS --</option>
-                            <?php foreach ($approvedRS as $rs):
-                                $isPartialApp = $rs['status'] === 'Partially Approved';
-                                $isPartiallyOrdered = $rs['status'] === 'Partially Ordered';
-                                $statusLabel = $isPartiallyOrdered ? ' ⏳ [Partially Ordered - Split PO]' : ($isPartialApp ? ' ⚠️ [Partially Approved]' : ' ✅ [Approved]');
-                                $isRestock = ($rs['type'] === 'restock' || $rs['project_name'] === 'Warehouse Restock');
-                                $typePrefix = $isRestock ? '📦 [Restock]' : '🏗️ [Project: ' . htmlspecialchars($rs['project_name']) . ']';
-                                ?>
-                                <option value="<?= $rs['id'] ?>"
-                                    data-type="<?= htmlspecialchars($rs['type'] ?? 'project') ?>"
-                                    data-project="<?= htmlspecialchars($rs['project_name']) ?>"
-                                    data-address="<?= htmlspecialchars($rs['project_address'] ?? '') ?>"
-                                    data-status="<?= htmlspecialchars($rs['status']) ?>">
-                                    <?= $typePrefix ?> <?= $rs['rs_no'] ?>     <?= $statusLabel ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-                        <small class="text-muted d-block mt-2" style="font-size: 0.75rem;"><i
-                                class="bi bi-info-circle me-1"></i>Approved and Partially Ordered RSes (Warehouse Restock &amp; Project requests) appear here.</small>
-                    </div>
-
-                    <!-- Interactive Split-PO Item Selection & Allocation -->
-                    <div class="mb-4 d-none" id="rsItemsPreviewContainer">
-                        <div class="d-flex align-items-center justify-content-between mb-2">
-                            <div>
-                                <label class="form-label fw-bold small text-muted text-uppercase mb-0">
-                                    <i class="bi bi-check2-square text-primary me-1"></i>Select Items For This Supplier <span class="text-danger">*</span>
-                                </label>
-                                <small class="text-muted d-block" style="font-size: 0.73rem;">
-                                    Check items this vendor fulfills. Unselected items stay on the RS for another PO.
+                    <div class="row g-3 g-xl-4">
+                        <!-- ==========================================
+                             LEFT COLUMN: Requisition & Material Allocation
+                             ========================================== -->
+                        <div class="col-12 col-lg-7">
+                            <!-- 1. Requisition Selection Card -->
+                            <div class="card border-0 shadow-sm rounded-3 p-3 bg-white mb-3">
+                                <div class="d-flex align-items-center justify-content-between mb-2">
+                                    <label class="form-label fw-bold small text-dark text-uppercase mb-0 d-flex align-items-center gap-1.5" style="letter-spacing: 0.5px;">
+                                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle">Step 1</span>
+                                        <span>Select Approved Requisition (RS) <span class="text-danger">*</span></span>
+                                    </label>
+                                    <span class="badge bg-light text-muted border font-monospace" style="font-size: 0.70rem;">
+                                        <?= count($approvedRS) ?> RS Available
+                                    </span>
+                                </div>
+                                <select class="form-select fw-bold shadow-sm" name="rs_id" id="poRsSelect" required onchange="if(typeof window.updatePoDestinationOnRsChange === 'function') window.updatePoDestinationOnRsChange();" style="min-height: 44px; font-size: 0.95rem;">
+                                    <option value="" disabled selected>-- Choose Approved Requisition Slip --</option>
+                                    <?php foreach ($approvedRS as $rs):
+                                        $isPartialApp = $rs['status'] === 'Partially Approved';
+                                        $isPartiallyOrdered = $rs['status'] === 'Partially Ordered';
+                                        $statusLabel = $isPartiallyOrdered ? ' ⏳ [Partially Ordered - Split PO]' : ($isPartialApp ? ' ⚠️ [Partially Approved]' : ' ✅ [Approved]');
+                                        $isRestock = ($rs['type'] === 'restock' || $rs['project_name'] === 'Warehouse Restock');
+                                        $typePrefix = $isRestock ? '📦 [Restock]' : '🏗️ [Project: ' . htmlspecialchars($rs['project_name']) . ']';
+                                        ?>
+                                        <option value="<?= $rs['id'] ?>"
+                                            data-type="<?= htmlspecialchars($rs['type'] ?? 'project') ?>"
+                                            data-project="<?= htmlspecialchars($rs['project_name']) ?>"
+                                            data-address="<?= htmlspecialchars($rs['project_address'] ?? '') ?>"
+                                            data-status="<?= htmlspecialchars($rs['status']) ?>">
+                                            <?= $typePrefix ?> <?= $rs['rs_no'] ?>     <?= $statusLabel ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                                <small class="text-muted d-block mt-2" style="font-size: 0.75rem;">
+                                    <i class="bi bi-info-circle me-1 text-primary"></i>Approved and Partially Ordered RSes (Warehouse Restock &amp; Project requests) appear here for order processing.
                                 </small>
                             </div>
-                            <div class="d-flex align-items-center gap-1">
-                                <button type="button" class="btn btn-sm btn-outline-secondary py-0.5 px-2" onclick="toggleAllPoItems(true)" style="font-size: 0.72rem;">Select All</button>
-                                <button type="button" class="btn btn-sm btn-outline-secondary py-0.5 px-2" onclick="toggleAllPoItems(false)" style="font-size: 0.72rem;">Deselect All</button>
+
+                            <!-- 2. Interactive Split-PO Item Selection & Allocation Card -->
+                            <div class="card border-0 shadow-sm rounded-3 bg-white overflow-hidden mb-3 d-none" id="rsItemsPreviewContainer">
+                                <div class="card-header bg-white border-bottom p-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
+                                    <div>
+                                        <label class="form-label fw-bold small text-dark text-uppercase mb-0 d-flex align-items-center gap-1.5" style="letter-spacing: 0.5px;">
+                                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle">Step 2</span>
+                                            <span>Select Items to Order <span class="text-danger">*</span></span>
+                                        </label>
+                                        <small class="text-muted d-block mt-0.5" style="font-size: 0.73rem;">
+                                            Choose which items to include in this purchase order.
+                                        </small>
+                                    </div>
+                                    <div class="d-flex align-items-center gap-1.5">
+                                        <button type="button" class="btn btn-sm btn-outline-secondary py-1 px-2.5 fw-semibold" onclick="toggleAllPoItems(true)" style="font-size: 0.75rem; border-radius: 6px;">
+                                            <i class="bi bi-check-all me-1"></i>Select All
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary py-1 px-2.5 fw-semibold" onclick="toggleAllPoItems(false)" style="font-size: 0.75rem; border-radius: 6px;">
+                                            <i class="bi bi-dash-circle me-1"></i>Deselect All
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div class="table-responsive" style="max-height: 380px; overflow-y: auto;">
+                                    <table class="table table-hover align-middle mb-0" style="font-size: 0.88rem;">
+                                        <thead class="table-light text-secondary sticky-top border-bottom small text-uppercase" style="letter-spacing: 0.5px; font-size: 0.75rem;">
+                                            <tr>
+                                                <th style="width: 44px;" class="text-center ps-3">
+                                                    <input type="checkbox" class="form-check-input" id="checkAllPoItems" onchange="toggleAllPoItems(this.checked)" title="Select/Deselect All" style="cursor: pointer;">
+                                                </th>
+                                                <th>Item Description & Demand</th>
+                                                <th class="text-center" style="width: 150px;">Order Qty</th>
+                                                <th class="text-end pe-3" style="width: 140px;">Est. Subtotal</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="rsItemsPreviewBody" class="divide-y">
+                                            <!-- Populated dynamically via AJAX -->
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                <!-- Allocation Summary Footer -->
+                                <div class="card-footer bg-light border-top p-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
+                                    <span class="badge bg-white text-dark border px-2.5 py-1.5 fw-semibold" id="poSelectedCountBadge" style="font-size: 0.80rem;">
+                                        <i class="bi bi-box-seam me-1 text-primary"></i>0 items selected
+                                    </span>
+                                    <div class="d-flex align-items-center gap-2.5">
+                                        <button type="button" class="btn btn-sm fw-bold px-3 py-1.5 text-white shadow-sm d-flex align-items-center gap-1.5" onclick="openPrePoInquiryModal()" style="background-color: #7360f2; border-color: #7360f2; font-size: 0.78rem; border-radius: 6px;" title="Send quick stock & price inquiry to supplier via Viber">
+                                            <i class="fa-brands fa-viber"></i> Inquire Checked Items
+                                        </button>
+                                        <div class="text-end">
+                                            <span class="text-muted small d-block" style="font-size: 0.70rem; text-transform: uppercase; letter-spacing: 0.5px;">Estimated Total</span>
+                                            <span class="fw-bold text-success font-monospace fs-5" id="poSelectedTotalDisplay">₱0.00</span>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
-                        <div class="table-responsive border rounded shadow-sm bg-white" style="max-height: 280px; overflow-y: auto;">
-                            <table class="table table-sm table-hover align-middle mb-0" style="font-size: 0.85rem;">
-                                <thead class="table-light text-muted sticky-top">
-                                    <tr>
-                                        <th style="width: 36px;" class="text-center ps-2">
-                                            <input type="checkbox" class="form-check-input" id="checkAllPoItems" onchange="toggleAllPoItems(this.checked)" title="Select/Deselect All">
-                                        </th>
-                                        <th>Item Description</th>
-                                        <th class="text-center" style="width: 120px;">Order Qty</th>
-                                        <th class="text-end pe-3" style="width: 110px;">Est. Subtotal</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="rsItemsPreviewBody">
-                                    <!-- Populated via AJAX -->
-                                </tbody>
-                            </table>
-                        </div>
-
-                        <!-- Allocation Summary Footer -->
-                        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 p-2 mt-1 bg-white border rounded small">
-                            <span class="text-muted fw-semibold" id="poSelectedCountBadge">
-                                <i class="bi bi-box-seam me-1 text-primary"></i>0 items selected
-                            </span>
-                            <div class="d-flex align-items-center gap-2">
-                                <button type="button" class="btn btn-xs fw-bold px-2 py-1 text-white shadow-sm" onclick="openPrePoInquiryModal()" style="background-color: #7360f2; font-size: 0.73rem; border-radius: 6px;" title="Send quick stock & price inquiry to supplier via Viber">
-                                    <i class="fa-brands fa-viber me-1"></i> Inquire Checked Items
-                                </button>
-                                <span class="fw-bold text-dark">
-                                    Est. Total: <span class="text-success font-monospace fs-6" id="poSelectedTotalDisplay">₱0.00</span>
-                                </span>
+                        <!-- ==========================================
+                             RIGHT COLUMN: Supplier, Routing & Commercials
+                             ========================================== -->
+                        <div class="col-12 col-lg-5">
+                            <!-- PO Number & Metadata Card -->
+                            <div class="card border-0 shadow-sm rounded-3 p-3 bg-white mb-3">
+                                <label class="form-label fw-bold small text-muted text-uppercase mb-1.5" style="letter-spacing: 0.5px; font-size: 0.72rem;">
+                                    Auto-Generated PO Number
+                                </label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light text-muted border-end-0"><i class="bi bi-hash"></i></span>
+                                    <input type="text" class="form-control fw-bold font-monospace text-primary bg-light border-start-0" name="po_no"
+                                        value="PO-<?= date('Ymd') ?>-<?= rand(100, 999) ?>" readonly style="font-size: 1rem; letter-spacing: 0.5px;">
+                                </div>
                             </div>
-                        </div>
-                    </div>
 
-                    <!-- Delivery Destination & Routing Card (ISO 9001 / Direct-to-Jobsite Architecture) -->
-                    <div class="mb-4 p-3 bg-white border rounded shadow-sm" id="poDeliveryRoutingCard">
-                        <label class="form-label fw-bold small text-muted text-uppercase d-flex align-items-center justify-content-between mb-2">
-                            <span><i class="bi bi-geo-alt-fill text-danger me-1"></i> Delivery Destination & Routing</span>
-                            <span class="badge bg-light text-secondary border font-monospace" id="rsTypeBadge" style="font-size: 0.70rem;">Central Storage</span>
-                        </label>
-
-                        <div class="row g-2 mb-2">
-                            <div class="col-12 col-sm-6">
-                                <div class="form-check p-2.5 border rounded-3 bg-light h-100 destination-radio-wrap" id="destRadioWarehouseWrap">
-                                    <input class="form-check-input ms-1" type="radio" name="delivery_destination_type" id="destTypeWarehouse" value="warehouse" checked onchange="togglePoDestinationFields()">
-                                    <label class="form-check-label fw-bold small text-dark ms-2" for="destTypeWarehouse">
-                                        <i class="bi bi-building-down text-primary me-1"></i> Central Warehouse
-                                        <small class="d-block text-muted fw-normal" style="font-size: 0.72rem;">Stocked into warehouse inventory</small>
+                            <!-- Supplier Selection Card -->
+                            <div class="card border-0 shadow-sm rounded-3 p-3 bg-white mb-3">
+                                <div class="d-flex align-items-center justify-content-between mb-2">
+                                    <label class="form-label fw-bold small text-dark text-uppercase mb-0 d-flex align-items-center gap-1.5" style="letter-spacing: 0.5px;">
+                                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle">Step 3</span>
+                                        <span>Assign Supplier <span class="text-danger">*</span></span>
                                     </label>
+                                    <div class="d-flex align-items-center gap-1">
+                                        <button type="button" class="btn btn-xs btn-outline-primary fw-bold px-2 py-0.5 shadow-sm d-none"
+                                            id="btnViewInquiriesList" onclick="openActiveInquiriesModal()"
+                                            title="View recent vendor stock inquiries and responses"
+                                            style="font-size: 0.70rem; border-radius: 6px;">
+                                            <i class="bi bi-clock-history me-1"></i> Responses (<span id="inquiriesBadgeCount">0</span>)
+                                        </button>
+                                        <button type="button" class="btn btn-xs fw-bold px-2 py-0.5 shadow-sm text-white"
+                                            id="btnQuickViberInquiry" onclick="openPrePoInquiryModal()"
+                                            title="Send quick stock availability & price inquiry to this supplier via Viber"
+                                            style="background-color: #7360f2; border-color: #7360f2; font-size: 0.70rem; border-radius: 6px;">
+                                            <i class="fa-brands fa-viber me-1"></i> Viber
+                                        </button>
+                                    </div>
                                 </div>
+
+                                <select class="form-select fw-bold shadow-sm" name="supplier_id" id="poSupplierSelect" required onchange="if(typeof window.onPoSupplierChange === 'function') window.onPoSupplierChange();" style="min-height: 44px;">
+                                    <option value="" disabled selected>-- Choose Supplier Partner --</option>
+                                    <?php foreach ($suppliers as $sup):
+                                        $total = (int) $sup['total_po'];
+                                        if ($total === 0) {
+                                            $tier = '🔘 New';
+                                            $score = '';
+                                        } else {
+                                            $onTime = ($total - (int) $sup['delayed_count']) / $total * 100;
+                                            $accuracy = ($total - (int) $sup['discrepancy_count']) / $total * 100;
+                                            $sc = round(($onTime + $accuracy) / 2, 1);
+                                            if ($sc >= 90) {
+                                                $tier = '🟢 Excellent';
+                                            } elseif ($sc >= 70) {
+                                                $tier = '🟡 Average';
+                                            } else {
+                                                $tier = '🔴 Poor';
+                                            }
+                                            $score = ' — ' . $sc . '%';
+                                        }
+                                        ?>
+                                        <option value="<?= $sup['id'] ?>"
+                                            data-phone="<?= htmlspecialchars($sup['contact_number'] ?? '') ?>"
+                                            data-company="<?= htmlspecialchars($sup['company_name']) ?>"
+                                            data-contact="<?= htmlspecialchars($sup['contact_person'] ?? '') ?>">
+                                            <?= htmlspecialchars($sup['company_name']) ?> [<?= $tier ?><?= $score ?>]
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+
+                                <!-- Supplier Response Detection Alert -->
+                                <div id="poInquiryResponseNotice" class="alert alert-success border border-success-subtle shadow-xs py-2 px-3 my-2 d-none d-flex align-items-center justify-content-between rounded-3" style="background-color: #f0fdf4;">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <i class="bi bi-patch-check-fill text-success fs-5"></i>
+                                        <div>
+                                            <strong class="text-success small d-block" id="poInquiryNoticeTitle">Supplier Stock Confirmed!</strong>
+                                            <span id="poInquiryResponseSummary" class="text-muted small" style="font-size: 0.74rem;">-</span>
+                                        </div>
+                                    </div>
+                                    <button type="button" class="btn btn-sm btn-success fw-bold px-2.5 py-1 shadow-sm" onclick="applyInquiryResponseToPo()" style="font-size: 0.74rem;">
+                                        <i class="bi bi-magic me-1"></i> Apply Response
+                                    </button>
+                                </div>
+
+                                <small class="text-muted d-block mt-2" style="font-size: 0.72rem;">
+                                    <i class="bi bi-bar-chart-line me-1 text-primary"></i>Delivery score: 🟢 Excellent ≥90% &nbsp; 🟡 Average ≥70% &nbsp; 🔴 Poor &lt;70%
+                                </small>
                             </div>
-                            <div class="col-12 col-sm-6">
-                                <div class="form-check p-2.5 border rounded-3 bg-light h-100 destination-radio-wrap" id="destRadioJobsiteWrap">
-                                    <input class="form-check-input ms-1" type="radio" name="delivery_destination_type" id="destTypeJobsite" value="jobsite" onchange="togglePoDestinationFields()">
-                                    <label class="form-check-label fw-bold small text-dark ms-2" for="destTypeJobsite">
-                                        <i class="bi bi-truck text-success me-1"></i> Direct to Jobsite
-                                        <small class="d-block text-muted fw-normal" style="font-size: 0.72rem;">Delivered directly to project location</small>
+
+                            <!-- Delivery Destination & Routing Card (ISO 9001 / Direct-to-Jobsite Architecture) -->
+                            <div class="card border-0 shadow-sm rounded-3 p-3 bg-white mb-3" id="poDeliveryRoutingCard">
+                                <label class="form-label fw-bold small text-dark text-uppercase d-flex align-items-center justify-content-between mb-2" style="letter-spacing: 0.5px;">
+                                    <span class="d-flex align-items-center gap-1.5">
+                                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle">Step 4</span>
+                                        <span>Delivery Destination &amp; Routing</span>
+                                    </span>
+                                    <span class="badge bg-light text-secondary border font-monospace" id="rsTypeBadge" style="font-size: 0.70rem;">Central Storage</span>
+                                </label>
+
+                                <div class="row g-2 mb-2">
+                                    <div class="col-12 col-sm-6">
+                                        <div class="form-check p-2.5 border rounded-3 bg-light h-100 destination-radio-wrap" id="destRadioWarehouseWrap" style="cursor: pointer;">
+                                            <input class="form-check-input ms-1" type="radio" name="delivery_destination_type" id="destTypeWarehouse" value="warehouse" checked onchange="togglePoDestinationFields()" style="cursor: pointer;">
+                                            <label class="form-check-label fw-bold small text-dark ms-2" for="destTypeWarehouse" style="cursor: pointer;">
+                                                <i class="bi bi-building-down text-primary me-1"></i> Central Warehouse
+                                                <small class="d-block text-muted fw-normal" style="font-size: 0.72rem;">Stocked into main inventory</small>
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="col-12 col-sm-6">
+                                        <div class="form-check p-2.5 border rounded-3 bg-light h-100 destination-radio-wrap" id="destRadioJobsiteWrap" style="cursor: pointer;">
+                                            <input class="form-check-input ms-1" type="radio" name="delivery_destination_type" id="destTypeJobsite" value="jobsite" onchange="togglePoDestinationFields()" style="cursor: pointer;">
+                                            <label class="form-check-label fw-bold small text-dark ms-2" for="destTypeJobsite" style="cursor: pointer;">
+                                                <i class="bi bi-truck text-success me-1"></i> Direct to Jobsite
+                                                <small class="d-block text-muted fw-normal" style="font-size: 0.72rem;">Delivered directly to site</small>
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Hidden input holding actual destination string sent to backend -->
+                                <input type="hidden" name="delivery_destination" id="poDeliveryDestination" value="Warehouse (Central Storage)">
+
+                                <!-- Address / Drop Location (Shown when Direct to Jobsite is selected) -->
+                                <div id="jobsiteAddressGroup" class="d-none mt-2">
+                                    <label class="form-label fw-bold small text-muted text-uppercase mb-1" style="font-size: 0.72rem;">
+                                        Jobsite Address / Drop Instructions
                                     </label>
+                                    <textarea class="form-control form-control-sm bg-light shadow-sm" name="delivery_address" id="poDeliveryAddress" rows="2" placeholder="e.g. Lot 4 Block 2, MacArthur Highway Site Gate 1 (Contact: Engr. Santos)"></textarea>
+                                    <small class="text-muted d-block mt-1" style="font-size: 0.72rem;">
+                                        <i class="bi bi-info-circle me-1"></i>Printed on the Purchase Order for supplier trucking and site receiving.
+                                    </small>
+                                </div>
+                            </div>
+
+                            <!-- Commercial Terms & Expected Arrival Card -->
+                            <div class="card border-0 shadow-sm rounded-3 p-3 bg-white mb-2">
+                                <div class="row g-2">
+                                    <div class="col-12">
+                                        <label class="form-label fw-bold small text-muted text-uppercase mb-1" style="font-size: 0.72rem;">Payment Terms <span class="text-danger">*</span></label>
+                                        <select class="form-select fw-bold shadow-sm" name="payment_terms" id="poPaymentTerms" required style="min-height: 42px;">
+                                            <option value="Credit (30 Days Net)" selected>💳 Credit (30 Days Net Terms)</option>
+                                            <option value="Credit (15 Days Net)">💳 Credit (15 Days Net Terms)</option>
+                                            <option value="Credit (60 Days Net)">💳 Credit (60 Days Net Terms)</option>
+                                            <option value="Charge / On Account">💳 Charge / On Account</option>
+                                            <option value="Cash on Delivery (COD)">💵 Cash on Delivery (COD)</option>
+                                            <option value="Cash in Advance / Prepaid">💵 Cash in Advance / Prepaid</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="col-12 mt-2">
+                                        <div class="d-flex align-items-center justify-content-between mb-1">
+                                            <label class="form-label fw-bold small text-muted text-uppercase mb-0" style="font-size: 0.72rem;">Expected Warehouse ETA</label>
+                                            <div class="btn-group btn-group-sm" role="group">
+                                                <button type="button" class="btn btn-outline-secondary py-0 px-1.5" onclick="window.setPoEtaDays(3)" style="font-size: 0.68rem;">+3d</button>
+                                                <button type="button" class="btn btn-outline-secondary py-0 px-1.5" onclick="window.setPoEtaDays(7)" style="font-size: 0.68rem;">+7d</button>
+                                                <button type="button" class="btn btn-outline-secondary py-0 px-1.5" onclick="window.setPoEtaDays(14)" style="font-size: 0.68rem;">+14d</button>
+                                            </div>
+                                        </div>
+                                        <input type="date" class="form-control fw-bold shadow-sm" name="expected_delivery_date" id="poExpectedDeliveryDate"
+                                            min="<?= date('Y-m-d') ?>" value="<?= date('Y-m-d', strtotime('+3 days')) ?>" style="min-height: 42px;">
+                                        <small class="text-muted d-block mt-1" style="font-size: 0.72rem;">
+                                            <i class="bi bi-calendar-event me-1 text-primary"></i>Target arrival date tracked by logistics.
+                                        </small>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-
-                        <!-- Hidden input holding actual destination string sent to backend -->
-                        <input type="hidden" name="delivery_destination" id="poDeliveryDestination" value="Warehouse (Central Storage)">
-
-                        <!-- Address / Drop Location (Shown when Direct to Jobsite is selected) -->
-                        <div id="jobsiteAddressGroup" class="d-none mt-2">
-                            <label class="form-label fw-bold small text-muted text-uppercase mb-1" style="font-size: 0.72rem;">
-                                Jobsite Address / Drop Instructions
-                            </label>
-                            <textarea class="form-control form-control-sm bg-light shadow-sm" name="delivery_address" id="poDeliveryAddress" rows="2" placeholder="e.g. Lot 4 Block 2, MacArthur Highway Site Gate 1 (Contact: Engr. Santos)"></textarea>
-                            <small class="text-muted d-block mt-1" style="font-size: 0.72rem;">
-                                <i class="bi bi-info-circle me-1"></i>Printed on the Purchase Order for supplier trucking and site receiving.
-                            </small>
-                        </div>
-                    </div>
-
-                    <div class="mb-2">
-                        <div class="d-flex align-items-center justify-content-between mb-1">
-                            <label class="form-label fw-bold small text-muted text-uppercase mb-0">Select Supplier <span
-                                    class="text-danger">*</span></label>
-                            <div class="d-flex align-items-center gap-1.5">
-                                <button type="button" class="btn btn-sm btn-outline-primary fw-bold px-2 py-0.5 shadow-sm d-none"
-                                    id="btnViewInquiriesList" onclick="openActiveInquiriesModal()"
-                                    title="View recent vendor stock inquiries and responses"
-                                    style="font-size: 0.72rem; border-radius: 6px;">
-                                    <i class="bi bi-clock-history me-1"></i> Responses (<span id="inquiriesBadgeCount">0</span>)
-                                </button>
-                                <button type="button" class="btn btn-sm fw-bold px-2.5 py-0.5 shadow-sm text-white"
-                                    id="btnQuickViberInquiry" onclick="openPrePoInquiryModal()"
-                                    title="Send quick stock availability & price inquiry to this supplier via Viber or Copy message"
-                                    style="background-color: #7360f2; border-color: #7360f2; font-size: 0.75rem; border-radius: 6px;">
-                                    <i class="fa-brands fa-viber me-1"></i> Quick Viber Inquiry
-                                </button>
-                            </div>
-                        </div>
-                        <select class="form-select fw-bold shadow-sm" name="supplier_id" id="poSupplierSelect" required onchange="if(typeof window.onPoSupplierChange === 'function') window.onPoSupplierChange();">
-                            <option value="" disabled selected>-- Select Supplier --</option>
-                            <?php foreach ($suppliers as $sup):
-                                $total = (int) $sup['total_po'];
-                                if ($total === 0) {
-                                    $tier = '🔘 New';
-                                    $score = '';
-                                } else {
-                                    $onTime = ($total - (int) $sup['delayed_count']) / $total * 100;
-                                    $accuracy = ($total - (int) $sup['discrepancy_count']) / $total * 100;
-                                    $sc = round(($onTime + $accuracy) / 2, 1);
-                                    if ($sc >= 90) {
-                                        $tier = '🟢 Excellent';
-                                    } elseif ($sc >= 70) {
-                                        $tier = '🟡 Average';
-                                    } else {
-                                        $tier = '🔴 Poor';
-                                    }
-                                    $score = ' — ' . $sc . '%';
-                                }
-                                ?>
-                                <option value="<?= $sup['id'] ?>"
-                                    data-phone="<?= htmlspecialchars($sup['contact_number'] ?? '') ?>"
-                                    data-company="<?= htmlspecialchars($sup['company_name']) ?>"
-                                    data-contact="<?= htmlspecialchars($sup['contact_person'] ?? '') ?>">
-                                    <?= htmlspecialchars($sup['company_name']) ?> [<?= $tier ?><?= $score ?>]
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-                        <div id="poInquiryResponseNotice" class="alert alert-success border border-success-subtle shadow-xs py-2 px-3 my-2 d-none d-flex align-items-center justify-content-between rounded-3" style="background-color: #f0fdf4;">
-                            <div class="d-flex align-items-center gap-2">
-                                <i class="bi bi-patch-check-fill text-success fs-5"></i>
-                                <div>
-                                    <strong class="text-success small d-block" id="poInquiryNoticeTitle">Supplier Stock Confirmed!</strong>
-                                    <span id="poInquiryResponseSummary" class="text-muted small" style="font-size: 0.74rem;">-</span>
-                                </div>
-                            </div>
-                            <button type="button" class="btn btn-sm btn-success fw-bold px-2.5 py-1 shadow-sm" onclick="applyInquiryResponseToPo()" style="font-size: 0.74rem;">
-                                <i class="bi bi-magic me-1"></i> Apply Response
-                            </button>
-                        </div>
-                        <small class="text-muted d-block mt-2" style="font-size: 0.75rem;"><i
-                                class="bi bi-bar-chart-line me-1"></i>Performance score based on delivery history. 🟢
-                            Excellent ≥90% &nbsp; 🟡 Average ≥70% &nbsp; 🔴 Poor &lt;70%</small>
-                    </div>
-
-                    <div class="mb-3 mt-3">
-                        <label class="form-label fw-bold small text-muted text-uppercase">Payment Terms <span class="text-danger">*</span></label>
-                        <select class="form-select fw-bold shadow-sm" name="payment_terms" id="poPaymentTerms" required>
-                            <option value="Credit (30 Days Net)" selected>💳 Credit (30 Days Net Terms)</option>
-                            <option value="Credit (15 Days Net)">💳 Credit (15 Days Net Terms)</option>
-                            <option value="Credit (60 Days Net)">💳 Credit (60 Days Net Terms)</option>
-                            <option value="Charge / On Account">💳 Charge / On Account</option>
-                            <option value="Cash on Delivery (COD)">💵 Cash on Delivery (COD)</option>
-                            <option value="Cash in Advance / Prepaid">💵 Cash in Advance / Prepaid</option>
-                        </select>
-                        <small class="text-muted d-block mt-1" style="font-size: 0.75rem;"><i
-                                class="bi bi-info-circle me-1"></i>Official payment terms printed on the PO delivered to the supplier.</small>
-                    </div>
-
-                    <div class="mb-3 mt-3">
-                        <label class="form-label fw-bold small text-muted text-uppercase">Expected Time of Arrival
-                            (Warehouse ETA)</label>
-                        <input type="date" class="form-control fw-bold shadow-sm" name="expected_delivery_date"
-                            min="<?= date('Y-m-d') ?>" value="<?= date('Y-m-d', strtotime('+3 days')) ?>">
-                        <small class="text-muted d-block mt-1" style="font-size: 0.75rem;"><i
-                                class="bi bi-calendar-event me-1"></i>Target date supplies are expected to arrive at the
-                            warehouse.</small>
                     </div>
                 </div>
-                <!-- Clean white footer -->
-                <div class="modal-footer justify-content-between bg-white border-top-0">
-                    <button type="button" class="btn btn-light text-muted fw-bold px-4"
-                        data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-brand fw-bold px-4 shadow-sm"><i
-                            class="bi bi-check-circle me-1"></i> Generate & Save PO</button>
+
+                <!-- Modal Footer -->
+                <div class="modal-footer justify-content-between bg-white px-4 py-3 border-top">
+                    <button type="button" class="btn btn-light text-secondary fw-semibold px-4 py-2 border" data-bs-dismiss="modal">
+                        <i class="bi bi-x-lg me-1"></i> Cancel
+                    </button>
+                    <button type="submit" class="btn btn-primary fw-bold px-4 py-2 shadow-sm d-flex align-items-center gap-2" style="background-color: var(--gb-blue, #0033CC); border-color: var(--gb-blue, #0033CC); min-height: 44px;">
+                        <i class="bi bi-check-circle-fill"></i>
+                        <span>Create Purchase Order</span>
+                    </button>
                 </div>
             </form>
         </div>
@@ -2116,6 +2182,17 @@ $approvedRS = $pdo->query("
             }
         }
         window.togglePoDestinationFields();
+    };
+
+    window.setPoEtaDays = function (days) {
+        const input = document.getElementById('poExpectedDeliveryDate');
+        if (!input) return;
+        const targetDate = new Date();
+        targetDate.setDate(targetDate.getDate() + parseInt(days, 10));
+        const yyyy = targetDate.getFullYear();
+        const mm = String(targetDate.getMonth() + 1).padStart(2, '0');
+        const dd = String(targetDate.getDate()).padStart(2, '0');
+        input.value = `${yyyy}-${mm}-${dd}`;
     };
 
     // ==========================================================
