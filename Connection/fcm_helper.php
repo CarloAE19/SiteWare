@@ -112,13 +112,19 @@ function _fcm_get_access_token(): ?string {
 // ----------------------------------------------------------
 // 3. Single FCM Message Sender
 // ----------------------------------------------------------
-function _fcm_send_one(string $deviceToken, string $title, string $body, string $accessToken): void {
+function _fcm_send_one(string $deviceToken, string $title, string $body, string $accessToken, ?string $clickAction = null): void {
     $appBase = '';
     if (!empty($_SERVER['SCRIPT_NAME'])) {
         $scriptDir = str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME']));
         if (preg_match('#^(/[^/]+)#', $scriptDir, $matches) && strtolower($matches[1]) === '/cims') {
             $appBase = '/CIMS';
         }
+    }
+
+    $targetUrl = ($appBase ? $appBase . '/' : '/');
+    if ($clickAction) {
+        $cleanAction = ltrim($clickAction, '/');
+        $targetUrl = ($appBase ? $appBase . '/' . $cleanAction : '/' . $cleanAction);
     }
 
     $payload = json_encode([
@@ -132,7 +138,7 @@ function _fcm_send_one(string $deviceToken, string $title, string $body, string 
                 'notification' => [
                     'icon'         => ($appBase ?: '') . '/assets/LogoGB.png',
                     'badge'        => ($appBase ?: '') . '/assets/favicon.ico',
-                    'click_action' => ($appBase ? $appBase . '/' : '/'),
+                    'click_action' => $targetUrl,
                 ],
             ],
         ],
@@ -151,11 +157,11 @@ function _fcm_send_one(string $deviceToken, string $title, string $body, string 
 
 // ----------------------------------------------------------
 // 4. PUBLIC API
-//    sendPushNotification($pdo, $title, $body, $role, $userId)
+//    sendPushNotification($pdo, $title, $body, $role, $userId, $clickAction)
 //    Pass $target_role for role-wide broadcasts,
 //    or $target_user_id for a specific user.
 // ----------------------------------------------------------
-function sendPushNotification(PDO $pdo, string $title, string $body, ?string $target_role, ?int $target_user_id): void {
+function sendPushNotification(PDO $pdo, string $title, string $body, ?string $target_role, ?int $target_user_id, ?string $clickAction = null): void {
     $accessToken = _fcm_get_access_token();
     if (!$accessToken) {
         return;
@@ -171,6 +177,6 @@ function sendPushNotification(PDO $pdo, string $title, string $body, ?string $ta
 
     $tokens = $stmt->fetchAll(PDO::FETCH_COLUMN);
     foreach ($tokens as $token) {
-        _fcm_send_one($token, $title, $body, $accessToken);
+        _fcm_send_one($token, $title, $body, $accessToken, $clickAction);
     }
 }
