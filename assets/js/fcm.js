@@ -21,15 +21,23 @@ if (typeof firebase === 'undefined') {
     // 🚨 REPLACE THIS WITH YOUR NEW VAPID KEY FROM FIREBASE CONSOLE 🚨
     const VAPID_KEY = "BAlVWwzuZaN7XIH7UTpW5vTEqyCAnRnHFTWoILHRo-akfvn2SqKu3MtwNdAQQv11RMt6XQdwCIuAbxV_G1TfAcA"; 
 
+    const getFcmBasePath = () => {
+        if (typeof window.cimsBasePath === 'string') return window.cimsBasePath;
+        return window.location.pathname.includes('/CIMS') ? '/CIMS' : '';
+    };
+
     messaging.onMessage((payload) => {
         console.log('Message received in foreground: ', payload);
         new Audio('assets/sounds/success.mp3').play().catch(e => {}); 
         
-        navigator.serviceWorker.getRegistration('/CIMS/').then(reg => {
+        const basePath = getFcmBasePath();
+        const swScope = basePath ? `${basePath}/` : '/';
+
+        navigator.serviceWorker.getRegistration(swScope).then(reg => {
             if (reg) {
                 reg.showNotification(payload.notification.title, {
                     body: payload.notification.body,
-                    icon: '/CIMS/assets/LogoGB.png'
+                    icon: `${basePath}/assets/LogoGB.png`
                 });
             } else {
                 alert(`📢 ${payload.notification.title}\n\n${payload.notification.body}`);
@@ -45,9 +53,10 @@ if (typeof firebase === 'undefined') {
             if (permission === 'granted') {
                 console.log("2. Permission granted! Registering Service Worker...");
                 
-                // Standardized Service Worker registration path
-                const swPath = '/CIMS/firebase-messaging-sw.js';
-                const swRegistration = await navigator.serviceWorker.register(swPath, { scope: '/CIMS/' });
+                const basePath = getFcmBasePath();
+                const swPath = `${basePath}/firebase-messaging-sw.js`;
+                const swScope = basePath ? `${basePath}/` : '/';
+                const swRegistration = await navigator.serviceWorker.register(swPath, { scope: swScope });
                 
                 // THE FIX: Aggressively wait for the worker to become 'active'
                 console.log("3. Waiting for Service Worker to become active...");
