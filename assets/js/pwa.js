@@ -7,7 +7,12 @@
 // 1. Service Worker Registration (Always active for offline caching)
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/CIMS/firebase-messaging-sw.js', { scope: '/CIMS/' })
+        const basePath = (typeof window.cimsBasePath === 'string') 
+            ? window.cimsBasePath 
+            : (window.location.pathname.includes('/CIMS') ? '/CIMS' : '');
+        const swPath = `${basePath}/firebase-messaging-sw.js`;
+        const swScope = basePath ? `${basePath}/` : '/';
+        navigator.serviceWorker.register(swPath, { scope: swScope })
             .then((reg) => {
                 console.log('[PWA] Service Worker registered with scope:', reg.scope);
             })
