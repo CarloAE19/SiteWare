@@ -109,11 +109,16 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && !$errorMsg && $inquiry) 
                 WHERE id = ? AND inquiry_id = ?
             ");
 
+            $availCount = 0;
             foreach ($itemIds as $index => $itemId) {
                 $itemId = (int)$itemId;
                 $status = $availStatuses[$index] ?? '';
                 if (!in_array($status, ['Available', 'Partial', 'Unavailable'])) {
                     throw new Exception("Please select an availability decision for all items before submitting.");
+                }
+
+                if ($status === 'Available') {
+                    $availCount++;
                 }
 
                 $qty = isset($availQtys[$index]) ? (int)$availQtys[$index] : 0;
@@ -147,7 +152,45 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && !$errorMsg && $inquiry) 
             ");
             $updateInqStmt->execute([$clientIp, $supplierGeneralNotes, $inquiry['id']]);
 
+            // Dispatch In-App Notification (Database)
+            $supplierName = !empty($inquiry['company_name']) ? $inquiry['company_name'] : 'Supplier';
+            $inqNo = $inquiry['inquiry_no'];
+            $totalCount = count($itemIds);
+            $creatorId = !empty($inquiry['created_by']) ? (int)$inquiry['created_by'] : null;
+
+            $notifTitle = "Supplier Responded: " . $supplierName;
+            $notifBody = "{$supplierName} has submitted stock & pricing for Inquiry #{$inqNo} ({$availCount}/{$totalCount} items available). Ready for PO generation.";
+
+            $notifStmt = $pdo->prepare("
+                INSERT INTO notifications (target_user_id, target_role, title, message, is_read, created_at)
+                VALUES (?, 'purchasing', ?, ?, 0, NOW())
+            ");
+            $notifStmt->execute([$creatorId, $notifTitle, $notifBody]);
+
             $pdo->commit();
+
+            // Dispatch Real-Time Web Push Notification (FCM / Smartphone & Desktop)
+            if (file_exists(__DIR__ . '/Connection/fcm_helper.php')) {
+                require_once __DIR__ . '/Connection/fcm_helper.php';
+                if (function_exists('sendPushNotification')) {
+                    try {
+                        // Push to all officers with role 'purchasing'
+                        sendPushNotification($pdo, $notifTitle, $notifBody, 'purchasing', null, 'supplier_inquiries');
+
+                        // If creator has a different role (e.g. admin), also push to them
+                        if ($creatorId) {
+                            $cRoleStmt = $pdo->prepare("SELECT role FROM users WHERE id = ?");
+                            $cRoleStmt->execute([$creatorId]);
+                            $cRole = $cRoleStmt->fetchColumn();
+                            if ($cRole && $cRole !== 'purchasing') {
+                                sendPushNotification($pdo, $notifTitle, $notifBody, null, $creatorId, 'supplier_inquiries');
+                            }
+                        }
+                    } catch (Exception $pushEx) {
+                        error_log("FCM Push notification error on inquiry response: " . $pushEx->getMessage());
+                    }
+                }
+            }
 
             if ($isAjax) {
                 echo json_encode(['status' => 'success', 'message' => 'Thank you! Your availability response has been recorded.']);
