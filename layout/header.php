@@ -226,8 +226,9 @@ foreach ($notifications as $n) {
     <link rel="stylesheet" href="assets/css/style.css?v=<?= time() ?>">
     <link rel="stylesheet" href="assets/css/custom.css?v=<?= time() ?>">
 
-    <!-- EARLY THEME INITIALIZATION (Prevents Flash of Unstyled Content) -->
+    <!-- EARLY SYSTEM & THEME INITIALIZATION -->
     <script>
+        window.cimsBasePath = '<?= rtrim(dirname($_SERVER['PHP_SELF']), "/\\") ?>';
         (function () {
             const storedTheme = localStorage.getItem('cims_theme_preference') || 'system';
             function getSystemTheme() {
