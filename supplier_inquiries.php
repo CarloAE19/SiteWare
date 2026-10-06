@@ -279,21 +279,14 @@ include 'layout/header.php';
 
 <div class="container-fluid px-3 px-md-4 py-3 py-md-4">
 
-    <!-- Breadcrumb & Header -->
+    <!-- Page Header -->
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3 mb-md-4">
         <div>
-            <nav aria-label="breadcrumb">
-                <ol class="breadcrumb mb-1 text-muted small">
-                    <li class="breadcrumb-item"><a href="dashboard" class="text-decoration-none text-secondary">Dashboard</a></li>
-                    <li class="breadcrumb-item"><a href="po" class="text-decoration-none text-secondary">Procurement</a></li>
-                    <li class="breadcrumb-item active text-dark fw-bold" aria-current="page">Supplier Inquiries</li>
-                </ol>
-            </nav>
             <h1 class="h3 fw-bold text-dark mb-0 d-flex align-items-center gap-2">
                 <i class="bi bi-chat-left-dots text-primary"></i> Supplier Inquiries
             </h1>
             <p class="text-muted small mb-0 mt-0.5">
-                Pre-Purchase Order material stock verification, quotation requests, and direct vendor link verification.
+                Verify material availability and prices with suppliers before issuing purchase orders.
             </p>
         </div>
     </div>
@@ -392,8 +385,8 @@ include 'layout/header.php';
     <!-- Main Datatable Card -->
     <div class="card inq-main-card border-0 shadow-sm p-3 p-md-4 bg-white rounded-3">
         <!-- Main Datatable Top Header -->
-        <div class="row align-items-center mb-3 g-2 inq-mobile-toolbar">
-            <div class="col-12 col-md-5 inq-desktop-heading">
+        <div class="d-flex flex-wrap align-items-center justify-content-between mb-3 gap-2 inq-mobile-toolbar">
+            <div class="inq-desktop-heading">
                 <h4 class="mb-0 fw-bold text-dark d-flex align-items-center gap-2">
                     <i class="bi bi-chat-left-dots-fill text-primary"></i> Supplier Inquiries List
                 </h4>
@@ -402,30 +395,28 @@ include 'layout/header.php';
                 </small>
             </div>
 
-            <div class="col-12 col-md-7">
-                <div class="d-flex flex-wrap justify-content-md-end align-items-center gap-2">
-                    <!-- Live Search Input -->
-                    <div class="input-group shadow-sm flex-grow-1" style="max-width: 320px; min-width: 220px;">
-                        <span class="input-group-text bg-white border-end-0 text-muted"><i class="bi bi-search"></i></span>
-                        <input type="text" id="inquirySearchInput" class="form-control border-start-0 ps-0 bg-white" placeholder="Search inquiry #, supplier, RS...">
-                        <button class="btn btn-white border border-start-0 text-muted d-none" type="button" id="clearSearchBtn" title="Clear Search">
-                            <i class="bi bi-x-lg"></i>
-                        </button>
-                    </div>
+            <div class="d-flex flex-wrap align-items-center justify-content-end gap-2 ms-md-auto w-100 w-md-auto">
+                <!-- Live Search Input -->
+                <div class="input-group shadow-sm" style="width: 280px; max-width: 100%;">
+                    <span class="input-group-text bg-white border-end-0 text-muted"><i class="bi bi-search"></i></span>
+                    <input type="text" id="inquirySearchInput" class="form-control border-start-0 ps-0 bg-white" placeholder="Search inquiry #, supplier, RS...">
+                    <button class="btn btn-white border border-start-0 text-muted d-none" type="button" id="clearSearchBtn" title="Clear Search">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                </div>
 
-                    <div class="d-flex align-items-center gap-2 w-100 w-md-auto">
-                        <!-- Refresh Button -->
-                        <button type="button" class="btn btn-outline-secondary btn-sm shadow-sm d-flex align-items-center justify-content-center gap-1.5 flex-fill flex-md-grow-0" style="min-height: 40px;" onclick="window.location.reload()" title="Refresh List">
-                            <i class="bi bi-arrow-clockwise"></i> Refresh
-                        </button>
+                <div class="d-flex align-items-center gap-2 flex-grow-1 flex-md-grow-0">
+                    <!-- Refresh Button -->
+                    <button type="button" class="btn btn-outline-secondary btn-sm shadow-sm d-flex align-items-center justify-content-center gap-1.5 flex-fill flex-md-grow-0" style="min-height: 38px;" onclick="window.location.reload()" title="Refresh List">
+                        <i class="bi bi-arrow-clockwise"></i> Refresh
+                    </button>
 
-                        <!-- New Inquiry Button -->
-                        <?php if (in_array($role, ['admin', 'purchasing'])): ?>
-                            <button type="button" class="btn btn-primary btn-sm shadow-sm d-flex align-items-center justify-content-center gap-1.5 flex-fill flex-md-grow-0 fw-semibold" style="min-height: 40px;" data-bs-toggle="modal" data-bs-target="#newInquiryModal">
-                                <i class="bi bi-plus-lg"></i> New Inquiry
-                            </button>
-                        <?php endif; ?>
-                    </div>
+                    <!-- New Inquiry Button -->
+                    <?php if (in_array($role, ['admin', 'purchasing'])): ?>
+                        <button type="button" class="btn btn-primary btn-sm shadow-sm d-flex align-items-center justify-content-center gap-1.5 flex-fill flex-md-grow-0 fw-semibold" style="min-height: 38px;" data-bs-toggle="modal" data-bs-target="#newInquiryModal">
+                            <i class="bi bi-plus-lg"></i> New Inquiry
+                        </button>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>
@@ -826,7 +817,7 @@ include 'layout/header.php';
                     </div>
                     <div>
                         <h5 class="modal-title fw-bold mb-0" id="newInquiryModalLabel">New Supplier Material Inquiry</h5>
-                        <small class="text-white-50">Generate a secure smartphone-accessible link for stock & price verification</small>
+                        <small class="text-white-50">Create an inquiry link to verify material stock and prices with the supplier</small>
                     </div>
                 </div>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
