@@ -1877,12 +1877,12 @@ include 'layout/header.php';
                                             RS Requested: ${requested} ${item.unit} &bull; <strong class="text-primary">Remaining Needed: ${remaining} ${item.unit}</strong> ${supplierHint}
                                         </small>
                                     </td>
-                                    <td class="text-center">
-                                        <div class="input-group input-group-sm mx-auto" style="max-width: 120px;">
-                                            <input type="number" class="form-control form-control-sm text-center fw-bold po-item-qty" 
+                                    <td class="text-center" style="vertical-align: middle;">
+                                        <div class="d-inline-flex flex-column align-items-center">
+                                            <input type="number" class="form-control form-control-sm text-center fw-bold po-item-qty shadow-xs" 
                                                 name="item_qty[${item.item_code}]" min="1" max="${remaining}" value="${remaining}" 
-                                                oninput="window.updatePoSelectedTotal()" style="font-size: 0.82rem;">
-                                            <span class="input-group-text py-0 px-1.5 small text-muted font-monospace" style="font-size:0.72rem;">${item.unit}</span>
+                                                oninput="window.updatePoSelectedTotal()" style="width: 85px; font-size: 0.90rem; padding: 4px 6px;">
+                                            <span class="input-group-text bg-transparent border-0 text-muted small fw-medium mt-1 p-0" style="font-size:0.72rem;">${item.unit}</span>
                                         </div>
                                     </td>
                                     <td class="text-end pe-3">
