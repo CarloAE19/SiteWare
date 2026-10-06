@@ -14,6 +14,14 @@ Options -Indexes -MultiViews
 </FilesMatch>
 
 # CUSTOM ERROR PAGES
+# [Hostinger Production - Root Domain]: Uncomment these 5 lines when deployed to public_html root:
+# ErrorDocument 400 /error/400.php
+# ErrorDocument 403 /error/403.php
+# ErrorDocument 404 /error/404.php
+# ErrorDocument 500 /error/500.php
+# ErrorDocument 503 /error/503.php
+
+# [Local Development / XAMPP Subdirectory]:
 ErrorDocument 400 /CIMS/error/400.php
 ErrorDocument 403 /CIMS/error/403.php
 ErrorDocument 404 /CIMS/error/404.php
