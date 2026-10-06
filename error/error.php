@@ -57,8 +57,18 @@ $errors = [
 
 $errorData = $errors[$code] ?? $errors[404];
 $isLoggedIn = isset($_SESSION['user_id']);
-$homeUrl = $isLoggedIn ? '/CIMS/dashboard' : '/CIMS/login';
+
+// Dynamically determine the base path (e.g. '/CIMS' when in subfolder, '' at root domain)
+$scriptDir = str_replace('\\', '/', dirname($_SERVER['PHP_SELF'] ?? ''));
+$app_base = '';
+if (preg_match('#^(/[^/]+)#', $scriptDir, $matches) && strtolower($matches[1]) === '/cims') {
+    $app_base = '/CIMS';
+}
+
+$homeUrl = ($app_base ?: '') . ($isLoggedIn ? '/dashboard' : '/login');
 $homeText = $isLoggedIn ? 'Go to Dashboard' : 'Sign In';
+$iconUrl = ($app_base ?: '') . '/assets/LogoGB.png';
+$aboutUrl = ($app_base ?: '') . '/about';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -67,7 +77,7 @@ $homeText = $isLoggedIn ? 'Go to Dashboard' : 'Sign In';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title><?= htmlspecialchars($code . ' — ' . $errorData['title']) ?> | SiteWare</title>
-    <link rel="icon" type="image/png" href="/CIMS/assets/LogoGB.png">
+    <link rel="icon" type="image/png" href="<?= $iconUrl ?>">
 
     <!-- Typography -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -388,7 +398,7 @@ $homeText = $isLoggedIn ? 'Go to Dashboard' : 'Sign In';
 
         <div class="text-center footer-note">
             <span class="fw-semibold">Copyright &copy; <?= date('Y') ?> Genetian Builders &amp; Enterprises Inc.</span>
-            <span class="d-inline-block ms-1">| Powered by <a href="/CIMS/about" class="footer-link">The
+            <span class="d-inline-block ms-1">| Powered by <a href="<?= $aboutUrl ?>" class="footer-link">The
                     Medyas</a></span>
         </div>
     </div>
