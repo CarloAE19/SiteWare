@@ -152,12 +152,135 @@ include 'layout/header.php';
         letter-spacing: 0.5px;
         text-transform: uppercase;
     }
+
+    /* Modern Horizontal Scroll Filter Pills (Mobile) */
+    .inq-filter-scroll-wrap {
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+        -webkit-overflow-scrolling: touch;
+    }
+    .inq-filter-scroll-wrap::-webkit-scrollbar {
+        display: none;
+    }
+    .inq-pill-btn {
+        border: 1px solid #e2e8f0;
+        background-color: #ffffff;
+        color: #475569;
+        font-size: 0.82rem;
+        font-weight: 600;
+        border-radius: 9999px;
+        padding: 8px 16px;
+        white-space: nowrap;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        user-select: none;
+        touch-action: manipulation;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+        cursor: pointer;
+    }
+    .inq-pill-btn:hover {
+        background-color: #f8fafc;
+        border-color: #cbd5e1;
+        color: #0f172a;
+    }
+    .inq-pill-btn.active-pill {
+        background-color: var(--gb-blue, #0033CC) !important;
+        border-color: var(--gb-blue, #0033CC) !important;
+        color: #ffffff !important;
+        box-shadow: 0 3px 10px rgba(0, 51, 204, 0.3) !important;
+    }
+    .inq-pill-btn.active-pill .badge {
+        background-color: rgba(255, 255, 255, 0.28) !important;
+        color: #ffffff !important;
+    }
+    .inq-pill-btn[data-filter="pending"].active-pill {
+        background-color: #d97706 !important;
+        border-color: #d97706 !important;
+        color: #ffffff !important;
+        box-shadow: 0 3px 10px rgba(217, 119, 6, 0.3) !important;
+    }
+    .inq-pill-btn[data-filter="responded"].active-pill {
+        background-color: #198754 !important;
+        border-color: #198754 !important;
+        color: #ffffff !important;
+        box-shadow: 0 3px 10px rgba(25, 135, 84, 0.3) !important;
+    }
+    .inq-pill-btn[data-filter="expired"].active-pill {
+        background-color: #dc3545 !important;
+        border-color: #dc3545 !important;
+        color: #ffffff !important;
+        box-shadow: 0 3px 10px rgba(220, 53, 69, 0.3) !important;
+    }
+
+    [data-bs-theme="dark"] .inq-pill-btn {
+        background-color: #1e293b;
+        border-color: #334155;
+        color: #94a3b8;
+    }
+    [data-bs-theme="dark"] .inq-pill-btn:hover {
+        background-color: #334155;
+        color: #f8fafc;
+    }
+
+    /* Mobile Form Usability & Layout Polish (per Quality Standards §3) */
+    @media (max-width: 768px) {
+        #newInquiryModal .form-control,
+        #newInquiryModal .form-select,
+        #shareInquiryModal .form-control,
+        #inquirySearchInput {
+            font-size: 16px !important;
+        }
+        
+        .modal-fullscreen-sm-down .modal-header,
+        .modal-fullscreen-sm-down .modal-footer {
+            padding-left: 1rem !important;
+            padding-right: 1rem !important;
+        }
+
+        .inq-main-card {
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            padding: 0 !important;
+        }
+        .inq-mobile-toolbar {
+            background: #ffffff;
+            border-radius: 14px;
+            padding: 12px;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
+            margin-bottom: 14px;
+        }
+        .inq-mobile-toolbar .input-group {
+            max-width: 100% !important;
+            width: 100% !important;
+        }
+        .inq-desktop-heading {
+            display: none !important;
+        }
+    }
+
+    [data-bs-theme="dark"] .inq-mobile-toolbar {
+        background-color: #1e293b;
+        border-color: #334155;
+    }
+
+    /* Touch-friendly Minimum 44px Hit Targets (Quality Standards §3) */
+    .touch-btn {
+        min-height: 44px;
+        min-width: 44px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
 </style>
 
-<div class="container-fluid px-3 px-md-4 py-4">
+<div class="container-fluid px-3 px-md-4 py-3 py-md-4">
 
     <!-- Breadcrumb & Header -->
-    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3 mb-md-4">
         <div>
             <nav aria-label="breadcrumb">
                 <ol class="breadcrumb mb-1 text-muted small">
@@ -175,17 +298,33 @@ include 'layout/header.php';
         </div>
     </div>
 
-    <!-- Interactive KPI Stat Filter Tiles (4-Column Grid) -->
-    <div class="row mb-4 g-3">
+    <!-- Mobile Horizontal Scroll Filter Pills (< 768px) -->
+    <div class="d-flex d-md-none overflow-x-auto pb-2 mb-3 gap-2 inq-filter-scroll-wrap">
+        <button type="button" class="btn inq-pill-btn active-pill flex-shrink-0" data-filter="all">
+            All Inquiries <span class="badge bg-light text-dark ms-1"><?= $totalInquiries ?></span>
+        </button>
+        <button type="button" class="btn inq-pill-btn flex-shrink-0" data-filter="pending">
+            <i class="bi bi-hourglass-split me-1 text-warning"></i>Awaiting Reply <span class="badge bg-warning-subtle text-dark ms-1"><?= $pendingCount ?></span>
+        </button>
+        <button type="button" class="btn inq-pill-btn flex-shrink-0" data-filter="responded">
+            <i class="bi bi-check-circle-fill me-1 text-success"></i>Confirmed <span class="badge bg-success-subtle text-success ms-1"><?= $respondedCount ?></span>
+        </button>
+        <button type="button" class="btn inq-pill-btn flex-shrink-0" data-filter="expired">
+            <i class="bi bi-clock-history me-1 text-danger"></i>Expired <span class="badge bg-danger-subtle text-danger ms-1"><?= $expiredCount ?></span>
+        </button>
+    </div>
+
+    <!-- Desktop KPI Stat Filter Tiles (>= 768px) -->
+    <div class="row mb-4 g-3 d-none d-md-flex">
         <!-- 1. Total Inquiries -->
-        <div class="col-12 col-sm-6 col-xl-3">
+        <div class="col-6 col-xl-3">
             <div class="card stat-card inq-filter-tile active-filter bg-white h-100 p-3 shadow-sm border-0 rounded-3"
                 data-filter="all" role="button" tabindex="0" title="Click to view all supplier inquiries"
                 style="border-left: 5px solid var(--gb-blue, #0033CC) !important;">
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
                         <h6 class="text-muted text-uppercase mb-1 fw-bold" style="font-size:0.75rem;">Total Inquiries</h6>
-                        <h3 class="mb-0 fw-bold text-dark"><?= number_format($totalInquiries) ?></h3>
+                        <h3 class="mb-0 fw-bold text-dark fs-3"><?= number_format($totalInquiries) ?></h3>
                         <small class="text-muted" style="font-size: 0.72rem;">Lifetime vendor checks</small>
                     </div>
                     <div class="fs-1 text-primary" style="color: var(--gb-blue, #0033CC) !important; opacity: 0.85;">
@@ -196,14 +335,14 @@ include 'layout/header.php';
         </div>
 
         <!-- 2. Awaiting Reply -->
-        <div class="col-12 col-sm-6 col-xl-3">
+        <div class="col-6 col-xl-3">
             <div class="card stat-card inq-filter-tile bg-white h-100 p-3 shadow-sm border-0 rounded-3"
                 data-filter="pending" role="button" tabindex="0" title="Click to filter inquiries awaiting vendor reply"
                 style="border-left: 5px solid #d97706 !important;">
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
                         <h6 class="text-muted text-uppercase mb-1 fw-bold" style="font-size:0.75rem;">Awaiting Reply</h6>
-                        <h3 class="mb-0 fw-bold text-warning-emphasis"><?= number_format($pendingCount) ?></h3>
+                        <h3 class="mb-0 fw-bold text-warning-emphasis fs-3"><?= number_format($pendingCount) ?></h3>
                         <small class="text-warning fw-semibold" style="font-size: 0.72rem;">Pending vendor response</small>
                     </div>
                     <div class="fs-1 text-warning" style="opacity: 0.85;">
@@ -214,14 +353,14 @@ include 'layout/header.php';
         </div>
 
         <!-- 3. Stock Confirmed -->
-        <div class="col-12 col-sm-6 col-xl-3">
+        <div class="col-6 col-xl-3">
             <div class="card stat-card inq-filter-tile bg-white h-100 p-3 shadow-sm border-0 rounded-3"
                 data-filter="responded" role="button" tabindex="0" title="Click to filter responded inquiries"
                 style="border-left: 5px solid #198754 !important;">
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
                         <h6 class="text-muted text-uppercase mb-1 fw-bold" style="font-size:0.75rem;">Stock Confirmed</h6>
-                        <h3 class="mb-0 fw-bold text-success"><?= number_format($respondedCount) ?></h3>
+                        <h3 class="mb-0 fw-bold text-success fs-3"><?= number_format($respondedCount) ?></h3>
                         <small class="text-success fw-semibold" style="font-size: 0.72rem;">Ready for Purchase Order</small>
                     </div>
                     <div class="fs-1 text-success" style="opacity: 0.85;">
@@ -232,14 +371,14 @@ include 'layout/header.php';
         </div>
 
         <!-- 4. Expired / Past 48h -->
-        <div class="col-12 col-sm-6 col-xl-3">
+        <div class="col-6 col-xl-3">
             <div class="card stat-card inq-filter-tile bg-white h-100 p-3 shadow-sm border-0 rounded-3"
                 data-filter="expired" role="button" tabindex="0" title="Click to filter expired inquiry links"
                 style="border-left: 5px solid #dc3545 !important;">
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
                         <h6 class="text-muted text-uppercase mb-1 fw-bold" style="font-size:0.75rem;">Expired / Past 48h</h6>
-                        <h3 class="mb-0 fw-bold text-danger"><?= number_format($expiredCount) ?></h3>
+                        <h3 class="mb-0 fw-bold text-danger fs-3"><?= number_format($expiredCount) ?></h3>
                         <small class="text-danger fw-semibold" style="font-size: 0.72rem;">Links automatically closed</small>
                     </div>
                     <div class="fs-1 text-danger" style="opacity: 0.85;">
@@ -251,10 +390,10 @@ include 'layout/header.php';
     </div>
 
     <!-- Main Datatable Card -->
-    <div class="card border-0 shadow-sm p-3 p-md-4 bg-white rounded-3">
+    <div class="card inq-main-card border-0 shadow-sm p-3 p-md-4 bg-white rounded-3">
         <!-- Main Datatable Top Header -->
-        <div class="row align-items-center mb-3 g-2">
-            <div class="col-12 col-md-5">
+        <div class="row align-items-center mb-3 g-2 inq-mobile-toolbar">
+            <div class="col-12 col-md-5 inq-desktop-heading">
                 <h4 class="mb-0 fw-bold text-dark d-flex align-items-center gap-2">
                     <i class="bi bi-chat-left-dots-fill text-primary"></i> Supplier Inquiries List
                 </h4>
@@ -266,7 +405,7 @@ include 'layout/header.php';
             <div class="col-12 col-md-7">
                 <div class="d-flex flex-wrap justify-content-md-end align-items-center gap-2">
                     <!-- Live Search Input -->
-                    <div class="input-group shadow-sm flex-grow-1 flex-md-grow-0" style="max-width: 320px; min-width: 220px;">
+                    <div class="input-group shadow-sm flex-grow-1" style="max-width: 320px; min-width: 220px;">
                         <span class="input-group-text bg-white border-end-0 text-muted"><i class="bi bi-search"></i></span>
                         <input type="text" id="inquirySearchInput" class="form-control border-start-0 ps-0 bg-white" placeholder="Search inquiry #, supplier, RS...">
                         <button class="btn btn-white border border-start-0 text-muted d-none" type="button" id="clearSearchBtn" title="Clear Search">
@@ -274,23 +413,25 @@ include 'layout/header.php';
                         </button>
                     </div>
 
-                    <!-- Refresh Button -->
-                    <button type="button" class="btn btn-outline-secondary btn-sm shadow-sm d-flex align-items-center gap-1.5" onclick="window.location.reload()" title="Refresh List">
-                        <i class="bi bi-arrow-clockwise"></i> Refresh
-                    </button>
-
-                    <!-- New Inquiry Button -->
-                    <?php if (in_array($role, ['admin', 'purchasing'])): ?>
-                        <button type="button" class="btn btn-primary btn-sm shadow-sm d-flex align-items-center gap-1.5" data-bs-toggle="modal" data-bs-target="#newInquiryModal">
-                            <i class="bi bi-plus-lg"></i> New Inquiry
+                    <div class="d-flex align-items-center gap-2 w-100 w-md-auto">
+                        <!-- Refresh Button -->
+                        <button type="button" class="btn btn-outline-secondary btn-sm shadow-sm d-flex align-items-center justify-content-center gap-1.5 flex-fill flex-md-grow-0" style="min-height: 40px;" onclick="window.location.reload()" title="Refresh List">
+                            <i class="bi bi-arrow-clockwise"></i> Refresh
                         </button>
-                    <?php endif; ?>
+
+                        <!-- New Inquiry Button -->
+                        <?php if (in_array($role, ['admin', 'purchasing'])): ?>
+                            <button type="button" class="btn btn-primary btn-sm shadow-sm d-flex align-items-center justify-content-center gap-1.5 flex-fill flex-md-grow-0 fw-semibold" style="min-height: 40px;" data-bs-toggle="modal" data-bs-target="#newInquiryModal">
+                                <i class="bi bi-plus-lg"></i> New Inquiry
+                            </button>
+                        <?php endif; ?>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <!-- Table Container -->
-        <div class="table-responsive border rounded shadow-sm bg-white inq-main-table-wrap">
+        <!-- Table Container (Desktop / Tablet >= 768px) -->
+        <div class="table-responsive border rounded shadow-sm bg-white inq-main-table-wrap d-none d-md-block">
             <table class="table table-hover align-middle mb-0" id="inquiriesTable">
                 <thead class="table-dark">
                     <tr>
@@ -496,6 +637,179 @@ include 'layout/header.php';
                 </tbody>
             </table>
         </div>
+
+        <!-- Mobile Cards View (< 768px per quality-standards §3) -->
+        <div id="inquiriesMobileCards" class="d-block d-md-none">
+            <!-- Dynamic Empty Filter Result Card for Mobile -->
+            <div id="noFilterResultsCard" class="card border-0 shadow-sm p-4 text-center text-muted mb-3 bg-white rounded-3" style="display: none;">
+                <i class="bi bi-search fs-1 d-block mb-2 text-secondary opacity-50"></i>
+                <h6 class="fw-bold text-dark mb-1">No Inquiries Found</h6>
+                <p class="small text-muted mb-3">No records match your active filter or search keywords.</p>
+                <div>
+                    <button type="button" class="btn btn-outline-primary btn-sm fw-bold px-3 shadow-sm touch-btn" onclick="resetInquiryFilters()">
+                        <i class="bi bi-arrow-counterclockwise me-1"></i> Reset Filters
+                    </button>
+                </div>
+            </div>
+
+            <?php if (empty($inquiries)): ?>
+                <div class="card border-0 shadow-sm p-4 text-center text-muted mb-3 bg-white rounded-3">
+                    <i class="bi bi-inbox fs-1 d-block mb-2 text-secondary opacity-50"></i>
+                    <h6 class="fw-bold text-dark">No Supplier Inquiries Recorded</h6>
+                    <p class="small text-muted mb-3">Create an inquiry before generating a PO to verify material availability and prices via Viber.</p>
+                    <?php if (in_array($role, ['admin', 'purchasing'])): ?>
+                        <button class="btn btn-primary btn-sm w-100 touch-btn" data-bs-toggle="modal" data-bs-target="#newInquiryModal">
+                            <i class="bi bi-plus-circle me-1"></i> Create First Inquiry
+                        </button>
+                    <?php endif; ?>
+                </div>
+            <?php else: ?>
+                <?php foreach ($inquiries as $inq): 
+                    $expDate = new DateTime($inq['expires_at']);
+                    $isExpired = ($now > $expDate && $inq['status'] !== 'Responded');
+                    $status = $inq['status'];
+                    if ($isExpired && $status !== 'Cancelled') $status = 'Expired';
+                    $cleanPortalUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http') . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . rtrim(dirname($_SERVER['SCRIPT_NAME'] ?? ''), '/') . '/supplier_inquiry/' . $inq['token'];
+                ?>
+                    <div class="cims-mobile-card inquiry-mobile-card"
+                        data-status="<?= strtolower($status) ?>"
+                        data-search="<?= strtolower(htmlspecialchars($inq['inquiry_no'] . ' ' . $inq['company_name'] . ' ' . ($inq['contact_person'] ?? '') . ' ' . ($inq['rs_no'] ?? '') . ' ' . $inq['delivery_destination'])) ?>">
+                        
+                        <!-- Top Header: Supplier Name & Status -->
+                        <div class="d-flex align-items-start justify-content-between gap-2 mb-2">
+                            <div class="d-flex align-items-center gap-2.5 overflow-hidden">
+                                <div class="rounded-circle bg-primary-subtle p-2 d-flex align-items-center justify-content-center flex-shrink-0" style="width: 40px; height: 40px;">
+                                    <i class="bi bi-shop text-primary fs-5"></i>
+                                </div>
+                                <div class="overflow-hidden">
+                                    <h6 class="fw-bold text-dark mb-0 text-truncate" style="font-size: 0.95rem;">
+                                        <?= htmlspecialchars($inq['company_name'] ?: 'Unknown Supplier') ?>
+                                    </h6>
+                                    <div class="d-flex align-items-center gap-2 mt-0.5">
+                                        <button type="button" class="btn btn-sm btn-link p-0 text-decoration-none d-inline-flex align-items-center gap-1 font-monospace"
+                                            onclick="copyInquiryLink('<?= htmlspecialchars($cleanPortalUrl) ?>')"
+                                            title="Tap to copy link">
+                                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-1.5 py-0.5" style="font-size: 0.70rem; font-weight: 600;">
+                                                <i class="bi bi-clipboard me-1"></i><?= htmlspecialchars($inq['inquiry_no']) ?>
+                                            </span>
+                                        </button>
+                                        <span class="text-muted" style="font-size: 0.68rem;">
+                                            <?= date('M d, Y', strtotime($inq['created_at'])) ?>
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="flex-shrink-0">
+                                <?php if ($status === 'Responded'): ?>
+                                    <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1 fw-semibold" style="font-size: 0.72rem;">
+                                        <i class="bi bi-check-circle-fill me-1"></i> Responded
+                                    </span>
+                                <?php elseif ($status === 'Pending'): ?>
+                                    <span class="badge bg-warning-subtle text-dark border border-warning-subtle px-2 py-1 fw-semibold" style="font-size: 0.72rem;">
+                                        <i class="bi bi-hourglass-split me-1"></i> Awaiting
+                                    </span>
+                                <?php elseif ($status === 'Expired'): ?>
+                                    <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1 fw-semibold" style="font-size: 0.72rem;">
+                                        <i class="bi bi-clock-history me-1"></i> Expired
+                                    </span>
+                                <?php else: ?>
+                                    <span class="badge bg-secondary text-white px-2 py-1 fw-semibold" style="font-size: 0.72rem;">
+                                        <?= htmlspecialchars($status) ?>
+                                    </span>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+
+                        <!-- Supplier Details: Contact Person, Phone, Destination, RS -->
+                        <div class="mb-2.5">
+                            <div class="d-flex flex-wrap align-items-center gap-3 text-muted mb-1.5" style="font-size: 0.76rem;">
+                                <?php if (!empty($inq['contact_person'])): ?>
+                                    <span><i class="bi bi-person me-1 text-secondary"></i><?= htmlspecialchars($inq['contact_person']) ?></span>
+                                <?php endif; ?>
+                                <?php if (!empty($inq['contact_number'])): ?>
+                                    <a href="tel:<?= preg_replace('/[^0-9+]/', '', $inq['contact_number']) ?>" class="text-decoration-none text-muted font-monospace">
+                                        <i class="bi bi-telephone me-1 text-primary"></i><?= htmlspecialchars($inq['contact_number']) ?>
+                                    </a>
+                                <?php endif; ?>
+                            </div>
+                            
+                            <div class="d-flex flex-wrap align-items-center gap-1.5">
+                                <span class="badge bg-light text-secondary border fw-normal" style="font-size: 0.72rem;">
+                                    <i class="bi bi-geo-alt text-primary me-1"></i><?= htmlspecialchars($inq['delivery_destination']) ?>
+                                </span>
+                                <?php if (!empty($inq['rs_no'])): ?>
+                                    <span class="badge bg-light text-dark border font-monospace" style="font-size: 0.72rem;">
+                                        <i class="bi bi-file-earmark-text text-primary me-1"></i><?= htmlspecialchars($inq['rs_no']) ?><?php if (!empty($inq['project_name'])): ?> &bull; <?= htmlspecialchars($inq['project_name']) ?><?php endif; ?>
+                                    </span>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+
+                        <!-- Materials & Quoted Amount Banner -->
+                        <div class="p-2.5 rounded-3 bg-light border border-light-subtle d-flex align-items-center justify-content-between mb-3">
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="rounded bg-white p-1 shadow-xs border d-flex align-items-center justify-content-center text-primary" style="width: 32px; height: 32px;">
+                                    <i class="bi bi-boxes fs-6"></i>
+                                </div>
+                                <div>
+                                    <span class="fw-semibold text-dark d-block" style="font-size: 0.82rem;">
+                                        <?= (int)$inq['total_items'] ?> Materials Inquired
+                                    </span>
+                                    <?php if ($status === 'Responded'): ?>
+                                        <small class="text-success fw-medium d-block" style="font-size: 0.70rem;">
+                                            <i class="bi bi-check-circle me-1"></i><?= (int)$inq['available_items'] ?> available in stock
+                                        </small>
+                                    <?php elseif ($status === 'Pending'): ?>
+                                        <small class="text-warning-emphasis fw-medium d-block" style="font-size: 0.70rem;">
+                                            <i class="bi bi-clock me-1"></i>Expires <?= date('M d, h:i A', strtotime($inq['expires_at'])) ?>
+                                        </small>
+                                    <?php else: ?>
+                                        <small class="text-danger fw-medium d-block" style="font-size: 0.70rem;">
+                                            <i class="bi bi-x-circle me-1"></i>Link expired
+                                        </small>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+                            <?php if ($status === 'Responded' && (float)$inq['total_offered_amount'] > 0): ?>
+                                <div class="text-end">
+                                    <span class="text-muted d-block" style="font-size: 0.68rem; text-transform: uppercase;">Quoted</span>
+                                    <strong class="text-primary font-monospace" style="font-size: 0.95rem;">
+                                        ₱<?= number_format((float)$inq['total_offered_amount'], 2) ?>
+                                    </strong>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="cims-mobile-actions d-flex align-items-center gap-2 pt-1 border-top">
+                            <button type="button" class="btn btn-outline-primary btn-sm flex-fill" onclick="viewInquiryDetails(<?= $inq['id'] ?>)">
+                                <i class="bi bi-eye me-1"></i> Details
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm flex-fill" onclick="openShareModal(<?= htmlspecialchars(json_encode([
+                                'inquiry_no' => $inq['inquiry_no'],
+                                'company_name' => $inq['company_name'],
+                                'phone' => $inq['contact_number'] ?? '',
+                                'clean_url' => $cleanPortalUrl,
+                                'expires_at' => date('M d, Y h:i A', strtotime($inq['expires_at'])),
+                                'status' => $status
+                            ])) ?>)">
+                                <i class="bi bi-share me-1"></i> Share
+                            </button>
+                            <?php if ($status === 'Responded' && in_array($role, ['admin', 'purchasing'])): ?>
+                                <a href="po" class="btn btn-success btn-sm flex-fill">
+                                    <i class="bi bi-cart-check-fill me-1"></i> PO
+                                </a>
+                            <?php endif; ?>
+                            <?php if ($status === 'Pending' && in_array($role, ['admin', 'purchasing'])): ?>
+                                <button type="button" class="btn btn-outline-danger btn-sm" style="width: 44px; min-width: 44px;" title="Cancel Inquiry" onclick="cancelInquiry(<?= $inq['id'] ?>, '<?= htmlspecialchars($inq['inquiry_no']) ?>')">
+                                    <i class="bi bi-x-lg"></i>
+                                </button>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+            <?php endif; ?>
+        </div>
     </div>
 </div>
 
@@ -503,7 +817,7 @@ include 'layout/header.php';
 <!-- 1. MODAL: CREATE NEW SUPPLIER INQUIRY                                     -->
 <!-- ========================================================================= -->
 <div class="modal fade" id="newInquiryModal" tabindex="-1" aria-labelledby="newInquiryModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+    <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable modal-fullscreen-sm-down">
         <div class="modal-content border-0 shadow-lg rounded-4">
             <div class="modal-header bg-primary text-white border-0 py-3">
                 <div class="d-flex align-items-center gap-2">
@@ -586,7 +900,7 @@ include 'layout/header.php';
                                         <th style="min-width: 220px;">Item Description / Material Name</th>
                                         <th style="width: 110px;">Requested Qty</th>
                                         <th style="width: 100px;">Unit</th>
-                                        <th style="width: 44px;" class="text-center">Action</th>
+                                        <th style="width: 50px;" class="text-center">Action</th>
                                     </tr>
                                 </thead>
                                 <tbody id="inqItemsTableBody">
@@ -602,8 +916,8 @@ include 'layout/header.php';
                                             <input type="text" class="form-control form-control-sm item-unit-input text-center" value="pcs" placeholder="pcs, bags, etc." required>
                                         </td>
                                         <td class="text-center">
-                                            <button type="button" class="btn btn-outline-danger btn-sm p-1 border-0" onclick="removeInquiryRow(this)">
-                                                <i class="bi bi-trash"></i>
+                                            <button type="button" class="btn btn-outline-danger btn-sm touch-btn p-0 border-0" onclick="removeInquiryRow(this)" title="Remove item" aria-label="Remove item" style="width: 44px; height: 44px; border-radius: 8px;">
+                                                <i class="bi bi-trash fs-6"></i>
                                             </button>
                                         </td>
                                     </tr>
@@ -628,8 +942,8 @@ include 'layout/header.php';
                 </div>
 
                 <div class="modal-footer bg-white border-top py-2.5">
-                    <button type="button" class="btn btn-outline-secondary btn-sm px-3" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" id="btnSubmitNewInquiry" class="btn btn-primary btn-sm px-4 fw-bold">
+                    <button type="button" class="btn btn-outline-secondary btn-sm px-3 touch-btn" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" id="btnSubmitNewInquiry" class="btn btn-primary btn-sm px-4 fw-bold touch-btn">
                         <i class="bi bi-link-45deg me-1"></i> Generate Inquiry Link
                     </button>
                 </div>
@@ -642,7 +956,7 @@ include 'layout/header.php';
 <!-- 2. MODAL: VIEW INQUIRY BREAKDOWN & RESPONSE                               -->
 <!-- ========================================================================= -->
 <div class="modal fade" id="viewInquiryModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+    <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable modal-fullscreen-sm-down">
         <div class="modal-content border-0 shadow-lg rounded-4">
             <div class="modal-header bg-dark text-white border-0 py-3">
                 <div class="d-flex align-items-center gap-2">
@@ -661,7 +975,7 @@ include 'layout/header.php';
                 </div>
             </div>
             <div class="modal-footer bg-white border-top py-2.5">
-                <button type="button" class="btn btn-secondary btn-sm px-3" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-secondary btn-sm px-3 touch-btn" data-bs-dismiss="modal">Close</button>
             </div>
         </div>
     </div>
@@ -671,7 +985,7 @@ include 'layout/header.php';
 <!-- 3. MODAL: SHARE INQUIRY (VIBER / CLEAN URL)                               -->
 <!-- ========================================================================= -->
 <div class="modal fade" id="shareInquiryModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-dialog modal-dialog-centered modal-fullscreen-sm-down">
         <div class="modal-content border-0 shadow-lg rounded-4">
             <div class="modal-header border-0 bg-primary text-white py-3">
                 <div class="d-flex align-items-center gap-2">
@@ -742,6 +1056,7 @@ include 'layout/header.php';
         }
 
         const rows = document.querySelectorAll('#inquiriesTableBody tr.inquiry-row');
+        const cards = document.querySelectorAll('#inquiriesMobileCards .inquiry-mobile-card');
         let visibleCount = 0;
 
         rows.forEach(row => {
@@ -759,9 +1074,28 @@ include 'layout/header.php';
             }
         });
 
+        cards.forEach(card => {
+            const cardStatus = (card.getAttribute('data-status') || '').toLowerCase();
+            const cardSearch = (card.getAttribute('data-search') || '').toLowerCase();
+
+            const matchesStatus = (currentInqFilter === 'all') || (cardStatus === currentInqFilter);
+            const matchesQuery = !query || cardSearch.includes(query);
+
+            if (matchesStatus && matchesQuery) {
+                card.style.display = '';
+            } else {
+                card.style.display = 'none';
+            }
+        });
+
         const noResultsRow = document.getElementById('noFilterResultsRow');
         if (noResultsRow) {
             noResultsRow.style.display = (visibleCount === 0 && rows.length > 0) ? '' : 'none';
+        }
+
+        const noResultsCard = document.getElementById('noFilterResultsCard');
+        if (noResultsCard) {
+            noResultsCard.style.display = (visibleCount === 0 && cards.length > 0) ? '' : 'none';
         }
 
         // Update badge indicator
@@ -781,12 +1115,15 @@ include 'layout/header.php';
         const searchInput = document.getElementById('inquirySearchInput');
         if (searchInput) searchInput.value = '';
 
-        const filterTiles = document.querySelectorAll('.inq-filter-tile');
-        filterTiles.forEach(t => {
-            if ((t.getAttribute('data-filter') || 'all') === 'all') {
+        const allFilterTriggers = document.querySelectorAll('.inq-filter-tile, .inq-pill-btn');
+        allFilterTriggers.forEach(t => {
+            const f = t.getAttribute('data-filter') || 'all';
+            if (f === 'all') {
                 t.classList.add('active-filter');
+                t.classList.add('active-pill');
             } else {
                 t.classList.remove('active-filter');
+                t.classList.remove('active-pill');
             }
         });
 
@@ -796,7 +1133,7 @@ include 'layout/header.php';
     document.addEventListener('DOMContentLoaded', function () {
         const searchInput = document.getElementById('inquirySearchInput');
         const clearBtn = document.getElementById('clearSearchBtn');
-        const filterTiles = document.querySelectorAll('.inq-filter-tile');
+        const filterTriggers = document.querySelectorAll('.inq-filter-tile, .inq-pill-btn');
 
         if (searchInput) {
             searchInput.addEventListener('input', filterInquiryTable);
@@ -811,7 +1148,7 @@ include 'layout/header.php';
             });
         }
 
-        filterTiles.forEach(tile => {
+        filterTriggers.forEach(tile => {
             tile.addEventListener('click', function () {
                 const targetFilter = this.getAttribute('data-filter') || 'all';
 
@@ -822,13 +1159,15 @@ include 'layout/header.php';
                     currentInqFilter = targetFilter;
                 }
 
-                // Sync active tile classes
-                filterTiles.forEach(t => {
+                // Sync active classes across both desktop stat cards and mobile pills
+                filterTriggers.forEach(t => {
                     const f = t.getAttribute('data-filter') || 'all';
                     if (f === currentInqFilter) {
                         t.classList.add('active-filter');
+                        t.classList.add('active-pill');
                     } else {
                         t.classList.remove('active-filter');
+                        t.classList.remove('active-pill');
                     }
                 });
 
@@ -861,8 +1200,8 @@ include 'layout/header.php';
                 <input type="text" class="form-control form-control-sm item-unit-input text-center" value="${escapeHtml(unit)}" placeholder="pcs, bags, etc." required>
             </td>
             <td class="text-center">
-                <button type="button" class="btn btn-outline-danger btn-sm p-1 border-0" onclick="removeInquiryRow(this)">
-                    <i class="bi bi-trash"></i>
+                <button type="button" class="btn btn-outline-danger btn-sm touch-btn p-0 border-0" onclick="removeInquiryRow(this)" title="Remove item" aria-label="Remove item" style="width: 44px; height: 44px; border-radius: 8px;">
+                    <i class="bi bi-trash fs-6"></i>
                 </button>
             </td>
         `;
@@ -928,6 +1267,11 @@ include 'layout/header.php';
         e.preventDefault();
         const form = document.getElementById('createInquiryForm');
         const btn = document.getElementById('btnSubmitNewInquiry');
+
+        if (!form.checkValidity()) {
+            form.reportValidity();
+            return;
+        }
 
         const rows = document.querySelectorAll('#inqItemsTableBody tr.inq-item-row');
         const items = [];
@@ -1194,6 +1538,68 @@ include 'layout/header.php';
             }
         });
     }
+
+    // =========================================================================
+    // MODAL LIFECYCLE MANAGEMENT (per cims-modal-ajax-handler standard)
+    // =========================================================================
+    document.addEventListener('DOMContentLoaded', function () {
+        const newInquiryModalEl = document.getElementById('newInquiryModal');
+        if (newInquiryModalEl) {
+            // 1. Accessibility: Auto-focus the first editable input when opened
+            newInquiryModalEl.addEventListener('shown.bs.modal', function () {
+                const firstInput = document.getElementById('inqSupplierSelect');
+                if (firstInput) firstInput.focus();
+            });
+
+            // 2. Clean up: Reset form and dynamic preview states when closed
+            newInquiryModalEl.addEventListener('hidden.bs.modal', function () {
+                const form = document.getElementById('createInquiryForm');
+                if (form) {
+                    form.reset();
+                    form.classList.remove('was-validated');
+                }
+                // Reset items table to default 1 empty row
+                const tbody = document.getElementById('inqItemsTableBody');
+                if (tbody) {
+                    tbody.innerHTML = `
+                        <tr class="inq-item-row">
+                            <td>
+                                <input type="text" class="form-control form-control-sm item-name-input" placeholder="e.g. Portland Cement Type 1" required list="inventoryCatalogList">
+                            </td>
+                            <td>
+                                <input type="number" class="form-control form-control-sm item-qty-input text-center" min="1" value="10" required>
+                            </td>
+                            <td>
+                                <input type="text" class="form-control form-control-sm item-unit-input text-center" value="pcs" placeholder="pcs, bags, etc." required>
+                            </td>
+                            <td class="text-center">
+                                <button type="button" class="btn btn-outline-danger btn-sm touch-btn p-0 border-0" onclick="removeInquiryRow(this)" title="Remove item" aria-label="Remove item" style="width: 44px; height: 44px; border-radius: 8px;">
+                                    <i class="bi bi-trash fs-6"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                }
+                const destInput = document.getElementById('inqDestination');
+                if (destInput) destInput.value = 'Central Warehouse (Main Storage)';
+            });
+        }
+
+        const viewInquiryModalEl = document.getElementById('viewInquiryModal');
+        if (viewInquiryModalEl) {
+            viewInquiryModalEl.addEventListener('hidden.bs.modal', function () {
+                const modalBody = document.getElementById('viewInqModalBody');
+                if (modalBody) {
+                    modalBody.innerHTML = `
+                        <div class="text-center py-5">
+                            <div class="spinner-border text-primary" role="status"></div>
+                            <div class="text-muted mt-2 small">Loading quotation details...</div>
+                        </div>
+                    `;
+                }
+            });
+        }
+    });
 
     function escapeHtml(text) {
         if (!text) return '';
