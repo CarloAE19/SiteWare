@@ -1,8 +1,13 @@
 /* ==========================================================
  * GB INVENTORY - FIREBASE MESSAGING SERVICE WORKER
  * Handles BACKGROUND push notifications (tab closed / minimized)
- * THIS FILE MUST LIVE AT: /CIMS/firebase-messaging-sw.js
+ * Dynamically resolves base path for both local (/CIMS/) and production (/)
  * ========================================================== */
+
+// Dynamically determine the base path from the Service Worker's own location
+// e.g. '/CIMS' when hosted in a subfolder on XAMPP, or '' when hosted at root on Hostinger
+const swBasePath = self.location.pathname.replace(/\/firebase-messaging-sw\.js.*$/, '');
+const swUrl = (path) => (swBasePath ? `${swBasePath}${path}` : path);
 
 // Defensive script importation (ensures offline worker bootstrap never crashes if CDN is unreachable)
 try {
@@ -39,13 +44,13 @@ if (messaging) {
 
         const title = payload.notification?.title || payload.data?.title || 'GB Inventory';
         const body = payload.notification?.body || payload.data?.body || 'You have a new inventory update.';
-        const targetUrl = payload.data?.url || payload.data?.click_action || '/CIMS/';
+        const targetUrl = payload.data?.url || payload.data?.click_action || swUrl('/');
         const notificationTag = payload.data?.tag || 'gb-inventory-notif';
 
         self.registration.showNotification(title, {
             body: body,
-            icon: '/CIMS/assets/LogoGB.png',
-            badge: '/CIMS/assets/favicon.ico',
+            icon: swUrl('/assets/LogoGB.png'),
+            badge: swUrl('/assets/favicon.ico'),
             tag: notificationTag,
             renotify: true,
             vibrate: [200, 100, 200],
@@ -57,12 +62,13 @@ if (messaging) {
 // Click on notification → focus tab and navigate to destination
 self.addEventListener('notificationclick', (event) => {
     event.notification.close();
-    const targetUrl = event.notification.data?.url || '/CIMS/';
+    const targetUrl = event.notification.data?.url || swUrl('/');
 
     event.waitUntil(
         clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
             for (const client of clientList) {
-                if (client.url.includes('/CIMS/') && 'focus' in client) {
+                const matchesScope = swBasePath ? client.url.includes(swBasePath) : true;
+                if (matchesScope && 'focus' in client) {
                     if (targetUrl && 'navigate' in client && !client.url.endsWith(targetUrl)) {
                         client.navigate(targetUrl);
                     }
@@ -84,23 +90,23 @@ self.addEventListener('notificationclick', (event) => {
 
 const OFFLINE_CACHE = 'gb-offline-v4';
 
-// Core local assets required for the offline application shell
+// Core local assets required for the offline application shell (dynamically mapped with swUrl)
 const PRECACHE_LOCAL_ASSETS = [
-    '/CIMS/offline.html',
-    '/CIMS/assets/LogoGB.png',
-    '/CIMS/assets/favicon.ico',
-    '/CIMS/assets/css/style.css',
-    '/CIMS/assets/css/custom.css',
-    '/CIMS/assets/css/offline.css',
-    '/CIMS/assets/js/offline.js',
-    '/CIMS/assets/js/pwa.js',
-    '/CIMS/assets/js/router.js',
-    '/CIMS/assets/js/modals.js',
-    '/CIMS/assets/js/inventory.js',
-    '/CIMS/assets/js/notifications.js',
-    '/CIMS/assets/js/fcm.js',
-    '/CIMS/manifest.json'
-];
+    '/offline.html',
+    '/assets/LogoGB.png',
+    '/assets/favicon.ico',
+    '/assets/css/style.css',
+    '/assets/css/custom.css',
+    '/assets/css/offline.css',
+    '/assets/js/offline.js',
+    '/assets/js/pwa.js',
+    '/assets/js/router.js',
+    '/assets/js/modals.js',
+    '/assets/js/inventory.js',
+    '/assets/js/notifications.js',
+    '/assets/js/fcm.js',
+    '/manifest.json'
+].map(swUrl);
 
 // Essential vendor CDN assets for styling, typography, and interactive alerts
 const PRECACHE_CDN_ASSETS = [
@@ -225,7 +231,7 @@ self.addEventListener('fetch', (event) => {
 
                     // 3. Fallback to offline.html for full browser navigations
                     if (event.request.mode === 'navigate') {
-                        const fallback = await cache.match('/CIMS/offline.html');
+                        const fallback = await cache.match(swUrl('/offline.html'));
                         if (fallback) return fallback;
                     }
 
@@ -288,7 +294,7 @@ self.addEventListener('fetch', (event) => {
                     .catch(() => {
                         // Fallback placeholder for missing images offline
                         if (event.request.destination === 'image') {
-                            return caches.match('/CIMS/assets/LogoGB.png');
+                            return caches.match(swUrl('/assets/LogoGB.png'));
                         }
                     });
             })
