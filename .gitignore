@@ -2,3 +2,4 @@
 Connection/firebase-service-account.json
 uploads
 backups/
+node_modules/
