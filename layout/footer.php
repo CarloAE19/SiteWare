@@ -3,34 +3,35 @@
 <!-- ========================================== -->
 <footer class="app-footer">
     <div class="text-muted small">
-        <span class="fw-bold">Copyright &copy; <?= date('Y') ?> Genetian Builders & Enterprises inc.</span>
+        <span class="fw-bold">Copyright &copy; <?= date('Y') ?> GB Construction & Enterprises inc.</span>
         <span style="opacity: 0.8;"> | Powered by <a href="about" class="text-decoration-none text-blue fw-bold">The
                 Medyas</a></span>
     </div>
 </footer>
 
 <?php
-    $userHasPasskeys = false;
-    $userHasTotp = false;
-    if (!empty($currentUserId) && isset($pdo)) {
-        try {
-            $pkStmt = $pdo->prepare("SELECT COUNT(*) FROM user_passkeys WHERE user_id = ?");
-            $pkStmt->execute([$currentUserId]);
-            $userHasPasskeys = ($pkStmt->fetchColumn() > 0);
+$userHasPasskeys = false;
+$userHasTotp = false;
+if (!empty($currentUserId) && isset($pdo)) {
+    try {
+        $pkStmt = $pdo->prepare("SELECT COUNT(*) FROM user_passkeys WHERE user_id = ?");
+        $pkStmt->execute([$currentUserId]);
+        $userHasPasskeys = ($pkStmt->fetchColumn() > 0);
 
-            $mfaStmt = $pdo->prepare("SELECT mfa_enabled FROM users WHERE id = ?");
-            $mfaStmt->execute([$currentUserId]);
-            $userHasTotp = ($mfaStmt->fetchColumn() == 1);
-        } catch (\Exception $e) {}
+        $mfaStmt = $pdo->prepare("SELECT mfa_enabled FROM users WHERE id = ?");
+        $mfaStmt->execute([$currentUserId]);
+        $userHasTotp = ($mfaStmt->fetchColumn() == 1);
+    } catch (\Exception $e) {
     }
+}
 ?>
 <script>
     window.cimsBasePath = '<?= rtrim(dirname($_SERVER['PHP_SELF']), "/\\") ?>';
     window.cimsIdleConfig = {
         enabled: <?= ($idleLockEnabled === '1') ? 'true' : 'false' ?>,
-        lockMinutes: <?= (float)($idleLockMinutes ?? 15) ?>,
-        logoutMinutes: <?= (float)($idleLogoutMinutes ?? 30) ?>,
-        userId: <?= (int)($currentUserId ?? 0) ?>,
+        lockMinutes: <?= (float) ($idleLockMinutes ?? 15) ?>,
+        logoutMinutes: <?= (float) ($idleLogoutMinutes ?? 30) ?>,
+        userId: <?= (int) ($currentUserId ?? 0) ?>,
         userName: <?= json_encode($_SESSION['user_name'] ?? 'Staff') ?>,
         userRole: <?= json_encode($currentUserRole ?? 'requestor') ?>,
         userRoleLabel: <?= json_encode($userBadgeLabel ?? 'Staff') ?>,
@@ -417,7 +418,8 @@
         }
 
         #cims-chatbot-input {
-            font-size: 16px !important; /* Prevents mobile browser auto-zoom on input focus */
+            font-size: 16px !important;
+            /* Prevents mobile browser auto-zoom on input focus */
         }
 
         .chatbot-chip {
@@ -454,13 +456,16 @@
                 </div>
             </div>
             <div class="d-flex align-items-center gap-1">
-                <button type="button" id="cims-chatbot-clear" class="btn btn-sm btn-link p-0 text-decoration-none" title="Clear Chat History" aria-label="Clear Chat History">
+                <button type="button" id="cims-chatbot-clear" class="btn btn-sm btn-link p-0 text-decoration-none"
+                    title="Clear Chat History" aria-label="Clear Chat History">
                     <i class="bi bi-trash3 fs-6"></i>
                 </button>
-                <button type="button" id="cims-chatbot-expand" class="btn btn-sm btn-link p-0 text-decoration-none" title="Toggle Fullscreen / Expand Window" aria-label="Toggle Fullscreen">
+                <button type="button" id="cims-chatbot-expand" class="btn btn-sm btn-link p-0 text-decoration-none"
+                    title="Toggle Fullscreen / Expand Window" aria-label="Toggle Fullscreen">
                     <i class="bi bi-arrows-fullscreen fs-6"></i>
                 </button>
-                <button type="button" id="cims-chatbot-close" class="btn-close btn-close-white ms-1" aria-label="Close"></button>
+                <button type="button" id="cims-chatbot-close" class="btn-close btn-close-white ms-1"
+                    aria-label="Close"></button>
             </div>
         </div>
 
@@ -492,7 +497,8 @@
 </div>
 
 <!-- Include SMS Inbox Modal -->
-<?php if (file_exists(__DIR__ . '/../components/sms_inbox_modal.php')) include_once __DIR__ . '/../components/sms_inbox_modal.php'; ?>
+<?php if (file_exists(__DIR__ . '/../components/sms_inbox_modal.php'))
+    include_once __DIR__ . '/../components/sms_inbox_modal.php'; ?>
 <!-- Include Requisition Slips Modal Globally -->
 <?php include_once __DIR__ . '/../components/requisition_modals.php'; ?>
 <!-- Include PO, Withdrawal & Item Quick View Modals Globally -->
@@ -501,250 +507,250 @@
 <script src="assets/js/chatbot.js?v=<?= time() ?>"></script>
 
 <script>
-// Helper to safely escape HTML entities
-function escapeSmsHtml(text) {
-    if (!text) return '';
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-
-// ==========================================
-// DEDICATED SUPPLY LOGISTICS UPDATES JS
-// ==========================================
-let supplyUpdatesData = [];
-let currentSupplyFilter = 'urgent'; // Default focus on urgent alerts (Overdue & Today)
-
-function getDismissedSuppliesKey() {
-    const uid = window.currentUserId || 0;
-    return `cims_dismissed_supplies_u${uid}`;
-}
-
-function getDismissedSupplies() {
-    try {
-        const key = getDismissedSuppliesKey();
-        const raw = localStorage.getItem(key);
-        return raw ? JSON.parse(raw) : {};
-    } catch (e) {
-        return {};
+    // Helper to safely escape HTML entities
+    function escapeSmsHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
-}
 
-function saveDismissedSupplies(map) {
-    try {
-        const key = getDismissedSuppliesKey();
-        localStorage.setItem(key, JSON.stringify(map));
-    } catch (e) {
-        console.error('Error saving dismissed supplies:', e);
+    // ==========================================
+    // DEDICATED SUPPLY LOGISTICS UPDATES JS
+    // ==========================================
+    let supplyUpdatesData = [];
+    let currentSupplyFilter = 'urgent'; // Default focus on urgent alerts (Overdue & Today)
+
+    function getDismissedSuppliesKey() {
+        const uid = window.currentUserId || 0;
+        return `cims_dismissed_supplies_u${uid}`;
     }
-}
 
-// Update the warning icon badge & highlighted state based on active (non-dismissed) urgent alerts
-function updateSupplyBadge() {
-    const badge = document.getElementById('supplyUpdatesBadge');
-    const icon = document.getElementById('supplyTruckIcon');
-    const dismissedMap = getDismissedSupplies();
-
-    // Urgent alerts: Arriving Today, Overdue, or unread SMS reply
-    const activeUrgentItems = supplyUpdatesData.filter(a => {
-        if (dismissedMap[a.id]) return false;
-        return a.category === 'arriving_today' || a.category === 'overdue' || (a.type === 'sms_reply' && a.is_read === 0);
-    });
-
-    const urgentCount = activeUrgentItems.length;
-
-    if (urgentCount > 0) {
-        if (badge) {
-            badge.textContent = urgentCount > 99 ? '99+' : urgentCount;
-            badge.classList.remove('d-none');
-        }
-        if (icon) {
-            // HIGHLIGHT: Alerting yellow triangle
-            icon.className = 'bi bi-exclamation-triangle-fill fs-5 text-warning';
-        }
-    } else {
-        if (badge) {
-            badge.classList.add('d-none');
-        }
-        if (icon) {
-            // UNHIGHLIGHT: Muted outline triangle
-            icon.className = 'bi bi-exclamation-triangle fs-5 text-muted';
+    function getDismissedSupplies() {
+        try {
+            const key = getDismissedSuppliesKey();
+            const raw = localStorage.getItem(key);
+            return raw ? JSON.parse(raw) : {};
+        } catch (e) {
+            return {};
         }
     }
-}
 
-async function loadSupplyUpdates() {
-    const container = document.getElementById('supplyUpdatesContainer');
-    if (!container && !document.getElementById('supplyUpdatesBadge')) return;
-
-    try {
-        const formData = new FormData();
-        formData.append('action', 'fetch_combined_alerts');
-
-        const res = await fetch('process/process.php', { method: 'POST', body: formData });
-        const data = await res.json();
-
-        if (data.status === 'success') {
-            const allItems = data.alerts || [];
-            supplyUpdatesData = allItems.filter(a => a.type === 'supply_eta' || a.type === 'sms_reply');
-
-            // --- SMART RE-ALERTING (Safety Guard) ---
-            // If a dismissed delivery becomes Overdue or changes to Arriving Today, or its ETA changed,
-            // automatically re-surface it and light up the warning badge!
-            const dismissedMap = getDismissedSupplies();
-            let stateChanged = false;
-
-            supplyUpdatesData.forEach(item => {
-                const rec = dismissedMap[item.id];
-                if (rec) {
-                    const wasScheduled = rec.category === 'on_track';
-                    const wasToday = rec.category === 'arriving_today';
-                    const isNowUrgent = item.category === 'arriving_today' || item.category === 'overdue';
-                    const isNowOverdue = item.category === 'overdue';
-                    const etaChanged = Boolean(item.expected_delivery_date && rec.eta && item.expected_delivery_date !== rec.eta);
-
-                    // Re-alert conditions:
-                    // 1. Routine scheduled shipment becomes Arriving Today or Overdue
-                    // 2. Shipment was dismissed as Today and has now escalated to Overdue
-                    // 3. Expected delivery date was updated/rescheduled
-                    if ((wasScheduled && isNowUrgent) || (wasToday && isNowOverdue) || etaChanged) {
-                        delete dismissedMap[item.id];
-                        stateChanged = true;
-                    }
-                }
-            });
-
-            if (stateChanged) {
-                saveDismissedSupplies(dismissedMap);
-            }
-
-            // Update badge & alert triangle state
-            updateSupplyBadge();
-
-            // Render with current filter
-            renderSupplyUpdates(currentSupplyFilter);
-        } else {
-            if (container) container.innerHTML = `<div class="p-3 text-center text-muted small">Unable to load supply updates.</div>`;
+    function saveDismissedSupplies(map) {
+        try {
+            const key = getDismissedSuppliesKey();
+            localStorage.setItem(key, JSON.stringify(map));
+        } catch (e) {
+            console.error('Error saving dismissed supplies:', e);
         }
-    } catch (err) {
-        console.error('Error loading supply updates:', err);
     }
-}
 
-function filterSupplyUpdates(filter, btnEl) {
-    currentSupplyFilter = filter;
+    // Update the warning icon badge & highlighted state based on active (non-dismissed) urgent alerts
+    function updateSupplyBadge() {
+        const badge = document.getElementById('supplyUpdatesBadge');
+        const icon = document.getElementById('supplyTruckIcon');
+        const dismissedMap = getDismissedSupplies();
 
-    const container = btnEl ? btnEl.closest('.dropdown-menu') : document.getElementById('dropdownSupplyUpdates')?.nextElementSibling;
-    if (container) {
-        const tabs = container.querySelectorAll('.supply-tab-btn');
-        tabs.forEach(t => {
-            t.classList.remove('btn-primary', 'active');
-            t.classList.add('btn-outline-secondary');
+        // Urgent alerts: Arriving Today, Overdue, or unread SMS reply
+        const activeUrgentItems = supplyUpdatesData.filter(a => {
+            if (dismissedMap[a.id]) return false;
+            return a.category === 'arriving_today' || a.category === 'overdue' || (a.type === 'sms_reply' && a.is_read === 0);
         });
-    }
 
-    if (btnEl) {
-        btnEl.classList.remove('btn-outline-secondary');
-        btnEl.classList.add('btn-primary', 'active');
-    }
+        const urgentCount = activeUrgentItems.length;
 
-    renderSupplyUpdates(filter);
-}
-
-function getFilteredSupplyItems(filter) {
-    const dismissedMap = getDismissedSupplies();
-    const activeItems = supplyUpdatesData.filter(item => !dismissedMap[item.id]);
-
-    if (filter === 'urgent') {
-        return activeItems.filter(a => a.category === 'arriving_today' || a.category === 'overdue' || (a.type === 'sms_reply' && a.is_read === 0));
-    } else if (filter === 'today') {
-        return activeItems.filter(a => a.category === 'arriving_today');
-    } else if (filter === 'overdue') {
-        return activeItems.filter(a => a.category === 'overdue');
-    } else if (filter === 'scheduled') {
-        return activeItems.filter(a => a.category === 'on_track');
-    }
-    // 'all'
-    return activeItems;
-}
-
-function renderSupplyUpdates(filter) {
-    const container = document.getElementById('supplyUpdatesContainer');
-    if (!container) return;
-
-    const activeFilter = filter || currentSupplyFilter;
-    const items = getFilteredSupplyItems(activeFilter);
-    const clearAllBtn = document.getElementById('clearAllSupplyBtn');
-
-    // Toggle "Clear all" button visibility based on whether active items exist
-    if (clearAllBtn) {
-        if (items.length > 0) {
-            clearAllBtn.classList.remove('d-none');
+        if (urgentCount > 0) {
+            if (badge) {
+                badge.textContent = urgentCount > 99 ? '99+' : urgentCount;
+                badge.classList.remove('d-none');
+            }
+            if (icon) {
+                // HIGHLIGHT: Alerting yellow triangle
+                icon.className = 'bi bi-exclamation-triangle-fill fs-5 text-warning';
+            }
         } else {
-            clearAllBtn.classList.add('d-none');
+            if (badge) {
+                badge.classList.add('d-none');
+            }
+            if (icon) {
+                // UNHIGHLIGHT: Muted outline triangle
+                icon.className = 'bi bi-exclamation-triangle fs-5 text-muted';
+            }
         }
     }
 
-    if (items.length === 0) {
-        container.innerHTML = `
+    async function loadSupplyUpdates() {
+        const container = document.getElementById('supplyUpdatesContainer');
+        if (!container && !document.getElementById('supplyUpdatesBadge')) return;
+
+        try {
+            const formData = new FormData();
+            formData.append('action', 'fetch_combined_alerts');
+
+            const res = await fetch('process/process.php', { method: 'POST', body: formData });
+            const data = await res.json();
+
+            if (data.status === 'success') {
+                const allItems = data.alerts || [];
+                supplyUpdatesData = allItems.filter(a => a.type === 'supply_eta' || a.type === 'sms_reply');
+
+                // --- SMART RE-ALERTING (Safety Guard) ---
+                // If a dismissed delivery becomes Overdue or changes to Arriving Today, or its ETA changed,
+                // automatically re-surface it and light up the warning badge!
+                const dismissedMap = getDismissedSupplies();
+                let stateChanged = false;
+
+                supplyUpdatesData.forEach(item => {
+                    const rec = dismissedMap[item.id];
+                    if (rec) {
+                        const wasScheduled = rec.category === 'on_track';
+                        const wasToday = rec.category === 'arriving_today';
+                        const isNowUrgent = item.category === 'arriving_today' || item.category === 'overdue';
+                        const isNowOverdue = item.category === 'overdue';
+                        const etaChanged = Boolean(item.expected_delivery_date && rec.eta && item.expected_delivery_date !== rec.eta);
+
+                        // Re-alert conditions:
+                        // 1. Routine scheduled shipment becomes Arriving Today or Overdue
+                        // 2. Shipment was dismissed as Today and has now escalated to Overdue
+                        // 3. Expected delivery date was updated/rescheduled
+                        if ((wasScheduled && isNowUrgent) || (wasToday && isNowOverdue) || etaChanged) {
+                            delete dismissedMap[item.id];
+                            stateChanged = true;
+                        }
+                    }
+                });
+
+                if (stateChanged) {
+                    saveDismissedSupplies(dismissedMap);
+                }
+
+                // Update badge & alert triangle state
+                updateSupplyBadge();
+
+                // Render with current filter
+                renderSupplyUpdates(currentSupplyFilter);
+            } else {
+                if (container) container.innerHTML = `<div class="p-3 text-center text-muted small">Unable to load supply updates.</div>`;
+            }
+        } catch (err) {
+            console.error('Error loading supply updates:', err);
+        }
+    }
+
+    function filterSupplyUpdates(filter, btnEl) {
+        currentSupplyFilter = filter;
+
+        const container = btnEl ? btnEl.closest('.dropdown-menu') : document.getElementById('dropdownSupplyUpdates')?.nextElementSibling;
+        if (container) {
+            const tabs = container.querySelectorAll('.supply-tab-btn');
+            tabs.forEach(t => {
+                t.classList.remove('btn-primary', 'active');
+                t.classList.add('btn-outline-secondary');
+            });
+        }
+
+        if (btnEl) {
+            btnEl.classList.remove('btn-outline-secondary');
+            btnEl.classList.add('btn-primary', 'active');
+        }
+
+        renderSupplyUpdates(filter);
+    }
+
+    function getFilteredSupplyItems(filter) {
+        const dismissedMap = getDismissedSupplies();
+        const activeItems = supplyUpdatesData.filter(item => !dismissedMap[item.id]);
+
+        if (filter === 'urgent') {
+            return activeItems.filter(a => a.category === 'arriving_today' || a.category === 'overdue' || (a.type === 'sms_reply' && a.is_read === 0));
+        } else if (filter === 'today') {
+            return activeItems.filter(a => a.category === 'arriving_today');
+        } else if (filter === 'overdue') {
+            return activeItems.filter(a => a.category === 'overdue');
+        } else if (filter === 'scheduled') {
+            return activeItems.filter(a => a.category === 'on_track');
+        }
+        // 'all'
+        return activeItems;
+    }
+
+    function renderSupplyUpdates(filter) {
+        const container = document.getElementById('supplyUpdatesContainer');
+        if (!container) return;
+
+        const activeFilter = filter || currentSupplyFilter;
+        const items = getFilteredSupplyItems(activeFilter);
+        const clearAllBtn = document.getElementById('clearAllSupplyBtn');
+
+        // Toggle "Clear all" button visibility based on whether active items exist
+        if (clearAllBtn) {
+            if (items.length > 0) {
+                clearAllBtn.classList.remove('d-none');
+            } else {
+                clearAllBtn.classList.add('d-none');
+            }
+        }
+
+        if (items.length === 0) {
+            container.innerHTML = `
         <div class="text-center text-muted py-4 px-3">
             <i class="bi bi-shield-check display-6 text-success opacity-75 d-block mb-2"></i>
             <p class="small mb-0 fw-semibold text-dark">All caught up!</p>
             <small class="text-muted" style="font-size: 0.72rem;">No pending supply alerts.</small>
         </div>
         `;
-        return;
-    }
-
-    let html = '';
-    items.forEach(item => {
-        let borderClass = 'border-start border-3 border-primary bg-white';
-        let badgeText = item.category ? item.category.replace('_', ' ').toUpperCase() : 'SUPPLY';
-
-        if (item.category === 'overdue') {
-            borderClass = 'border-start border-3 border-danger bg-danger-subtle bg-opacity-10';
-            badgeText = 'OVERDUE';
-        } else if (item.category === 'arriving_today') {
-            borderClass = 'border-start border-3 border-warning bg-warning-subtle bg-opacity-10';
-            badgeText = 'ARRIVING TODAY';
-        } else if (item.category === 'on_track') {
-            borderClass = 'border-start border-3 border-primary bg-white';
-            badgeText = 'SCHEDULED';
+            return;
         }
 
-        let actionBtn = '';
-        if (item.type === 'supply_eta') {
-            actionBtn = `
+        let html = '';
+        items.forEach(item => {
+            let borderClass = 'border-start border-3 border-primary bg-white';
+            let badgeText = item.category ? item.category.replace('_', ' ').toUpperCase() : 'SUPPLY';
+
+            if (item.category === 'overdue') {
+                borderClass = 'border-start border-3 border-danger bg-danger-subtle bg-opacity-10';
+                badgeText = 'OVERDUE';
+            } else if (item.category === 'arriving_today') {
+                borderClass = 'border-start border-3 border-warning bg-warning-subtle bg-opacity-10';
+                badgeText = 'ARRIVING TODAY';
+            } else if (item.category === 'on_track') {
+                borderClass = 'border-start border-3 border-primary bg-white';
+                badgeText = 'SCHEDULED';
+            }
+
+            let actionBtn = '';
+            if (item.type === 'supply_eta') {
+                actionBtn = `
             <div class="d-flex align-items-center gap-2 mt-2 pt-1 border-top border-light">
                 <button type="button" class="btn btn-sm btn-outline-primary py-1 px-2 fw-bold text-nowrap" style="font-size:0.75rem;"
                     onclick="if (typeof openPoModalByNo === 'function') { openPoModalByNo('${escapeSmsHtml(item.po_no)}'); } else { window.location.href='po?search=${encodeURIComponent(item.po_no)}'; }"
                     title="Preview PO Details">
                     <i class="bi bi-file-earmark-text me-1"></i>Quick View
                 </button>`;
-            if (item.po_id && ['purchasing', 'admin'].includes(window.currentUserRole)) {
-                actionBtn += `
+                if (item.po_id && ['purchasing', 'admin'].includes(window.currentUserRole)) {
+                    actionBtn += `
                 <button type="button" class="btn btn-sm btn-light border py-1 px-2 fw-bold text-dark text-nowrap" style="font-size:0.75rem;"
                     onclick="openEditEtaModal(${item.po_id}, '${escapeSmsHtml(item.po_no)}', '${escapeSmsHtml(item.expected_delivery_date || '')}')"
                     title="Update Target Delivery Date">
                     <i class="bi bi-pencil-square text-primary me-1"></i>Edit ETA
                 </button>`;
-            }
-            actionBtn += `
+                }
+                actionBtn += `
                 <a href="po?search=${encodeURIComponent(item.po_no)}" class="btn btn-sm btn-link text-muted p-0 ms-auto text-decoration-none" style="font-size:0.72rem;" title="Go to PO management">
                     Manage <i class="bi bi-arrow-right"></i>
                 </a>
             </div>`;
-        } else if (item.type === 'sms_reply') {
-            actionBtn = `
+            } else if (item.type === 'sms_reply') {
+                actionBtn = `
             <div class="mt-2 pt-1 border-top border-light">
                 <button type="button" class="btn btn-sm btn-primary py-1 px-2 fw-bold" style="font-size:0.75rem;"
                     onclick="if (typeof openSmsInboxModal === 'function') openSmsInboxModal();">
                     <i class="bi bi-chat-dots me-1"></i>Reply SMS
                 </button>
             </div>`;
-        }
+            }
 
-        html += `
+            html += `
         <div class="p-3 border-bottom ${borderClass} transition-all position-relative supply-item-card" data-supply-id="${escapeSmsHtml(item.id)}">
             <div class="d-flex align-items-center justify-content-between mb-2">
                 <span class="badge ${item.badge_class} rounded-pill px-2 py-0.5 fw-bold" style="font-size: 0.65rem; letter-spacing: 0.2px;">
@@ -768,84 +774,84 @@ function renderSupplyUpdates(filter) {
             ${actionBtn}
         </div>
         `;
-    });
+        });
 
-    container.innerHTML = html;
-}
-
-// Dismiss a single supply alert with smooth transition & save to localStorage
-function dismissSingleSupplyAlert(itemId, category, eta) {
-    if (!itemId) return;
-
-    const dismissedMap = getDismissedSupplies();
-    dismissedMap[itemId] = {
-        category: category || 'on_track',
-        eta: eta || '',
-        dismissedAt: Date.now()
-    };
-    saveDismissedSupplies(dismissedMap);
-
-    const cardEl = document.querySelector(`.supply-item-card[data-supply-id="${itemId}"]`);
-    if (cardEl) {
-        cardEl.style.opacity = '0';
-        cardEl.style.transform = 'translateX(25px)';
-        cardEl.style.maxHeight = '0px';
-        cardEl.style.paddingTop = '0px';
-        cardEl.style.paddingBottom = '0px';
-        cardEl.style.overflow = 'hidden';
-        setTimeout(() => {
-            updateSupplyBadge();
-            renderSupplyUpdates(currentSupplyFilter);
-        }, 220);
-    } else {
-        updateSupplyBadge();
-        renderSupplyUpdates(currentSupplyFilter);
+        container.innerHTML = html;
     }
-}
 
-// Clear all alerts visible under the active filter
-function clearAllSupplyUpdates() {
-    const itemsToClear = getFilteredSupplyItems(currentSupplyFilter);
-    if (!itemsToClear || itemsToClear.length === 0) return;
+    // Dismiss a single supply alert with smooth transition & save to localStorage
+    function dismissSingleSupplyAlert(itemId, category, eta) {
+        if (!itemId) return;
 
-    const dismissedMap = getDismissedSupplies();
-    itemsToClear.forEach(item => {
-        dismissedMap[item.id] = {
-            category: item.category || 'on_track',
-            eta: item.expected_delivery_date || '',
+        const dismissedMap = getDismissedSupplies();
+        dismissedMap[itemId] = {
+            category: category || 'on_track',
+            eta: eta || '',
             dismissedAt: Date.now()
         };
+        saveDismissedSupplies(dismissedMap);
+
+        const cardEl = document.querySelector(`.supply-item-card[data-supply-id="${itemId}"]`);
+        if (cardEl) {
+            cardEl.style.opacity = '0';
+            cardEl.style.transform = 'translateX(25px)';
+            cardEl.style.maxHeight = '0px';
+            cardEl.style.paddingTop = '0px';
+            cardEl.style.paddingBottom = '0px';
+            cardEl.style.overflow = 'hidden';
+            setTimeout(() => {
+                updateSupplyBadge();
+                renderSupplyUpdates(currentSupplyFilter);
+            }, 220);
+        } else {
+            updateSupplyBadge();
+            renderSupplyUpdates(currentSupplyFilter);
+        }
+    }
+
+    // Clear all alerts visible under the active filter
+    function clearAllSupplyUpdates() {
+        const itemsToClear = getFilteredSupplyItems(currentSupplyFilter);
+        if (!itemsToClear || itemsToClear.length === 0) return;
+
+        const dismissedMap = getDismissedSupplies();
+        itemsToClear.forEach(item => {
+            dismissedMap[item.id] = {
+                category: item.category || 'on_track',
+                eta: item.expected_delivery_date || '',
+                dismissedAt: Date.now()
+            };
+        });
+        saveDismissedSupplies(dismissedMap);
+
+        updateSupplyBadge();
+        renderSupplyUpdates(currentSupplyFilter);
+
+        if (typeof Swal !== 'undefined') {
+            const Toast = Swal.mixin({
+                toast: true,
+                position: 'top-end',
+                showConfirmButton: false,
+                timer: 2000,
+                timerProgressBar: false
+            });
+            Toast.fire({
+                icon: 'success',
+                title: 'Supply alerts cleared'
+            });
+        }
+    }
+
+    // Poll for supply updates every 25 seconds (Only for roles with the supply dropdown)
+    document.addEventListener('DOMContentLoaded', () => {
+        if (typeof loadSmsThreads === 'function') loadSmsThreads();
+        const hasSupplyDropdown = document.getElementById('dropdownSupplyUpdates');
+        if (hasSupplyDropdown) {
+            loadSupplyUpdates();
+            setInterval(loadSupplyUpdates, 25000);
+        }
+        if (typeof loadSmsThreads === 'function') setInterval(loadSmsThreads, 30000);
     });
-    saveDismissedSupplies(dismissedMap);
-
-    updateSupplyBadge();
-    renderSupplyUpdates(currentSupplyFilter);
-
-    if (typeof Swal !== 'undefined') {
-        const Toast = Swal.mixin({
-            toast: true,
-            position: 'top-end',
-            showConfirmButton: false,
-            timer: 2000,
-            timerProgressBar: false
-        });
-        Toast.fire({
-            icon: 'success',
-            title: 'Supply alerts cleared'
-        });
-    }
-}
-
-// Poll for supply updates every 25 seconds (Only for roles with the supply dropdown)
-document.addEventListener('DOMContentLoaded', () => {
-    if (typeof loadSmsThreads === 'function') loadSmsThreads();
-    const hasSupplyDropdown = document.getElementById('dropdownSupplyUpdates');
-    if (hasSupplyDropdown) {
-        loadSupplyUpdates();
-        setInterval(loadSupplyUpdates, 25000);
-    }
-    if (typeof loadSmsThreads === 'function') setInterval(loadSmsThreads, 30000);
-});
 </script>
 <!-- ======================================================== -->
 <!-- MODAL: IN-APP PWA & MOBILE MEDIA PROOF VIEWER           -->
@@ -898,6 +904,7 @@ document.addEventListener('DOMContentLoaded', () => {
         opacity: 0.12 !important;
         transition: filter 0.25s ease, opacity 0.25s ease !important;
     }
+
     body.cims-body-locked #cims-chatbot-container {
         display: none !important;
     }
@@ -905,9 +912,11 @@ document.addEventListener('DOMContentLoaded', () => {
     #cimsIdleLockModal {
         z-index: 1080 !important;
     }
+
     #cimsIdleLockModal .modal-dialog {
         max-width: 420px;
     }
+
     #cimsIdleLockModal .lock-glass-card {
         background: rgba(255, 255, 255, 0.98);
         border: 1px solid rgba(226, 232, 240, 0.9);
@@ -915,17 +924,20 @@ document.addEventListener('DOMContentLoaded', () => {
         box-shadow: 0 25px 60px -15px rgba(15, 23, 42, 0.45);
         backdrop-filter: blur(12px);
     }
+
     [data-bs-theme="dark"] #cimsIdleLockModal .lock-glass-card {
         background: rgba(30, 41, 59, 0.96);
         border: 1px solid rgba(71, 85, 105, 0.7);
         color: #f8fafc;
     }
+
     .modal-backdrop.show:has(+ #cimsIdleLockModal),
     .modal-backdrop.show {
         backdrop-filter: blur(16px) !important;
         -webkit-backdrop-filter: blur(16px) !important;
         background-color: rgba(15, 23, 42, 0.88) !important;
     }
+
     .lock-avatar-ring {
         width: 80px;
         height: 80px;
@@ -939,16 +951,24 @@ document.addEventListener('DOMContentLoaded', () => {
         box-shadow: 0 8px 20px rgba(13, 110, 253, 0.35);
         margin: 0 auto;
     }
+
     .countdown-badge-pulse {
         animation: pulseAlert 1s infinite alternate;
     }
+
     @keyframes pulseAlert {
-        0% { transform: scale(1); }
-        100% { transform: scale(1.08); }
+        0% {
+            transform: scale(1);
+        }
+
+        100% {
+            transform: scale(1.08);
+        }
     }
 </style>
 
-<div class="modal fade" id="cimsIdleLockModal" tabindex="-1" aria-labelledby="cimsIdleLockTitle" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+<div class="modal fade" id="cimsIdleLockModal" tabindex="-1" aria-labelledby="cimsIdleLockTitle" aria-hidden="true"
+    data-bs-backdrop="static" data-bs-keyboard="false">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content lock-glass-card p-3 p-sm-4 border-0">
             <div class="modal-body text-center p-2">
@@ -960,36 +980,46 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
 
                 <h4 class="fw-bold mb-1" id="cimsIdleLockTitle">Session Paused</h4>
-                <p class="text-muted small mb-3">Locked due to inactivity to protect data privacy. Authenticate to resume.</p>
+                <p class="text-muted small mb-3">Locked due to inactivity to protect data privacy. Authenticate to
+                    resume.</p>
 
                 <!-- Current User Details -->
                 <div class="d-inline-flex align-items-center gap-2 px-3 py-1 bg-light rounded-pill border mb-3">
                     <i class="bi bi-person-circle text-primary"></i>
-                    <span class="fw-bold text-dark small"><?= htmlspecialchars($_SESSION['user_name'] ?? 'User') ?></span>
+                    <span
+                        class="fw-bold text-dark small"><?= htmlspecialchars($_SESSION['user_name'] ?? 'User') ?></span>
                 </div>
 
                 <!-- Tier 2 Countdown Warning Banner -->
-                <div id="cimsIdleCountdownBanner" class="alert alert-warning py-2 px-3 mb-3 border-0 rounded-3 shadow-sm text-start d-none" role="alert">
+                <div id="cimsIdleCountdownBanner"
+                    class="alert alert-warning py-2 px-3 mb-3 border-0 rounded-3 shadow-sm text-start d-none"
+                    role="alert">
                     <div class="d-flex align-items-center justify-content-between">
                         <div class="small fw-semibold">
                             <i class="bi bi-exclamation-triangle-fill text-warning me-1"></i> Auto-logout in:
                         </div>
-                        <span id="cimsCountdownSeconds" class="badge bg-danger countdown-badge-pulse fs-6 px-2 py-1">60</span>
+                        <span id="cimsCountdownSeconds"
+                            class="badge bg-danger countdown-badge-pulse fs-6 px-2 py-1">60</span>
                     </div>
                 </div>
 
                 <!-- Inline Error Alert -->
-                <div id="cimsUnlockErrorAlert" class="alert alert-danger py-2 px-3 mb-3 small text-start d-none border-0 shadow-sm" role="alert"></div>
+                <div id="cimsUnlockErrorAlert"
+                    class="alert alert-danger py-2 px-3 mb-3 small text-start d-none border-0 shadow-sm" role="alert">
+                </div>
 
                 <!-- Biometric Passkey Quick Unlock Button -->
                 <div id="cimsPasskeyUnlockContainer" class="mb-3 <?= empty($userHasPasskeys) ? 'd-none' : '' ?>">
-                    <button type="button" class="btn btn-outline-primary w-100 py-2 fw-bold shadow-sm d-flex align-items-center justify-content-center gap-2 rounded-3" id="cimsPasskeyUnlockBtn">
+                    <button type="button"
+                        class="btn btn-outline-primary w-100 py-2 fw-bold shadow-sm d-flex align-items-center justify-content-center gap-2 rounded-3"
+                        id="cimsPasskeyUnlockBtn">
                         <i class="bi bi-fingerprint fs-5"></i>
                         <span>Unlock with Passkey / Biometrics</span>
                     </button>
                     <div class="d-flex align-items-center my-3">
                         <hr class="flex-grow-1 my-0 text-muted opacity-25">
-                        <span class="px-2 text-muted text-uppercase fw-semibold" style="font-size: 0.70rem; letter-spacing: 0.5px;">Or Enter Password / 6-Digit Code</span>
+                        <span class="px-2 text-muted text-uppercase fw-semibold"
+                            style="font-size: 0.70rem; letter-spacing: 0.5px;">Or Enter Password / 6-Digit Code</span>
                         <hr class="flex-grow-1 my-0 text-muted opacity-25">
                     </div>
                 </div>
@@ -998,18 +1028,25 @@ document.addEventListener('DOMContentLoaded', () => {
                 <form id="cimsIdleUnlockForm" class="no-spin" autocomplete="off">
                     <div class="mb-3">
                         <div class="input-group">
-                            <span class="input-group-text bg-white border-end-0 text-muted"><i class="bi bi-key-fill"></i></span>
-                            <input type="password" class="form-control border-start-0 border-end-0" id="cimsUnlockPassword" placeholder="Enter password or 6-digit code" required autocomplete="current-password">
-                            <button class="btn btn-outline-secondary border-start-0 bg-white" type="button" id="cimsToggleUnlockPwd" title="Toggle password visibility">
+                            <span class="input-group-text bg-white border-end-0 text-muted"><i
+                                    class="bi bi-key-fill"></i></span>
+                            <input type="password" class="form-control border-start-0 border-end-0"
+                                id="cimsUnlockPassword" placeholder="Enter password or 6-digit code" required
+                                autocomplete="current-password">
+                            <button class="btn btn-outline-secondary border-start-0 bg-white" type="button"
+                                id="cimsToggleUnlockPwd" title="Toggle password visibility">
                                 <i class="bi bi-eye"></i>
                             </button>
                         </div>
                         <div class="form-text text-start text-muted" style="font-size: 0.75rem;">
-                            <i class="bi bi-shield-check text-success me-1"></i>Supports your account password or Google/Microsoft Authenticator code.
+                            <i class="bi bi-shield-check text-success me-1"></i>Supports your account password or
+                            Google/Microsoft Authenticator code.
                         </div>
                     </div>
 
-                    <button type="submit" class="btn btn-primary w-100 py-2 fw-bold shadow-sm d-flex align-items-center justify-content-center" id="cimsUnlockSubmitBtn">
+                    <button type="submit"
+                        class="btn btn-primary w-100 py-2 fw-bold shadow-sm d-flex align-items-center justify-content-center"
+                        id="cimsUnlockSubmitBtn">
                         <i class="bi bi-unlock-fill me-2"></i> Unlock Screen
                     </button>
                 </form>
