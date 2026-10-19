@@ -1,4 +1,28 @@
 <?php
+// HTML Comment Stripper (Keeps comments in IDE source code, but removes them from browser Inspect Element)
+if (!defined('CIMS_HTML_BUFFER_ACTIVE')) {
+    define('CIMS_HTML_BUFFER_ACTIVE', true);
+    ob_start(function ($buffer) {
+        if (!is_string($buffer) || $buffer === '') {
+            return $buffer;
+        }
+        return preg_replace_callback(
+            '/(<script\b[^>]*>.*?<\/script>|<style\b[^>]*>.*?<\/style>|<textarea\b[^>]*>.*?<\/textarea>|<!--(?:\s*\[if[\s\S]*?<!\[endif\]\s*-->|[\s\S]*?-->))/is',
+            function ($m) {
+                $matched = $m[0];
+                if (stripos($matched, '<script') === 0 || stripos($matched, '<style') === 0 || stripos($matched, '<textarea') === 0) {
+                    return $matched;
+                }
+                if (preg_match('/^<!--\s*\[if/i', $matched)) {
+                    return $matched;
+                }
+                return '';
+            },
+            $buffer
+        );
+    });
+}
+
 // DB Auto-Patch (Session-guarded once per session to avoid table metadata lock overhead)
 if (!defined('DB_OFFLINE') && isset($pdo) && $pdo !== null && empty($_SESSION['header_db_patched_v2'])) {
     try {
