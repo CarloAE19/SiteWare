@@ -16,9 +16,15 @@
                     <input type="hidden" name="rs_no" id="wdRsNo" value="">
                     <!-- RS Number Type & Auto-Load Section -->
                     <div class="p-3 bg-white border rounded shadow-sm mb-3" style="border-left: 4px solid var(--gb-blue, #0d6efd) !important;">
-                        <label class="form-label fw-bold small text-muted text-uppercase mb-1">
-                            <i class="bi bi-pencil-square text-primary me-1"></i> Type Requisition Slip (RS) Number
-                        </label>
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <label class="form-label fw-bold small text-muted text-uppercase mb-0">
+                                <i class="bi bi-pencil-square text-primary me-1"></i> Type Requisition Slip (RS) Number
+                            </label>
+                            <button type="button" class="btn btn-xs btn-outline-warning text-dark fw-bold shadow-sm d-inline-flex align-items-center gap-1 py-1 px-2 rounded-2" data-bs-toggle="offcanvas" data-bs-target="#wdFrequentDrawer" aria-controls="wdFrequentDrawer" title="Quick-Pick Approved Requisitions Waiting for Withdrawal Release">
+                                <i class="bi bi-lightning-charge-fill text-warning"></i>
+                                <span style="font-size: 0.75rem;">Quick-Pick</span>
+                            </button>
+                        </div>
                         <div class="input-group shadow-sm">
                             <span class="input-group-text bg-light text-muted fw-bold"><i class="bi bi-search"></i></span>
                             <input type="text" class="form-control fw-bold" id="manualRsInputText" placeholder="Type RS Number (e.g. RS-2026-6396 or RS-2026-1040)..." onkeydown="if(event.key==='Enter'){event.preventDefault(); window.lookupManualRsInput();}">
@@ -167,3 +173,5 @@
         </div>
     </div>
 </div>
+
+<?php include_once __DIR__ . '/withdrawal_frequent_drawer.php'; ?>
