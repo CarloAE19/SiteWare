@@ -754,6 +754,15 @@ include 'layout/header.php';
                         <span class="badge bg-primary rounded-pill ms-1 d-none" id="activeFilterBadge">0</span>
                     </button>
 
+                    <!-- Quick-Pick / Frequent Orders Drawer Button -->
+                    <?php if (in_array($role, ['admin', 'purchasing'])): ?>
+                        <button class="btn btn-outline-warning text-dark fw-bold text-nowrap shadow-sm px-3 d-inline-flex align-items-center gap-1.5"
+                            type="button" data-bs-toggle="offcanvas" data-bs-target="#poFrequentDrawer" aria-controls="poFrequentDrawer" title="Quick-Pick Approved Requisitions & Past Orders">
+                            <i class="bi bi-lightning-charge-fill text-warning"></i>
+                            <span>Quick-Pick</span>
+                        </button>
+                    <?php endif; ?>
+
                     <!-- Create PO Button -->
                     <?php if (in_array($role, ['admin', 'purchasing'])): ?>
                         <button class="btn btn-brand fw-bold text-nowrap shadow-sm px-3" data-bs-toggle="modal"
