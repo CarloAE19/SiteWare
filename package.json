@@ -1,0 +1,25 @@
+{
+  "name": "cims",
+  "version": "1.0.0",
+  "description": "[![PHP Version](https://img.shields.io/badge/PHP-8.0%2B-777BB4?logo=php&logoColor=white)](https://php.net) [![Database](https://img.shields.io/badge/Database-MySQL%20%7C%20MariaDB-4479A1?logo=mysql&logoColor=white)](https://www.mysql.com/) [![Bootstrap](https://img.shields.io/badge/UI-Bootstrap%205.3-7952B3?logo=bootstrap&logoColor=white)](https://getbootstrap.com/) [![Security](https://img.shields.io/badge/Security-RSA--2048%20%7C%20SHA--256-green)](#-cryptographic-document-security--pki) [![License](https://img.shields.io/badge/License-Proprietary%20%7C%20All%20Rights%20Reserved-red)](LICENSE) [![PWA](https://img.shields.io/badge/PWA-Installable%20%26%20Offline--Resilient-orange?logo=pwa&logoColor=white)](#-progressive-web-app-pwa--offline-resilience)",
+  "main": "firebase-messaging-sw.js",
+  "scripts": {
+    "build": "node scripts/build_assets.js",
+    "watch": "node scripts/build_assets.js --watch"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/CarloAE19/CIMS.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/CarloAE19/CIMS/issues"
+  },
+  "homepage": "https://github.com/CarloAE19/CIMS#readme",
+  "devDependencies": {
+    "esbuild": "^0.28.2"
+  }
+}
