@@ -70,9 +70,14 @@ if (!defined('DB_OFFLINE') && isset($pdo) && $pdo !== null && $currentUserId > 0
         $_SESSION = [];
         if (ini_get("session.use_cookies")) {
             $params = session_get_cookie_params();
-            setcookie(session_name(), '', time() - 42000,
-                $params["path"], $params["domain"],
-                $params["secure"], $params["httponly"]
+            setcookie(
+                session_name(),
+                '',
+                time() - 42000,
+                $params["path"],
+                $params["domain"],
+                $params["secure"],
+                $params["httponly"]
             );
         }
         session_destroy();
@@ -92,9 +97,14 @@ if (!defined('DB_OFFLINE') && isset($pdo) && $pdo !== null && $currentUserId > 0
                 $_SESSION = [];
                 if (ini_get("session.use_cookies")) {
                     $params = session_get_cookie_params();
-                    setcookie(session_name(), '', time() - 42000,
-                        $params["path"], $params["domain"],
-                        $params["secure"], $params["httponly"]
+                    setcookie(
+                        session_name(),
+                        '',
+                        time() - 42000,
+                        $params["path"],
+                        $params["domain"],
+                        $params["secure"],
+                        $params["httponly"]
                     );
                 }
                 $isSec = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off');
@@ -111,7 +121,8 @@ if (!defined('DB_OFFLINE') && isset($pdo) && $pdo !== null && $currentUserId > 0
                     record_user_active_session($pdo, $currentUserId);
                 }
             }
-        } catch (Throwable $e) {}
+        } catch (Throwable $e) {
+        }
     }
 }
 
@@ -125,8 +136,10 @@ if (!defined('DB_OFFLINE') && isset($pdo) && $pdo !== null && function_exists('g
     $idleLockMinutes = (float) get_system_setting('idle_lock_minutes', 15);
     $idleLogoutMinutes = (float) get_system_setting('idle_logout_minutes', 30);
 }
-if ($idleLockMinutes <= 0) $idleLockMinutes = 15;
-if ($idleLogoutMinutes < 0) $idleLogoutMinutes = 0;
+if ($idleLockMinutes <= 0)
+    $idleLockMinutes = 15;
+if ($idleLogoutMinutes < 0)
+    $idleLogoutMinutes = 0;
 
 $isFreshLogin = !empty($_SESSION['fresh_login']);
 if ($isFreshLogin) {
@@ -144,9 +157,14 @@ if ($currentUserId > 0) {
             $_SESSION = [];
             if (ini_get("session.use_cookies")) {
                 $params = session_get_cookie_params();
-                setcookie(session_name(), '', time() - 42000,
-                    $params["path"], $params["domain"],
-                    $params["secure"], $params["httponly"]
+                setcookie(
+                    session_name(),
+                    '',
+                    time() - 42000,
+                    $params["path"],
+                    $params["domain"],
+                    $params["secure"],
+                    $params["httponly"]
                 );
             }
             session_destroy();
@@ -229,7 +247,8 @@ foreach ($notifications as $n) {
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>GB Construction & Enterprise Inc.</title>
 
     <link rel="manifest" href="manifest.json">
@@ -241,7 +260,7 @@ foreach ($notifications as $n) {
     <link rel="apple-touch-icon" href="assets/LogoGB.png">
     <link rel="icon" type="image/png" href="assets/LogoGB.png">
     <?php if (function_exists('generate_csrf_token')): ?>
-    <meta name="csrf-token" content="<?= htmlspecialchars(generate_csrf_token()) ?>">
+        <meta name="csrf-token" content="<?= htmlspecialchars(generate_csrf_token()) ?>">
     <?php endif; ?>
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -480,15 +499,15 @@ foreach ($notifications as $n) {
     </script>
     <script>
         window.currentUserRole = '<?= $currentUserRole ?>';
-        window.currentUserId = <?= (int)($currentUserId ?? 0) ?>;
+        window.currentUserId = <?= (int) ($currentUserId ?? 0) ?>;
         // Global Popup Window Helper for Secure Media Viewing (Desktop & Mobile PWA Compatible)
-        window.openPhotoWindow = function(url, title = 'Media Proof Viewer') {
+        window.openPhotoWindow = function (url, title = 'Media Proof Viewer') {
             if (!url || url === '#' || url === 'javascript:void(0);') return;
 
             // Detect Mobile device, touch screen, PWA standalone mode, or narrow viewport
-            const isMobileOrPwa = (window.innerWidth <= 768) || 
-                                  window.matchMedia('(display-mode: standalone)').matches || 
-                                  (window.navigator.standalone === true);
+            const isMobileOrPwa = (window.innerWidth <= 768) ||
+                window.matchMedia('(display-mode: standalone)').matches ||
+                (window.navigator.standalone === true);
 
             if (isMobileOrPwa) {
                 const modalEl = document.getElementById('pwaMediaViewerModal');
@@ -537,7 +556,7 @@ foreach ($notifications as $n) {
         <nav id="sidebar">
             <div class="sidebar-header d-flex justify-content-between align-items-center">
                 <h4 class="mb-0 d-flex align-items-center"><img src="assets/LogoGB.png" alt="GB Logo" class="me-2"
-                        style="height: 32px; width: auto; object-fit: contain;">GB Inventory</h4>
+                        style="height: 32px; width: auto; object-fit: contain;">SiteWare</h4>
                 <button type="button" id="sidebarClose"
                     class="btn btn-link text-white d-md-none p-0 text-decoration-none"><i
                         class="bi bi-x-lg fs-4"></i></button>
@@ -575,8 +594,8 @@ foreach ($notifications as $n) {
                 <li class="<?= $currentPage == 'requisitions.php' ? 'active' : '' ?>"><a href="requisitions"><i
                             class="bi bi-card-checklist"></i> Requisitions (RS)</a></li>
                 <?php if (in_array($_SESSION['user_role'], ['admin', 'management', 'purchasing'])): ?>
-                    <li class="<?= in_array($currentPage, ['supplier_inquiries.php']) ? 'active' : '' ?>"><a href="supplier_inquiries"><i
-                                class="bi bi-chat-left-dots"></i> Supplier Inquiries</a></li>
+                    <li class="<?= in_array($currentPage, ['supplier_inquiries.php']) ? 'active' : '' ?>"><a
+                            href="supplier_inquiries"><i class="bi bi-chat-left-dots"></i> Supplier Inquiries</a></li>
                 <?php endif; ?>
                 <?php if (in_array($_SESSION['user_role'], ['admin', 'management', 'purchasing', 'warehouse'])): ?>
                     <li class="<?= $currentPage == 'po.php' ? 'active' : '' ?>"><a href="po"><i
@@ -595,7 +614,7 @@ foreach ($notifications as $n) {
             </ul>
         </nav>
 
-        <div id="content"<?= $isScreenLockedSession ? ' inert' : '' ?>>
+        <div id="content" <?= $isScreenLockedSession ? ' inert' : '' ?>>
             <nav class="navbar navbar-expand-lg top-navbar">
                 <div class="container-fluid px-0">
                     <button type="button" id="sidebarCollapse" class="btn btn-brand"><i
@@ -620,40 +639,45 @@ foreach ($notifications as $n) {
                                     <div
                                         class="p-3 bg-dark text-white rounded-top-3 d-flex justify-content-between align-items-center">
                                         <div class="d-flex align-items-center me-2" style="min-width: 0;">
-                                            <i class="bi bi-exclamation-triangle-fill text-warning me-2 fs-5 flex-shrink-0"></i>
+                                            <i
+                                                class="bi bi-exclamation-triangle-fill text-warning me-2 fs-5 flex-shrink-0"></i>
                                             <div style="min-width: 0;">
-                                                <h6 class="fw-bold mb-0 text-white text-truncate" style="font-size: 0.88rem;">Supply Deliveries & ETAs</h6>
-                                                <small class="text-white-50 text-truncate d-block" style="font-size: 0.71rem;">Warehouse arrival schedules & tracking</small>
+                                                <h6 class="fw-bold mb-0 text-white text-truncate"
+                                                    style="font-size: 0.88rem;">Supply Deliveries & ETAs</h6>
+                                                <small class="text-white-50 text-truncate d-block"
+                                                    style="font-size: 0.71rem;">Warehouse arrival schedules &
+                                                    tracking</small>
                                             </div>
                                         </div>
                                         <button id="clearAllSupplyBtn" type="button"
                                             class="btn btn-sm supply-clear-btn d-none"
-                                            onclick="event.stopPropagation(); clearAllSupplyUpdates()" title="Clear current delivery alerts">
+                                            onclick="event.stopPropagation(); clearAllSupplyUpdates()"
+                                            title="Clear current delivery alerts">
                                             <i class="bi bi-trash3 me-1"></i>Clear all
                                         </button>
                                     </div>
 
                                     <!-- Filter Tabs for Supplies (Default Focus on Urgent Alerts) -->
                                     <div class="bg-light border-bottom px-2 py-1.5 d-flex gap-1 supply-tabs-bar">
-                                        <button type="button"
-                                            class="btn btn-sm btn-primary supply-tab-btn active"
-                                            onclick="event.stopPropagation(); filterSupplyUpdates('urgent', this)">⚠️ Urgent</button>
-                                        <button type="button"
-                                            class="btn btn-sm btn-outline-secondary supply-tab-btn"
-                                            onclick="event.stopPropagation(); filterSupplyUpdates('today', this)">🟡 Today</button>
-                                        <button type="button"
-                                            class="btn btn-sm btn-outline-secondary supply-tab-btn"
-                                            onclick="event.stopPropagation(); filterSupplyUpdates('overdue', this)">🔴 Overdue</button>
-                                        <button type="button"
-                                            class="btn btn-sm btn-outline-secondary supply-tab-btn"
-                                            onclick="event.stopPropagation(); filterSupplyUpdates('scheduled', this)">📦 Scheduled</button>
-                                        <button type="button"
-                                            class="btn btn-sm btn-outline-secondary supply-tab-btn"
+                                        <button type="button" class="btn btn-sm btn-primary supply-tab-btn active"
+                                            onclick="event.stopPropagation(); filterSupplyUpdates('urgent', this)">⚠️
+                                            Urgent</button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary supply-tab-btn"
+                                            onclick="event.stopPropagation(); filterSupplyUpdates('today', this)">🟡
+                                            Today</button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary supply-tab-btn"
+                                            onclick="event.stopPropagation(); filterSupplyUpdates('overdue', this)">🔴
+                                            Overdue</button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary supply-tab-btn"
+                                            onclick="event.stopPropagation(); filterSupplyUpdates('scheduled', this)">📦
+                                            Scheduled</button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary supply-tab-btn"
                                             onclick="event.stopPropagation(); filterSupplyUpdates('all', this)">All</button>
                                     </div>
 
                                     <!-- Supply Updates Container -->
-                                    <div class="overflow-auto supply-updates-scroll" style="max-height: 380px;" id="supplyUpdatesContainer">
+                                    <div class="overflow-auto supply-updates-scroll" style="max-height: 380px;"
+                                        id="supplyUpdatesContainer">
                                         <div class="text-center text-muted py-4">
                                             <div class="spinner-border spinner-border-sm text-primary mb-2" role="status">
                                             </div>
@@ -700,12 +724,14 @@ foreach ($notifications as $n) {
                                         <div class="d-flex align-items-center gap-2">
                                             <button id="markAllNotifsBtn"
                                                 class="btn btn-sm btn-link text-white-50 text-decoration-none p-0 fw-semibold <?= ($unreadCount > 0) ? '' : 'd-none' ?>"
-                                                onclick="if (typeof markAllNotifsRead === 'function') { markAllNotifsRead(); }" style="font-size: 0.72rem;" title="Mark all as read">
+                                                onclick="if (typeof markAllNotifsRead === 'function') { markAllNotifsRead(); }"
+                                                style="font-size: 0.72rem;" title="Mark all as read">
                                                 <i class="bi bi-check2-all me-1"></i>Mark read
                                             </button>
                                             <button id="clearAllNotifsBtn"
                                                 class="btn btn-sm btn-link text-white-50 text-decoration-none p-0 fw-semibold <?= (count($notifications) > 0) ? '' : 'd-none' ?>"
-                                                onclick="if (typeof clearAllNotifs === 'function') { clearAllNotifs(); }" style="font-size: 0.72rem;" title="Clear notification tray">
+                                                onclick="if (typeof clearAllNotifs === 'function') { clearAllNotifs(); }"
+                                                style="font-size: 0.72rem;" title="Clear notification tray">
                                                 <i class="bi bi-trash3 me-1"></i>Clear all
                                             </button>
                                         </div>
@@ -777,19 +803,25 @@ foreach ($notifications as $n) {
                                                 $targetLink = "requisitions?search=" . urlencode($extractedRs);
                                             }
                                             ?>
-                                            <li class="system-notif-item p-3 border-bottom <?= $cardBorder ?> transition-all" data-notif-id="<?= (int)$notif['id'] ?>" data-read="<?= $isUnread ? '0' : '1' ?>">
+                                            <li class="system-notif-item p-3 border-bottom <?= $cardBorder ?> transition-all"
+                                                data-notif-id="<?= (int) $notif['id'] ?>"
+                                                data-read="<?= $isUnread ? '0' : '1' ?>">
                                                 <div class="d-flex align-items-start justify-content-between mb-1">
                                                     <div class="d-flex align-items-center flex-wrap gap-1">
                                                         <span class="badge <?= $badgeClass ?>" style="font-size: 0.65rem;">
                                                             <i class="bi <?= $icon ?> me-1"></i><?= $categoryTag ?>
                                                         </span>
-                                                        <strong class="text-dark" style="font-size: 0.83rem;"><?= htmlspecialchars($notif['title']) ?></strong>
+                                                        <strong class="text-dark"
+                                                            style="font-size: 0.83rem;"><?= htmlspecialchars($notif['title']) ?></strong>
                                                     </div>
                                                     <div class="d-flex align-items-center gap-1 ms-2">
-                                                        <small class="badge bg-light text-secondary border text-nowrap" style="font-size: 0.68rem;"><?= time_elapsed_string($notif['created_at']) ?></small>
-                                                        <button type="button" class="btn btn-sm btn-link text-muted p-0 text-decoration-none dismiss-notif-btn" 
-                                                            onclick="event.stopPropagation(); if (typeof dismissSingleNotif === 'function') { dismissSingleNotif(<?= (int)$notif['id'] ?>, this); }" 
-                                                            title="Dismiss notification" style="line-height: 1; font-size: 0.75rem; min-width: 22px; min-height: 22px;">
+                                                        <small class="badge bg-light text-secondary border text-nowrap"
+                                                            style="font-size: 0.68rem;"><?= time_elapsed_string($notif['created_at']) ?></small>
+                                                        <button type="button"
+                                                            class="btn btn-sm btn-link text-muted p-0 text-decoration-none dismiss-notif-btn"
+                                                            onclick="event.stopPropagation(); if (typeof dismissSingleNotif === 'function') { dismissSingleNotif(<?= (int) $notif['id'] ?>, this); }"
+                                                            title="Dismiss notification"
+                                                            style="line-height: 1; font-size: 0.75rem; min-width: 22px; min-height: 22px;">
                                                             <i class="bi bi-x-lg"></i>
                                                         </button>
                                                     </div>
@@ -799,21 +831,26 @@ foreach ($notifications as $n) {
                                                 </p>
                                                 <div class="d-flex align-items-center gap-2 mt-2 pt-1 border-top border-light">
                                                     <?php if ($extractedPo && $currentUserRole !== 'requestor'): ?>
-                                                        <button type="button" class="btn btn-sm btn-outline-primary py-1 px-2 fw-bold text-nowrap" style="font-size: 0.72rem;"
-                                                            onclick="event.stopPropagation(); if (typeof markSingleNotifRead === 'function') { markSingleNotifRead(<?= (int)$notif['id'] ?>, this); } if (typeof openPoModalByNo === 'function') { openPoModalByNo('<?= htmlspecialchars($extractedPo, ENT_QUOTES) ?>'); } else { window.location.href='po?search=<?= urlencode($extractedPo) ?>'; }"
+                                                        <button type="button"
+                                                            class="btn btn-sm btn-outline-primary py-1 px-2 fw-bold text-nowrap"
+                                                            style="font-size: 0.72rem;"
+                                                            onclick="event.stopPropagation(); if (typeof markSingleNotifRead === 'function') { markSingleNotifRead(<?= (int) $notif['id'] ?>, this); } if (typeof openPoModalByNo === 'function') { openPoModalByNo('<?= htmlspecialchars($extractedPo, ENT_QUOTES) ?>'); } else { window.location.href='po?search=<?= urlencode($extractedPo) ?>'; }"
                                                             title="Preview <?= htmlspecialchars($extractedPo) ?>">
                                                             <i class="bi bi-file-earmark-text me-1"></i>Quick View
                                                         </button>
                                                     <?php elseif ($extractedRs): ?>
-                                                        <button type="button" class="btn btn-sm btn-outline-primary py-1 px-2 fw-bold text-nowrap" style="font-size: 0.72rem;"
-                                                            onclick="event.stopPropagation(); if (typeof markSingleNotifRead === 'function') { markSingleNotifRead(<?= (int)$notif['id'] ?>, this); } if (typeof openRsModalByNo === 'function') { openRsModalByNo('<?= htmlspecialchars($extractedRs, ENT_QUOTES) ?>'); } else { window.location.href='requisitions?search=<?= urlencode($extractedRs) ?>'; }"
+                                                        <button type="button"
+                                                            class="btn btn-sm btn-outline-primary py-1 px-2 fw-bold text-nowrap"
+                                                            style="font-size: 0.72rem;"
+                                                            onclick="event.stopPropagation(); if (typeof markSingleNotifRead === 'function') { markSingleNotifRead(<?= (int) $notif['id'] ?>, this); } if (typeof openRsModalByNo === 'function') { openRsModalByNo('<?= htmlspecialchars($extractedRs, ENT_QUOTES) ?>'); } else { window.location.href='requisitions?search=<?= urlencode($extractedRs) ?>'; }"
                                                             title="Preview <?= htmlspecialchars($extractedRs) ?>">
                                                             <i class="bi bi-file-earmark-text me-1"></i>Quick View
                                                         </button>
                                                     <?php endif; ?>
-                                                    <a href="<?= $targetLink ?>" onclick="if (typeof markSingleNotifRead === 'function') { markSingleNotifRead(<?= (int)$notif['id'] ?>, this); }"
-                                                        class="btn btn-sm btn-link text-muted p-0 ms-auto text-decoration-none" style="font-size: 0.72rem;"
-                                                        title="Open in module">
+                                                    <a href="<?= $targetLink ?>"
+                                                        onclick="if (typeof markSingleNotifRead === 'function') { markSingleNotifRead(<?= (int) $notif['id'] ?>, this); }"
+                                                        class="btn btn-sm btn-link text-muted p-0 ms-auto text-decoration-none"
+                                                        style="font-size: 0.72rem;" title="Open in module">
                                                         Open <i class="bi bi-arrow-right"></i>
                                                     </a>
                                                 </div>
@@ -823,7 +860,8 @@ foreach ($notifications as $n) {
                                         <li class="p-4 text-center text-muted small">
                                             <i class="bi bi-bell-slash d-block fs-2 mb-2 text-secondary opacity-75"></i>
                                             <div class="fw-semibold text-secondary">All caught up!</div>
-                                            <small class="text-muted" style="font-size: 0.72rem;">No recent notifications.</small>
+                                            <small class="text-muted" style="font-size: 0.72rem;">No recent
+                                                notifications.</small>
                                         </li>
                                     <?php endif; ?>
                                 </div>
@@ -831,10 +869,10 @@ foreach ($notifications as $n) {
                         </div>
                         <script>
                             // Fallback stubs so clicks never throw ReferenceError if notifications.js is slow or fails to load
-                            window.markSingleNotifRead = window.markSingleNotifRead || function() {};
-                            window.dismissSingleNotif = window.dismissSingleNotif || function() {};
-                            window.markAllNotifsRead = window.markAllNotifsRead || function() {};
-                            window.clearAllNotifs = window.clearAllNotifs || function() {};
+                            window.markSingleNotifRead = window.markSingleNotifRead || function () { };
+                            window.dismissSingleNotif = window.dismissSingleNotif || function () { };
+                            window.markAllNotifsRead = window.markAllNotifsRead || function () { };
+                            window.clearAllNotifs = window.clearAllNotifs || function () { };
                         </script>
 
                         <div class="dropdown">
@@ -848,11 +886,13 @@ foreach ($notifications as $n) {
                             </a>
                             <ul class="dropdown-menu dropdown-menu-end shadow" aria-labelledby="dropdownUser1"
                                 style="min-width: 220px;">
-                                <li><a class="dropdown-item py-2 d-flex align-items-center <?= $currentPage == 'profile.php' ? 'active' : '' ?>" href="profile"><i
+                                <li><a class="dropdown-item py-2 d-flex align-items-center <?= $currentPage == 'profile.php' ? 'active' : '' ?>"
+                                        href="profile"><i
                                             class="bi bi-person-circle me-2 text-muted fs-6"></i>Profile</a></li>
                                 <?php if ($_SESSION['user_role'] === 'admin'): ?>
-                                    <li><a class="dropdown-item py-2 d-flex align-items-center <?= $currentPage == 'settings.php' ? 'active' : '' ?>" href="settings"><i
-                                                class="bi bi-gear-fill me-2 text-primary fs-6"></i>System Settings</a></li>
+                                    <li><a class="dropdown-item py-2 d-flex align-items-center <?= $currentPage == 'settings.php' ? 'active' : '' ?>"
+                                            href="settings"><i class="bi bi-gear-fill me-2 text-primary fs-6"></i>System
+                                            Settings</a></li>
                                 <?php endif; ?>
                                 <li>
                                     <hr class="dropdown-divider">
