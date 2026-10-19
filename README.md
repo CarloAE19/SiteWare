@@ -4,10 +4,11 @@
 [![Database](https://img.shields.io/badge/Database-MySQL%20%7C%20MariaDB-4479A1?logo=mysql&logoColor=white)](https://www.mysql.com/)
 [![Bootstrap](https://img.shields.io/badge/UI-Bootstrap%205.3-7952B3?logo=bootstrap&logoColor=white)](https://getbootstrap.com/)
 [![Security](https://img.shields.io/badge/Security-RSA--2048%20%7C%20SHA--256-green)](#-cryptographic-document-security--pki)
+[![MFA & WebAuthn](https://img.shields.io/badge/Auth-TOTP%20%7C%20WebAuthn%20Passkeys-blue)](#-key-features--innovations)
 [![License](https://img.shields.io/badge/License-Proprietary%20%7C%20All%20Rights%20Reserved-red)](LICENSE)
 [![PWA](https://img.shields.io/badge/PWA-Installable%20%26%20Offline--Resilient-orange?logo=pwa&logoColor=white)](#-progressive-web-app-pwa--offline-resilience)
 
-An enterprise-grade, cloud-ready **Construction Inventory Management System (CIMS)** engineered specifically for **GB Construction & Enterprise Inc.** Designed for mission-critical reliability across job sites, main warehousing, and executive management, the platform unifies real-time inventory tracking, AI-powered predictive replenishment, asymmetric cryptographic document sealing, Viber logistics messaging, cross-platform push alerts, and an offline-resilient Progressive Web App (PWA) architecture.
+An enterprise-grade, cloud-ready **Construction Inventory Management System (CIMS)** engineered specifically for **GB Construction & Enterprise Inc.** Designed for mission-critical reliability across job sites, main warehousing, and executive management, the platform unifies real-time inventory tracking, AI-powered predictive replenishment, asymmetric cryptographic document sealing, Viber logistics messaging, cross-platform push alerts, multi-factor biometric authentication, and an offline-resilient Progressive Web App (PWA) architecture.
 
 ---
 
@@ -82,6 +83,25 @@ An enterprise-grade, cloud-ready **Construction Inventory Management System (CIM
 ### 12. 🏗️ Construction Project & Job-Site Registry
 - **Comprehensive Project Directory (`projects.php` / `settings.php`):** Central registry tracking active and completed project sites with unique project codes.
 - **Live Requisition & Withdrawal Counters:** Displays real-time counts of associated Material Requisitions (RS) and Material Withdrawal Slips (WS) bound to each construction project.
+
+### 13. 🔑 Multi-Factor Authentication (MFA) & FIDO2 / WebAuthn Biometric Passkeys
+- **Time-Based One-Time Passwords (TOTP RFC 6238):** QR-provisioned two-factor authentication compatible with Google Authenticator and Microsoft Authenticator, paired with emergency hashed single-use recovery backup codes (`helpers/totp_helper.php`, `process/mfa_totp.php`, `process/verify_mfa_login.php`).
+- **FIDO2 / WebAuthn Hardware Passkeys:** Native passwordless and biometric authentication utilizing Touch ID, Face ID, Windows Hello, and hardware YubiKeys with client challenge-response cryptographic validation (`helpers/webauthn_helper.php`, `process/passkey_handler.php`, `cims_mfa_passkeys.sql`).
+- **30-Day Trusted Device Management:** "Remember this device" capability with SHA-256 hashed device tokens, IP tracking, and instant remote revocation of recognized hardware from user profiles (`process/manage_trusted_device.php`).
+
+### 14. ⚡ Smart Suggestion Drawers & Fast-Action Item Panels (`Panel-Suggest`)
+- **Requisition Smart Drawer (`components/requisition_frequent_drawer.php`):** Offcanvas drawer analyzing historical project usage to recommend frequently requested materials with category filters, live available stock, and 1-click batch insertion.
+- **Purchase Order Smart Drawer (`components/po_frequent_drawer.php`):** Vendor-centric suggestions providing rapid access to frequently ordered materials and historical unit price baselines.
+- **Material Withdrawal Smart Drawer (`components/withdrawal_frequent_drawer.php`):** Accelerated staging for job-site material releases with stock bounds validation to prevent over-allocation.
+
+### 15. 🚀 Dual-Environment Asset Minification & Build Pipeline
+- **Automated Production Build Scripts (`scripts/build_assets.js` / `scripts/build_assets.php`):** Compiles and minifies CSS and JavaScript into `.min.css` and `.min.js` distribution bundles with automated cache-busting versioning, reducing bandwidth and boosting mobile loading performance. Features a pure PHP fallback compiler for environments without Node.js.
+
+### 16. 🔃 Universal High-Performance Table Sorting
+- **Universal Column Sorting Engine (`assets/js/table-sort.js`):** Client-side accessible column sorting across all data tables (Inventory, Requisitions, POs, Withdrawals, Suppliers, Audits) with automatic type inference (strings, numbers, currency, dates, and status badges).
+
+### 17. 💾 Automated Database Backup & Disaster Recovery Engine
+- **Database Backup Workstation (`process/module_backup.php` / `scripts/auto_backup.php`):** Admin-configurable automated daily cron snapshots and instant 1-click SQL backup generation, download, and restoration from Admin Settings.
 
 ---
 
@@ -194,7 +214,7 @@ CIMS/
 │   └── rate_limiter.php            # Centralized IP & session-based anti-abuse rate limiter
 ├── assets/
 │   ├── css/                        # Custom modular styling (style.css, custom.css, po.css)
-│   ├── js/                         # Frontend logic (notifications.js, requisitions.js, inventory.js, fcm.js)
+│   ├── js/                         # Frontend logic (notifications.js, requisitions.js, inventory.js, table-sort.js, fcm.js)
 │   ├── img/                        # Branded icons, system logo, and login backgrounds
 │   └── sounds/                     # Notification audio alerts
 ├── classes/
@@ -203,15 +223,20 @@ CIMS/
 │   ├── audit_modal.php             # Physical count drill-down modal
 │   ├── entity_modals.php           # Centralized modal suite (PO viewer, RS details, WD viewer)
 │   ├── inventory_modals.php        # Stock-in and item creation modals
+│   ├── po_frequent_drawer.php      # Smart suggestion drawer for frequent purchase orders
 │   ├── po_modal.php                # Comprehensive PO creation, status tracking, and delivery modals
+│   ├── requisition_frequent_drawer.php # Smart suggestion drawer for frequent material requisitions
 │   ├── requisition_modals.php      # RS creation, item rows, and approval modals
 │   ├── splash_screen.php           # PWA branded launch splash screen
 │   ├── supplier_modal.php          # Supplier entry and edit modal
 │   ├── unit_modal.php              # Unit management and AI advisor interface
 │   ├── user_modal.php              # User management and role provisioning modal
+│   ├── withdrawal_frequent_drawer.php # Smart suggestion drawer for frequent material withdrawals
 │   └── withdrawal_modal.php        # Material withdrawal and signature capture modal
 ├── helpers/
-│   └── crypto_helper.php           # RSA-2048 & SHA-256 PKI cryptographic sealing & verification
+│   ├── crypto_helper.php           # RSA-2048 & SHA-256 PKI cryptographic sealing & verification
+│   ├── totp_helper.php             # RFC 6238 Time-Based One-Time Password (TOTP) generator & verifier
+│   └── webauthn_helper.php         # FIDO2 / WebAuthn biometric passkey challenge & assertion parser
 ├── layout/
 │   ├── header.php                  # Navigation, dynamic notifications dropdown, early theme init
 │   └── footer.php                  # System footer, PWA router, role-based AI chatbot widget
@@ -222,22 +247,30 @@ CIMS/
 │   ├── get_po_details.php          # AJAX purchase order line-items and metadata reader
 │   ├── get_rs_details.php          # AJAX requisition line-items and metadata reader
 │   ├── get_withdrawal_details.php  # AJAX material withdrawal details reader
-│   ├── module_backup.php           # Database automated backup and restore logic
+│   ├── manage_trusted_device.php   # 30-day recognized client device manager & token validator
+│   ├── mfa_totp.php                # TOTP 2FA enrollment, QR generator, and backup code engine
 │   ├── module_audit.php            # Audit submission and discrepancy recording
+│   ├── module_backup.php           # Database automated backup, export, and restoration engine
 │   ├── module_inventory.php        # Stock management and CRUD controllers
 │   ├── module_settings.php         # System branding and visual customization
 │   ├── module_suppliers.php        # Supplier directory controller
 │   ├── module_transactions.php     # High-level transaction request dispatcher
 │   ├── module_users.php            # Account creation and role modifier
+│   ├── passkey_handler.php         # WebAuthn registration and authentication request dispatcher
 │   ├── process.php                 # Core centralized form action router
 │   ├── process_notif.php           # AJAX notification mark-as-read and clear handlers
 │   ├── update_signature.php        # Profile E-signature drawing and upload processor
+│   ├── verify_mfa_login.php        # Two-factor authentication gatekeeper during login
 │   └── transactions/
 │       ├── alert_actions.php       # Low-stock alerts and ETA notification background collector
 │       ├── po_actions.php          # PO creation, partial delivery, weather delay, discrepancy handlers
 │       ├── rs_actions.php          # Requisition workflow, QR code generator, and approval logic
 │       ├── viber_actions.php       # Viber supplier dispatch and message logging
 │       └── withdrawal_actions.php  # Material withdrawal, inventory deduction, and signature recorder
+├── scripts/
+│   ├── auto_backup.php             # Scheduled daily database backup cron executor
+│   ├── build_assets.js             # Node.js production asset compiler & minifier
+│   └── build_assets.php            # Pure-PHP production asset compiler & minifier fallback
 ├── uploads/                        # Protected storage for receipts, signatures, and proof photos
 ├── .env                            # Environment credentials (DB, AI Key - not committed)
 ├── .htaccess                       # Server security rules, rewrite engine, header protections
@@ -247,6 +280,7 @@ CIMS/
 ├── audit.php                       # Historical audit log and discrepancy ledger
 ├── categories.php                  # Inventory category management
 ├── cims_indexes.sql                # High-performance MySQL index definitions
+├── cims_mfa_passkeys.sql           # Schema definitions for WebAuthn passkeys and MFA
 ├── construction_inventory.sql      # Reference SQL schema dump with initial seed data
 ├── dashboard.php                   # Role-personalized dashboard with live KPIs and activity feed
 ├── firebase-messaging-sw.js        # Background Web Push service worker
@@ -277,7 +311,7 @@ CIMS features **zero-touch database provisioning**. On initial launch, `Connecti
 
 | # | Table Name | Purpose & Structure |
 |---|---|---|
-| 1 | `users` | User credentials, roles, status, FCM push tokens, signature paths, RSA-2048 public & private keys. |
+| 1 | `users` | User credentials, roles, status, FCM push tokens, signature paths, RSA-2048 keys, MFA secrets, and backup codes. |
 | 2 | `inventory` | Master inventory catalog, item codes, quantity, unit, unit price, status, timestamps. |
 | 3 | `categories` | Material categories (Materials, Tools, Safety Equipment, Heavy Machinery). |
 | 4 | `units` | Measurement units (pcs, bags, kg, m, L) with unit-specific reorder thresholds. |
@@ -294,6 +328,9 @@ CIMS features **zero-touch database provisioning**. On initial launch, `Connecti
 | 15 | `supplier_viber_logs` | Communication history for Viber orders dispatched to suppliers. |
 | 16 | `projects` | Active and completed construction project registry. |
 | 17 | `system_settings` | System-wide configurable options (login background, blur intensity, system branding). |
+| 18 | `user_passkeys` | FIDO2 / WebAuthn biometric authenticators, public keys, and credential IDs. |
+| 19 | `user_trusted_devices` | Recognized 30-day client device tokens with IP tracking and expiry. |
+| 20 | `audit_logs` | Immutable ISO 9001 compliance audit trail logging security and data mutations. |
 
 ### Automatic Optimization & Hostinger High-Performance Indexing
 The system auto-migrates indexes from `cims_indexes.sql` into live databases, optimizing heavy queries across `inventory`, `requisitions`, `purchase_orders`, `withdrawals`, `notifications`, and audit trails for rapid response times.
@@ -309,10 +346,14 @@ The system auto-migrates indexes from `cims_indexes.sql` into live databases, op
 | **Backend** | Server Engine | PHP 8.0+ using Object-Oriented Architecture and defensive PDO prepared statements |
 | **Database** | RDBMS | MySQL 5.7+ / 8.0+ or MariaDB 10.4+ (InnoDB, `utf8mb4_unicode_ci`) |
 | **AI Analytics** | NVIDIA NIM API | LLaMA 3.1 8B Instruct (`meta/llama-3.1-8b-instruct`) with streaming context injection |
+| **Authentication** | Multi-Factor & Passkeys | TOTP (RFC 6238), FIDO2 / WebAuthn Biometric Passkeys, and 30-Day Trusted Devices |
 | **Cryptography** | Digital Signatures & PKI | OpenSSL RSA-2048 key pairs with SHA-256 canonical hashing & verification |
 | **Mobile & PWA** | Progressive Web App | Web App Manifest, Service Worker caching, and offline fallback |
 | **Push Notifications** | Google FCM v1 | Pure-PHP JWT authentication engine (no Composer dependency required) |
 | **Messaging** | Viber Logistics Gateway | Direct Viber PO dispatch, delivery tracking, and supplier communication logs |
+| **Build Pipeline** | Asset Optimization | Node.js (CleanCSS/Terser) & Pure-PHP Fallback Asset Minification Pipeline |
+| **Data Controls** | Universal Table Sorting | Client-side accessible column sorting with automatic data-type detection |
+| **Disaster Recovery** | Database Backup Engine | Automated daily cron snapshots and manual SQL export & restoration |
 | **QR System** | Scan & Generate | HTML5-QRCode scanner and high-resolution dynamic QR code generation |
 
 ---
@@ -349,7 +390,7 @@ The system auto-migrates indexes from `cims_indexes.sql` into live databases, op
    ```
    http://localhost/CIMS/
    ```
-   The built-in migration engine in `Connection/db.php` will automatically create the database, all 17 tables, default categories, default units, and performance indexes.
+   The built-in migration engine in `Connection/db.php` will automatically create the database, all core tables, default categories, default units, and performance indexes.
 
 4. **Default Admin Login (provisioned on first run):**
    - **Username:** `admin`
@@ -361,10 +402,12 @@ The system auto-migrates indexes from `cims_indexes.sql` into live databases, op
 ## 🔒 Security & Compliance Standards
 
 ### Quality Standards & ISO 9001 / ISO/IEC 25010 Alignment
-- **Traceability & Complete Audit Trails (ISO 9001 Clause 8.5.2 & 7.5):** Every material movement, requisition status change, issuance, restock, and physical audit logs permanent, immutable entries.
+- **Traceability & Complete Audit Trails (ISO 9001 Clause 8.5.2 & 7.5):** Every material movement, requisition status change, issuance, restock, authentication event, and physical audit logs permanent, immutable entries.
 - **Control of Nonconformities (ISO 9001 Clause 8.7):** Dedicated workflows for delivery variance, physical count discrepancies, and mandatory rejection remarks on requisitions.
 - **Defensive & Clean Architecture (ISO/IEC 25010):**
   - **100% Prepared Statements:** Eliminates SQL Injection (SQLi) vulnerabilities across all read and write queries.
+  - **Multi-Factor Authentication (NIST SP 800-63B):** RFC 6238 TOTP time-step verification and FIDO2 WebAuthn cryptographic challenge-response authentication.
+  - **30-Day Trusted Device Security:** Cryptographic SHA-256 hashed device tokens with `HttpOnly` cookie binding and active session revocation.
   - **CSRF Token Protection with TTL:** Cryptographic 256-bit random tokens with 2-hour sliding expiry prevent cross-site request forgery, verified via `hash_equals()`.
   - **Secure Sessions & Anti-Fixation:** Mandatory `session_regenerate_id(true)` upon login, with cookie flags set to `HttpOnly`, `SameSite=Lax`, and dynamic `Secure` under HTTPS.
   - **Timing-Attack & Username Enumeration Mitigation:** Employs constant-time dummy Bcrypt verifications for non-existent users, neutralizing timing side-channel attacks during authentication.
@@ -389,4 +432,4 @@ Developed with pride for **GB Construction & Enterprise Inc.** by **The MedYas**
 
 ---
 
-*SiteWare / CIMS &copy; 2026 Genetian Builders & Enterprises Inc. All rights reserved.*
+*SiteWare / CIMS &copy; 2026 GB Construction & Enterprise Inc. All rights reserved.*
