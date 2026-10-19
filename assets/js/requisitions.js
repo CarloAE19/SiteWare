@@ -2017,6 +2017,313 @@ function initializeRequisitionsPage() {
             }
         }
     });
+
+    // Initialize Frequent & Smart Suggestions Drawer
+    if (typeof window.initRequisitionFrequentDrawer === 'function') {
+        window.initRequisitionFrequentDrawer();
+    }
 }
 
-if (document.readyState === "loading") { document.addEventListener("DOMContentLoaded", initializeRequisitionsPage); } else { initializeRequisitionsPage(); }
+// ==========================================================
+// CIMS FREQUENT & SMART SUGGESTIONS DRAWER CONTROLLER
+// ==========================================================
+window.addFrequentItemToRequisition = function(itemCode, itemName, unit, quantity = 1, options = {}) {
+    let container = document.getElementById('materialsContainer');
+    let isRestock = false;
+    const restockModal = document.getElementById('restockModal');
+    const editModal = document.getElementById('editRsModal');
+    const rsModal = document.getElementById('rsModal');
+
+    if (restockModal && restockModal.classList.contains('show')) {
+        container = document.getElementById('restockMaterialsContainer');
+        isRestock = true;
+    } else if (editModal && editModal.classList.contains('show')) {
+        container = document.getElementById('editMaterialsContainer');
+    } else if (rsModal) {
+        if (!rsModal.classList.contains('show')) {
+            const modalInstance = bootstrap.Modal.getOrCreateInstance(rsModal);
+            modalInstance.show();
+        }
+        container = document.getElementById('materialsContainer');
+    }
+
+    if (!container) return false;
+
+    // Check if this item is ALREADY selected in an existing row
+    const existingRows = container.querySelectorAll('.material-row');
+    for (const r of existingRows) {
+        const sel = r.querySelector('select[name="items[]"]');
+        if (sel && sel.value === itemCode) {
+            const qtyInput = r.querySelector('input[name="quantities[]"]');
+            if (qtyInput) {
+                const currentVal = parseFloat(qtyInput.value) || 0;
+                qtyInput.value = currentVal + (parseFloat(quantity) || 1);
+                
+                // Trigger visual feedback flash
+                r.classList.remove('cims-row-just-added');
+                void r.offsetWidth;
+                r.classList.add('cims-row-just-added');
+                r.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                return { status: 'incremented', row: r };
+            }
+        }
+    }
+
+    // Check if the container currently has an empty row (user hasn't picked an item yet)
+    let targetRow = null;
+    for (const r of existingRows) {
+        const sel = r.querySelector('select[name="items[]"]');
+        const isNewItemInput = r.querySelector('input[name="is_new_items[]"]');
+        if (sel && !sel.value && (!isNewItemInput || isNewItemInput.value === '0')) {
+            targetRow = r;
+            break;
+        }
+    }
+
+    // If no blank row exists, append a new row
+    if (!targetRow) {
+        targetRow = window.appendExistingItemRow(container, isRestock);
+    }
+
+    if (!targetRow) return false;
+
+    // Select the item inside the row
+    const select = targetRow.querySelector('select[name="items[]"]');
+    if (select) {
+        select.value = itemCode;
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+
+        const typeaheadInput = targetRow.querySelector('.cims-typeahead-input');
+        const clearBtn = targetRow.querySelector('.cims-typeahead-clear');
+        const opt = select.querySelector(`option[value="${itemCode}"]`);
+        if (typeaheadInput && opt) {
+            typeaheadInput.value = opt.textContent.trim();
+            if (clearBtn) clearBtn.classList.remove('d-none');
+        }
+
+        if (typeof window.syncRowUnitBadge === 'function') {
+            window.syncRowUnitBadge(select);
+        }
+    }
+
+    // Set the requested quantity
+    const qtyInput = targetRow.querySelector('input[name="quantities[]"]');
+    if (qtyInput) {
+        qtyInput.value = Math.max(1, parseFloat(quantity) || 1);
+    }
+
+    // Flash animation to give user immediate visual confirmation
+    targetRow.classList.remove('cims-row-just-added');
+    void targetRow.offsetWidth;
+    targetRow.classList.add('cims-row-just-added');
+    targetRow.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+    window.updateDeleteButtons(container);
+    return { status: 'added', row: targetRow };
+};
+
+window.initRequisitionFrequentDrawer = function() {
+    const drawerEl = document.getElementById('rsFrequentDrawer');
+    if (!drawerEl) return;
+
+    // 1. Z-Index & Backdrop Layering
+    drawerEl.addEventListener('show.bs.offcanvas', function() {
+        setTimeout(() => {
+            const backdrops = document.querySelectorAll('.offcanvas-backdrop');
+            backdrops.forEach(b => b.classList.add('cims-frequent-backdrop'));
+        }, 15);
+    });
+
+    // 2. Card Quantity Stepper (- / +)
+    drawerEl.addEventListener('click', function(e) {
+        const minusBtn = e.target.closest('.qty-card-step-minus');
+        const plusBtn = e.target.closest('.qty-card-step-plus');
+
+        if (minusBtn) {
+            const stepper = minusBtn.closest('.card-qty-stepper');
+            const input = stepper ? stepper.querySelector('.qty-card-input') : null;
+            if (input) {
+                let val = parseFloat(input.value) || 1;
+                if (val > 1) input.value = val - 1;
+            }
+        }
+
+        if (plusBtn) {
+            const stepper = plusBtn.closest('.card-qty-stepper');
+            const input = stepper ? stepper.querySelector('.qty-card-input') : null;
+            if (input) {
+                let val = parseFloat(input.value) || 1;
+                input.value = val + 1;
+            }
+        }
+    });
+
+    // 3. One-Click "+ Add to Slip" from Frequent Cards
+    drawerEl.addEventListener('click', function(e) {
+        const addBtn = e.target.closest('.cims-add-frequent-btn');
+        if (!addBtn) return;
+
+        const card = addBtn.closest('.cims-suggest-card');
+        const itemCode = addBtn.getAttribute('data-item-code') || (card ? card.getAttribute('data-item-code') : '');
+        const itemName = addBtn.getAttribute('data-item-name') || (card ? card.getAttribute('data-item-name') : '');
+        const itemUnit = addBtn.getAttribute('data-item-unit') || (card ? card.getAttribute('data-item-unit') : '');
+        
+        let qty = 1;
+        if (card) {
+            const qtyInput = card.querySelector('.qty-card-input');
+            if (qtyInput) qty = parseFloat(qtyInput.value) || 1;
+        }
+
+        const res = window.addFrequentItemToRequisition(itemCode, itemName, itemUnit, qty);
+        if (res) {
+            // Button feedback animation
+            const origHtml = addBtn.innerHTML;
+            addBtn.disabled = true;
+            addBtn.className = 'btn btn-sm btn-success fw-bold px-3 d-inline-flex align-items-center gap-1.5 shadow-sm text-white';
+            addBtn.innerHTML = '<i class="bi bi-check2"></i> <span>Added!</span>';
+
+            const countText = document.getElementById('drawerAddedCountText');
+            if (countText) {
+                countText.innerHTML = `<span class="text-success"><i class="bi bi-check-circle-fill me-1"></i> Added <strong>${itemName}</strong> (${qty} ${itemUnit})</span>`;
+            }
+
+            setTimeout(() => {
+                addBtn.disabled = false;
+                addBtn.className = 'btn btn-sm btn-primary fw-bold px-3 d-inline-flex align-items-center gap-1.5 shadow-sm cims-add-frequent-btn';
+                addBtn.innerHTML = origHtml;
+            }, 1200);
+        }
+    });
+
+    // 4. Duplicate All Items from Previous Slip
+    drawerEl.addEventListener('click', function(e) {
+        const loadBtn = e.target.closest('.cims-load-slip-btn');
+        if (!loadBtn) return;
+
+        const slipNo = loadBtn.getAttribute('data-slip-no') || 'RS';
+        const itemsJson = loadBtn.getAttribute('data-slip-items');
+        if (!itemsJson) return;
+
+        let items = [];
+        try {
+            items = JSON.parse(itemsJson);
+        } catch (err) {
+            console.error('Error parsing past slip items:', err);
+            return;
+        }
+
+        if (!Array.isArray(items) || items.length === 0) {
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    icon: 'info',
+                    title: 'No Items',
+                    text: 'This previous requisition does not contain item records.'
+                });
+            }
+            return;
+        }
+
+        const origHtml = loadBtn.innerHTML;
+        loadBtn.disabled = true;
+        loadBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span> Adding items...';
+
+        let addedCount = 0;
+        items.forEach(it => {
+            const code = it.item_code;
+            const name = it.item_name || code;
+            const unit = it.unit || 'pcs';
+            const qty = parseFloat(it.quantity) || 1;
+            const res = window.addFrequentItemToRequisition(code, name, unit, qty);
+            if (res) addedCount++;
+        });
+
+        loadBtn.className = 'btn btn-success btn-sm fw-bold w-100 d-flex align-items-center justify-content-center gap-1.5 shadow-sm text-white';
+        loadBtn.innerHTML = `<i class="bi bi-check2-all text-white"></i> <span>Duplicated ${addedCount} Items!</span>`;
+
+        const countText = document.getElementById('drawerAddedCountText');
+        if (countText) {
+            countText.innerHTML = `<span class="text-success"><i class="bi bi-check-circle-fill me-1"></i> Duplicated <strong>${addedCount} items</strong> from ${slipNo}</span>`;
+        }
+
+        setTimeout(() => {
+            loadBtn.disabled = false;
+            loadBtn.className = 'btn btn-outline-primary btn-sm fw-bold w-100 d-flex align-items-center justify-content-center gap-1.5 cims-load-slip-btn shadow-sm';
+            loadBtn.innerHTML = origHtml;
+        }, 2200);
+    });
+
+    // 5. Live Search & Category Filtering
+    const searchInput = document.getElementById('frequentItemSearch');
+    const clearSearchBtn = document.getElementById('clearFrequentSearchBtn');
+    const categoryChips = drawerEl.querySelectorAll('.cims-cat-chip');
+    const itemCards = drawerEl.querySelectorAll('.cims-suggest-card');
+    const emptyNotice = document.getElementById('noFrequentSearchResults');
+
+    let activeCategory = 'all';
+
+    function filterDrawerCards() {
+        const query = searchInput ? searchInput.value.trim().toLowerCase() : '';
+        let visibleCount = 0;
+
+        itemCards.forEach(card => {
+            const name = (card.getAttribute('data-item-name') || '').toLowerCase();
+            const code = (card.getAttribute('data-item-code') || '').toLowerCase();
+            const cat = (card.getAttribute('data-item-category') || '').toLowerCase();
+
+            const matchesQuery = !query || name.includes(query) || code.includes(query) || cat.includes(query);
+            const matchesCategory = (activeCategory === 'all') || (cat === activeCategory.toLowerCase());
+
+            if (matchesQuery && matchesCategory) {
+                card.classList.remove('d-none');
+                visibleCount++;
+            } else {
+                card.classList.add('d-none');
+            }
+        });
+
+        if (emptyNotice) {
+            if (visibleCount === 0 && itemCards.length > 0) {
+                emptyNotice.classList.remove('d-none');
+            } else {
+                emptyNotice.classList.add('d-none');
+            }
+        }
+    }
+
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            if (clearSearchBtn) {
+                if (this.value.trim() !== '') {
+                    clearSearchBtn.classList.remove('d-none');
+                } else {
+                    clearSearchBtn.classList.add('d-none');
+                }
+            }
+            filterDrawerCards();
+        });
+    }
+
+    if (clearSearchBtn && searchInput) {
+        clearSearchBtn.addEventListener('click', function() {
+            searchInput.value = '';
+            clearSearchBtn.classList.add('d-none');
+            searchInput.focus();
+            filterDrawerCards();
+        });
+    }
+
+    categoryChips.forEach(chip => {
+        chip.addEventListener('click', function() {
+            categoryChips.forEach(c => c.classList.remove('active'));
+            this.classList.add('active');
+            activeCategory = this.getAttribute('data-cat') || 'all';
+            filterDrawerCards();
+        });
+    });
+};
+
+if (document.readyState === "loading") { 
+    document.addEventListener("DOMContentLoaded", initializeRequisitionsPage); 
+} else { 
+    initializeRequisitionsPage(); 
+}
