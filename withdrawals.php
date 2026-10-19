@@ -108,6 +108,11 @@ include 'layout/header.php';
                     
                     <?php if (in_array($role, ['warehouse', 'admin'])): ?>
                     <div class="d-flex gap-2 w-100 w-md-auto flex-grow-1 flex-md-grow-0">
+                        <button class="btn btn-outline-warning text-dark fw-bold flex-fill text-nowrap shadow-sm d-inline-flex align-items-center justify-content-center gap-1.5"
+                            type="button" data-bs-toggle="offcanvas" data-bs-target="#wdFrequentDrawer" aria-controls="wdFrequentDrawer" title="Quick-Pick Approved Requisitions Waiting for Withdrawal Release">
+                            <i class="bi bi-lightning-charge-fill text-warning"></i>
+                            <span>Quick-Pick</span>
+                        </button>
                         <button class="btn btn-outline-brand border-2 fw-bold flex-fill text-nowrap shadow-sm" onclick="startRsScanner()">
                             <i class="bi bi-upc-scan me-1"></i> Scan RS
                         </button>
