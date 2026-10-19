@@ -71,9 +71,15 @@ $approvedRS = $pdo->query("
                                         <span class="badge bg-primary-subtle text-primary border border-primary-subtle">Step 1</span>
                                         <span>Select Approved Requisition (RS) <span class="text-danger">*</span></span>
                                     </label>
-                                    <span class="badge bg-light text-muted border font-monospace" style="font-size: 0.70rem;">
-                                        <?= count($approvedRS) ?> RS Available
-                                    </span>
+                                    <div class="d-flex align-items-center gap-1.5">
+                                        <button type="button" class="btn btn-xs btn-outline-warning text-dark fw-bold shadow-sm d-inline-flex align-items-center gap-1 py-1 px-2 rounded-2" data-bs-toggle="offcanvas" data-bs-target="#poFrequentDrawer" aria-controls="poFrequentDrawer" title="Open Quick-Pick & Suggested Approved Requisitions">
+                                            <i class="bi bi-lightning-charge-fill text-warning"></i>
+                                            <span style="font-size: 0.75rem;">Quick-Pick</span>
+                                        </button>
+                                        <span class="badge bg-light text-muted border font-monospace" style="font-size: 0.70rem;">
+                                            <?= count($approvedRS) ?> RS Available
+                                        </span>
+                                    </div>
                                 </div>
                                 <select class="form-select fw-bold shadow-sm" name="rs_id" id="poRsSelect" required onchange="if(typeof window.updatePoDestinationOnRsChange === 'function') window.updatePoDestinationOnRsChange();" style="min-height: 44px; font-size: 0.95rem;">
                                     <option value="" disabled selected>-- Choose Approved Requisition Slip --</option>
@@ -2561,3 +2567,5 @@ $approvedRS = $pdo->query("
         window.initPoModalLifecycle();
     }
 </script>
+
+<?php include_once __DIR__ . '/po_frequent_drawer.php'; ?>
