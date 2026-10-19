@@ -32,6 +32,12 @@ ErrorDocument 503 /CIMS/error/503.php
 # Allows users to visit /dashboard instead of /dashboard.php and /secure-image or /media/ proof URLs
 RewriteEngine On
 
+# 2.5 TRANSPARENT ASSET MINIFICATION (Serve .min.css and .min.js when available)
+RewriteCond %{REQUEST_FILENAME} !\.min\.(css|js)$ [NC]
+RewriteCond %{REQUEST_FILENAME} ^(.+)\.(css|js)$ [NC]
+RewriteCond %1.min.%2 -f
+RewriteRule ^(.+)\.(css|js)$ $1.min.$2 [L]
+
 # Clean Media Proxy Routes (Maps secure-image and /media/ to secure_image.php)
 RewriteRule ^secure-image$ secure_image.php [QSA,L]
 RewriteRule ^media/([^/]+)/([^/]+)$ secure_image.php?type=$1&file=$2 [QSA,L]
