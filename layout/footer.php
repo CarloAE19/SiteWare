@@ -1027,3 +1027,8 @@ document.addEventListener('DOMContentLoaded', () => {
 </body>
 
 </html>
+<?php
+if (defined('CIMS_HTML_BUFFER_ACTIVE') && ob_get_level() > 0) {
+    ob_end_flush();
+}
+?>
