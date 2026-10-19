@@ -442,6 +442,10 @@ $units = $units ?? [];
                                     <span class="badge bg-primary rounded-pill material-count-badge" style="font-size: 0.72rem;">1 Item</span>
                                 </div>
                                 <div class="d-flex gap-1.5 flex-wrap">
+                                    <button type="button" class="btn btn-sm btn-outline-warning text-dark fw-bold shadow-sm d-inline-flex align-items-center gap-1.5" data-bs-toggle="offcanvas" data-bs-target="#rsFrequentDrawer" aria-controls="rsFrequentDrawer" title="Browse frequent materials & 1-click reorder">
+                                        <i class="bi bi-lightning-charge-fill text-warning"></i>
+                                        <span>Frequent Items</span>
+                                    </button>
                                     <button type="button" class="btn btn-sm btn-outline-primary fw-bold" id="addMaterialBtn">
                                         <i class="bi bi-plus-lg me-1"></i> Add Existing Item
                                     </button>
@@ -558,6 +562,10 @@ $units = $units ?? [];
                                     <span class="badge bg-primary rounded-pill material-count-badge" style="font-size: 0.72rem;">1 Item</span>
                                 </div>
                                 <div class="d-flex gap-1.5 flex-wrap">
+                                    <button type="button" class="btn btn-sm btn-outline-warning text-dark fw-bold shadow-sm d-inline-flex align-items-center gap-1.5" data-bs-toggle="offcanvas" data-bs-target="#rsFrequentDrawer" aria-controls="rsFrequentDrawer" title="Browse frequent materials & 1-click reorder">
+                                        <i class="bi bi-lightning-charge-fill text-warning"></i>
+                                        <span>Frequent Items</span>
+                                    </button>
                                     <button type="button" class="btn btn-sm btn-outline-primary fw-bold" id="addRestockMaterialBtn">
                                         <i class="bi bi-plus-lg me-1"></i> Add Existing Item
                                     </button>
@@ -783,6 +791,8 @@ $units = $units ?? [];
         </div>
     </div>
 </div>
+
+<?php include_once __DIR__ . '/requisition_frequent_drawer.php'; ?>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
