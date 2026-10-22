@@ -14,7 +14,7 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 // CSRF Validation for state-modifying requests
-if (in_array($_POST['action'] ?? '', ['create_supplier_inquiry', 'cancel_supplier_inquiry'])) {
+if (in_array($_POST['action'] ?? '', ['create_supplier_inquiry', 'cancel_supplier_inquiry', 'save_inquiry_settings'])) {
     $clientCsrf = $_POST['csrf_token'] ?? $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
     if (!empty($clientCsrf) && function_exists('validate_csrf_token') && !validate_csrf_token($clientCsrf)) {
         echo json_encode(['status' => 'error', 'message' => 'Security token invalid or expired. Please refresh the page.']);
@@ -59,7 +59,25 @@ if ($action === 'create_supplier_inquiry') {
 
         // Cryptographically random 48-char hex token
         $token = bin2hex(random_bytes(24));
-        $expires_at = date('Y-m-d H:i:s', strtotime('+48 hours'));
+
+        // Calculate link expiration time (Configurable link validity from system settings)
+        $defaultConfigHours = (int)get_system_setting('inquiry_default_expiry_hours', 48);
+        if ($defaultConfigHours < 1) $defaultConfigHours = 48;
+        $allowCustom = (int)get_system_setting('inquiry_allow_custom_expiry', 1);
+
+        $validityDuration = $_POST['validity_duration'] ?? (string)$defaultConfigHours;
+        if ($allowCustom && $validityDuration === 'custom' && !empty($_POST['custom_expires_at'])) {
+            $parsedCustom = strtotime($_POST['custom_expires_at']);
+            if ($parsedCustom && $parsedCustom > time()) {
+                $expires_at = date('Y-m-d H:i:s', $parsedCustom);
+            } else {
+                $expires_at = date('Y-m-d H:i:s', strtotime("+{$defaultConfigHours} hours"));
+            }
+        } else {
+            $hours = (int)$validityDuration;
+            if ($hours < 1) $hours = $defaultConfigHours;
+            $expires_at = date('Y-m-d H:i:s', strtotime("+{$hours} hours"));
+        }
 
         $stmt = $pdo->prepare("
             INSERT INTO supplier_inquiries (
@@ -274,6 +292,44 @@ elseif ($action === 'cancel_supplier_inquiry') {
     } catch (PDOException $e) {
         error_log("Cancel inquiry error: " . $e->getMessage());
         echo json_encode(['status' => 'error', 'message' => 'Database error while cancelling inquiry.']);
+        exit;
+    }
+}
+
+// --- 5. SAVE SUPPLIER INQUIRY SETTINGS ---
+elseif ($action === 'save_inquiry_settings') {
+    if (!in_array($_SESSION['user_role'], ['purchasing', 'admin'])) {
+        echo json_encode(['status' => 'error', 'message' => 'Unauthorized permission to update inquiry settings.']);
+        exit;
+    }
+
+    $defaultHours = (int)($_POST['default_expiry_hours'] ?? 48);
+    if ($defaultHours < 1 || $defaultHours > 720) {
+        echo json_encode(['status' => 'error', 'message' => 'Default expiration must be between 1 and 720 hours (up to 30 days).']);
+        exit;
+    }
+
+    $allowCustom = (isset($_POST['allow_custom_expiry']) && (string)$_POST['allow_custom_expiry'] === '1') ? '1' : '0';
+
+    try {
+        $stmt = $pdo->prepare("
+            INSERT INTO system_settings (setting_key, setting_value) 
+            VALUES (?, ?) 
+            ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value), updated_at = CURRENT_TIMESTAMP
+        ");
+        $stmt->execute(['inquiry_default_expiry_hours', (string)$defaultHours]);
+        $stmt->execute(['inquiry_allow_custom_expiry', (string)$allowCustom]);
+
+        echo json_encode([
+            'status' => 'success',
+            'message' => 'Supplier inquiry link expiration settings updated successfully.',
+            'default_expiry_hours' => $defaultHours,
+            'allow_custom_expiry' => $allowCustom
+        ]);
+        exit;
+    } catch (PDOException $e) {
+        error_log("Save inquiry settings error: " . $e->getMessage());
+        echo json_encode(['status' => 'error', 'message' => 'Database error while saving inquiry settings.']);
         exit;
     }
 }
