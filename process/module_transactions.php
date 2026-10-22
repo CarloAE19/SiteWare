@@ -30,7 +30,7 @@ elseif ($action === 'fetch_combined_alerts') {
     require __DIR__ . '/transactions/alert_actions.php';
 }
 // 6. Supplier Inquiry Actions
-elseif (in_array($action, ['create_supplier_inquiry', 'fetch_supplier_inquiry_details', 'fetch_active_inquiries', 'cancel_supplier_inquiry'])) {
+elseif (in_array($action, ['create_supplier_inquiry', 'fetch_supplier_inquiry_details', 'fetch_active_inquiries', 'cancel_supplier_inquiry', 'save_inquiry_settings'])) {
     require __DIR__ . '/transactions/supplier_inquiry_actions.php';
 } else {
     throw new Exception("Unknown transaction action: " . htmlspecialchars($action));
