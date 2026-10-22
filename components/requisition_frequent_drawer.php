@@ -10,31 +10,60 @@ if (!isset($pdo)) {
 }
 
 $cimsUserId = $_SESSION['user_id'] ?? 0;
-$cimsUserRole = $_SESSION['user_role'] ?? 'requestor';
+$cimsUserRole = strtolower($_SESSION['user_role'] ?? 'requestor');
 $cimsIsRequestor = ($cimsUserRole === 'requestor');
 
 // 1. Fetch Top Frequent Items across non-rejected requisitions
-$frequentQuery = "
-    SELECT 
-        ri.item_code,
-        COALESCE(i.item_name, ri.new_item_name, ri.item_code) AS item_name,
-        COALESCE(i.unit, ri.new_unit, 'pcs') AS unit,
-        COALESCE(i.category, ri.new_category, 'Materials') AS category,
-        COALESCE(i.quantity, 0) AS current_stock,
-        COUNT(*) AS request_count,
-        ROUND(AVG(ri.quantity), 0) AS avg_quantity
-    FROM requisition_items ri
-    JOIN requisitions r ON ri.requisition_id = r.id
-    LEFT JOIN inventory i ON ri.item_code = i.item_code
-    WHERE r.status != 'Rejected' AND ri.item_code IS NOT NULL AND ri.item_code != ''
-    GROUP BY ri.item_code, item_name, unit, category, current_stock
-    ORDER BY request_count DESC, item_name ASC
-    LIMIT 20
-";
-try {
-    $frequentItemsList = $pdo->query($frequentQuery)->fetchAll(PDO::FETCH_ASSOC);
-} catch (Exception $e) {
-    $frequentItemsList = [];
+if ($cimsIsRequestor && !empty($cimsUserId)) {
+    // Personalized for Requestor: show items requested by THIS user
+    $frequentQuery = "
+        SELECT 
+            ri.item_code,
+            COALESCE(i.item_name, ri.new_item_name, ri.item_code) AS item_name,
+            COALESCE(i.unit, ri.new_unit, 'pcs') AS unit,
+            COALESCE(i.category, ri.new_category, 'Materials') AS category,
+            COALESCE(i.quantity, 0) AS current_stock,
+            COUNT(*) AS request_count,
+            ROUND(AVG(ri.quantity), 0) AS avg_quantity
+        FROM requisition_items ri
+        JOIN requisitions r ON ri.requisition_id = r.id
+        LEFT JOIN inventory i ON ri.item_code = i.item_code
+        WHERE r.requestor_id = ? AND r.status != 'Rejected' AND ri.item_code IS NOT NULL AND ri.item_code != ''
+        GROUP BY ri.item_code, item_name, unit, category, current_stock
+        ORDER BY request_count DESC, item_name ASC
+        LIMIT 20
+    ";
+    try {
+        $frequentStmt = $pdo->prepare($frequentQuery);
+        $frequentStmt->execute([$cimsUserId]);
+        $frequentItemsList = $frequentStmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (Exception $e) {
+        $frequentItemsList = [];
+    }
+} else {
+    // Warehouse / Purchasing / Admin: show company-wide top requested materials
+    $frequentQuery = "
+        SELECT 
+            ri.item_code,
+            COALESCE(i.item_name, ri.new_item_name, ri.item_code) AS item_name,
+            COALESCE(i.unit, ri.new_unit, 'pcs') AS unit,
+            COALESCE(i.category, ri.new_category, 'Materials') AS category,
+            COALESCE(i.quantity, 0) AS current_stock,
+            COUNT(*) AS request_count,
+            ROUND(AVG(ri.quantity), 0) AS avg_quantity
+        FROM requisition_items ri
+        JOIN requisitions r ON ri.requisition_id = r.id
+        LEFT JOIN inventory i ON ri.item_code = i.item_code
+        WHERE r.status != 'Rejected' AND ri.item_code IS NOT NULL AND ri.item_code != ''
+        GROUP BY ri.item_code, item_name, unit, category, current_stock
+        ORDER BY request_count DESC, item_name ASC
+        LIMIT 20
+    ";
+    try {
+        $frequentItemsList = $pdo->query($frequentQuery)->fetchAll(PDO::FETCH_ASSOC);
+    } catch (Exception $e) {
+        $frequentItemsList = [];
+    }
 }
 
 // 2. Supplement if fewer than 10 items (ensures suggestions are always rich)
@@ -306,11 +335,16 @@ try {
                     Quick-Pick Materials
                 </h5>
                 <small class="text-muted" style="font-size: 0.76rem;">
-                    Frequent items &amp; 1-click past slip re-order
+                    <?= $cimsIsRequestor ? 'Your frequent items &amp; 1-click past slip re-order' : 'Frequent items &amp; 1-click past slip re-order' ?>
                 </small>
             </div>
         </div>
-        <button type="button" class="btn-close text-reset shadow-none" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+        <div class="d-flex align-items-center gap-1">
+            <button type="button" class="btn btn-sm btn-outline-secondary py-1 px-2 border-0 shadow-none text-muted" title="Refresh list" onclick="window.location.reload();">
+                <i class="bi bi-arrow-clockwise fs-6"></i>
+            </button>
+            <button type="button" class="btn-close text-reset shadow-none" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+        </div>
     </div>
 
     <!-- Drawer Navigation Tabs -->
@@ -386,7 +420,7 @@ try {
                              data-item-name="<?= $name ?>" 
                              data-item-unit="<?= $unit ?>" 
                              data-item-category="<?= $cat ?>"
-                             data-item-stock="<?= $stockFormatted ?>">
+                             data-item-stock="<?= $cimsIsRequestor ? '' : $stockFormatted ?>">
                             
                             <div class="d-flex justify-content-between align-items-start gap-2 mb-1.5">
                                 <div class="flex-grow-1">
@@ -395,7 +429,15 @@ try {
                                         <span class="badge bg-light text-secondary border small py-1" style="font-size: 0.68rem;"><?= $cat ?></span>
                                         <?php if ($reqCount > 1): ?>
                                             <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle small py-1" style="font-size: 0.68rem;">
-                                                <i class="bi bi-fire me-0.5"></i> <?= $reqCount ?>x Requested
+                                                <i class="bi bi-fire me-0.5 text-danger"></i> <?= $reqCount ?>x Requested<?= $cimsIsRequestor ? ' by you' : '' ?>
+                                            </span>
+                                        <?php elseif ($reqCount === 1): ?>
+                                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle small py-1" style="font-size: 0.68rem;">
+                                                <i class="bi bi-check-circle-fill me-0.5"></i> <?= $cimsIsRequestor ? 'Requested by you (1x)' : '1x Requested' ?>
+                                            </span>
+                                        <?php else: ?>
+                                            <span class="badge bg-light text-muted border small py-1" style="font-size: 0.68rem;">
+                                                <i class="bi bi-stars text-warning me-0.5"></i> Suggested
                                             </span>
                                         <?php endif; ?>
                                     </div>
@@ -403,11 +445,13 @@ try {
                                         <?= $name ?>
                                     </h6>
                                 </div>
-                                <div class="text-end flex-shrink-0">
-                                    <span class="badge bg-success-subtle text-success border border-success-subtle small fw-bold" style="font-size: 0.70rem;">
-                                        Stock: <?= $stockFormatted ?> <?= $unit ?>
-                                    </span>
-                                </div>
+                                <?php if (!$cimsIsRequestor): ?>
+                                    <div class="text-end flex-shrink-0">
+                                        <span class="badge bg-success-subtle text-success border border-success-subtle small fw-bold" style="font-size: 0.70rem;">
+                                            Stock: <?= $stockFormatted ?> <?= $unit ?>
+                                        </span>
+                                    </div>
+                                <?php endif; ?>
                             </div>
 
                             <!-- Stepper & 1-Click Add Button -->
