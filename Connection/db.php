@@ -565,6 +565,8 @@ try {
     $pdo->prepare("INSERT IGNORE INTO system_settings (setting_key, setting_value) VALUES ('idle_lock_enabled', '1')")->execute();
     $pdo->prepare("INSERT IGNORE INTO system_settings (setting_key, setting_value) VALUES ('idle_lock_minutes', '15')")->execute();
     $pdo->prepare("INSERT IGNORE INTO system_settings (setting_key, setting_value) VALUES ('idle_logout_minutes', '30')")->execute();
+    $pdo->prepare("INSERT IGNORE INTO system_settings (setting_key, setting_value) VALUES ('inquiry_default_expiry_hours', '48')")->execute();
+    $pdo->prepare("INSERT IGNORE INTO system_settings (setting_key, setting_value) VALUES ('inquiry_allow_custom_expiry', '1')")->execute();
 
     // 15. Create Categories Table
     $pdo->exec("
