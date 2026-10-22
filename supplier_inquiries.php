@@ -20,6 +20,11 @@ if (!in_array($_SESSION['user_role'], ['admin', 'purchasing', 'management'])) {
 require_once 'Connection/db.php';
 $role = $_SESSION['user_role'];
 
+// Fetch Inquiry Expiration Configuration from system_settings
+$defaultExpiryHours = (int)get_system_setting('inquiry_default_expiry_hours', 48);
+if ($defaultExpiryHours < 1) $defaultExpiryHours = 48;
+$allowCustomExpiry = (int)get_system_setting('inquiry_allow_custom_expiry', 1);
+
 // 1. Fetch Inquiries with aggregated summary stats
 $inquiriesStmt = $pdo->query("
     SELECT 
@@ -275,6 +280,41 @@ include 'layout/header.php';
         align-items: center;
         justify-content: center;
     }
+
+    /* Expiry Option Tile Selectors */
+    .expiry-opt-card {
+        border: 2px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 16px;
+        cursor: pointer;
+        transition: all 0.2s ease-in-out;
+        position: relative;
+        background-color: #ffffff;
+        user-select: none;
+    }
+    .expiry-opt-card:hover {
+        border-color: #94a3b8;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    }
+    .expiry-opt-card.selected-expiry {
+        border-color: var(--gb-blue, #0033CC) !important;
+        background-color: #f0f4ff !important;
+        box-shadow: 0 0 0 1px var(--gb-blue, #0033CC), 0 6px 16px rgba(0, 51, 204, 0.12) !important;
+    }
+    [data-bs-theme="dark"] .expiry-opt-card {
+        background-color: #1e293b;
+        border-color: #334155;
+        color: #f1f5f9;
+    }
+    [data-bs-theme="dark"] .expiry-opt-card:hover {
+        border-color: #64748b;
+    }
+    [data-bs-theme="dark"] .expiry-opt-card.selected-expiry {
+        background-color: rgba(59, 130, 246, 0.15) !important;
+        border-color: #3b82f6 !important;
+        box-shadow: 0 0 0 1px #3b82f6, 0 6px 16px rgba(0, 0, 0, 0.3) !important;
+    }
 </style>
 
 <div class="container-fluid px-3 px-md-4 py-3 py-md-4">
@@ -410,6 +450,13 @@ include 'layout/header.php';
                     <button type="button" class="btn btn-outline-secondary btn-sm shadow-sm d-flex align-items-center justify-content-center gap-1.5 flex-fill flex-md-grow-0" style="min-height: 38px;" onclick="window.location.reload()" title="Refresh List">
                         <i class="bi bi-arrow-clockwise"></i> Refresh
                     </button>
+
+                    <!-- Settings Button (Opens Expiration Settings Modal) -->
+                    <?php if (in_array($role, ['admin', 'purchasing'])): ?>
+                        <button type="button" class="btn btn-outline-secondary btn-sm shadow-sm d-flex align-items-center justify-content-center gap-1.5 flex-fill flex-md-grow-0" style="min-height: 38px;" data-bs-toggle="modal" data-bs-target="#inquirySettingsModal" title="Inquiry Link Expiration Settings">
+                            <i class="bi bi-gear-fill"></i> Settings
+                        </button>
+                    <?php endif; ?>
 
                     <!-- New Inquiry Button -->
                     <?php if (in_array($role, ['admin', 'purchasing'])): ?>
@@ -805,6 +852,241 @@ include 'layout/header.php';
 </div>
 
 <!-- ========================================================================= -->
+<!-- 0. MODAL: INQUIRY LINK EXPIRATION & ACCESS SETTINGS                       -->
+<!-- ========================================================================= -->
+<div class="modal fade" id="inquirySettingsModal" tabindex="-1" aria-labelledby="inquirySettingsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable modal-fullscreen-sm-down">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header bg-dark text-white border-0 py-3">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="rounded-circle bg-warning text-dark p-2 d-flex align-items-center justify-content-center" style="width: 36px; height: 36px;">
+                        <i class="bi bi-gear-fill fs-5"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title fw-bold mb-0 text-white" id="inquirySettingsModalLabel">Supplier Inquiry Settings</h5>
+                        <small class="text-white-50">Configure link expiration duration, access policy, and officer permissions</small>
+                    </div>
+                </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <form id="inquirySettingsForm" onsubmit="saveInquirySettings(event)">
+                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '') ?>">
+
+                <div class="modal-body p-3 p-md-4 bg-light">
+                    <!-- SECTION 1: DEFAULT EXPIRATION PERIOD -->
+                    <div class="card border-0 shadow-sm rounded-3 p-3 bg-white mb-3">
+                        <div class="d-flex align-items-center justify-content-between mb-1">
+                            <label class="form-label fw-bold text-dark mb-0 fs-6">
+                                <i class="bi bi-clock-history text-primary me-1"></i> Default Link Expiration Duration
+                            </label>
+                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1 rounded-pill" id="activeSettingSummaryBadge" style="font-size: 0.70rem;">
+                                <?= $defaultExpiryHours ?>h Default
+                            </span>
+                        </div>
+                        <p class="text-muted small mb-3">
+                            When an inquiry link is generated, its expiration timestamp is automatically calculated using this duration. Vendors can only submit quotes while the link remains active.
+                        </p>
+
+                        <!-- Grid of Expiration Option Cards -->
+                        <div class="row g-2.5 mb-3" id="expiryOptionsGrid">
+                            <!-- 24 Hours -->
+                            <div class="col-12 col-sm-6 col-md-4">
+                                <div class="expiry-opt-card h-100 <?= $defaultExpiryHours === 24 ? 'selected-expiry' : '' ?>" 
+                                    onclick="selectExpiryOption(24, this)" data-hours="24">
+                                    <div class="d-flex justify-content-between align-items-start mb-1">
+                                        <div class="fw-bold fs-6 text-dark">24 Hours</div>
+                                        <span class="badge bg-warning-subtle text-dark border border-warning-subtle" style="font-size: 0.65rem;">Urgent</span>
+                                    </div>
+                                    <div class="small text-muted" style="font-size: 0.75rem;">1 Day validity for fast-moving spot materials.</div>
+                                </div>
+                            </div>
+
+                            <!-- 48 Hours (Standard) -->
+                            <div class="col-12 col-sm-6 col-md-4">
+                                <div class="expiry-opt-card h-100 <?= $defaultExpiryHours === 48 ? 'selected-expiry' : '' ?>" 
+                                    onclick="selectExpiryOption(48, this)" data-hours="48">
+                                    <div class="d-flex justify-content-between align-items-start mb-1">
+                                        <div class="fw-bold fs-6 text-primary">48 Hours</div>
+                                        <span class="badge bg-primary text-white" style="font-size: 0.65rem;">Standard</span>
+                                    </div>
+                                    <div class="small text-muted" style="font-size: 0.75rem;">2 Days validity. Standard business default.</div>
+                                </div>
+                            </div>
+
+                            <!-- 72 Hours -->
+                            <div class="col-12 col-sm-6 col-md-4">
+                                <div class="expiry-opt-card h-100 <?= $defaultExpiryHours === 72 ? 'selected-expiry' : '' ?>" 
+                                    onclick="selectExpiryOption(72, this)" data-hours="72">
+                                    <div class="d-flex justify-content-between align-items-start mb-1">
+                                        <div class="fw-bold fs-6 text-dark">72 Hours</div>
+                                        <span class="badge bg-secondary-subtle text-dark border" style="font-size: 0.65rem;">Weekend Safe</span>
+                                    </div>
+                                    <div class="small text-muted" style="font-size: 0.75rem;">3 Days validity for inquiries sent before weekends.</div>
+                                </div>
+                            </div>
+
+                            <!-- 120 Hours (5 Days) -->
+                            <div class="col-12 col-sm-6 col-md-4">
+                                <div class="expiry-opt-card h-100 <?= $defaultExpiryHours === 120 ? 'selected-expiry' : '' ?>" 
+                                    onclick="selectExpiryOption(120, this)" data-hours="120">
+                                    <div class="d-flex justify-content-between align-items-start mb-1">
+                                        <div class="fw-bold fs-6 text-dark">5 Days</div>
+                                        <span class="badge bg-info-subtle text-info-emphasis border border-info-subtle" style="font-size: 0.65rem;">Work Week</span>
+                                    </div>
+                                    <div class="small text-muted" style="font-size: 0.75rem;">120 Hours. Full work week for high-volume items.</div>
+                                </div>
+                            </div>
+
+                            <!-- 168 Hours (7 Days) -->
+                            <div class="col-12 col-sm-6 col-md-4">
+                                <div class="expiry-opt-card h-100 <?= $defaultExpiryHours === 168 ? 'selected-expiry' : '' ?>" 
+                                    onclick="selectExpiryOption(168, this)" data-hours="168">
+                                    <div class="d-flex justify-content-between align-items-start mb-1">
+                                        <div class="fw-bold fs-6 text-dark">7 Days</div>
+                                        <span class="badge bg-secondary-subtle text-dark border" style="font-size: 0.65rem;">1 Week</span>
+                                    </div>
+                                    <div class="small text-muted" style="font-size: 0.75rem;">168 Hours for heavy machinery or specialty items.</div>
+                                </div>
+                            </div>
+
+                            <!-- Custom Option -->
+                            <?php 
+                            $isPreset = in_array($defaultExpiryHours, [24, 48, 72, 120, 168]);
+                            ?>
+                            <div class="col-12 col-sm-6 col-md-4">
+                                <div class="expiry-opt-card h-100 <?= !$isPreset ? 'selected-expiry' : '' ?>" 
+                                    onclick="selectExpiryOption('custom', this)" data-hours="custom">
+                                    <div class="d-flex justify-content-between align-items-start mb-1">
+                                        <div class="fw-bold fs-6 text-dark">Custom Hours</div>
+                                        <span class="badge bg-dark text-white" style="font-size: 0.65rem;">Custom</span>
+                                    </div>
+                                    <div class="small text-muted" style="font-size: 0.75rem;">Enter custom duration (1 to 720 hours).</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Hidden input storing selected hours -->
+                        <input type="hidden" name="default_expiry_hours" id="selectedDefaultExpiryHours" value="<?= $defaultExpiryHours ?>">
+
+                        <!-- Custom Hours Input Field (Visible if custom selected) -->
+                        <div id="customHoursInputContainer" class="p-2.5 bg-light rounded-3 border mb-3 <?= $isPreset ? 'd-none' : '' ?>">
+                            <div class="row align-items-center g-2">
+                                <div class="col-12 col-sm-auto">
+                                    <label for="customExpiryHoursInput" class="form-label small fw-bold mb-0 text-dark">
+                                        Custom Duration:
+                                    </label>
+                                </div>
+                                <div class="col-12 col-sm-auto" style="width: 140px;">
+                                    <div class="input-group input-group-sm">
+                                        <input type="number" class="form-control text-center fw-bold" id="customExpiryHoursInput" min="1" max="720" value="<?= $defaultExpiryHours ?>" oninput="onCustomHoursInput(this.value)">
+                                        <span class="input-group-text bg-white">hrs</span>
+                                    </div>
+                                </div>
+                                <div class="col-12 col-sm">
+                                    <small class="text-muted">Enter any integer between 1 and 720 hours (up to 30 days).</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Live Expiration Preview Box -->
+                        <div class="p-3 rounded-3 bg-primary-subtle border border-primary-subtle d-flex flex-wrap align-items-center justify-content-between gap-2">
+                            <div class="d-flex align-items-center gap-2.5">
+                                <div class="rounded-circle bg-primary text-white p-2 d-flex align-items-center justify-content-center" style="width: 34px; height: 34px;">
+                                    <i class="bi bi-broadcast fs-6"></i>
+                                </div>
+                                <div>
+                                    <div class="small fw-bold text-primary text-uppercase" style="letter-spacing: 0.5px; font-size: 0.68rem;">
+                                        Live Calculation Preview
+                                    </div>
+                                    <div class="text-dark small" style="font-size: 0.82rem;">
+                                        An inquiry generated right now would expire on:
+                                        <span class="fw-bold text-primary" id="settingsExpiryLiveTime">
+                                            <?= date('M d, Y h:i A', strtotime("+{$defaultExpiryHours} hours")) ?>
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                            <span class="badge bg-primary text-white px-2.5 py-1 rounded-pill fw-semibold" id="settingsExpiryHoursBadge" style="font-size: 0.75rem;">
+                                <?= $defaultExpiryHours ?> Hours (<?= round($defaultExpiryHours / 24, 1) ?> Days)
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- SECTION 2: OFFICER OVERRIDE PERMISSIONS -->
+                    <div class="card border-0 shadow-sm rounded-3 p-3 bg-white mb-3">
+                        <label class="form-label fw-bold text-dark mb-1 fs-6">
+                            <i class="bi bi-person-gear text-primary me-1"></i> Creation Form Override Permissions
+                        </label>
+                        <p class="text-muted small mb-2.5">
+                            Determine whether purchasing officers may customize the expiration period for individual inquiries or if all links must strictly adhere to the default policy.
+                        </p>
+
+                        <div class="form-check form-switch p-3 bg-light rounded-3 border d-flex align-items-center justify-content-between ps-3 pe-3 mb-0">
+                            <div>
+                                <label class="form-check-label fw-bold text-dark d-block mb-0" for="allowCustomExpirySwitch">
+                                    Allow Custom Expiration on Inquiry Creation
+                                </label>
+                                <small class="text-muted d-block">
+                                    When enabled, officers can select custom date & time overrides in the "New Inquiry" modal. When disabled, inquiries strictly inherit the default policy.
+                                </small>
+                            </div>
+                            <input class="form-check-input ms-3 flex-shrink-0" type="checkbox" role="switch" id="allowCustomExpirySwitch" name="allow_custom_expiry" value="1" <?= $allowCustomExpiry ? 'checked' : '' ?> style="width: 2.8rem; height: 1.4rem; cursor: pointer;">
+                        </div>
+                    </div>
+
+                    <!-- SECTION 3: SECURITY SAFEGUARDS -->
+                    <div class="card border-0 shadow-sm rounded-3 p-3 bg-white">
+                        <label class="form-label fw-bold text-dark mb-1 fs-6">
+                            <i class="bi bi-shield-check text-success me-1"></i> Security Safeguards
+                        </label>
+                        <div class="row g-2">
+                            <div class="col-12 col-md-4">
+                                <div class="p-2.5 border rounded-3 bg-light h-100">
+                                    <div class="text-primary fw-bold small mb-1"><i class="bi bi-key-fill me-1"></i>Cryptographic Token</div>
+                                    <div class="text-muted" style="font-size: 0.74rem;">48-character hex token prevents link discovery and guessing.</div>
+                                </div>
+                            </div>
+                            <div class="col-12 col-md-4">
+                                <div class="p-2.5 border rounded-3 bg-light h-100">
+                                    <div class="text-success fw-bold small mb-1"><i class="bi bi-lock-fill me-1"></i>Single-Submit Lock</div>
+                                    <div class="text-muted" style="font-size: 0.74rem;">Quotes instantly lock upon submission to prevent retroactive edits.</div>
+                                </div>
+                            </div>
+                            <div class="col-12 col-md-4">
+                                <div class="p-2.5 border rounded-3 bg-light h-100">
+                                    <div class="text-danger fw-bold small mb-1"><i class="bi bi-clock-fill me-1"></i>Auto-Expiry Closure</div>
+                                    <div class="text-muted" style="font-size: 0.74rem;">Expired links automatically close with no submissions allowed.</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- MODAL FOOTER -->
+                <div class="modal-footer bg-white border-top py-2.5 px-3 px-md-4 d-flex justify-content-between align-items-center">
+                    <button type="button" class="btn btn-outline-secondary btn-sm touch-btn" onclick="resetInqSettingsToDefault()">
+                        <i class="bi bi-arrow-counterclockwise me-1"></i> Reset to 48h
+                    </button>
+
+                    <div class="d-flex align-items-center gap-2">
+                        <button type="button" class="btn btn-light btn-sm border touch-btn px-3" data-bs-dismiss="modal">
+                            Close
+                        </button>
+                        <?php if (in_array($role, ['admin', 'purchasing'])): ?>
+                            <button type="submit" class="btn btn-primary btn-sm fw-semibold shadow-sm touch-btn px-4 d-flex align-items-center gap-1.5" id="saveInqSettingsBtn">
+                                <i class="bi bi-check-lg fs-6"></i>
+                                <span>Save Settings</span>
+                            </button>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- ========================================================================= -->
 <!-- 1. MODAL: CREATE NEW SUPPLIER INQUIRY                                     -->
 <!-- ========================================================================= -->
 <div class="modal fade" id="newInquiryModal" tabindex="-1" aria-labelledby="newInquiryModalLabel" aria-hidden="true">
@@ -869,6 +1151,37 @@ include 'layout/header.php';
                                 <label class="form-label small fw-bold text-dark">Target Delivery Date</label>
                                 <input type="date" class="form-control form-control-sm" name="expected_delivery_date" 
                                     value="<?= date('Y-m-d', strtotime('+3 days')) ?>">
+                            </div>
+
+                            <!-- Link Expiration Validity -->
+                            <div class="col-12 col-md-6">
+                                <label class="form-label small fw-bold text-dark d-flex align-items-center justify-content-between">
+                                    <span><i class="bi bi-clock-history me-1 text-primary"></i>Link Expiration Period</span>
+                                    <span class="badge bg-light text-muted border fw-normal" style="font-size: 0.70rem;">Auto-closes link</span>
+                                </label>
+                                <select class="form-select form-select-sm" name="validity_duration" id="inqValidityDuration" onchange="onValidityDurationChange(this)">
+                                    <option value="24" <?= $defaultExpiryHours === 24 ? 'selected' : '' ?>>24 Hours (1 Day - Urgent / Rush)</option>
+                                    <option value="48" <?= $defaultExpiryHours === 48 ? 'selected' : '' ?>>48 Hours (2 Days - Standard Default)</option>
+                                    <option value="72" <?= $defaultExpiryHours === 72 ? 'selected' : '' ?>>72 Hours (3 Days)</option>
+                                    <option value="120" <?= $defaultExpiryHours === 120 ? 'selected' : '' ?>>5 Days (120 Hours)</option>
+                                    <option value="168" <?= $defaultExpiryHours === 168 ? 'selected' : '' ?>>7 Days (1 Week)</option>
+                                    <?php if (!in_array($defaultExpiryHours, [24, 48, 72, 120, 168])): ?>
+                                        <option value="<?= $defaultExpiryHours ?>" selected><?= $defaultExpiryHours ?> Hours (Configured Default)</option>
+                                    <?php endif; ?>
+                                    <?php if ($allowCustomExpiry): ?>
+                                        <option value="custom">Custom Date & Time...</option>
+                                    <?php endif; ?>
+                                </select>
+                            </div>
+
+                            <!-- Custom Expiry Date & Time (Conditional) -->
+                            <div class="col-12 col-md-6 d-none" id="customExpiryWrapper">
+                                <label class="form-label small fw-bold text-dark">
+                                    <i class="bi bi-calendar-x me-1 text-danger"></i>Specify Custom Expiry Date & Time
+                                </label>
+                                <input type="datetime-local" class="form-control form-control-sm" name="custom_expires_at" id="inqCustomExpiry"
+                                    min="<?= date('Y-m-d\TH:i', strtotime('+1 hour')) ?>"
+                                    value="<?= date('Y-m-d\TH:i', strtotime('+48 hours')) ?>">
                             </div>
                         </div>
                     </div>
@@ -1253,6 +1566,19 @@ include 'layout/header.php';
         // Can be used for custom supplier info if needed
     }
 
+    function onValidityDurationChange(select) {
+        const customWrap = document.getElementById('customExpiryWrapper');
+        const customInput = document.getElementById('inqCustomExpiry');
+        if (!customWrap) return;
+        if (select.value === 'custom') {
+            customWrap.classList.remove('d-none');
+            if (customInput) customInput.required = true;
+        } else {
+            customWrap.classList.add('d-none');
+            if (customInput) customInput.required = false;
+        }
+    }
+
     // --- Submit New Supplier Inquiry ---
     function submitNewInquiry(e) {
         e.preventDefault();
@@ -1531,9 +1857,186 @@ include 'layout/header.php';
     }
 
     // =========================================================================
+    // INQUIRY LINK EXPIRATION SETTINGS MODAL MANAGEMENT
+    // =========================================================================
+    function updateExpiryLivePreview(hours) {
+        hours = parseInt(hours) || 48;
+        if (hours < 1) hours = 1;
+        const now = new Date();
+        const expiryDate = new Date(now.getTime() + (hours * 60 * 60 * 1000));
+        const options = { 
+            month: 'short', 
+            day: 'numeric', 
+            year: 'numeric', 
+            hour: 'numeric', 
+            minute: '2-digit', 
+            hour12: true 
+        };
+        const formatted = expiryDate.toLocaleDateString('en-US', options);
+        const liveTimeEl = document.getElementById('settingsExpiryLiveTime');
+        if (liveTimeEl) liveTimeEl.innerText = formatted;
+
+        const badgeEl = document.getElementById('settingsExpiryHoursBadge');
+        if (badgeEl) {
+            const days = (hours / 24).toFixed(hours % 24 === 0 ? 0 : 1);
+            badgeEl.innerText = `${hours} Hours (${days} Days)`;
+        }
+    }
+
+    function selectExpiryOption(hours, cardEl) {
+        document.querySelectorAll('#expiryOptionsGrid .expiry-opt-card').forEach(c => {
+            c.classList.remove('selected-expiry');
+        });
+        if (cardEl) cardEl.classList.add('selected-expiry');
+
+        const customContainer = document.getElementById('customHoursInputContainer');
+        const hiddenHoursInput = document.getElementById('selectedDefaultExpiryHours');
+        const customInput = document.getElementById('customExpiryHoursInput');
+
+        if (hours === 'custom') {
+            if (customContainer) customContainer.classList.remove('d-none');
+            const customVal = customInput ? (parseInt(customInput.value) || 48) : 48;
+            if (hiddenHoursInput) hiddenHoursInput.value = customVal;
+            if (customInput) customInput.focus();
+            updateExpiryLivePreview(customVal);
+        } else {
+            if (customContainer) customContainer.classList.add('d-none');
+            if (hiddenHoursInput) hiddenHoursInput.value = hours;
+            if (customInput) customInput.value = hours;
+            updateExpiryLivePreview(hours);
+        }
+    }
+
+    function onCustomHoursInput(val) {
+        const hours = parseInt(val) || 48;
+        const hiddenHoursInput = document.getElementById('selectedDefaultExpiryHours');
+        if (hiddenHoursInput) hiddenHoursInput.value = hours;
+        updateExpiryLivePreview(hours);
+    }
+
+    function resetInqSettingsToDefault() {
+        const card48 = document.querySelector('#expiryOptionsGrid .expiry-opt-card[data-hours="48"]');
+        selectExpiryOption(48, card48);
+        const switchEl = document.getElementById('allowCustomExpirySwitch');
+        if (switchEl) switchEl.checked = true;
+    }
+
+    function saveInquirySettings(e) {
+        e.preventDefault();
+        const form = document.getElementById('inquirySettingsForm');
+        const btn = document.getElementById('saveInqSettingsBtn');
+        const hoursInput = document.getElementById('selectedDefaultExpiryHours');
+        const allowCustomSwitch = document.getElementById('allowCustomExpirySwitch');
+
+        const hours = parseInt(hoursInput ? hoursInput.value : 48) || 48;
+        const allowCustom = (allowCustomSwitch && allowCustomSwitch.checked) ? '1' : '0';
+
+        if (hours < 1 || hours > 720) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Invalid Duration',
+                text: 'Expiration period must be between 1 and 720 hours (up to 30 days).'
+            });
+            return;
+        }
+
+        const originalBtnHtml = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span> Saving Settings...';
+
+        const fd = new FormData();
+        fd.append('action', 'save_inquiry_settings');
+        fd.append('default_expiry_hours', hours);
+        fd.append('allow_custom_expiry', allowCustom);
+        fd.append('csrf_token', CSRF_TOKEN);
+
+        fetch('process/process.php', {
+            method: 'POST',
+            body: fd
+        })
+        .then(r => r.json())
+        .then(res => {
+            btn.disabled = false;
+            btn.innerHTML = originalBtnHtml;
+
+            if (res.status === 'success') {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Settings Saved',
+                    text: res.message,
+                    timer: 2000,
+                    showConfirmButton: false
+                });
+
+                // Close Settings Modal
+                const settingsModalEl = document.getElementById('inquirySettingsModal');
+                if (settingsModalEl) {
+                    const inst = bootstrap.Modal.getInstance(settingsModalEl);
+                    if (inst) inst.hide();
+                }
+
+                // Update summary badge
+                const activeBadge = document.getElementById('activeSettingSummaryBadge');
+                if (activeBadge) activeBadge.innerText = `${hours}h Default`;
+
+                // Update New Inquiry Modal select dropdown
+                const modalSelect = document.getElementById('inqValidityDuration');
+                if (modalSelect) {
+                    let optionExists = false;
+                    for (let opt of modalSelect.options) {
+                        if (opt.value === String(hours)) {
+                            opt.selected = true;
+                            optionExists = true;
+                        }
+                    }
+                    if (!optionExists && hours > 0) {
+                        const newOpt = new Option(`${hours} Hours (Configured Default)`, String(hours), true, true);
+                        modalSelect.add(newOpt, 2);
+                    }
+
+                    // Update custom option visibility according to allowCustom
+                    let customOpt = modalSelect.querySelector('option[value="custom"]');
+                    if (allowCustom === '1') {
+                        if (!customOpt) {
+                            modalSelect.add(new Option('Custom Date & Time...', 'custom'));
+                        }
+                    } else {
+                        if (customOpt) customOpt.remove();
+                        const customWrap = document.getElementById('customExpiryWrapper');
+                        if (customWrap) customWrap.classList.add('d-none');
+                    }
+                }
+            } else {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Failed to Save',
+                    text: res.message || 'Unable to save settings.'
+                });
+            }
+        })
+        .catch(err => {
+            btn.disabled = false;
+            btn.innerHTML = originalBtnHtml;
+            Swal.fire({
+                icon: 'error',
+                title: 'Network Error',
+                text: 'Failed to reach the server. Please check your connection.'
+            });
+        });
+    }
+
+    // =========================================================================
     // MODAL LIFECYCLE MANAGEMENT (per cims-modal-ajax-handler standard)
     // =========================================================================
     document.addEventListener('DOMContentLoaded', function () {
+        const inqSettingsModalEl = document.getElementById('inquirySettingsModal');
+        if (inqSettingsModalEl) {
+            inqSettingsModalEl.addEventListener('shown.bs.modal', function () {
+                const activeHours = document.getElementById('selectedDefaultExpiryHours');
+                if (activeHours) updateExpiryLivePreview(activeHours.value);
+            });
+        }
+
         const newInquiryModalEl = document.getElementById('newInquiryModal');
         if (newInquiryModalEl) {
             // 1. Accessibility: Auto-focus the first editable input when opened
@@ -1573,6 +2076,15 @@ include 'layout/header.php';
                 }
                 const destInput = document.getElementById('inqDestination');
                 if (destInput) destInput.value = 'Central Warehouse (Main Storage)';
+
+                // Reset expiration validity controls using active configured default
+                const defaultHoursConfig = '<?= $defaultExpiryHours ?>';
+                const validitySelect = document.getElementById('inqValidityDuration');
+                if (validitySelect) validitySelect.value = defaultHoursConfig;
+                const customExpiryWrap = document.getElementById('customExpiryWrapper');
+                if (customExpiryWrap) customExpiryWrap.classList.add('d-none');
+                const customInput = document.getElementById('inqCustomExpiry');
+                if (customInput) customInput.required = false;
             });
         }
 
