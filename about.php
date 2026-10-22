@@ -8,128 +8,163 @@ if ($is_logged_in) {
     include 'layout/header.php';
 } else {
     ?>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>About The Medyas — GB Inventory System</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-    <!-- Google Font: Inter -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="assets/css/style.css">
-    <link rel="stylesheet" href="assets/css/custom.css">
-    <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f4f7f6;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            overflow: auto !important;
-            height: auto !important;
-        }
-        .guest-navbar {
-            background-color: #ffffff;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-            border-bottom: 1px solid #e0e4e8;
-            padding-top: max(12px, calc(env(safe-area-inset-top, 0px) + 8px));
-            padding-bottom: 12px;
-            padding-left: max(20px, calc(env(safe-area-inset-left, 0px) + 15px));
-            padding-right: max(20px, calc(env(safe-area-inset-right, 0px) + 15px));
-        }
-    </style>
-</head>
-<body>
-    <nav class="navbar guest-navbar">
-        <div class="container d-flex justify-content-between align-items-center">
-            <a class="navbar-brand fw-bold text-dark d-flex align-items-center m-0" href="login" style="text-decoration: none;">
-                <img src="assets/LogoGB.png" alt="GB Logo" class="me-2" style="height: 32px; width: auto; object-fit: contain;">
-                <span style="font-size: 1.15rem; font-weight: 700; letter-spacing: -0.5px;">GB Inventory</span>
-            </a>
-            <a href="login" class="btn btn-outline-primary fw-bold d-flex align-items-center gap-2 px-3 py-2" style="border-radius: 8px; font-size: 0.9rem;">
-                <i class="bi bi-box-arrow-in-right"></i> Sign In
-            </a>
-        </div>
-    </nav>
-    <?php
+    <!DOCTYPE html>
+    <html lang="en">
+
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport"
+            content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+        <title>About The Medyas — GB Inventory System</title>
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+        <!-- Google Font: Inter -->
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
+            rel="stylesheet">
+        <link rel="stylesheet" href="assets/css/style.css">
+        <link rel="stylesheet" href="assets/css/custom.css">
+        <style>
+            body {
+                font-family: 'Inter', sans-serif;
+                background-color: #f4f7f6;
+                min-height: 100vh;
+                display: flex;
+                flex-direction: column;
+                overflow: auto !important;
+                height: auto !important;
+            }
+
+            .guest-navbar {
+                background-color: #ffffff;
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+                border-bottom: 1px solid #e0e4e8;
+                padding-top: max(12px, calc(env(safe-area-inset-top, 0px) + 8px));
+                padding-bottom: 12px;
+                padding-left: max(20px, calc(env(safe-area-inset-left, 0px) + 15px));
+                padding-right: max(20px, calc(env(safe-area-inset-right, 0px) + 15px));
+            }
+        </style>
+    </head>
+
+    <body>
+        <nav class="navbar guest-navbar">
+            <div class="container d-flex justify-content-between align-items-center">
+                <a class="navbar-brand fw-bold text-dark d-flex align-items-center m-0" href="login"
+                    style="text-decoration: none;">
+                    <img src="assets/LogoGB.png" alt="GB Logo" class="me-2"
+                        style="height: 32px; width: auto; object-fit: contain;">
+                    <span style="font-size: 1.15rem; font-weight: 700; letter-spacing: -0.5px;">GB Inventory</span>
+                </a>
+                <a href="login" class="btn btn-outline-primary fw-bold d-flex align-items-center gap-2 px-3 py-2"
+                    style="border-radius: 8px; font-size: 0.9rem;">
+                    <i class="bi bi-box-arrow-in-right"></i> Sign In
+                </a>
+            </div>
+        </nav>
+        <?php
 }
 ?>
 
-<?php
-if ($is_logged_in) {
-    echo '<div class="container-fluid px-3 px-md-4 py-4">';
-} else {
-    echo '<div class="container py-5 flex-grow-1 d-flex flex-column justify-content-center">';
-}
-?>
-    <div class="card border-0 shadow-sm p-4 p-md-5 bg-white text-center mb-4" style="border-top: 5px solid var(--gb-yellow) !important;">
+    <?php
+    if ($is_logged_in) {
+        echo '<div class="container-fluid px-3 px-md-4 py-4">';
+    } else {
+        echo '<div class="container py-5 flex-grow-1 d-flex flex-column justify-content-center">';
+    }
+    ?>
+    <div class="card border-0 shadow-sm p-4 p-md-5 bg-white text-center mb-4"
+        style="border-top: 5px solid var(--gb-yellow) !important;">
 
         <!-- Two Logos Placeholder (Replace src attributes with your actual logo paths) -->
         <div class="d-flex justify-content-center align-items-center gap-3 gap-md-5 mb-4 px-2">
-            <img src="assets/img/scc_placeholder.png" alt="Logo 1 Placeholder" style="width: 45%; max-width: 220px; height: auto; max-height: 120px; object-fit: contain;">
-            <img src="assets/img/gb_placeholder.png" alt="Logo 2 Placeholder" style="width: 45%; max-width: 220px; height: auto; max-height: 120px; object-fit: contain;">
+            <img src="assets/img/scc_placeholder.png" alt="Logo 1 Placeholder"
+                style="width: 45%; max-width: 220px; height: auto; max-height: 120px; object-fit: contain;">
+            <img src="assets/img/gb_placeholder.png" alt="Logo 2 Placeholder"
+                style="width: 45%; max-width: 220px; height: auto; max-height: 120px; object-fit: contain;">
         </div>
 
         <h1 class="fw-bold text-dark display-5 mb-3">About <span style="color: var(--gb-blue);">The Medyas</span></h1>
         <p class="lead text-muted mb-0 mx-auto" style="max-width: 700px;">
-            We are the dedicated team behind the SiteWare. Our goal is to provide a seamless, efficient, and robust inventory management system for Genetian Builders & Enterprises Inc.
+            We are the dedicated team behind the SiteWare. Our goal is to provide a seamless, efficient, and robust
+            inventory management system for GB Construction & Enterprises Inc.
         </p>
     </div>
 
     <div class="row g-4 justify-content-center mt-5 pt-4">
         <!-- Developer -->
         <div class="col-12 col-md-4 mt-5 mobile-mt">
-            <div class="card h-100 border-0 shadow-sm text-center px-4 pb-4 pt-0 hover-lift" style="border-radius: 15px;">
+            <div class="card h-100 border-0 shadow-sm text-center px-4 pb-4 pt-0 hover-lift"
+                style="border-radius: 15px;">
                 <div class="mb-3" style="margin-top: -60px;">
                     <!-- Replace src with your developer photo -->
-                    <img src="assets/img/dev_photo_placeholder.jpg" alt="Developer Image" class="rounded-circle shadow-sm object-fit-cover" style="width: 140px; height: 140px; border: 4px solid var(--gb-blue); background-color: #f8f9fa;">
+                    <img src="assets/img/dev_photo_placeholder.jpg" alt="Developer Image"
+                        class="rounded-circle shadow-sm object-fit-cover"
+                        style="width: 140px; height: 140px; border: 4px solid var(--gb-blue); background-color: #f8f9fa;">
                 </div>
                 <!-- Replace text inside h3 with the Developer's Name -->
                 <h3 class="fw-bold text-dark mb-1">Angelo Carlo P. Pedrosa</h3>
-                <h6 class="fw-bold mb-2" style="color: var(--gb-blue); letter-spacing: 1px; text-transform: uppercase;">Developer</h6>
-                <p class="text-muted mb-3" style="font-size: 0.9rem;">Architects and builds the core logic, database interactions, and user interface of the Inventory Management System to ensure a high-performance experience.</p>
+                <h6 class="fw-bold mb-2" style="color: var(--gb-blue); letter-spacing: 1px; text-transform: uppercase;">
+                    Developer</h6>
+                <p class="text-muted mb-3" style="font-size: 0.9rem;">Architects and builds the core logic, database
+                    interactions, and user interface of the Inventory Management System to ensure a high-performance
+                    experience.</p>
                 <div class="d-flex justify-content-center gap-3 mt-auto">
-                    <a href="https://www.facebook.com/CarloAE01" target="_blank" class="text-secondary hover-primary transition"><i class="bi bi-facebook fs-4"></i></a>
-                    <a href="https://www.instagram.com/pedrosangelo11" target="_blank" class="text-secondary hover-danger transition"><i class="bi bi-instagram fs-4"></i></a>
+                    <a href="https://www.facebook.com/CarloAE01" target="_blank"
+                        class="text-secondary hover-primary transition"><i class="bi bi-facebook fs-4"></i></a>
+                    <a href="https://www.instagram.com/pedrosangelo11" target="_blank"
+                        class="text-secondary hover-danger transition"><i class="bi bi-instagram fs-4"></i></a>
                 </div>
             </div>
         </div>
 
         <!-- Project Manager -->
         <div class="col-12 col-md-4 mt-5 mobile-mt">
-            <div class="card h-100 border-0 shadow-sm text-center px-4 pb-4 pt-0 hover-lift" style="border-radius: 15px;">
+            <div class="card h-100 border-0 shadow-sm text-center px-4 pb-4 pt-0 hover-lift"
+                style="border-radius: 15px;">
                 <div class="mb-3" style="margin-top: -60px;">
                     <!-- Replace src with your project manager photo -->
-                    <img src="assets/img/pm_photo_placeholder.jpg" alt="Project Manager Image" class="rounded-circle shadow-sm object-fit-cover" style="width: 140px; height: 140px; border: 4px solid var(--gb-dark); background-color: #f8f9fa;">
+                    <img src="assets/img/pm_photo_placeholder.jpg" alt="Project Manager Image"
+                        class="rounded-circle shadow-sm object-fit-cover"
+                        style="width: 140px; height: 140px; border: 4px solid var(--gb-dark); background-color: #f8f9fa;">
                 </div>
                 <!-- Replace text inside h3 with the Project Manager's Name -->
                 <h3 class="fw-bold text-dark mb-1">Jahzeel James A. Jakosalem</h3>
-                <h6 class="fw-bold text-dark mb-2" style="letter-spacing: 1px; text-transform: uppercase;">Project Manager</h6>
-                <p class="text-muted mb-3" style="font-size: 0.9rem;">Oversees project progress, ensures requirements are met, and bridges communication between the team and stakeholders to deliver on time.</p>
+                <h6 class="fw-bold text-dark mb-2" style="letter-spacing: 1px; text-transform: uppercase;">Project
+                    Manager</h6>
+                <p class="text-muted mb-3" style="font-size: 0.9rem;">Oversees project progress, ensures requirements
+                    are met, and bridges communication between the team and stakeholders to deliver on time.</p>
                 <div class="d-flex justify-content-center gap-3 mt-auto">
-                    <a href="https://www.facebook.com/jahzeel.jakosalem" target="_blank" class="text-secondary hover-primary transition"><i class="bi bi-facebook fs-4"></i></a>
-                    <a href="https://www.instagram.com/1nonlyjahz" target="_blank" class="text-secondary hover-danger transition"><i class="bi bi-instagram fs-4"></i></a>
+                    <a href="https://www.facebook.com/jahzeel.jakosalem" target="_blank"
+                        class="text-secondary hover-primary transition"><i class="bi bi-facebook fs-4"></i></a>
+                    <a href="https://www.instagram.com/1nonlyjahz" target="_blank"
+                        class="text-secondary hover-danger transition"><i class="bi bi-instagram fs-4"></i></a>
                 </div>
             </div>
         </div>
 
         <!-- Quality Assurance -->
         <div class="col-12 col-md-4 mt-5 mobile-mt">
-            <div class="card h-100 border-0 shadow-sm text-center px-4 pb-4 pt-0 hover-lift" style="border-radius: 15px;">
+            <div class="card h-100 border-0 shadow-sm text-center px-4 pb-4 pt-0 hover-lift"
+                style="border-radius: 15px;">
                 <div class="mb-3" style="margin-top: -60px;">
                     <!-- Replace src with your QA photo -->
-                    <img src="assets/img/qa_photo_placeholder.jpg" alt="Quality Assurance Image" class="rounded-circle shadow-sm object-fit-cover" style="width: 140px; height: 140px; border: 4px solid var(--gb-yellow); background-color: #f8f9fa;">
+                    <img src="assets/img/qa_photo_placeholder.jpg" alt="Quality Assurance Image"
+                        class="rounded-circle shadow-sm object-fit-cover"
+                        style="width: 140px; height: 140px; border: 4px solid var(--gb-yellow); background-color: #f8f9fa;">
                 </div>
                 <!-- Replace text inside h3 with the QA's Name -->
                 <h3 class="fw-bold text-dark mb-1">LJ D. Caballero</h3>
-                <h6 class="fw-bold mb-2" style="color: #d39e00; letter-spacing: 1px; text-transform: uppercase;">Quality Assurance</h6>
-                <p class="text-muted mb-3" style="font-size: 1rem; font-weight: bold;">"Differences in graphics, but one person behind it, representing his personality"</p>
-                <p class="text-muted mb-3" style="font-size: 0.9rem;">Rigorously tests system functionalities, catches bugs, and verifies that the software meets quality standards before deployment.</p>
+                <h6 class="fw-bold mb-2" style="color: #d39e00; letter-spacing: 1px; text-transform: uppercase;">Quality
+                    Assurance</h6>
+                <p class="text-muted mb-3" style="font-size: 1rem; font-weight: bold;">"Differences in graphics, but one
+                    person behind it, representing his personality"</p>
+                <p class="text-muted mb-3" style="font-size: 0.9rem;">Rigorously tests system functionalities, catches
+                    bugs, and verifies that the software meets quality standards before deployment.</p>
                 <div class="d-flex justify-content-center gap-3 mt-auto">
-                    <a href="https://www.facebook.com/LjayCute09" target="_blank" class="text-secondary hover-primary transition"><i class="bi bi-facebook fs-4"></i></a>
-                    <a href="https://www.instagram.com/itsljayyyyyyy" target="_blank" class="text-secondary hover-danger transition"><i class="bi bi-instagram fs-4"></i></a>
+                    <a href="https://www.facebook.com/LjayCute09" target="_blank"
+                        class="text-secondary hover-primary transition"><i class="bi bi-facebook fs-4"></i></a>
+                    <a href="https://www.instagram.com/itsljayyyyyyy" target="_blank"
+                        class="text-secondary hover-danger transition"><i class="bi bi-instagram fs-4"></i></a>
                 </div>
             </div>
         </div>
@@ -152,24 +187,26 @@ if ($is_logged_in) {
             }
         }
     </style>
-</div>
+    </div>
 
-<?php
-if ($is_logged_in) {
-    include 'layout/footer.php';
-} else {
-    ?>
-    <!-- Footer for Guest -->
-    <footer class="bg-white py-4 mt-auto border-top">
-        <div class="container text-center text-muted small">
-            <span class="fw-bold">Copyright &copy; <?= date('Y') ?> Genetian Builders & Enterprises Inc.</span>
-            <span style="opacity: 0.8;"> | Powered by <a href="about" class="text-decoration-none fw-bold" style="color: var(--gb-blue);">The Medyas</a> &bull; Capstone Project</span>
-        </div>
-    </footer>
-    
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-</body>
-</html>
     <?php
-}
-?>
+    if ($is_logged_in) {
+        include 'layout/footer.php';
+    } else {
+        ?>
+        <!-- Footer for Guest -->
+        <footer class="bg-white py-4 mt-auto border-top">
+            <div class="container text-center text-muted small">
+                <span class="fw-bold">Copyright &copy; <?= date('Y') ?> Genetian Builders & Enterprises Inc.</span>
+                <span style="opacity: 0.8;"> | Powered by <a href="about" class="text-decoration-none fw-bold"
+                        style="color: var(--gb-blue);">The Medyas</a> &bull; Capstone Project</span>
+            </div>
+        </footer>
+
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    </body>
+
+    </html>
+    <?php
+    }
+    ?>
