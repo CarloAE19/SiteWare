@@ -39,6 +39,234 @@ try {
     // Database connection or table issue
 }
 
+// Helper to polish Executive Summary into an executive briefing container
+function polishSummaryHtmlPhp($html) {
+    if (empty($html)) return '';
+    if (strpos($html, 'cims-summary-container') !== false) return $html;
+
+    $date = date('F d, Y');
+    if (preg_match('/(?:Analysis Date:\s*|<strong>Analysis Date:<\/strong>\s*)([^<]+)/i', $html, $m)) {
+        $date = trim($m[1]);
+    }
+
+    $narrative = preg_replace('/<div[^>]*>.*?Analysis Date.*?<\/div>/is', '', $html);
+    $narrative = preg_replace('/<\/?p[^>]*>/i', '', $narrative);
+    $narrative = trim($narrative);
+
+    $hasRisk = preg_match('/stockout|critical|deplet|urgenc/i', $narrative);
+    $statusPill = $hasRisk 
+        ? '<span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-2 py-1" style="font-size: 0.72rem;"><i class="bi bi-shield-exclamation me-1"></i>Replenishment Flagged</span>'
+        : '<span class="badge bg-success-subtle text-success-emphasis border border-success-subtle px-2 py-1" style="font-size: 0.72rem;"><i class="bi bi-shield-check me-1"></i>Operations Healthy</span>';
+
+    $out = '<div class="cims-summary-container">';
+    $out .= '  <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 pb-2 mb-2 border-bottom">';
+    $out .= '    <span class="badge bg-light text-dark border px-2 py-1" style="font-size: 0.75rem;"><i class="bi bi-calendar3 text-primary me-1"></i> ' . htmlspecialchars($date, ENT_QUOTES, 'UTF-8') . '</span>';
+    $out .= '    ' . $statusPill;
+    $out .= '  </div>';
+    
+    $out .= '  <div class="p-3 rounded-3 bg-light-subtle border shadow-none mb-2">';
+    $out .= '    <div class="d-flex align-items-start gap-2">';
+    $out .= '      <div class="rounded-circle bg-primary-subtle text-primary p-1 d-flex align-items-center justify-content-center flex-shrink-0 mt-0.5" style="width: 24px; height: 24px;"><i class="bi bi-lightning-charge-fill" style="font-size: 0.75rem;"></i></div>';
+    $out .= '      <div class="flex-grow-1 text-dark" style="font-size: 0.86rem; line-height: 1.65;">' . $narrative . '</div>';
+    $out .= '    </div>';
+    $out .= '  </div>';
+
+    $out .= '  <div class="d-flex flex-wrap gap-1 mt-2 pt-1">';
+    $out .= '    <span class="badge bg-body-secondary text-secondary border px-2 py-1" style="font-size: 0.7rem;"><i class="bi bi-check2-circle text-success me-1"></i>Velocity Active</span>';
+    $out .= '    <span class="badge bg-body-secondary text-secondary border px-2 py-1" style="font-size: 0.7rem;"><i class="bi bi-geo-alt text-primary me-1"></i>Site Allocation Monitored</span>';
+    $out .= '    <span class="badge bg-body-secondary text-secondary border px-2 py-1" style="font-size: 0.7rem;"><i class="bi bi-clock-history text-info me-1"></i>Runway Tracked</span>';
+    $out .= '  </div>';
+    $out .= '</div>';
+
+    return $out;
+}
+
+// Helper to polish Strategic Directives into modern interactive cards
+function polishActionsHtmlPhp($html) {
+    if (empty($html)) return '';
+    if (strpos($html, 'cims-directives-container') !== false) return $html;
+
+    preg_match_all('/<li[^>]*>(.*?)<\/li>/is', $html, $matches);
+    if (empty($matches[1])) {
+        $lines = preg_split('/\n+/', strip_tags($html));
+        $items = [];
+        foreach ($lines as $line) {
+            $line = trim($line);
+            if (preg_match('/^\d+\.\s*(.+)$/', $line, $lm)) {
+                $items[] = $lm[1];
+            }
+        }
+        if (!empty($items)) {
+            $matches[1] = $items;
+        }
+    }
+
+    if (empty($matches[1])) {
+        return $html;
+    }
+
+    $out = '<div class="cims-directives-container d-flex flex-column gap-2">';
+    $index = 1;
+
+    foreach ($matches[1] as $itemText) {
+        $itemText = trim($itemText);
+        if (empty($itemText)) continue;
+
+        $itemText = preg_replace('/^\d+\.\s*/', '', $itemText);
+
+        $title = '';
+        $desc = $itemText;
+        if (preg_match('/^(?:<strong>|<b[^>]*>|<b>)?(.*?)(?:<\/strong>|<\/b>)?:\s*(.*)$/is', $itemText, $tm)) {
+            $title = strip_tags($tm[1]);
+            $desc = $tm[2];
+        }
+
+        $lower = strtolower($title . ' ' . $desc);
+        if (strpos($lower, 'critical') !== false || strpos($lower, 'stockout') !== false || strpos($lower, 'fast-track') !== false || strpos($lower, 'urgent') !== false) {
+            $badgeBg = 'bg-danger-subtle text-danger border-danger-subtle';
+            $numBg = 'bg-danger text-white';
+            $categoryLabel = 'Critical Restock';
+        } elseif (strpos($lower, 'project') !== false || strpos($lower, 'coordination') !== false || strpos($lower, 'audit') !== false) {
+            $badgeBg = 'bg-primary-subtle text-primary border-primary-subtle';
+            $numBg = 'bg-primary text-white';
+            $categoryLabel = 'Project Coordination';
+        } elseif (strpos($lower, 'requisition') !== false || strpos($lower, 'warehouse') !== false || strpos($lower, 'approv') !== false) {
+            $badgeBg = 'bg-warning-subtle text-warning-emphasis border-warning-subtle';
+            $numBg = 'bg-warning text-dark';
+            $categoryLabel = 'Requisition Approval';
+        } else {
+            $badgeBg = 'bg-info-subtle text-info-emphasis border-info-subtle';
+            $numBg = 'bg-info text-dark';
+            $categoryLabel = 'Operational Directive';
+        }
+
+        $out .= '<div class="card border mb-2 p-2.5 rounded-3 shadow-none cims-directive-card">';
+        $out .= '  <div class="d-flex align-items-start gap-2">';
+        $out .= '    <span class="badge rounded-circle ' . $numBg . ' fw-bold flex-shrink-0 d-flex align-items-center justify-content-center mt-0.5" style="width: 22px; height: 22px; font-size: 0.72rem;">' . $index . '</span>';
+        $out .= '    <div class="flex-grow-1">';
+        $out .= '      <div class="d-flex align-items-center justify-content-between mb-1 gap-2 flex-wrap">';
+        if ($title) {
+            $out .= '        <span class="fw-bold text-dark" style="font-size: 0.84rem;">' . htmlspecialchars($title, ENT_QUOTES, 'UTF-8') . '</span>';
+        }
+        $out .= '        <span class="badge ' . $badgeBg . ' border px-2 py-0.5" style="font-size: 0.66rem;">' . $categoryLabel . '</span>';
+        $out .= '      </div>';
+        $out .= '      <div class="text-secondary" style="font-size: 0.82rem; line-height: 1.55;">' . $desc . '</div>';
+        $out .= '    </div>';
+        $out .= '  </div>';
+        $out .= '</div>';
+
+        $index++;
+    }
+
+    $out .= '</div>';
+    return $out;
+}
+
+// Helper to clean tables according to Option B (remove Daily Burn, remove Total Units Drawn, rename Forecast Runway)
+function cleanOptionBTablesPhp($html) {
+    if (empty($html)) return $html;
+
+    $html = str_ireplace('<th>Forecast Runway</th>', '<th>Estimated Days Left</th>', $html);
+
+    if (stripos($html, '<th>Daily Burn</th>') !== false) {
+        $html = str_ireplace('<th>Daily Burn</th>', '', $html);
+
+        $html = preg_replace_callback('/(<div class="card[^>]*>[\s\S]*?Frequent Materials[\s\S]*?<tbody>)([\s\S]*?)(<\/tbody>)/i', function($cardMatch) {
+            $tbody = $cardMatch[2];
+            $tbody = preg_replace_callback('/<tr>([\s\S]*?)<\/tr>/i', function($trMatch) {
+                preg_match_all('/<td\b[^>]*>[\s\S]*?<\/td>/i', $trMatch[1], $tds);
+                if (count($tds[0]) === 6) {
+                    unset($tds[0][3]);
+                    return "<tr>\n            " . implode("\n            ", $tds[0]) . "\n          </tr>";
+                }
+                return $trMatch[0];
+            }, $tbody);
+            return $cardMatch[1] . $tbody . $cardMatch[3];
+        }, $html);
+    }
+
+    if (stripos($html, '<th>Total Units Drawn</th>') !== false) {
+        $html = str_ireplace('<th>Total Units Drawn</th>', '', $html);
+
+        $html = preg_replace_callback('/(<div class="card[^>]*>[\s\S]*?Project Sites[\s\S]*?<tbody>)([\s\S]*?)(<\/tbody>)/i', function($cardMatch) {
+            $tbody = $cardMatch[2];
+            $tbody = preg_replace_callback('/<tr>([\s\S]*?)<\/tr>/i', function($trMatch) {
+                preg_match_all('/<td\b[^>]*>[\s\S]*?<\/td>/i', $trMatch[1], $tds);
+                if (count($tds[0]) === 6) {
+                    unset($tds[0][2]);
+                    return "<tr>\n            " . implode("\n            ", $tds[0]) . "\n          </tr>";
+                }
+                return $trMatch[0];
+            }, $tbody);
+            return $cardMatch[1] . $tbody . $cardMatch[3];
+        }, $html);
+    }
+
+    return $html;
+}
+
+// Helper to parse AI report sections into Executive Summary, Strategic Actions, and Detailed Analytics
+function parseAiAnalyticsSections($rawHtml) {
+    $summary = '';
+    $actions = '';
+    $analytics = $rawHtml ?? '';
+
+    // 1. Try comment delimiters first
+    if (preg_match('/<!--\s*===\s*EXECUTIVE_SUMMARY_START\s*===\s*-->(.*?)<!--\s*===\s*EXECUTIVE_SUMMARY_END\s*===\s*-->/is', $rawHtml, $m)) {
+        $summary = trim($m[1]);
+    }
+    if (preg_match('/<!--\s*===\s*STRATEGIC_ACTIONS_START\s*===\s*-->(.*?)<!--\s*===\s*STRATEGIC_ACTIONS_END\s*===\s*-->/is', $rawHtml, $m)) {
+        $actions = trim($m[1]);
+    }
+    if (preg_match('/<!--\s*===\s*DETAILED_ANALYTICS_START\s*===\s*-->(.*?)<!--\s*===\s*DETAILED_ANALYTICS_END\s*===\s*-->/is', $rawHtml, $m)) {
+        $analytics = trim($m[1]);
+    } else {
+        // Defensively strip summary and actions so they never leak into the bottom container
+        $analytics = preg_replace('/<!--\s*===\s*EXECUTIVE_SUMMARY_START\s*===\s*-->[\s\S]*?<!--\s*===\s*EXECUTIVE_SUMMARY_END\s*===\s*-->/is', '', $analytics);
+        $analytics = preg_replace('/<!--\s*===\s*STRATEGIC_ACTIONS_START\s*===\s*-->[\s\S]*?<!--\s*===\s*STRATEGIC_ACTIONS_END\s*===\s*-->/is', '', $analytics);
+        $analytics = preg_replace('/<!--\s*===\s*DETAILED_ANALYTICS_START\s*===\s*-->/is', '', $analytics);
+        $analytics = preg_replace('/<!--\s*===\s*DETAILED_ANALYTICS_END\s*===\s*-->/is', '', $analytics);
+    }
+
+    // 2. Fallback: Extract from full card structures if delimiters were omitted or for legacy stored predictions
+    if (empty($summary) && preg_match('/<div class="card[^>]*>.*?Executive Operational.*?<div class="card-body[^>]*>(.*?)<\/div>\s*<\/div>/is', $rawHtml, $m)) {
+        $summary = trim($m[1]);
+        $analytics = preg_replace('/<div class="card[^>]*>.*?Executive Operational.*?<\/div>\s*<\/div>/is', '', $analytics);
+    }
+    if (empty($actions) && preg_match('/<div class="card[^>]*>.*?Strategic Action Items.*?<div class="card-body[^>]*>(.*?)<\/div>\s*<\/div>/is', $rawHtml, $m)) {
+        $actions = trim($m[1]);
+        $analytics = preg_replace('/<div class="card[^>]*>.*?Strategic Action Items.*?<\/div>\s*<\/div>/is', '', $analytics);
+    }
+
+    return [
+        'summary' => polishSummaryHtmlPhp($summary),
+        'actions' => polishActionsHtmlPhp($actions),
+        'analytics' => cleanOptionBTablesPhp(trim($analytics))
+    ];
+}
+
+// Helper to wrap entity codes (PO, RS, ITM) in interactive modal buttons
+function formatInteractiveEntitiesPhp($text) {
+    if (empty($text)) return '';
+    $text = preg_replace('/\bITM\s+(\d+)\b/i', 'ITM-$1', $text);
+    $text = preg_replace('/\bPO\s+(\d+)\b/i', 'PO-$1', $text);
+    $text = preg_replace('/\bRS\s+(\d+)\b/i', 'RS-$1', $text);
+    $text = preg_replace('/\*\*(.*?)\*\*/', '<strong>$1</strong>', $text);
+    $text = preg_replace_callback('/(?:<button[^>]*>)?\b(PO-(?:\d{4,8}-\d+|\d+))\b(?:<\/button>)?/', function($m) {
+        $code = htmlspecialchars($m[1], ENT_QUOTES, 'UTF-8');
+        return '<button type="button" class="btn btn-xs btn-outline-primary fw-bold text-nowrap py-0 px-2 shadow-none entity-btn" style="font-size: 0.76rem; border-radius: 6px;" onclick="if(typeof openPoDetailsModal===\'function\'){openPoDetailsModal(null,\''.$code.'\')}else{window.location.href=\'po?highlight='.$code.'\'}" title="View Purchase Order Details"><i class="bi bi-receipt me-1"></i>'.$code.'</button>';
+    }, $text);
+    $text = preg_replace_callback('/(?:<button[^>]*>)?\b(RS-(?:\d{4}-\d+|\d+))\b(?:<\/button>)?/', function($m) {
+        $code = htmlspecialchars($m[1], ENT_QUOTES, 'UTF-8');
+        return '<button type="button" class="btn btn-xs btn-outline-info fw-bold text-nowrap py-0 px-2 shadow-none entity-btn" style="font-size: 0.76rem; border-radius: 6px;" onclick="if(typeof openRequisitionModal===\'function\'){openRequisitionModal(null,\''.$code.'\')}else{window.location.href=\'requisition?highlight='.$code.'\'}" title="View Requisition Details"><i class="bi bi-file-earmark-text me-1"></i>'.$code.'</button>';
+    }, $text);
+    $text = preg_replace_callback('/(?:<button[^>]*>)?\b(ITM-\d+)\b(?:<\/button>)?/', function($m) {
+        $code = htmlspecialchars($m[1], ENT_QUOTES, 'UTF-8');
+        return '<button type="button" class="btn btn-xs btn-outline-success fw-bold text-nowrap py-0 px-2 shadow-none entity-btn" style="font-size: 0.76rem; border-radius: 6px;" onclick="if(typeof openItemDetailsModal===\'function\'){openItemDetailsModal(\''.$code.'\')}else{window.location.href=\'inventory?highlight='.$code.'\'}" title="View Inventory Details"><i class="bi bi-box-seam me-1"></i>'.$code.'</button>';
+    }, $text);
+    return $text;
+}
+
 // Handle AJAX Generate Request
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['action']) && $_GET['action'] === 'generate_ai_report') {
     ini_set('display_errors', 0);
@@ -79,16 +307,97 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['action']) && $_GET['ac
             LIMIT 5
         ")->fetchAll(PDO::FETCH_ASSOC);
 
-        // 2. Project Demand Draw (Top projects by requisition volume)
-        $projectDraw = $pdo->query("
-            SELECT project_name, COUNT(*) as req_count
-            FROM requisitions
-            GROUP BY project_name
-            ORDER BY req_count DESC
-            LIMIT 5
+        // 2. High-Frequency Materials & 30-Day Consumption Velocity
+        $frequentMaterials = $pdo->query("
+            SELECT i.item_code, i.item_name, i.quantity as current_stock, i.unit,
+                   COALESCE(SUM(wi.quantity), 0) as total_withdrawn_30d,
+                   COUNT(DISTINCT w.id) as withdrawal_events,
+                   ROUND(COALESCE(SUM(wi.quantity), 0) / 30, 2) as daily_burn_rate,
+                   CASE 
+                       WHEN i.quantity <= 0 THEN 0
+                       WHEN COALESCE(SUM(wi.quantity), 0) > 0 THEN FLOOR(i.quantity / (SUM(wi.quantity) / 30))
+                       ELSE 999 
+                   END as est_days_left
+            FROM inventory i
+            JOIN withdrawal_items wi ON i.item_code = wi.item_code
+            JOIN withdrawals w ON wi.withdrawal_id = w.id
+            WHERE w.date_withdrawn >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+            GROUP BY i.item_code, i.item_name, i.quantity, i.unit
+            ORDER BY total_withdrawn_30d DESC
+            LIMIT 8
         ")->fetchAll(PDO::FETCH_ASSOC);
 
-        // 3. Purchase Orders & Delivery Timeline (ETAs, Overdue days, Suppliers, Item Count, Spend)
+        // 3. Project Sites Material Consumption & Demand Intelligence
+        $projectWithdrawals = $pdo->query("
+            SELECT w.project_name,
+                   COUNT(DISTINCT w.id) as withdrawal_count,
+                   SUM(wi.quantity) as total_units_withdrawn
+            FROM withdrawals w
+            JOIN withdrawal_items wi ON w.id = wi.withdrawal_id
+            WHERE w.date_withdrawn >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+            GROUP BY w.project_name
+            ORDER BY total_units_withdrawn DESC
+        ")->fetchAll(PDO::FETCH_ASSOC);
+
+        $projectItemUsage = $pdo->query("
+            SELECT w.project_name, i.item_name, i.unit, SUM(wi.quantity) as qty_consumed
+            FROM withdrawal_items wi
+            JOIN withdrawals w ON wi.withdrawal_id = w.id
+            JOIN inventory i ON wi.item_code = i.item_code
+            WHERE w.date_withdrawn >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+            GROUP BY w.project_name, i.item_name, i.unit
+            ORDER BY w.project_name, qty_consumed DESC
+        ")->fetchAll(PDO::FETCH_ASSOC);
+
+        $projectTopItems = [];
+        foreach ($projectItemUsage as $row) {
+            if (!isset($projectTopItems[$row['project_name']])) {
+                $projectTopItems[$row['project_name']] = [];
+            }
+            if (count($projectTopItems[$row['project_name']]) < 3) {
+                $projectTopItems[$row['project_name']][] = $row['item_name'] . " (" . $row['qty_consumed'] . " " . $row['unit'] . ")";
+            }
+        }
+
+        $projectOpenReqs = $pdo->query("
+            SELECT project_name, COUNT(id) as pending_reqs
+            FROM requisitions
+            WHERE status IN ('Pending Approval', 'Approved')
+            GROUP BY project_name
+        ")->fetchAll(PDO::FETCH_KEY_PAIR);
+
+        $projectSitesIntelligence = [];
+        foreach ($projectWithdrawals as $pw) {
+            $pName = $pw['project_name'];
+            $projectSitesIntelligence[] = [
+                'project_name' => $pName,
+                'withdrawal_count' => (int)$pw['withdrawal_count'],
+                'total_units_withdrawn' => (int)$pw['total_units_withdrawn'],
+                'dominant_materials' => isset($projectTopItems[$pName]) ? implode(', ', $projectTopItems[$pName]) : 'None',
+                'active_open_requisitions' => (int)($projectOpenReqs[$pName] ?? 0)
+            ];
+        }
+
+        foreach ($projectOpenReqs as $pName => $openCount) {
+            $alreadyIncluded = false;
+            foreach ($projectSitesIntelligence as $pEntry) {
+                if ($pEntry['project_name'] === $pName) {
+                    $alreadyIncluded = true;
+                    break;
+                }
+            }
+            if (!$alreadyIncluded) {
+                $projectSitesIntelligence[] = [
+                    'project_name' => $pName,
+                    'withdrawal_count' => 0,
+                    'total_units_withdrawn' => 0,
+                    'dominant_materials' => 'No recent withdrawals',
+                    'active_open_requisitions' => (int)$openCount
+                ];
+            }
+        }
+
+        // 4. Purchase Orders & Delivery Timeline (ETAs, Overdue days, Suppliers, Item Count, Spend)
         $poPipeline = $pdo->query("
             SELECT p.po_no, s.company_name as supplier, p.status, p.expected_delivery_date,
                    DATEDIFF(p.expected_delivery_date, CURDATE()) as days_until_delivery,
@@ -101,7 +410,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['action']) && $_GET['ac
             LIMIT 8
         ")->fetchAll(PDO::FETCH_ASSOC);
 
-        // 4. Critical Stock & 30-Day Burn Rates
+        // 5. Critical Stock & Low Runway Items
         $criticalStock = $pdo->query("
             SELECT i.item_code, i.item_name, i.quantity as current_stock, i.unit,
                    COALESCE((SELECT SUM(wi.quantity) FROM withdrawal_items wi JOIN withdrawals w ON wi.withdrawal_id = w.id WHERE wi.item_code = i.item_code AND w.date_withdrawn >= DATE_SUB(NOW(), INTERVAL 30 DAY)), 0) as used_30d
@@ -111,46 +420,120 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['action']) && $_GET['ac
             LIMIT 8
         ")->fetchAll(PDO::FETCH_ASSOC);
 
-        // Assemble 360 Operational Intelligence Payload
+        // Assemble 360 Operations & Predictive Material Intelligence Payload
         $payload360 = [
             'analysis_date' => date('F d, Y'),
-            'top_requesting_personnel' => $topRequestors,
-            'top_project_demand' => $projectDraw,
+            'frequent_materials_and_velocity' => $frequentMaterials,
+            'project_sites_material_demand' => $projectSitesIntelligence,
             'purchase_orders_and_deliveries' => $poPipeline,
-            'low_stock_and_consumption' => $criticalStock
+            'critical_and_low_stock' => $criticalStock,
+            'top_requesting_personnel' => $topRequestors
         ];
 
         $roleFocusGuides = [
-            'purchasing' => "ROLE PERSPECTIVE: The logged-in user is a PURCHASING OFFICER. Prioritize procurement intelligence: supplier fulfillment reliability, upcoming & overdue PO deliveries, price spend totals, vendor contact coordination, and urgent reorder recommendations for critical stock.",
-            'management' => "ROLE PERSPECTIVE: The logged-in user is an EXECUTIVE MANAGEMENT LEADER. Prioritize executive decision-making: project cost draw, budget trends, team productivity, team requisition approval bottlenecks needing management sign-off, and strategic project risk mitigation.",
-            'admin' => "ROLE PERSPECTIVE: The logged-in user is the SYSTEM ADMINISTRATOR. Provide a balanced, end-to-end operational briefing covering all cross-department workflows: user request velocities, cross-site project draws, delivery discrepancy tracking, and complete system health."
+            'purchasing' => "ROLE PERSPECTIVE: The logged-in user is a PURCHASING OFFICER. Prioritize procurement intelligence: lead times, high-velocity material reorder thresholds, supplier fulfillment reliability, upcoming & overdue PO deliveries, price spend totals, vendor contact coordination, and urgent reorder recommendations for materials nearing stockout.",
+            'management' => "ROLE PERSPECTIVE: The logged-in user is an EXECUTIVE MANAGEMENT LEADER. Prioritize executive decision-making: cross-site material allocation trends, high-consumption project sites, project delay risks due to material shortages, budget trends, and strategic supply chain mitigation.",
+            'admin' => "ROLE PERSPECTIVE: The logged-in user is the SYSTEM ADMINISTRATOR. Provide a comprehensive, end-to-end operational briefing covering high-frequency material burn rates, stockout forecasts, project site material demand distribution, pending delivery tracking, and overall system health."
         ];
 
         $roleGuide = $roleFocusGuides[$currentUserRole] ?? $roleFocusGuides['admin'];
 
         $today = date('F d, Y');
-        $systemPrompt = "You are the CIMS 360° Operations & Supply Intelligence Suite.
+        $systemPrompt = "You are the CIMS 360° Operations, Predictive Material Forecasting & Supply Intelligence Suite.
 " . $roleGuide . "
-Analyze the live multi-dimensional dataset (Purchase Orders, Requisitions, Top User Requestors, Project Draw, and Inventory Stock).
-Generate an executive-grade operational briefing using the EXACT HTML/Bootstrap 5 structure shown below.
+Analyze the live multi-dimensional dataset (Frequent Materials & Velocity, Project Sites Material Demand, Critical Stock, Purchase Orders & Deliveries, and User Requestors).
+Provide advanced predictive forecasting on material depletion, identify which items are most frequently used, and break down project site demand.
+Generate an executive-grade operational briefing strictly divided into the 3 sections shown below using the EXACT delimiter comments.
 
-MANDATORY TEMPLATE STRUCTURE:
+MANDATORY DELIMITED OUTPUT STRUCTURE:
 
-<!-- CARD 1: Executive Summary -->
+<!-- === EXECUTIVE_SUMMARY_START === -->
+<div class=\"mb-2\"><strong>Analysis Date:</strong> {$today}</div>
+<p class=\"mb-0\">[Write 2-3 concise, high-impact sentences synthesizing overall material velocity, top stockout risks, key project site drivers, and procurement status tailored to the {$currentUserRole} role.]</p>
+<!-- === EXECUTIVE_SUMMARY_END === -->
+
+<!-- === STRATEGIC_ACTIONS_START === -->
+<ol class=\"mb-0 ps-3\">
+  <!-- 4-5 numbered actionable items tailored to {$currentUserRole}:
+       Include specific material codes like **ITM-xxxx**, project names, and PO numbers like **PO-xxxx** or requisition codes **RS-xxxx** where relevant.
+       1. <strong>Predictive Restock / Project Coordination / Lead-time Action:</strong> Specific actionable instruction... -->
+</ol>
+<!-- === STRATEGIC_ACTIONS_END === -->
+
+<!-- === DETAILED_ANALYTICS_START === -->
+<!-- CARD 1: Frequent Materials & Predictive Stockout Forecast -->
 <div class=\"card mb-3 border-0 shadow-sm rounded-3 overflow-hidden\">
   <div class=\"card-header text-white fw-bold py-2 px-3\" style=\"background: #0d6efd;\">
-    <i class=\"bi bi-bar-chart-fill me-2\"></i>Executive Operational Summary
+    <i class=\"bi bi-graph-up-arrow me-2\"></i>Frequent Materials &amp; Predictive Stockout Forecast
   </div>
   <div class=\"card-body p-3 bg-white\">
-    <div class=\"mb-2\"><strong>Analysis Date:</strong> {$today}</div>
-    <p class=\"mb-0\">[Write 2-3 concise sentences synthesizing overall logistics status, active demand, and key risks tailored to the {$currentUserRole} role.]</p>
+    <div class=\"table-responsive\">
+      <table class=\"table table-hover table-sm align-middle mb-2\" style=\"border-top: 2px solid #ffc107;\">
+        <thead class=\"table-light\">
+          <tr>
+            <th>Material Code &amp; Name</th>
+            <th>Current Stock</th>
+            <th>30-Day Consumed</th>
+            <th>Estimated Days Left</th>
+            <th>Depletion Risk</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- Generate a <tr> row for each frequent material in frequent_materials_and_velocity dataset.
+               In Material column: bold the code like **ITM-xxxx** and show name: **ITM-xxxx** - Item Name (Unit).
+               In Estimated Days Left column: show est_days_left (e.g. '14 days' or 'Depleted' if 0 or '>90 days' if 999).
+               In Depletion Risk column:
+               - If est_days_left <= 7: <span class=\"badge bg-danger\">Critical (&lt; 7d)</span>
+               - If est_days_left > 7 AND <= 14: <span class=\"badge bg-warning text-dark\">Urgent (8-14d)</span>
+               - If est_days_left > 14 AND <= 30: <span class=\"badge bg-info text-dark\">Moderate (15-30d)</span>
+               - If est_days_left > 30: <span class=\"badge bg-success\">Stable (&gt; 30d)</span> -->
+        </tbody>
+      </table>
+    </div>
+    <div class=\"small text-muted fst-italic mt-2\">
+      <i class=\"bi bi-info-circle me-1\"></i>[Write 1-2 analytical sentences summarizing the highest-frequency materials used, any sudden burn rate spikes, and estimated dates for impending stockouts.]
+    </div>
   </div>
 </div>
 
-<!-- CARD 2: Procurement & Delivery Pipeline -->
+<!-- CARD 2: Project Sites Material Demand & Consumption Distribution -->
 <div class=\"card mb-3 border-0 shadow-sm rounded-3 overflow-hidden\">
   <div class=\"card-header text-white fw-bold py-2 px-3\" style=\"background: #0d6efd;\">
-    <i class=\"bi bi-truck me-2\"></i>Procurement &amp; Delivery Pipeline
+    <i class=\"bi bi-geo-alt-fill me-2\"></i>Project Sites Material Demand &amp; Allocation
+  </div>
+  <div class=\"card-body p-3 bg-white\">
+    <div class=\"table-responsive\">
+      <table class=\"table table-hover table-sm align-middle mb-2\" style=\"border-top: 2px solid #ffc107;\">
+        <thead class=\"table-light\">
+          <tr>
+            <th>Project Site</th>
+            <th>Withdrawals (30d)</th>
+            <th>Dominant Materials Consumed</th>
+            <th>Open Requisitions</th>
+            <th>Site Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- Generate a <tr> row for each project in project_sites_material_demand dataset.
+               In Project Site column: write project_name in bold.
+               In Open Requisitions column: if active_open_requisitions > 0 show <span class=\"badge bg-warning text-dark\">X Pending</span> else <span class=\"badge bg-light text-muted border\">0</span>.
+               In Site Status column:
+               - If open_requisitions > 0 AND total_units_withdrawn > 0: <span class=\"badge bg-primary\">Active Demand</span>
+               - If total_units_withdrawn == 0 AND open_requisitions > 0: <span class=\"badge bg-warning text-dark\">Awaiting Restock</span>
+               - Else: <span class=\"badge bg-success\">Operating Normally</span> -->
+        </tbody>
+      </table>
+    </div>
+    <div class=\"small text-muted fst-italic mt-2\">
+      <i class=\"bi bi-lightbulb me-1\"></i>[Write 1-2 analytical sentences evaluating project site consumption patterns, cross-site imbalances, and site delay risks.]
+    </div>
+  </div>
+</div>
+
+<!-- CARD 3: Procurement Pipeline & Incoming Deliveries -->
+<div class=\"card mb-3 border-0 shadow-sm rounded-3 overflow-hidden\">
+  <div class=\"card-header text-white fw-bold py-2 px-3\" style=\"background: #0d6efd;\">
+    <i class=\"bi bi-truck me-2\"></i>Procurement Pipeline &amp; Delivery Alignment
   </div>
   <div class=\"card-body p-3 bg-white\">
     <div class=\"table-responsive\">
@@ -165,12 +548,12 @@ MANDATORY TEMPLATE STRUCTURE:
           </tr>
         </thead>
         <tbody>
-          <!-- Generate a <tr> row for each PO in the dataset.
-               In the PO No. column, write the code in bold like **PO-xxxx**.
-               In the Timing column:
-               If days_until_delivery < 0: <span class=\"badge bg-danger\">Overdue X days</span>
-               If days_until_delivery == 0: <span class=\"badge bg-warning text-dark\">Due Today</span>
-               If days_until_delivery > 0: <span class=\"badge bg-success\">In X days</span> -->
+          <!-- Generate a <tr> row for each PO in purchase_orders_and_deliveries.
+               In PO No. column, write code bold like **PO-xxxx**.
+               In Timing column:
+               - If days_until_delivery < 0: <span class=\"badge bg-danger\">Overdue X days</span>
+               - If days_until_delivery == 0: <span class=\"badge bg-warning text-dark\">Due Today</span>
+               - If days_until_delivery > 0: <span class=\"badge bg-success\">In X days</span> -->
         </tbody>
       </table>
     </div>
@@ -181,75 +564,13 @@ MANDATORY TEMPLATE STRUCTURE:
     </div>
   </div>
 </div>
-
-<!-- CARD 3: Requisition Velocity & User Demand -->
-<div class=\"card mb-3 border-0 shadow-sm rounded-3 overflow-hidden\">
-  <div class=\"card-header text-white fw-bold py-2 px-3\" style=\"background: #0d6efd;\">
-    <i class=\"bi bi-people-fill me-2\"></i>Requisition Velocity &amp; User Demand
-  </div>
-  <div class=\"d-flex text-dark fw-bold text-center\" style=\"background: #00d2ff; font-size: 0.85rem;\">
-    <div class=\"w-50 py-2 border-end border-white\">Top Requesting Personnel</div>
-    <div class=\"w-50 py-2\">Top Project Demand</div>
-  </div>
-  <div class=\"card-body p-0 bg-white\">
-    <div class=\"row g-0\">
-      <div class=\"col-md-6 border-end\">
-        <div class=\"table-responsive\">
-          <table class=\"table table-hover table-sm align-middle mb-0\" style=\"border-top: 2px solid #ffc107;\">
-            <thead class=\"table-light\">
-              <tr>
-                <th>Name</th>
-                <th>Role</th>
-                <th>Total Req.</th>
-                <th>Pending</th>
-                <th>Approved</th>
-              </tr>
-            </thead>
-            <tbody>
-              <!-- Generate a <tr> for each top requestor.
-                   Pending: if > 0 <span class=\"badge bg-warning text-dark\">X</span> else <span class=\"badge bg-success\">0</span>
-                   Approved: <span class=\"badge bg-success\">X</span> -->
-            </tbody>
-          </table>
-        </div>
-      </div>
-      <div class=\"col-md-6\">
-        <div class=\"table-responsive\">
-          <table class=\"table table-hover table-sm align-middle mb-0\" style=\"border-top: 2px solid #ffc107;\">
-            <thead class=\"table-light\">
-              <tr>
-                <th>Project</th>
-                <th class=\"text-end\">Req. Count</th>
-              </tr>
-            </thead>
-            <tbody>
-              <!-- Generate a <tr> for each top project.
-                   Req. Count: <span class=\"badge bg-primary\">X</span> -->
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- CARD 4: Strategic Action Items for Today -->
-<div class=\"card mb-3 border-0 shadow-sm rounded-3 overflow-hidden\">
-  <div class=\"card-header text-white fw-bold py-2 px-3\" style=\"background: #0d6efd;\">
-    <i class=\"bi bi-bullseye me-2\"></i>Strategic Action Items for Today
-  </div>
-  <div class=\"card-body p-3 bg-white\">
-    <ol class=\"mb-0 ps-3\">
-      <!-- 4-5 numbered actionable items tailored to {$currentUserRole}:
-           1. <strong>Admin / Purchasing / Warehouse / Project Management:</strong> Action details... -->
-    </ol>
-  </div>
-</div>
+<!-- === DETAILED_ANALYTICS_END === -->
 
 CRITICAL RULES:
-- Output pure HTML matching this exact 4-card structure.
+- Output pure HTML matching this exact 3-section structure delimited by the comments.
 - DO NOT wrap output in markdown code fences (no ```html).
-- Bold entity codes like **PO-xxxx**, **RS-xxxx**, and **ITM-xxxx**.";
+- Bold entity codes like **PO-xxxx**, **RS-xxxx**, and **ITM-xxxx** so they can be converted to interactive links.
+- Strictly ground all predictions and figures on the provided dataset.";
 
         $userMessage = json_encode($payload360, JSON_PRETTY_PRINT);
         $apiKey = trim(AI_API_KEY);
@@ -384,11 +705,15 @@ CRITICAL RULES:
             $stmt->execute(['last_ai_timestamp_' . $currentUserRole, $timestamp, $timestamp]);
             $stmt->execute(['last_ai_timestamp', $timestamp, $timestamp]);
 
+            $parsedOutput = parseAiAnalyticsSections($aiText);
             echo json_encode([
                 'success' => true,
                 'status' => 'success',
                 'message' => 'AI report generated successfully.',
                 'prediction' => $aiText,
+                'summary' => $parsedOutput['summary'],
+                'actions' => $parsedOutput['actions'],
+                'analytics' => $parsedOutput['analytics'],
                 'timestamp' => $timestamp
             ]);
         } else {
@@ -532,9 +857,104 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
     ]);
     exit;
 }
+// Parse stored prediction into Executive Summary, Strategic Actions, and Detailed Analytics
+$parsedPrediction = [
+    'summary' => '',
+    'actions' => '',
+    'analytics' => ''
+];
+if (!empty($lastPrediction)) {
+    $parsed = parseAiAnalyticsSections($lastPrediction);
+    $parsedPrediction = [
+        'summary' => formatInteractiveEntitiesPhp($parsed['summary']),
+        'actions' => formatInteractiveEntitiesPhp($parsed['actions']),
+        'analytics' => formatInteractiveEntitiesPhp($parsed['analytics'])
+    ];
+}
 
 include 'layout/header.php';
 ?>
+
+<style>
+.cims-analytics-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0, 0, 0, 0.18) transparent;
+}
+.cims-analytics-scroll::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+.cims-analytics-scroll::-webkit-scrollbar-track {
+    background: transparent;
+}
+.cims-analytics-scroll::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.16);
+    border-radius: 4px;
+}
+.cims-analytics-scroll::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 0, 0, 0.28);
+}
+[data-bs-theme="dark"] .cims-analytics-scroll {
+    scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+[data-bs-theme="dark"] .cims-analytics-scroll::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+}
+.cims-directive-card {
+    transition: transform 0.18s ease, box-shadow 0.18s ease;
+    border-color: rgba(0, 0, 0, 0.08) !important;
+    background-color: #ffffff;
+}
+.cims-directive-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
+}
+[data-bs-theme="dark"] .cims-directive-card {
+    background-color: #1e2430 !important;
+    border-color: rgba(255, 255, 255, 0.1) !important;
+}
+[data-bs-theme="dark"] .cims-directive-card .text-dark {
+    color: #e6edf3 !important;
+}
+[data-bs-theme="dark"] .cims-directive-card .text-secondary {
+    color: #8b949e !important;
+}
+[data-bs-theme="dark"] .cims-summary-container .text-dark {
+    color: #e6edf3 !important;
+}
+[data-bs-theme="dark"] .cims-summary-container .bg-light-subtle {
+    background-color: rgba(255, 255, 255, 0.03) !important;
+    border-color: #30363d !important;
+}
+@keyframes cimsFadeIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+.cims-fade-in {
+    animation: cimsFadeIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.entity-btn {
+    transition: all 0.15s ease-in-out;
+    vertical-align: baseline;
+    font-size: 0.76rem !important;
+    padding: 0.1rem 0.45rem !important;
+}
+.entity-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.12) !important;
+}
+#topStrategicActionsBox ol {
+    padding-left: 1.15rem;
+    margin-bottom: 0;
+}
+#topStrategicActionsBox ol li {
+    margin-bottom: 0.65rem;
+    line-height: 1.55;
+}
+#topStrategicActionsBox ol li:last-child {
+    margin-bottom: 0;
+}
+</style>
 
 <div class="container-fluid px-3 px-md-4 py-4">
     <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4">
@@ -546,80 +966,30 @@ include 'layout/header.php';
 
     <div class="row mb-4 g-3">
 
-        <!-- INCOMING SUPPLY DELIVERIES & WAREHOUSE ETAS -->
+        <!-- 1. EXECUTIVE OPERATIONAL & MATERIAL FORECAST SUMMARY (Top Left) -->
         <div class="col-12 col-lg-4">
             <div class="card border-0 shadow-sm h-100 rounded-3">
-                <div
-                    class="card-header bg-white fw-bold py-3 text-dark border-bottom-0 d-flex justify-content-between align-items-center">
+                <div class="card-header bg-white fw-bold py-3 text-dark border-bottom-0 d-flex justify-content-between align-items-center">
                     <div>
-                        <i class="bi bi-truck text-primary me-2"></i>Incoming Supply Deliveries & ETAs
+                        <i class="bi bi-bar-chart-fill text-primary me-2"></i>Executive Summary &amp; Forecast
                     </div>
-                    <a href="po" class="btn btn-xs btn-outline-primary fw-bold px-2 py-0"
-                        style="font-size:0.72rem;">View All</a>
+                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1" style="font-size:0.68rem;">AI Briefing</span>
                 </div>
-                <div class="card-body p-3 overflow-auto" style="height: 300px;">
-                    <?php if (count($incomingSupplies) > 0): ?>
-                        <div class="d-flex flex-column gap-2">
-                            <?php foreach ($incomingSupplies as $inPo): ?>
-                                <?php
-                                $etaStr = $inPo['expected_delivery_date'];
-                                $etaBadgeClass = 'bg-secondary';
-                                $etaText = 'ETA Not Set';
-                                $iconClass = 'bi-calendar-event';
-
-                                if (!empty($etaStr)) {
-                                    $daysDiff = (int) ((strtotime($etaStr) - strtotime($todayStr)) / 86400);
-                                    if ($daysDiff == 0) {
-                                        $etaBadgeClass = 'bg-warning text-dark';
-                                        $etaText = 'Arriving TODAY';
-                                        $iconClass = 'bi-truck-flatbed';
-                                    } elseif ($daysDiff < 0) {
-                                        $etaBadgeClass = 'bg-danger';
-                                        $etaText = 'Overdue by ' . abs($daysDiff) . 'd';
-                                        $iconClass = 'bi-exclamation-triangle-fill';
-                                    } else {
-                                        $etaBadgeClass = 'bg-success';
-                                        $etaText = 'In ' . $daysDiff . 'd (' . date('M d', strtotime($etaStr)) . ')';
-                                        $iconClass = 'bi-clock-history';
-                                    }
-                                }
-                                ?>
-                                <div class="p-2 border rounded-3 bg-light d-flex flex-column justify-content-between">
-                                    <div class="d-flex justify-content-between align-items-center mb-1">
-                                        <span class="fw-bold text-primary small"><?= htmlspecialchars($inPo['po_no']) ?></span>
-                                        <span class="badge <?= $etaBadgeClass ?>" style="font-size:0.65rem;">
-                                            <i class="bi <?= $iconClass ?> me-1"></i><?= $etaText ?>
-                                        </span>
-                                    </div>
-                                    <div class="d-flex justify-content-between align-items-center">
-                                        <small class="text-dark fw-semibold" style="font-size:0.78rem;">
-                                            <i
-                                                class="bi bi-building me-1 text-muted"></i><?= htmlspecialchars($inPo['company_name'] ?: 'Supplier') ?>
-                                        </small>
-                                        <?php if (in_array($_SESSION['user_role'], ['admin', 'purchasing'])): ?>
-                                            <button type="button"
-                                                class="btn btn-xs btn-link text-primary p-0 text-decoration-none fw-bold"
-                                                style="font-size:0.72rem;"
-                                                onclick="openEditEtaModal(<?= $inPo['id'] ?>, '<?= $inPo['po_no'] ?>', '<?= $inPo['expected_delivery_date'] ?? '' ?>')">
-                                                <i class="bi bi-pencil-square me-1"></i>ETA
-                                            </button>
-                                        <?php endif; ?>
-                                    </div>
-                                </div>
-                            <?php endforeach; ?>
-                        </div>
+                <div class="card-body p-3 overflow-auto cims-analytics-scroll" id="topExecutiveSummaryBox" style="height: 300px; font-size: 0.88rem; line-height: 1.6;">
+                    <?php if (!empty($parsedPrediction['summary'])): ?>
+                        <?= $parsedPrediction['summary'] ?>
                     <?php else: ?>
                         <div class="text-center text-muted py-5">
-                            <i class="bi bi-truck display-6 opacity-25 d-block mb-2 text-primary"></i>
-                            <p class="small mb-0 fw-semibold">No pending supply deliveries</p>
-                            <small class="text-muted" style="font-size: 0.72rem;">All orders fulfilled!</small>
+                            <i class="bi bi-cpu display-6 opacity-25 d-block mb-2 text-primary"></i>
+                            <p class="small mb-1 fw-semibold">No operational briefing generated yet</p>
+                            <small class="text-muted" style="font-size: 0.72rem;">Click "Analyze Operations Now" below</small>
                         </div>
                     <?php endif; ?>
                 </div>
             </div>
         </div>
 
-        <!-- OVERALL STOCK PIE CHART -->
+        <!-- 2. OVERALL STOCK PIE CHART (Middle - PRESERVED!) -->
         <div class="col-12 col-lg-4">
             <div class="card border-0 shadow-sm h-100 rounded-3">
                 <div class="card-header bg-white fw-bold py-3 text-dark border-bottom-0">
@@ -638,20 +1008,24 @@ include 'layout/header.php';
             </div>
         </div>
 
-        <!-- DAYS LEFT BAR CHART -->
+        <!-- 3. STRATEGIC ACTION ITEMS & PREDICTIVE DIRECTIVES (Top Right) -->
         <div class="col-12 col-lg-4">
             <div class="card border-0 shadow-sm h-100 rounded-3">
-                <div class="card-header bg-white fw-bold py-3 text-dark border-bottom-0">
-                    <i class="bi bi-calendar-x text-danger me-2"></i>Critical Stock Alerts (Days Left)
+                <div class="card-header bg-white fw-bold py-3 text-dark border-bottom-0 d-flex justify-content-between align-items-center">
+                    <div>
+                        <i class="bi bi-bullseye text-danger me-2"></i>Strategic Action Items &amp; Directives
+                    </div>
+                    <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1" style="font-size:0.68rem;">Action Plan</span>
                 </div>
-                <div class="card-body position-relative d-flex justify-content-center align-items-center"
-                    style="height: 300px; width: 100%;">
-                    <?php if (count($daysLeftLabels) > 0): ?>
-                        <canvas id="newDaysLeftChart" style="max-height: 100%; max-width: 100%;"></canvas>
+                <div class="card-body p-3 overflow-auto cims-analytics-scroll" id="topStrategicActionsBox" style="height: 300px; font-size: 0.88rem; line-height: 1.6;">
+                    <?php if (!empty($parsedPrediction['actions'])): ?>
+                        <?= $parsedPrediction['actions'] ?>
                     <?php else: ?>
-                        <div class="text-center text-success py-5" id="noDataDays"><i
-                                class="bi bi-check-circle fs-1 d-block mb-2"></i>All stock levels are healthy!</div>
-                        <canvas id="newDaysLeftChart" style="display:none;"></canvas>
+                        <div class="text-center text-muted py-5">
+                            <i class="bi bi-list-check display-6 opacity-25 d-block mb-2 text-danger"></i>
+                            <p class="small mb-1 fw-semibold">No action directives generated yet</p>
+                            <small class="text-muted" style="font-size: 0.72rem;">Click "Analyze Operations Now" below</small>
+                        </div>
                     <?php endif; ?>
                 </div>
             </div>
@@ -681,28 +1055,11 @@ include 'layout/header.php';
                 class="position-absolute w-100 h-100 top-0 start-0 bg-white bg-opacity-75 d-flex flex-column justify-content-center align-items-center"
                 style="display: none !important; z-index: 10;">
                 <div class="spinner-border text-primary mb-2" role="status"></div>
-                <small class="fw-bold text-primary blink-text">AI is synthesizing 360° operations: POs, user
-                    requisitions, delivery ETAs & stock velocity...</small>
+                <small class="fw-bold text-primary blink-text">AI is synthesizing operations: material burn rates, stockout forecasts, project site demand &amp; delivery ETAs...</small>
             </div>
             <div id="aiOutput" class="p-3 rounded shadow-sm" style="font-size: 1rem; line-height: 1.7;">
-                <?php if ($lastPrediction): ?>
-                    <?php
-                    $cleanPrediction = $lastPrediction;
-                    $cleanPrediction = preg_replace('/\*\*(.*?)\*\*/', '<strong>$1</strong>', $cleanPrediction);
-                    $cleanPrediction = preg_replace_callback('/\b(PO-(?:\d{4,8}-\d+|\d+))\b/', function($m) {
-                        $code = htmlspecialchars($m[1], ENT_QUOTES, 'UTF-8');
-                        return '<button type="button" class="btn btn-xs btn-outline-primary fw-bold text-nowrap py-0 px-2 shadow-none" style="font-size: 0.76rem; border-radius: 6px;" onclick="if(typeof openPoDetailsModal===\'function\'){openPoDetailsModal(null,\''.$code.'\')}else{window.location.href=\'po?highlight='.$code.'\'}" title="View Purchase Order Details"><i class="bi bi-receipt me-1"></i>'.$code.'</button>';
-                    }, $cleanPrediction);
-                    $cleanPrediction = preg_replace_callback('/\b(RS-(?:\d{4}-\d+|\d+))\b/', function($m) {
-                        $code = htmlspecialchars($m[1], ENT_QUOTES, 'UTF-8');
-                        return '<button type="button" class="btn btn-xs btn-outline-info fw-bold text-nowrap py-0 px-2 shadow-none" style="font-size: 0.76rem; border-radius: 6px;" onclick="if(typeof openRequisitionModal===\'function\'){openRequisitionModal(null,\''.$code.'\')}else{window.location.href=\'requisition?highlight='.$code.'\'}" title="View Requisition Details"><i class="bi bi-file-earmark-text me-1"></i>'.$code.'</button>';
-                    }, $cleanPrediction);
-                    $cleanPrediction = preg_replace_callback('/\b(ITM-\d+)\b/', function($m) {
-                        $code = htmlspecialchars($m[1], ENT_QUOTES, 'UTF-8');
-                        return '<button type="button" class="btn btn-xs btn-outline-success fw-bold text-nowrap py-0 px-2 shadow-none" style="font-size: 0.76rem; border-radius: 6px;" onclick="if(typeof openItemDetailsModal===\'function\'){openItemDetailsModal(\''.$code.'\')}else{window.location.href=\'inventory?highlight='.$code.'\'}" title="View Inventory Details"><i class="bi bi-box-seam me-1"></i>'.$code.'</button>';
-                    }, $cleanPrediction);
-                    ?>
-                    <?= $cleanPrediction ?>
+                <?php if (!empty($parsedPrediction['analytics'])): ?>
+                    <?= $parsedPrediction['analytics'] ?>
                 <?php else: ?>
                     <div class="text-center text-muted py-4"><i class="bi bi-cpu fs-2 d-block mb-2"></i>Click "Analyze
                         Operations Now"
