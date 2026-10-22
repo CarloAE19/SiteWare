@@ -20,7 +20,7 @@ $userPasskeys = $passkeyStmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Ensure current session is recorded in active sessions
 if (function_exists('record_user_active_session')) {
-    record_user_active_session($pdo, (int)$userId);
+    record_user_active_session($pdo, (int) $userId);
 }
 
 // Fetch active sessions & recognized devices
@@ -109,571 +109,773 @@ include 'layout/header.php';
         </div>
 
         <!-- RIGHT COLUMN: Edit Settings -->
+        <!-- RIGHT COLUMN: Tabbed Navigation System -->
         <!-- FIXED: Added col-12 so it takes full width on phones -->
         <div class="col-12 col-xl-8">
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-white fw-bold py-3">
-                    <i class="bi bi-gear-fill text-primary me-2"></i>Account Settings
-                </div>
-                <div class="card-body p-4">
-                    <form method="POST" action="process/process.php">
-                        <input type="hidden" name="action" value="update_profile">
-
-                        <h6 class="fw-bold mb-3 border-bottom pb-2">Basic Information</h6>
-                        <div class="row mb-4">
-                            <!-- FIXED: Added col-12 for mobile stacking -->
-                            <div class="col-12 col-md-6 mb-3">
-                                <label class="form-label fw-bold">Full Name</label>
-                                <input type="text" class="form-control" name="name"
-                                    value="<?= htmlspecialchars($user['name']) ?>" required>
-                            </div>
-                            <div class="col-12 col-md-6 mb-3">
-                                <label class="form-label fw-bold">Username</label>
-                                <input type="text" class="form-control" name="username"
-                                    value="<?= htmlspecialchars($user['username']) ?>" required>
-                            </div>
-                        </div>
-
-                        <h6 class="fw-bold mb-3 border-bottom pb-2">Security</h6>
-                        <div class="mb-4">
-                            <button type="button" class="btn btn-outline-primary fw-bold px-3" data-bs-toggle="modal"
-                                data-bs-target="#changePasswordModal" onclick="resetPasswordModal()">
-                                <i class="bi bi-key-fill me-1"></i> Change Password
-                            </button>
-                        </div>
-
-                        <div class="text-end mt-4">
-                            <!-- FIXED: Button is 100% width on phone, auto-width on PC -->
-                            <button type="submit" class="btn btn-brand px-4 w-100 w-md-auto fw-bold py-2 py-md-1">
-                                <i class="bi bi-save me-1"></i> Save Changes
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-
-            <!-- ======================================================== -->
-            <!-- CARD: MULTI-FACTOR & BIOMETRIC SECURITY                  -->
-            <!-- ======================================================== -->
-            <div class="card border-0 shadow-sm mt-4">
-                <div class="card-header bg-white fw-bold py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
-                    <div class="d-flex align-items-center gap-2">
-                        <i class="bi bi-shield-lock-fill text-primary"></i>
-                        <span>Multi-Factor Authentication &amp; Biometrics</span>
-                    </div>
-                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle">
-                        <i class="bi bi-shield-check me-1"></i>ISO/IEC 27001 &amp; 25010
-                    </span>
-                </div>
-                <div class="card-body p-4">
-                    <p class="text-secondary small mb-4" style="line-height: 1.6;">
-                        Protect your SiteWare account against credential theft, unauthorized access, and session hijacking by enabling two-factor verification or linking a hardware biometric device (Windows Hello, Touch ID, Face ID).
-                    </p>
-
-                    <div class="row g-4">
-                        <!-- SECTION 1: TOTP AUTHENTICATOR APP -->
-                        <div class="col-12 col-lg-6">
-                            <div class="p-3 border rounded-3 h-100 bg-light-subtle d-flex flex-column justify-content-between">
-                                <div>
-                                    <div class="d-flex align-items-center justify-content-between mb-2">
-                                        <div class="d-flex align-items-center gap-2">
-                                            <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
-                                                <i class="bi bi-phone"></i>
-                                            </div>
-                                            <h6 class="fw-bold mb-0 text-dark">Authenticator App (TOTP)</h6>
-                                        </div>
-                                        <?php if (!empty($user['mfa_enabled'])): ?>
-                                            <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">
-                                                <i class="bi bi-check-circle-fill me-1"></i>Active
-                                            </span>
-                                        <?php else: ?>
-                                            <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-2 py-1">
-                                                <i class="bi bi-dash-circle me-1"></i>Disabled
-                                            </span>
-                                        <?php endif; ?>
-                                    </div>
-                                    <p class="text-muted small mb-3" style="line-height: 1.5;">
-                                        Generates a dynamic 6-digit code via Google Authenticator, Microsoft Authenticator, or Authy. Works 100% offline.
-                                    </p>
-                                </div>
-
-                                <div class="pt-2 border-top d-flex gap-2 flex-wrap">
-                                    <?php if (!empty($user['mfa_enabled'])): ?>
-                                        <button type="button" class="btn btn-sm btn-outline-primary fw-bold" id="openRegenBackupCodesBtn">
-                                            <i class="bi bi-arrow-repeat me-1"></i>New Backup Codes
-                                        </button>
-                                        <button type="button" class="btn btn-sm btn-outline-danger fw-bold ms-auto" data-bs-toggle="modal" data-bs-target="#mfaDisableModal">
-                                            <i class="bi bi-shield-x me-1"></i>Disable 2FA
-                                        </button>
-                                    <?php else: ?>
-                                        <button type="button" class="btn btn-sm btn-primary fw-bold w-100" id="startTotpSetupBtn">
-                                            <i class="bi bi-qr-code-scan me-1"></i>Setup Authenticator App
-                                        </button>
-                                    <?php endif; ?>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- SECTION 2: PASSKEYS & BIOMETRIC LOGIN -->
-                        <div class="col-12 col-lg-6">
-                            <div class="p-3 border rounded-3 h-100 bg-light-subtle d-flex flex-column justify-content-between">
-                                <div>
-                                    <div class="d-flex align-items-center justify-content-between mb-2">
-                                        <div class="d-flex align-items-center gap-2">
-                                            <div class="bg-success text-white rounded-circle d-flex align-items-center justify-content-center shadow-sm" style="width: 32px; height: 32px;">
-                                                <i class="bi bi-fingerprint"></i>
-                                            </div>
-                                            <h6 class="fw-bold mb-0 text-dark">Biometric Passkeys</h6>
-                                        </div>
-                                        <?php if (!empty($userPasskeys)): ?>
-                                            <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">
-                                                <i class="bi bi-check-circle-fill me-1"></i><?= count($userPasskeys) ?> Linked
-                                            </span>
-                                        <?php else: ?>
-                                            <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-2 py-1">
-                                                <i class="bi bi-dash-circle me-1"></i>Not Linked
-                                            </span>
-                                        <?php endif; ?>
-                                    </div>
-                                    <p class="text-muted small mb-2" style="line-height: 1.5;">
-                                        FIDO2 / WebAuthn cryptographic keys. Log in in 1 second using Windows Hello, Face ID, Touch ID, or your phone's fingerprint sensor.
-                                    </p>
-                                    <?php if (!empty($userPasskeys)): ?>
-                                        <div class="d-flex align-items-center gap-2 text-success small mb-2 p-2 rounded-2" style="background-color: rgba(22, 163, 74, 0.08); border-left: 3px solid #16a34a;">
-                                            <i class="bi bi-shield-fill-check fs-6 text-success"></i>
-                                            <span class="fw-semibold" style="font-size: 0.8rem; line-height: 1.3;">Biometric passwordless login is active and ready to use.</span>
-                                        </div>
-                                    <?php endif; ?>
-                                </div>
-
-                                <div class="pt-2 border-top">
-                                    <?php if (!empty($userPasskeys)): ?>
-                                        <button type="button" class="btn btn-sm btn-outline-success fw-bold w-100 py-2 shadow-sm d-flex align-items-center justify-content-center gap-2" id="openRegisterPasskeyBtn">
-                                            <i class="bi bi-plus-circle"></i>
-                                            <span>Add Another Device / Key</span>
-                                        </button>
-                                        <small class="text-muted d-block text-center mt-1" style="font-size: 0.72rem;">
-                                            Link an additional PC, laptop, or backup device
-                                        </small>
-                                    <?php else: ?>
-                                        <button type="button" class="btn btn-sm btn-success fw-bold w-100 py-2 shadow-sm d-flex align-items-center justify-content-center gap-2" id="openRegisterPasskeyBtn">
-                                            <i class="bi bi-fingerprint"></i>
-                                            <span>Register This Device / Biometric</span>
-                                        </button>
-                                    <?php endif; ?>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- REGISTERED PASSKEYS LIST -->
-                    <?php if (!empty($userPasskeys)): ?>
-                        <div class="mt-4 pt-3 border-top">
-                            <div class="d-flex align-items-center justify-content-between mb-3">
-                                <h6 class="fw-bold small text-uppercase text-secondary mb-0">
-                                    <i class="bi bi-laptop me-1 text-primary"></i>Registered Biometric Devices (<?= count($userPasskeys) ?>)
-                                </h6>
-                                <span class="badge bg-light text-muted border" style="font-size: 0.72rem;">
-                                    Passwordless Active
-                                </span>
-                            </div>
-                            <div class="table-responsive">
-                                <table class="table table-sm table-hover align-middle mb-0">
-                                    <thead class="table-light">
-                                        <tr>
-                                            <th>Device Name</th>
-                                            <th>Date Registered</th>
-                                            <th>Logins</th>
-                                            <th class="text-end">Action</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <?php foreach ($userPasskeys as $pk): ?>
-                                            <tr id="passkey_row_<?= (int)$pk['id'] ?>">
-                                                <td>
-                                                    <div class="d-flex align-items-center gap-2">
-                                                        <div class="bg-success-subtle text-success rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" style="width: 28px; height: 28px; font-size: 0.85rem;">
-                                                            <i class="bi bi-shield-check"></i>
-                                                        </div>
-                                                        <div>
-                                                            <span class="fw-bold text-dark d-block"><?= htmlspecialchars($pk['device_name']) ?></span>
-                                                            <small class="text-success d-inline-flex align-items-center gap-1" style="font-size: 0.72rem;">
-                                                                <span class="badge rounded-pill bg-success" style="width: 6px; height: 6px; padding: 0;"></span> Ready for biometric sign-in
-                                                            </small>
-                                                        </div>
-                                                    </div>
-                                                </td>
-                                                <td class="text-muted small text-nowrap"><?= date('M d, Y h:i A', strtotime($pk['created_at'])) ?></td>
-                                                <td><span class="badge bg-light text-dark border"><?= (int)$pk['sign_count'] ?> logins</span></td>
-                                                <td class="text-end">
-                                                    <button type="button" class="btn btn-sm btn-outline-danger delete-passkey-btn shadow-none" 
-                                                        style="min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center;"
-                                                        data-id="<?= (int)$pk['id'] ?>" data-name="<?= htmlspecialchars($pk['device_name']) ?>" title="Remove this Passkey" aria-label="Remove this device">
-                                                        <i class="bi bi-trash"></i>
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                        <?php endforeach; ?>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    <?php endif; ?>
-
-                    <!-- ACTIVE SESSIONS & RECOGNIZED DEVICES (REMOTE LOGOUT & 30-DAY MFA) -->
-                    <div class="mt-4 pt-3 border-top">
-                        <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
-                            <div>
-                                <h6 class="fw-bold small text-uppercase text-secondary mb-1">
-                                    <i class="bi bi-devices me-1 text-primary"></i>Active Sessions & Recognized Devices (<?= count($userActiveSessions) ?>)
-                                </h6>
-                                <p class="text-muted small mb-0" style="font-size: 0.78rem;">
-                                    Devices currently logged into your account. Signing out a device terminates its session immediately and revokes its 30-day 2FA bypass.
-                                </p>
-                            </div>
-                            <?php if ($otherSessionsCount > 0): ?>
-                                <button type="button" class="btn btn-sm btn-outline-danger signout-all-others-btn" style="min-height: 38px;">
-                                    <i class="bi bi-box-arrow-right me-1"></i>Sign Out All Other Devices (<?= $otherSessionsCount ?>)
-                                </button>
-                            <?php endif; ?>
-                        </div>
-
-                        <?php if (!empty($userActiveSessions)): ?>
-                            <div class="table-responsive">
-                                <table class="table table-sm table-hover align-middle mb-0">
-                                    <thead class="table-light">
-                                        <tr>
-                                            <th>Browser / Device</th>
-                                            <th>Session Status</th>
-                                            <th>2FA Bypass</th>
-                                            <th>IP & Last Active</th>
-                                            <th class="text-end">Action</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <?php foreach ($userActiveSessions as $sess): 
-                                            $isCurr = (bool)$sess['is_current_device'];
-                                            $isRem = (bool)$sess['is_remembered'];
-                                            $daysLeft = !empty($sess['expires_at']) ? max(0, ceil((strtotime($sess['expires_at']) - time()) / 86400)) : 0;
-                                            
-                                            // Icon selection
-                                            $devIcon = 'bi-display';
-                                            if (stripos($sess['device_name'], 'phone') !== false || stripos($sess['device_name'], 'android') !== false || stripos($sess['device_name'], 'iphone') !== false) {
-                                                $devIcon = 'bi-phone';
-                                            } elseif (stripos($sess['device_name'], 'windows') !== false || stripos($sess['device_name'], 'mac') !== false) {
-                                                $devIcon = 'bi-laptop';
-                                            }
-                                        ?>
-                                            <tr id="session_row_<?= (int)$sess['id'] ?>" class="<?= $isCurr ? 'table-light-subtle' : '' ?>">
-                                                <td>
-                                                    <div class="d-flex align-items-center gap-2">
-                                                        <div class="<?= $isCurr ? 'bg-success-subtle text-success' : 'bg-primary-subtle text-primary' ?> rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" style="width: 32px; height: 32px; font-size: 0.95rem;">
-                                                            <i class="bi <?= $devIcon ?>"></i>
-                                                        </div>
-                                                        <div>
-                                                            <div class="d-flex align-items-center gap-2">
-                                                                <span class="fw-bold text-dark"><?= htmlspecialchars($sess['device_name']) ?></span>
-                                                                <?php if ($isCurr): ?>
-                                                                    <span class="badge bg-success-subtle text-success border border-success-subtle" style="font-size: 0.68rem;">
-                                                                        <i class="bi bi-circle-fill me-1" style="font-size: 0.45rem;"></i>This Device
-                                                                    </span>
-                                                                <?php endif; ?>
-                                                            </div>
-                                                            <small class="text-muted" style="font-size: 0.72rem;">
-                                                                Signed in: <?= date('M d, Y h:i A', strtotime($sess['created_at'])) ?>
-                                                            </small>
-                                                        </div>
-                                                    </div>
-                                                </td>
-                                                <td>
-                                                    <?php if ($isCurr): ?>
-                                                        <span class="badge bg-success text-white fw-semibold">
-                                                            <i class="bi bi-broadcast me-1"></i>Active Now
-                                                        </span>
-                                                    <?php else: ?>
-                                                        <span class="badge bg-light text-muted border">
-                                                            <i class="bi bi-wifi text-secondary me-1"></i>Online
-                                                        </span>
-                                                    <?php endif; ?>
-                                                </td>
-                                                <td>
-                                                    <?php if ($isRem): ?>
-                                                        <span class="badge bg-success-subtle text-success border border-success-subtle d-inline-flex align-items-center gap-1">
-                                                            <i class="bi bi-shield-check"></i>
-                                                            <span>Trusted (<?= $daysLeft ?>d left)</span>
-                                                        </span>
-                                                    <?php else: ?>
-                                                        <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">
-                                                            <i class="bi bi-shield me-1"></i>Standard
-                                                        </span>
-                                                    <?php endif; ?>
-                                                </td>
-                                                <td>
-                                                    <div class="font-monospace small text-dark"><?= htmlspecialchars($sess['ip_address']) ?></div>
-                                                    <small class="text-muted" style="font-size: 0.72rem;">
-                                                        <?= $isCurr ? 'Active Now' : time_elapsed_string($sess['last_activity']) ?>
-                                                    </small>
-                                                </td>
-                                                <td class="text-end">
-                                                    <?php if ($isCurr): ?>
-                                                        <span class="badge bg-light text-muted border py-2 px-2" style="font-size: 0.75rem;">
-                                                            <i class="bi bi-lock-fill text-success me-1"></i>Current Session
-                                                        </span>
-                                                    <?php else: ?>
-                                                        <button type="button" class="btn btn-sm btn-outline-danger revoke-session-btn shadow-none" 
-                                                            style="min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 4px;"
-                                                            data-id="<?= (int)$sess['id'] ?>" data-name="<?= htmlspecialchars($sess['device_name']) ?>" title="Sign Out & Revoke Device" aria-label="Sign Out & Revoke Device">
-                                                            <i class="bi bi-box-arrow-right"></i>
-                                                            <span class="d-none d-md-inline">Log Out & Revoke</span>
-                                                        </button>
-                                                    <?php endif; ?>
-                                                </td>
-                                            </tr>
-                                        <?php endforeach; ?>
-                                    </tbody>
-                                </table>
-                            </div>
-                        <?php else: ?>
-                            <div class="p-3 bg-light rounded-3 text-center border">
-                                <i class="bi bi-laptop text-muted fs-4 d-block mb-1"></i>
-                                <span class="text-muted small">No other active sessions detected.</span>
-                            </div>
-                        <?php endif; ?>
-                    </div>
-                </div>
-            </div>
-
-            <!-- E-SIGNATURE CARD -->
-            <div class="card border-0 shadow-sm mt-4">
-                <div
-                    class="card-header bg-white fw-bold py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
-                    <div>
-                        <i class="bi bi-pen-fill text-primary me-2"></i>Official Digital E-Signature
-                    </div>
-                </div>
-                <div class="card-body p-4">
-                    <p class="text-muted small mb-3">
-                        Your registered E-Signature will automatically be attached above your printed name on official
-                        <strong>Purchase Orders</strong> and <strong>Withdrawal Slips</strong> when creating or
-                        approving transactions.
-                    </p>
-
-                    <div class="row align-items-center mb-2">
-                        <div class="col-12 col-md-5 text-center mb-3 mb-md-0 border-end pe-md-4">
-                            <label class="form-label fw-bold d-block text-secondary small text-uppercase mb-2">Current
-                                Registered Signature</label>
-                            <?php if (!empty($user['signature_path']) && file_exists(__DIR__ . '/' . $user['signature_path'])): ?>
-                                <div class="p-2 border rounded sig-preview-box d-inline-block shadow-sm w-100 mb-2"
-                                    style="background-color: #ffffff !important;">
-                                    <img src="secure_image.php?type=signatures&file=<?= urlencode(basename($user['signature_path'])) ?>&v=<?= time() ?>"
-                                        alt="User Signature" class="img-fluid"
-                                        style="max-height: 90px; object-fit: contain;">
-                                </div>
-                                <div>
-                                    <span class="badge bg-success-subtle text-success border border-success-subtle">
-                                        <i class="bi bi-check-circle-fill me-1"></i>Active Signature Registered
-                                    </span>
-                                </div>
-                            <?php else: ?>
-                                <div class="p-3 border rounded bg-light text-muted d-block text-center w-100 mb-2">
-                                    <i class="bi bi-file-earmark-x display-6 d-block mb-1 text-secondary"></i>
-                                    <span class="small fw-bold">No Signature Registered</span>
-                                </div>
-                            <?php endif; ?>
-                        </div>
-
-                        <div class="col-12 col-md-7 ps-md-4">
-                            <!-- Nav tabs for Draw vs Upload -->
-                            <ul class="nav nav-pills nav-fill mb-3 bg-light p-1 rounded border" id="sigTypeTabs"
-                                role="tablist">
-                                <li class="nav-item" role="presentation">
-                                    <button class="nav-link active fw-bold btn-sm py-1" id="draw-tab"
-                                        data-bs-toggle="tab" data-bs-target="#draw-sig-pane" type="button" role="tab">
-                                        <i class="bi bi-pencil-square me-1"></i> Draw Pad
-                                    </button>
-                                </li>
-                                <li class="nav-item" role="presentation">
-                                    <button class="nav-link fw-bold btn-sm py-1" id="upload-tab" data-bs-toggle="tab"
-                                        data-bs-target="#upload-sig-pane" type="button" role="tab">
-                                        <i class="bi bi-cloud-arrow-up me-1"></i> Upload Image
-                                    </button>
-                                </li>
-                            </ul>
-
-                            <div class="tab-content" id="sigTypeTabContent">
-                                <!-- TAB 1: DRAW CANVAS -->
-                                <div class="tab-pane fade show active" id="draw-sig-pane" role="tabpanel">
-                                    <form method="POST" action="process/update_signature.php" id="drawSigForm">
-                                        <input type="hidden" name="signature_data" id="profileSigData">
-
-                                        <div class="mb-3 text-center">
-                                            <!-- Drawn Signature Preview Box (shown after drawing in modal) -->
-                                            <div id="profileSigDrawnPreview"
-                                                class="d-none border rounded p-3 mb-3 sig-preview-box shadow-sm position-relative"
-                                                style="background-color: #ffffff !important;">
-                                                <small class="d-block fw-bold text-uppercase mb-2"
-                                                    style="font-size: 0.7rem; color: #475569 !important;">Newly Drawn
-                                                    Signature Preview</small>
-                                                <img id="profileSigPreviewImg" src="" alt="Drawn Signature"
-                                                    style="max-height: 90px; object-fit: contain;">
-                                                <button type="button"
-                                                    class="btn btn-sm btn-outline-danger position-absolute top-0 end-0 m-2 py-0 px-2"
-                                                    id="clearProfileDrawnSigBtn" title="Clear drawn signature">
-                                                    <i class="bi bi-x-lg"></i>
-                                                </button>
-                                            </div>
-
-                                            <!-- Open Fullscreen Pad Button -->
-                                            <button type="button"
-                                                class="btn btn-outline-primary fw-bold w-100 py-3 shadow-sm border-2"
-                                                id="openProfileFullSigBtn" data-bs-toggle="modal"
-                                                data-bs-target="#profileFullSigModal">
-                                                <i
-                                                    class="bi bi-arrows-fullscreen display-6 d-block mb-2 text-primary"></i>
-                                                <span class="fs-6">Open Fullscreen Signature Pad</span>
-                                                <small class="d-block text-muted fw-normal mt-1"
-                                                    style="font-size: 0.75rem;">Touch or click to open full-screen
-                                                    pad</small>
-                                            </button>
-                                        </div>
-
-                                        <div class="d-flex justify-content-between align-items-center">
-                                            <button type="button"
-                                                class="btn btn-sm btn-outline-secondary fw-bold me-auto d-none"
-                                                id="clearProfileSigBtn">
-                                                <i class="bi bi-eraser me-1"></i> Reset
-                                            </button>
-                                            <button type="submit" class="btn btn-sm btn-primary fw-bold px-4 ms-auto"
-                                                id="saveDrawnSigSubmitBtn" disabled>
-                                                <i class="bi bi-check-lg me-1"></i> Save Drawn Signature
-                                            </button>
-                                        </div>
-                                    </form>
-                                </div>
-
-                                <!-- TAB 2: UPLOAD IMAGE -->
-                                <div class="tab-pane fade" id="upload-sig-pane" role="tabpanel">
-                                    <form method="POST" action="process/update_signature.php"
-                                        enctype="multipart/form-data">
-                                        <div class="mb-3">
-                                            <label class="form-label small fw-bold">Select Signature Image (PNG /
-                                                JPEG)</label>
-                                            <input type="file" name="signature_file"
-                                                class="form-control form-control-sm"
-                                                accept="image/png, image/jpeg, image/jpg" required>
-                                            <div class="form-text text-muted" style="font-size: 0.75rem;">Transparent
-                                                PNG with dark signature stroke is recommended.</div>
-                                        </div>
-                                        <div class="text-end">
-                                            <button type="submit" class="btn btn-sm btn-primary fw-bold px-3">
-                                                <i class="bi bi-upload me-1"></i> Upload Signature File
-                                            </button>
-                                        </div>
-                                    </form>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- ======================================================== -->
-            <!-- MODAL: PROFILE FULLSCREEN SIGNATURE PAD                  -->
-            <!-- ======================================================== -->
             <style>
-                /* Forced Landscape Mode for Mobile Signature Modal */
-                @media screen and (max-width: 991px) and (orientation: portrait) {
-                    #profileFullSigModal .modal-dialog {
-                        margin: 0 !important;
-                        max-width: 100vw !important;
-                        width: 100vw !important;
-                        height: 100vh !important;
-                        overflow: hidden !important;
+                /* Profile Navigation Tabs Styling */
+                .profile-nav-tabs {
+                    background: #ffffff;
+                    border: 1px solid #e2e8f0;
+                    padding: 0.375rem;
+                    display: flex;
+                    flex-wrap: nowrap;
+                    overflow-x: auto;
+                    -webkit-overflow-scrolling: touch;
+                    scrollbar-width: none;
+                }
+
+                .profile-nav-tabs::-webkit-scrollbar {
+                    display: none;
+                }
+
+                @media (min-width: 768px) {
+                    .profile-nav-tabs {
+                        flex-wrap: wrap;
                     }
 
-                    #profileFullSigModal .modal-content {
-                        position: fixed !important;
-                        top: 50% !important;
-                        left: 50% !important;
-                        width: 100vh !important;
-                        height: 100vw !important;
-                        transform: translate(-50%, -50%) rotate(90deg) !important;
-                        transform-origin: center center !important;
-                        border-radius: 0 !important;
+                    .profile-nav-tabs .nav-item {
+                        flex: 1 1 0;
                     }
+
+                    .profile-nav-tabs .nav-link {
+                        width: 100%;
+                        justify-content: center;
+                    }
+                }
+
+                .profile-nav-tabs .nav-link {
+                    color: #475569;
+                    border-radius: 0.5rem;
+                    font-weight: 600;
+                    font-size: 0.875rem;
+                    padding: 0.625rem 1rem;
+                    white-space: nowrap;
+                    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+                    display: flex;
+                    align-items: center;
+                    gap: 0.5rem;
+                }
+
+                .profile-nav-tabs .nav-link:hover {
+                    color: var(--primary-color, #1e3a8a);
+                    background-color: #f8fafc;
+                }
+
+                .profile-nav-tabs .nav-link.active {
+                    background-color: var(--primary-color, #1e3a8a);
+                    color: #ffffff;
+                    box-shadow: 0 4px 6px -1px rgba(30, 58, 138, 0.25), 0 2px 4px -2px rgba(30, 58, 138, 0.2);
+                }
+
+                .profile-nav-tabs .nav-link.active .badge.bg-success-subtle {
+                    background-color: #ffffff !important;
+                    color: #166534 !important;
+                    border-color: #ffffff !important;
+                }
+
+                .profile-nav-tabs .nav-link.active .badge.bg-primary-subtle {
+                    background-color: #ffffff !important;
+                    color: #1e3a8a !important;
+                    border-color: #ffffff !important;
                 }
             </style>
-            <div class="modal fade" id="profileFullSigModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
-                <div class="modal-dialog modal-fullscreen">
-                    <div class="modal-content border-0">
-                        <div class="modal-header bg-dark text-white py-2">
-                            <div class="d-flex align-items-center">
-                                <button type="button" class="btn-close btn-close-white me-2" data-bs-dismiss="modal"
-                                    aria-label="Close"></button>
-                                <h6 class="modal-title fw-bold text-uppercase mb-0">
-                                    <i class="bi bi-pen text-warning me-2"></i> Official E-Signature - Fullscreen Pad
-                                </h6>
-                            </div>
+
+            <!-- PROFILE NAVIGATION TABS -->
+            <ul class="nav nav-pills profile-nav-tabs mb-4 rounded-3 shadow-sm border gap-1" id="profileTabs"
+                role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active fw-bold py-2 px-3 text-nowrap d-flex align-items-center gap-2"
+                        id="tab-account" data-bs-toggle="pill" data-bs-target="#pane-account" type="button" role="tab"
+                        aria-controls="pane-account" aria-selected="true">
+                        <i class="bi bi-person-gear"></i>
+                        <span>Account Profile</span>
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link fw-bold py-2 px-3 text-nowrap d-flex align-items-center gap-2"
+                        id="tab-security" data-bs-toggle="pill" data-bs-target="#pane-security" type="button" role="tab"
+                        aria-controls="pane-security" aria-selected="false">
+                        <i class="bi bi-shield-lock-fill"></i>
+                        <span>Security &amp; 2FA</span>
+                        <?php if (!empty($user['mfa_enabled']) || !empty($userPasskeys)): ?>
+                            <span
+                                class="badge bg-success-subtle text-success border border-success-subtle rounded-pill ms-1"
+                                style="font-size: 0.68rem;">Active</span>
+                        <?php endif; ?>
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link fw-bold py-2 px-3 text-nowrap d-flex align-items-center gap-2"
+                        id="tab-signature" data-bs-toggle="pill" data-bs-target="#pane-signature" type="button"
+                        role="tab" aria-controls="pane-signature" aria-selected="false">
+                        <i class="bi bi-pen-fill"></i>
+                        <span>E-Signature</span>
+                        <?php if (!empty($user['signature_path']) && file_exists(__DIR__ . '/' . $user['signature_path'])): ?>
+                            <span
+                                class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill ms-1"
+                                style="font-size: 0.68rem;"><i class="bi bi-check"></i></span>
+                        <?php endif; ?>
+                    </button>
+                </li>
+                <?php if (in_array($_SESSION['user_role'], ['admin', 'management'])): ?>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link fw-bold py-2 px-3 text-nowrap d-flex align-items-center gap-2"
+                            id="tab-customization" data-bs-toggle="pill" data-bs-target="#pane-customization" type="button"
+                            role="tab" aria-controls="pane-customization" aria-selected="false">
+                            <i class="bi bi-palette-fill"></i>
+                            <span>Customization</span>
+                        </button>
+                    </li>
+                <?php endif; ?>
+            </ul>
+
+            <div class="tab-content" id="profileTabContent">
+                <!-- ========================================== -->
+                <!-- TAB 1: ACCOUNT PROFILE                     -->
+                <!-- ========================================== -->
+                <div class="tab-pane fade show active" id="pane-account" role="tabpanel" aria-labelledby="tab-account">
+                    <div class="card border-0 shadow-sm">
+                        <div
+                            class="card-header bg-white fw-bold py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
                             <div>
-                                <button type="button" class="btn btn-sm btn-outline-light fw-bold me-2"
-                                    id="clearProfileFullSigBtn">
-                                    <i class="bi bi-eraser me-1"></i> Clear
-                                </button>
-                                <button type="button" class="btn btn-sm btn-success fw-bold px-3"
-                                    id="saveProfileFullSigBtn">
-                                    <i class="bi bi-check-lg me-1"></i> Use Signature
-                                </button>
+                                <i class="bi bi-person-gear text-primary me-2"></i>Account Information
                             </div>
+                            <span class="badge bg-light text-secondary border">Basic Profile</span>
                         </div>
-                        <div class="modal-body p-2 bg-light d-flex flex-column justify-content-center align-items-center position-relative"
-                            style="overflow: hidden;">
-                            <canvas id="profileFullSigCanvas" class="border rounded shadow-sm sig-white-bg"
-                                style="width: 100%; height: 100%; touch-action: none; cursor: crosshair; background-color: #ffffff !important;"></canvas>
-                            <div id="profileFullSigPlaceholder"
-                                class="position-absolute top-50 start-50 translate-middle fw-bold pe-none fs-5 text-center"
-                                style="pointer-events: none; opacity: 0.6; color: #6c757d !important;">
-                                <i class="bi bi-phone-landscape me-2 fs-3 d-block mb-1"></i> Sign here with finger...
+                        <div class="card-body p-4">
+                            <form method="POST" action="process/process.php">
+                                <input type="hidden" name="action" value="update_profile">
+
+                                <h6 class="fw-bold mb-3 border-bottom pb-2">Personal Details</h6>
+                                <div class="row mb-4">
+                                    <!-- FIXED: Added col-12 for mobile stacking -->
+                                    <div class="col-12 col-md-6 mb-3">
+                                        <label class="form-label fw-bold">Full Name</label>
+                                        <input type="text" class="form-control" name="name"
+                                            value="<?= htmlspecialchars($user['name']) ?>" required>
+                                    </div>
+                                    <div class="col-12 col-md-6 mb-3">
+                                        <label class="form-label fw-bold">Username</label>
+                                        <input type="text" class="form-control" name="username"
+                                            value="<?= htmlspecialchars($user['username']) ?>" required>
+                                    </div>
+                                </div>
+
+                                <div class="text-end mt-4">
+                                    <!-- FIXED: Button is 100% width on phone, auto-width on PC -->
+                                    <button type="submit"
+                                        class="btn btn-brand px-4 w-100 w-md-auto fw-bold py-2 py-md-1">
+                                        <i class="bi bi-save me-1"></i> Save Changes
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- Quick Security Shortcut Card inside Account tab -->
+                    <div class="card border-0 shadow-sm mt-4 bg-light-subtle border">
+                        <div
+                            class="card-body p-3 p-md-4 d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
+                            <div class="d-flex align-items-center gap-3">
+                                <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
+                                    style="width: 44px; height: 44px;">
+                                    <i class="bi bi-shield-lock-fill fs-5"></i>
+                                </div>
+                                <div>
+                                    <h6 class="fw-bold mb-1 text-dark">Password, 2FA &amp; Biometrics</h6>
+                                    <small class="text-muted d-block">Manage your account password, Two-Factor
+                                        Authentication, Biometric Passkeys, and Active Sessions in the Security
+                                        tab.</small>
+                                </div>
+                            </div>
+                            <div class="d-flex gap-2 flex-wrap">
+                                <button type="button"
+                                    class="btn btn-outline-primary btn-sm fw-bold px-3 py-2 w-100 w-md-auto"
+                                    data-bs-toggle="modal" data-bs-target="#changePasswordModal"
+                                    onclick="resetPasswordModal()">
+                                    <i class="bi bi-key-fill me-1"></i> Change Password
+                                </button>
+                                <button type="button"
+                                    class="btn btn-primary btn-sm fw-bold px-3 py-2 w-100 w-md-auto switch-to-security-btn">
+                                    <i class="bi bi-shield-check me-1"></i> Security Center &rarr;
+                                </button>
                             </div>
                         </div>
                     </div>
                 </div>
-            </div>
 
-            <?php if (in_array($_SESSION['user_role'], ['admin', 'management'])): ?>
-                <?php
-                // Fetch current login background + blur settings
-                $bg_path = 'assets/img/default_login_bg.png';
-                $cur_blur = 12;
-                if (isset($pdo)) {
-                    try {
-                        $stmt = $pdo->prepare("SELECT setting_key, setting_value FROM system_settings WHERE setting_key IN ('login_background','login_blur')");
-                        $stmt->execute();
-                        $lc_settings = $stmt->fetchAll(PDO::FETCH_KEY_PAIR);
-                        if (!empty($lc_settings['login_background']))
-                            $bg_path = $lc_settings['login_background'];
-                        if (isset($lc_settings['login_blur']) && $lc_settings['login_blur'] !== '')
-                            $cur_blur = (int) $lc_settings['login_blur'];
-                    } catch (Exception $e) {
-                    }
-                }
-                $bg_version = file_exists($bg_path) ? filemtime($bg_path) : time();
-                // Build a root-relative URL to the background image
-                $profile_app_base = rtrim(str_replace('\\', '/', dirname($_SERVER['PHP_SELF'])), '/');
-                $bg_preview_url = $profile_app_base . '/' . ltrim($bg_path, '/') . '?v=' . $bg_version;
-                $cur_blur = max(0, min(30, $cur_blur));
-                $cur_scale = round(1 + ($cur_blur * 0.006), 3);
-                ?>
-                <div class="card border-0 shadow-sm mt-4">
-                    <div class="card-header bg-white fw-bold py-3">
-                        <i class="bi bi-image text-primary me-2"></i>Login Page Customization
+                <!-- ========================================== -->
+                <!-- TAB 2: SECURITY & 2FA                      -->
+                <!-- ========================================== -->
+                <div class="tab-pane fade" id="pane-security" role="tabpanel" aria-labelledby="tab-security">
+                    <!-- PASSWORD MANAGEMENT CARD -->
+                    <div class="card border-0 shadow-sm mb-4">
+                        <div
+                            class="card-header bg-white fw-bold py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                            <div class="d-flex align-items-center gap-2">
+                                <i class="bi bi-key-fill text-primary"></i>
+                                <span>Account Password</span>
+                            </div>
+
+                        </div>
+                        <div class="card-body p-4">
+                            <div
+                                class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+                                <div>
+                                    <h6 class="fw-bold text-dark mb-1">Login Password</h6>
+                                    <p class="text-secondary small mb-0" style="line-height: 1.5;">
+                                        Change your account password regularly to keep your account safe. We recommend
+                                        using a strong password with at least 8 characters including uppercase,
+                                        lowercase, and numbers.
+                                    </p>
+                                </div>
+                                <div class="flex-shrink-0">
+                                    <button type="button" class="btn btn-primary fw-bold px-4 py-2 w-100 w-md-auto"
+                                        data-bs-toggle="modal" data-bs-target="#changePasswordModal"
+                                        onclick="resetPasswordModal()">
+                                        <i class="bi bi-key-fill me-1"></i> Change Password
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <div class="card-body p-4">
 
-                        <!-- ===== LIVE PREVIEW ===== -->
-                        <h6 class="fw-bold mb-3 border-bottom pb-2">
-                            <i class="bi bi-eye me-1 text-primary"></i>Live Preview
-                        </h6>
-                        <div id="loginPreviewWrap" style="
+                    <!-- ======================================================== -->
+                    <!-- CARD: MULTI-FACTOR & BIOMETRIC SECURITY                  -->
+                    <!-- ======================================================== -->
+                    <div class="card border-0 shadow-sm">
+                        <div
+                            class="card-header bg-white fw-bold py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                            <div class="d-flex align-items-center gap-2">
+                                <i class="bi bi-shield-lock-fill text-primary"></i>
+                                <span>Multi-Factor Authentication &amp; Biometrics</span>
+                            </div>
+                        </div>
+                        <div class="card-body p-4">
+                            <p class="text-secondary small mb-4" style="line-height: 1.6;">
+                                Protect your SiteWare account against credential theft, unauthorized access, and session
+                                hijacking by enabling two-factor verification or linking a hardware biometric device
+                                (Windows Hello, Touch ID, Face ID).
+                            </p>
+
+                            <div class="row g-4">
+                                <!-- SECTION 1: TOTP AUTHENTICATOR APP -->
+                                <div class="col-12 col-lg-6">
+                                    <div
+                                        class="p-3 border rounded-3 h-100 bg-light-subtle d-flex flex-column justify-content-between">
+                                        <div>
+                                            <div class="d-flex align-items-center justify-content-between mb-2">
+                                                <div class="d-flex align-items-center gap-2">
+                                                    <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center"
+                                                        style="width: 32px; height: 32px;">
+                                                        <i class="bi bi-phone"></i>
+                                                    </div>
+                                                    <h6 class="fw-bold mb-0 text-dark">Authenticator App (TOTP)</h6>
+                                                </div>
+                                                <?php if (!empty($user['mfa_enabled'])): ?>
+                                                    <span
+                                                        class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">
+                                                        <i class="bi bi-check-circle-fill me-1"></i>Active
+                                                    </span>
+                                                <?php else: ?>
+                                                    <span
+                                                        class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-2 py-1">
+                                                        <i class="bi bi-dash-circle me-1"></i>Disabled
+                                                    </span>
+                                                <?php endif; ?>
+                                            </div>
+                                            <p class="text-muted small mb-3" style="line-height: 1.5;">
+                                                Generates a dynamic 6-digit code via Google Authenticator, Microsoft
+                                                Authenticator, or Authy. Works 100% offline.
+                                            </p>
+                                        </div>
+
+                                        <div class="pt-2 border-top d-flex gap-2 flex-wrap">
+                                            <?php if (!empty($user['mfa_enabled'])): ?>
+                                                <button type="button" class="btn btn-sm btn-outline-primary fw-bold"
+                                                    id="openRegenBackupCodesBtn">
+                                                    <i class="bi bi-arrow-repeat me-1"></i>New Backup Codes
+                                                </button>
+                                                <button type="button" class="btn btn-sm btn-outline-danger fw-bold ms-auto"
+                                                    data-bs-toggle="modal" data-bs-target="#mfaDisableModal">
+                                                    <i class="bi bi-shield-x me-1"></i>Disable 2FA
+                                                </button>
+                                            <?php else: ?>
+                                                <button type="button" class="btn btn-sm btn-primary fw-bold w-100"
+                                                    id="startTotpSetupBtn">
+                                                    <i class="bi bi-qr-code-scan me-1"></i>Setup Authenticator App
+                                                </button>
+                                            <?php endif; ?>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- SECTION 2: PASSKEYS & BIOMETRIC LOGIN -->
+                                <div class="col-12 col-lg-6">
+                                    <div
+                                        class="p-3 border rounded-3 h-100 bg-light-subtle d-flex flex-column justify-content-between">
+                                        <div>
+                                            <div class="d-flex align-items-center justify-content-between mb-2">
+                                                <div class="d-flex align-items-center gap-2">
+                                                    <div class="bg-success text-white rounded-circle d-flex align-items-center justify-content-center shadow-sm"
+                                                        style="width: 32px; height: 32px;">
+                                                        <i class="bi bi-fingerprint"></i>
+                                                    </div>
+                                                    <h6 class="fw-bold mb-0 text-dark">Biometric Passkeys</h6>
+                                                </div>
+                                                <?php if (!empty($userPasskeys)): ?>
+                                                    <span
+                                                        class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">
+                                                        <i
+                                                            class="bi bi-check-circle-fill me-1"></i><?= count($userPasskeys) ?>
+                                                        Linked
+                                                    </span>
+                                                <?php else: ?>
+                                                    <span
+                                                        class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-2 py-1">
+                                                        <i class="bi bi-dash-circle me-1"></i>Not Linked
+                                                    </span>
+                                                <?php endif; ?>
+                                            </div>
+                                            <p class="text-muted small mb-2" style="line-height: 1.5;">
+                                                FIDO2 / WebAuthn cryptographic keys. Log in in 1 second using Windows
+                                                Hello, Face ID, Touch ID, or your phone's fingerprint sensor.
+                                            </p>
+                                            <?php if (!empty($userPasskeys)): ?>
+                                                <div class="d-flex align-items-center gap-2 text-success small mb-2 p-2 rounded-2"
+                                                    style="background-color: rgba(22, 163, 74, 0.08); border-left: 3px solid #16a34a;">
+                                                    <i class="bi bi-shield-fill-check fs-6 text-success"></i>
+                                                    <span class="fw-semibold"
+                                                        style="font-size: 0.8rem; line-height: 1.3;">Biometric passwordless
+                                                        login is active and ready to use.</span>
+                                                </div>
+                                            <?php endif; ?>
+                                        </div>
+
+                                        <div class="pt-2 border-top">
+                                            <?php if (!empty($userPasskeys)): ?>
+                                                <button type="button"
+                                                    class="btn btn-sm btn-outline-success fw-bold w-100 py-2 shadow-sm d-flex align-items-center justify-content-center gap-2"
+                                                    id="openRegisterPasskeyBtn">
+                                                    <i class="bi bi-plus-circle"></i>
+                                                    <span>Add Another Device / Key</span>
+                                                </button>
+                                                <small class="text-muted d-block text-center mt-1"
+                                                    style="font-size: 0.72rem;">
+                                                    Link an additional PC, laptop, or backup device
+                                                </small>
+                                            <?php else: ?>
+                                                <button type="button"
+                                                    class="btn btn-sm btn-success fw-bold w-100 py-2 shadow-sm d-flex align-items-center justify-content-center gap-2"
+                                                    id="openRegisterPasskeyBtn">
+                                                    <i class="bi bi-fingerprint"></i>
+                                                    <span>Register This Device / Biometric</span>
+                                                </button>
+                                            <?php endif; ?>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- REGISTERED PASSKEYS LIST -->
+                            <?php if (!empty($userPasskeys)): ?>
+                                <div class="mt-4 pt-3 border-top">
+                                    <div class="d-flex align-items-center justify-content-between mb-3">
+                                        <h6 class="fw-bold small text-uppercase text-secondary mb-0">
+                                            <i class="bi bi-laptop me-1 text-primary"></i>Registered Biometric Devices
+                                            (<?= count($userPasskeys) ?>)
+                                        </h6>
+                                        <span class="badge bg-light text-muted border" style="font-size: 0.72rem;">
+                                            Passwordless Active
+                                        </span>
+                                    </div>
+                                    <div class="table-responsive">
+                                        <table class="table table-sm table-hover align-middle mb-0">
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th>Device Name</th>
+                                                    <th>Date Registered</th>
+                                                    <th>Logins</th>
+                                                    <th class="text-end">Action</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <?php foreach ($userPasskeys as $pk): ?>
+                                                    <tr id="passkey_row_<?= (int) $pk['id'] ?>">
+                                                        <td>
+                                                            <div class="d-flex align-items-center gap-2">
+                                                                <div class="bg-success-subtle text-success rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
+                                                                    style="width: 28px; height: 28px; font-size: 0.85rem;">
+                                                                    <i class="bi bi-shield-check"></i>
+                                                                </div>
+                                                                <div>
+                                                                    <span
+                                                                        class="fw-bold text-dark d-block"><?= htmlspecialchars($pk['device_name']) ?></span>
+                                                                    <small
+                                                                        class="text-success d-inline-flex align-items-center gap-1"
+                                                                        style="font-size: 0.72rem;">
+                                                                        <span class="badge rounded-pill bg-success"
+                                                                            style="width: 6px; height: 6px; padding: 0;"></span>
+                                                                        Ready for biometric sign-in
+                                                                    </small>
+                                                                </div>
+                                                            </div>
+                                                        </td>
+                                                        <td class="text-muted small text-nowrap">
+                                                            <?= date('M d, Y h:i A', strtotime($pk['created_at'])) ?>
+                                                        </td>
+                                                        <td><span
+                                                                class="badge bg-light text-dark border"><?= (int) $pk['sign_count'] ?>
+                                                                logins</span></td>
+                                                        <td class="text-end">
+                                                            <button type="button"
+                                                                class="btn btn-sm btn-outline-danger delete-passkey-btn shadow-none"
+                                                                style="min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center;"
+                                                                data-id="<?= (int) $pk['id'] ?>"
+                                                                data-name="<?= htmlspecialchars($pk['device_name']) ?>"
+                                                                title="Remove this Passkey" aria-label="Remove this device">
+                                                                <i class="bi bi-trash"></i>
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                <?php endforeach; ?>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            <?php endif; ?>
+
+                            <!-- ACTIVE SESSIONS & RECOGNIZED DEVICES (REMOTE LOGOUT & 30-DAY MFA) -->
+                            <div class="mt-4 pt-3 border-top">
+                                <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+                                    <div>
+                                        <h6 class="fw-bold small text-uppercase text-secondary mb-1">
+                                            <i class="bi bi-devices me-1 text-primary"></i>Active Sessions & Recognized
+                                            Devices (<?= count($userActiveSessions) ?>)
+                                        </h6>
+                                        <p class="text-muted small mb-0" style="font-size: 0.78rem;">
+                                            Devices currently logged into your account. Signing out a device terminates
+                                            its session immediately and revokes its 30-day 2FA bypass.
+                                        </p>
+                                    </div>
+                                    <?php if ($otherSessionsCount > 0): ?>
+                                        <button type="button" class="btn btn-sm btn-outline-danger signout-all-others-btn"
+                                            style="min-height: 38px;">
+                                            <i class="bi bi-box-arrow-right me-1"></i>Sign Out All Other Devices
+                                            (<?= $otherSessionsCount ?>)
+                                        </button>
+                                    <?php endif; ?>
+                                </div>
+
+                                <?php if (!empty($userActiveSessions)): ?>
+                                    <div class="table-responsive">
+                                        <table class="table table-sm table-hover align-middle mb-0">
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th>Browser / Device</th>
+                                                    <th>Session Status</th>
+                                                    <th>2FA Bypass</th>
+                                                    <th>IP & Last Active</th>
+                                                    <th class="text-end">Action</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <?php foreach ($userActiveSessions as $sess):
+                                                    $isCurr = (bool) $sess['is_current_device'];
+                                                    $isRem = (bool) $sess['is_remembered'];
+                                                    $daysLeft = !empty($sess['expires_at']) ? max(0, ceil((strtotime($sess['expires_at']) - time()) / 86400)) : 0;
+
+                                                    // Icon selection
+                                                    $devIcon = 'bi-display';
+                                                    if (stripos($sess['device_name'], 'phone') !== false || stripos($sess['device_name'], 'android') !== false || stripos($sess['device_name'], 'iphone') !== false) {
+                                                        $devIcon = 'bi-phone';
+                                                    } elseif (stripos($sess['device_name'], 'windows') !== false || stripos($sess['device_name'], 'mac') !== false) {
+                                                        $devIcon = 'bi-laptop';
+                                                    }
+                                                    ?>
+                                                    <tr id="session_row_<?= (int) $sess['id'] ?>"
+                                                        class="<?= $isCurr ? 'table-light-subtle' : '' ?>">
+                                                        <td>
+                                                            <div class="d-flex align-items-center gap-2">
+                                                                <div class="<?= $isCurr ? 'bg-success-subtle text-success' : 'bg-primary-subtle text-primary' ?> rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
+                                                                    style="width: 32px; height: 32px; font-size: 0.95rem;">
+                                                                    <i class="bi <?= $devIcon ?>"></i>
+                                                                </div>
+                                                                <div>
+                                                                    <div class="d-flex align-items-center gap-2">
+                                                                        <span
+                                                                            class="fw-bold text-dark"><?= htmlspecialchars($sess['device_name']) ?></span>
+                                                                        <?php if ($isCurr): ?>
+                                                                            <span
+                                                                                class="badge bg-success-subtle text-success border border-success-subtle"
+                                                                                style="font-size: 0.68rem;">
+                                                                                <i class="bi bi-circle-fill me-1"
+                                                                                    style="font-size: 0.45rem;"></i>This Device
+                                                                            </span>
+                                                                        <?php endif; ?>
+                                                                    </div>
+                                                                    <small class="text-muted" style="font-size: 0.72rem;">
+                                                                        Signed in:
+                                                                        <?= date('M d, Y h:i A', strtotime($sess['created_at'])) ?>
+                                                                    </small>
+                                                                </div>
+                                                            </div>
+                                                        </td>
+                                                        <td>
+                                                            <?php if ($isCurr): ?>
+                                                                <span class="badge bg-success text-white fw-semibold">
+                                                                    <i class="bi bi-broadcast me-1"></i>Active Now
+                                                                </span>
+                                                            <?php else: ?>
+                                                                <span class="badge bg-light text-muted border">
+                                                                    <i class="bi bi-wifi text-secondary me-1"></i>Online
+                                                                </span>
+                                                            <?php endif; ?>
+                                                        </td>
+                                                        <td>
+                                                            <?php if ($isRem): ?>
+                                                                <span
+                                                                    class="badge bg-success-subtle text-success border border-success-subtle d-inline-flex align-items-center gap-1">
+                                                                    <i class="bi bi-shield-check"></i>
+                                                                    <span>Trusted (<?= $daysLeft ?>d left)</span>
+                                                                </span>
+                                                            <?php else: ?>
+                                                                <span
+                                                                    class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">
+                                                                    <i class="bi bi-shield me-1"></i>Standard
+                                                                </span>
+                                                            <?php endif; ?>
+                                                        </td>
+                                                        <td>
+                                                            <div class="font-monospace small text-dark">
+                                                                <?= htmlspecialchars($sess['ip_address']) ?>
+                                                            </div>
+                                                            <small class="text-muted" style="font-size: 0.72rem;">
+                                                                <?= $isCurr ? 'Active Now' : time_elapsed_string($sess['last_activity']) ?>
+                                                            </small>
+                                                        </td>
+                                                        <td class="text-end">
+                                                            <?php if ($isCurr): ?>
+                                                                <span class="badge bg-light text-muted border py-2 px-2"
+                                                                    style="font-size: 0.75rem;">
+                                                                    <i class="bi bi-lock-fill text-success me-1"></i>Current Session
+                                                                </span>
+                                                            <?php else: ?>
+                                                                <button type="button"
+                                                                    class="btn btn-sm btn-outline-danger revoke-session-btn shadow-none"
+                                                                    style="min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 4px;"
+                                                                    data-id="<?= (int) $sess['id'] ?>"
+                                                                    data-name="<?= htmlspecialchars($sess['device_name']) ?>"
+                                                                    title="Sign Out & Revoke Device"
+                                                                    aria-label="Sign Out & Revoke Device">
+                                                                    <i class="bi bi-box-arrow-right"></i>
+                                                                    <span class="d-none d-md-inline">Log Out & Revoke</span>
+                                                                </button>
+                                                            <?php endif; ?>
+                                                        </td>
+                                                    </tr>
+                                                <?php endforeach; ?>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                <?php else: ?>
+                                    <div class="p-3 bg-light rounded-3 text-center border">
+                                        <i class="bi bi-laptop text-muted fs-4 d-block mb-1"></i>
+                                        <span class="text-muted small">No other active sessions detected.</span>
+                                    </div>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                    </div>
+                </div><!-- /#pane-security -->
+
+                <!-- ========================================== -->
+                <!-- TAB 3: OFFICIAL E-SIGNATURE                -->
+                <!-- ========================================== -->
+                <div class="tab-pane fade" id="pane-signature" role="tabpanel" aria-labelledby="tab-signature">
+                    <div class="card border-0 shadow-sm">
+                        <div
+                            class="card-header bg-white fw-bold py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                            <div>
+                                <i class="bi bi-pen-fill text-primary me-2"></i>Official Digital E-Signature
+                            </div>
+                        </div>
+                        <div class="card-body p-4">
+                            <p class="text-muted small mb-3">
+                                Your registered E-Signature will automatically be attached above your printed name on
+                                official
+                                <strong>Purchase Orders</strong> and <strong>Withdrawal Slips</strong> when creating or
+                                approving transactions.
+                            </p>
+
+                            <div class="row align-items-center mb-2">
+                                <div class="col-12 col-md-5 text-center mb-3 mb-md-0 border-end pe-md-4">
+                                    <label
+                                        class="form-label fw-bold d-block text-secondary small text-uppercase mb-2">Current
+                                        Registered Signature</label>
+                                    <?php if (!empty($user['signature_path']) && file_exists(__DIR__ . '/' . $user['signature_path'])): ?>
+                                        <div class="p-2 border rounded sig-preview-box d-inline-block shadow-sm w-100 mb-2"
+                                            style="background-color: #ffffff !important;">
+                                            <img src="secure_image.php?type=signatures&file=<?= urlencode(basename($user['signature_path'])) ?>&v=<?= time() ?>"
+                                                alt="User Signature" class="img-fluid"
+                                                style="max-height: 90px; object-fit: contain;">
+                                        </div>
+                                        <div>
+                                            <span class="badge bg-success-subtle text-success border border-success-subtle">
+                                                <i class="bi bi-check-circle-fill me-1"></i>Active Signature Registered
+                                            </span>
+                                        </div>
+                                    <?php else: ?>
+                                        <div class="p-3 border rounded bg-light text-muted d-block text-center w-100 mb-2">
+                                            <i class="bi bi-file-earmark-x display-6 d-block mb-1 text-secondary"></i>
+                                            <span class="small fw-bold">No Signature Registered</span>
+                                        </div>
+                                    <?php endif; ?>
+                                </div>
+
+                                <div class="col-12 col-md-7 ps-md-4">
+                                    <!-- Nav tabs for Draw vs Upload -->
+                                    <ul class="nav nav-pills nav-fill mb-3 bg-light p-1 rounded border" id="sigTypeTabs"
+                                        role="tablist">
+                                        <li class="nav-item" role="presentation">
+                                            <button class="nav-link active fw-bold btn-sm py-1" id="draw-tab"
+                                                data-bs-toggle="tab" data-bs-target="#draw-sig-pane" type="button"
+                                                role="tab">
+                                                <i class="bi bi-pencil-square me-1"></i> Draw Pad
+                                            </button>
+                                        </li>
+                                        <li class="nav-item" role="presentation">
+                                            <button class="nav-link fw-bold btn-sm py-1" id="upload-tab"
+                                                data-bs-toggle="tab" data-bs-target="#upload-sig-pane" type="button"
+                                                role="tab">
+                                                <i class="bi bi-cloud-arrow-up me-1"></i> Upload Image
+                                            </button>
+                                        </li>
+                                    </ul>
+
+                                    <div class="tab-content" id="sigTypeTabContent">
+                                        <!-- TAB 1: DRAW CANVAS -->
+                                        <div class="tab-pane fade show active" id="draw-sig-pane" role="tabpanel">
+                                            <form method="POST" action="process/update_signature.php" id="drawSigForm">
+                                                <input type="hidden" name="signature_data" id="profileSigData">
+
+                                                <div class="mb-3 text-center">
+                                                    <!-- Drawn Signature Preview Box (shown after drawing in modal) -->
+                                                    <div id="profileSigDrawnPreview"
+                                                        class="d-none border rounded p-3 mb-3 sig-preview-box shadow-sm position-relative"
+                                                        style="background-color: #ffffff !important;">
+                                                        <small class="d-block fw-bold text-uppercase mb-2"
+                                                            style="font-size: 0.7rem; color: #475569 !important;">Newly
+                                                            Drawn
+                                                            Signature Preview</small>
+                                                        <img id="profileSigPreviewImg" src="" alt="Drawn Signature"
+                                                            style="max-height: 90px; object-fit: contain;">
+                                                        <button type="button"
+                                                            class="btn btn-sm btn-outline-danger position-absolute top-0 end-0 m-2 py-0 px-2"
+                                                            id="clearProfileDrawnSigBtn" title="Clear drawn signature">
+                                                            <i class="bi bi-x-lg"></i>
+                                                        </button>
+                                                    </div>
+
+                                                    <!-- Open Fullscreen Pad Button -->
+                                                    <button type="button"
+                                                        class="btn btn-outline-primary fw-bold w-100 py-3 shadow-sm border-2"
+                                                        id="openProfileFullSigBtn" data-bs-toggle="modal"
+                                                        data-bs-target="#profileFullSigModal">
+                                                        <i
+                                                            class="bi bi-arrows-fullscreen display-6 d-block mb-2 text-primary"></i>
+                                                        <span class="fs-6">Open Fullscreen Signature Pad</span>
+                                                        <small class="d-block text-muted fw-normal mt-1"
+                                                            style="font-size: 0.75rem;">Touch or click to open
+                                                            full-screen
+                                                            pad</small>
+                                                    </button>
+                                                </div>
+
+                                                <div class="d-flex justify-content-between align-items-center">
+                                                    <button type="button"
+                                                        class="btn btn-sm btn-outline-secondary fw-bold me-auto d-none"
+                                                        id="clearProfileSigBtn">
+                                                        <i class="bi bi-eraser me-1"></i> Reset
+                                                    </button>
+                                                    <button type="submit"
+                                                        class="btn btn-sm btn-primary fw-bold px-4 ms-auto"
+                                                        id="saveDrawnSigSubmitBtn" disabled>
+                                                        <i class="bi bi-check-lg me-1"></i> Save Drawn Signature
+                                                    </button>
+                                                </div>
+                                            </form>
+                                        </div>
+
+                                        <!-- TAB 2: UPLOAD IMAGE -->
+                                        <div class="tab-pane fade" id="upload-sig-pane" role="tabpanel">
+                                            <form method="POST" action="process/update_signature.php"
+                                                enctype="multipart/form-data">
+                                                <div class="mb-3">
+                                                    <label class="form-label small fw-bold">Select Signature Image (PNG
+                                                        /
+                                                        JPEG)</label>
+                                                    <input type="file" name="signature_file"
+                                                        class="form-control form-control-sm"
+                                                        accept="image/png, image/jpeg, image/jpg" required>
+                                                    <div class="form-text text-muted" style="font-size: 0.75rem;">
+                                                        Transparent
+                                                        PNG with dark signature stroke is recommended.</div>
+                                                </div>
+                                                <div class="text-end">
+                                                    <button type="submit" class="btn btn-sm btn-primary fw-bold px-3">
+                                                        <i class="bi bi-upload me-1"></i> Upload Signature File
+                                                    </button>
+                                                </div>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div><!-- /#pane-signature -->
+
+                <?php if (in_array($_SESSION['user_role'], ['admin', 'management'])): ?>
+                    <!-- ========================================== -->
+                    <!-- TAB 4: LOGIN PAGE CUSTOMIZATION            -->
+                    <!-- ========================================== -->
+                    <div class="tab-pane fade" id="pane-customization" role="tabpanel" aria-labelledby="tab-customization">
+                        <?php
+                        // Fetch current login background + blur settings
+                        $bg_path = 'assets/img/default_login_bg.png';
+                        $cur_blur = 12;
+                        if (isset($pdo)) {
+                            try {
+                                $stmt = $pdo->prepare("SELECT setting_key, setting_value FROM system_settings WHERE setting_key IN ('login_background','login_blur')");
+                                $stmt->execute();
+                                $lc_settings = $stmt->fetchAll(PDO::FETCH_KEY_PAIR);
+                                if (!empty($lc_settings['login_background']))
+                                    $bg_path = $lc_settings['login_background'];
+                                if (isset($lc_settings['login_blur']) && $lc_settings['login_blur'] !== '')
+                                    $cur_blur = (int) $lc_settings['login_blur'];
+                            } catch (Exception $e) {
+                            }
+                        }
+                        $bg_version = file_exists($bg_path) ? filemtime($bg_path) : time();
+                        // Build a root-relative URL to the background image
+                        $profile_app_base = rtrim(str_replace('\\', '/', dirname($_SERVER['PHP_SELF'])), '/');
+                        $bg_preview_url = $profile_app_base . '/' . ltrim($bg_path, '/') . '?v=' . $bg_version;
+                        $cur_blur = max(0, min(30, $cur_blur));
+                        $cur_scale = round(1 + ($cur_blur * 0.006), 3);
+                        ?>
+                        <div class="card border-0 shadow-sm mt-4">
+                            <div class="card-header bg-white fw-bold py-3">
+                                <i class="bi bi-image text-primary me-2"></i>Login Page Customization
+                            </div>
+                            <div class="card-body p-4">
+
+                                <!-- ===== LIVE PREVIEW ===== -->
+                                <h6 class="fw-bold mb-3 border-bottom pb-2">
+                                    <i class="bi bi-eye me-1 text-primary"></i>Live Preview
+                                </h6>
+                                <div id="loginPreviewWrap" style="
                             position: relative;
                             width: 100%;
                             height: 320px;
@@ -684,8 +886,8 @@ include 'layout/header.php';
                             margin-bottom: 1.5rem;
                             box-shadow: 0 4px 20px rgba(0,0,0,0.15);
                         ">
-                            <!-- Blurred background layer -->
-                            <div id="previewBgLayer" style="
+                                    <!-- Blurred background layer -->
+                                    <div id="previewBgLayer" style="
                                 position: absolute; inset: 0;
                                 background-image: url('<?= htmlspecialchars($bg_preview_url) ?>');
                                 background-size: cover;
@@ -695,18 +897,18 @@ include 'layout/header.php';
                                 transform-origin: center;
                                 transition: filter 0.25s ease, transform 0.25s ease;
                             "></div>
-                            <!-- Dark overlay -->
-                            <div style="position: absolute; inset: 0; background: rgba(15,23,42,0.45);"></div>
+                                    <!-- Dark overlay -->
+                                    <div style="position: absolute; inset: 0; background: rgba(15,23,42,0.45);"></div>
 
-                            <!-- ★ Scaled accurate login page replica ★ -->
-                            <div style="
+                                    <!-- ★ Scaled accurate login page replica ★ -->
+                                    <div style="
                                 position: absolute; inset: 0;
                                 display: flex; flex-direction: column;
                                 align-items: center; justify-content: center;
                                 padding-bottom: 18px;
                             ">
-                                <!-- Login card — full real size, then CSS-scaled down -->
-                                <div style="
+                                        <!-- Login card — full real size, then CSS-scaled down -->
+                                        <div style="
                                     transform: scale(0.52);
                                     transform-origin: center center;
                                     background: #ffffff;
@@ -719,209 +921,278 @@ include 'layout/header.php';
                                     pointer-events: none;
                                     user-select: none;
                                 ">
-                                    <!-- Logo -->
-                                    <img src="<?= $profile_app_base ?>/assets/LogoGB.png" alt="Logo" style="width:68px;height:68px;object-fit:contain;border-radius:14px;
+                                            <!-- Logo -->
+                                            <img src="<?= $profile_app_base ?>/assets/LogoGB.png" alt="Logo" style="width:68px;height:68px;object-fit:contain;border-radius:14px;
                                                 background:#fff;padding:5px;
                                                 box-shadow:0 4px 12px rgba(0,0,0,0.08);
                                                 margin-bottom:10px;display:block;margin-left:auto;margin-right:auto;">
-                                    <!-- Brand name -->
-                                    <div
-                                        style="font-size:1.45rem;font-weight:800;color:#0f172a;letter-spacing:-0.02em;margin-bottom:2px;font-family:'Inter',sans-serif;">
-                                        SiteWare</div>
-                                    <!-- Heading -->
-                                    <div
-                                        style="font-size:1.55rem;font-weight:700;color:#0f172a;letter-spacing:-0.02em;margin-bottom:24px;font-family:'Inter',sans-serif;">
-                                        Login</div>
-
-                                    <!-- Username field -->
-                                    <div style="margin-bottom:18px;text-align:left;">
-                                        <div
-                                            style="font-size:0.78rem;font-weight:600;color:#475569;margin-bottom:6px;letter-spacing:0.02em;">
-                                            Username</div>
-                                        <div style="position:relative;">
-                                            <i class="bi bi-person"
-                                                style="position:absolute;left:14px;top:50%;transform:translateY(-50%);color:#64748b;font-size:1.05rem;z-index:1;"></i>
+                                            <!-- Brand name -->
                                             <div
-                                                style="width:100%;padding:11px 14px 11px 42px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:0.92rem;color:#94a3b8;background:#f1f5f9;font-family:'Inter',sans-serif;">
-                                                Enter your username
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <!-- Password field -->
-                                    <div style="margin-bottom:18px;text-align:left;">
-                                        <div
-                                            style="font-size:0.78rem;font-weight:600;color:#475569;margin-bottom:6px;letter-spacing:0.02em;">
-                                            Password</div>
-                                        <div style="position:relative;">
-                                            <i class="bi bi-lock"
-                                                style="position:absolute;left:14px;top:50%;transform:translateY(-50%);color:#64748b;font-size:1.05rem;z-index:1;"></i>
-                                            <i class="bi bi-eye-slash"
-                                                style="position:absolute;right:14px;top:50%;transform:translateY(-50%);color:#64748b;font-size:1.05rem;z-index:1;"></i>
+                                                style="font-size:1.45rem;font-weight:800;color:#0f172a;letter-spacing:-0.02em;margin-bottom:2px;font-family:'Inter',sans-serif;">
+                                                SiteWare</div>
+                                            <!-- Heading -->
                                             <div
-                                                style="width:100%;padding:11px 42px 11px 42px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:0.92rem;color:#94a3b8;background:#f1f5f9;font-family:'Inter',sans-serif;">
-                                                Enter your password
+                                                style="font-size:1.55rem;font-weight:700;color:#0f172a;letter-spacing:-0.02em;margin-bottom:24px;font-family:'Inter',sans-serif;">
+                                                Login</div>
+
+                                            <!-- Username field -->
+                                            <div style="margin-bottom:18px;text-align:left;">
+                                                <div
+                                                    style="font-size:0.78rem;font-weight:600;color:#475569;margin-bottom:6px;letter-spacing:0.02em;">
+                                                    Username</div>
+                                                <div style="position:relative;">
+                                                    <i class="bi bi-person"
+                                                        style="position:absolute;left:14px;top:50%;transform:translateY(-50%);color:#64748b;font-size:1.05rem;z-index:1;"></i>
+                                                    <div
+                                                        style="width:100%;padding:11px 14px 11px 42px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:0.92rem;color:#94a3b8;background:#f1f5f9;font-family:'Inter',sans-serif;">
+                                                        Enter your username
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <!-- Password field -->
+                                            <div style="margin-bottom:18px;text-align:left;">
+                                                <div
+                                                    style="font-size:0.78rem;font-weight:600;color:#475569;margin-bottom:6px;letter-spacing:0.02em;">
+                                                    Password</div>
+                                                <div style="position:relative;">
+                                                    <i class="bi bi-lock"
+                                                        style="position:absolute;left:14px;top:50%;transform:translateY(-50%);color:#64748b;font-size:1.05rem;z-index:1;"></i>
+                                                    <i class="bi bi-eye-slash"
+                                                        style="position:absolute;right:14px;top:50%;transform:translateY(-50%);color:#64748b;font-size:1.05rem;z-index:1;"></i>
+                                                    <div
+                                                        style="width:100%;padding:11px 42px 11px 42px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:0.92rem;color:#94a3b8;background:#f1f5f9;font-family:'Inter',sans-serif;">
+                                                        Enter your password
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <!-- Remember Me & Forgot Password replica -->
+                                            <div
+                                                style="display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:14px;text-align:left;">
+                                                <div style="display:flex;align-items:center;gap:6px;">
+                                                    <div
+                                                        style="width:14px;height:14px;border:1.5px solid #cbd5e1;border-radius:4px;background:#fff;display:flex;align-items:center;justify-content:center;">
+                                                        <i class="bi bi-check" style="font-size:0.75rem;color:#4f46e5;"></i>
+                                                    </div>
+                                                    <span style="font-size:0.72rem;color:#475569;font-weight:500;">Remember
+                                                        username</span>
+                                                </div>
+                                                <span style="font-size:0.72rem;color:#4f46e5;font-weight:600;">Forgot
+                                                    password?</span>
+                                            </div>
+
+                                            <!-- Login button -->
+                                            <div
+                                                style="background:linear-gradient(135deg,#4f46e5 0%,#3730a3 100%);color:#fff;font-size:0.95rem;font-weight:700;border-radius:10px;padding:13px;text-align:center;letter-spacing:0.02em;font-family:'Inter',sans-serif;box-shadow:0 4px 12px rgba(79,70,229,0.25);">
+                                                Login
                                             </div>
                                         </div>
                                     </div>
 
-                                    <!-- Remember Me & Forgot Password replica -->
-                                    <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:14px;text-align:left;">
-                                        <div style="display:flex;align-items:center;gap:6px;">
-                                            <div style="width:14px;height:14px;border:1.5px solid #cbd5e1;border-radius:4px;background:#fff;display:flex;align-items:center;justify-content:center;">
-                                                <i class="bi bi-check" style="font-size:0.75rem;color:#4f46e5;"></i>
-                                            </div>
-                                            <span style="font-size:0.72rem;color:#475569;font-weight:500;">Remember username</span>
-                                        </div>
-                                        <span style="font-size:0.72rem;color:#4f46e5;font-weight:600;">Forgot password?</span>
-                                    </div>
-
-                                    <!-- Login button -->
+                                    <!-- Page footer replica -->
                                     <div
-                                        style="background:linear-gradient(135deg,#4f46e5 0%,#3730a3 100%);color:#fff;font-size:0.95rem;font-weight:700;border-radius:10px;padding:13px;text-align:center;letter-spacing:0.02em;font-family:'Inter',sans-serif;box-shadow:0 4px 12px rgba(79,70,229,0.25);">
-                                        Login
+                                        style="position:absolute;bottom:8px;left:0;right:0;text-align:center;font-size:0.62rem;color:rgba(255,255,255,0.85);text-shadow:0 1px 3px rgba(0,0,0,0.7);letter-spacing:0.01em;pointer-events:none;">
+                                        &copy; 2026 Genetian Builders &amp; Enterprises Inc. &nbsp;|&nbsp; Powered by <span
+                                            style="font-weight:700;text-decoration:underline;">The Medyas</span>
                                     </div>
-                                </div>
-                            </div>
 
-                            <!-- Page footer replica -->
-                            <div
-                                style="position:absolute;bottom:8px;left:0;right:0;text-align:center;font-size:0.62rem;color:rgba(255,255,255,0.85);text-shadow:0 1px 3px rgba(0,0,0,0.7);letter-spacing:0.01em;pointer-events:none;">
-                                &copy; 2026 Genetian Builders &amp; Enterprises Inc. &nbsp;|&nbsp; Powered by <span
-                                    style="font-weight:700;text-decoration:underline;">The Medyas</span>
-                            </div>
-
-                            <!-- Blur badge -->
-                            <div style="
+                                    <!-- Blur badge -->
+                                    <div style="
                                 position: absolute; top: 10px; right: 10px;
                                 background: rgba(0,0,0,0.55); backdrop-filter: blur(6px);
                                 color: #fff; font-size: 0.72rem; font-weight: 700;
                                 padding: 3px 9px; border-radius: 20px; letter-spacing: 0.02em;
                             ">
-                                Blur: <span id="blurBadge"><?= $cur_blur ?>px</span>
-                            </div>
-                        </div>
-
-                        <div class="row g-4">
-                            <!-- LEFT: Background image upload -->
-                            <div class="col-12 col-md-6">
-                                <h6 class="fw-bold mb-3 border-bottom pb-2">
-                                    <i class="bi bi-image-fill me-1 text-primary"></i>Background Image
-                                </h6>
-                                <form method="POST" action="process/process.php" enctype="multipart/form-data" class="mb-3"
-                                    id="bgUploadForm">
-                                    <input type="hidden" name="action" value="update_login_bg">
-                                    <label class="form-label fw-bold small">Upload New Background</label>
-                                    <div class="input-group mb-2">
-                                        <input type="file" class="form-control form-control-sm" name="login_bg"
-                                            accept="image/jpeg,image/png,image/webp,image/gif" id="bgFileInput" required>
-                                        <button class="btn btn-brand btn-sm fw-bold px-3" type="submit">
-                                            <i class="bi bi-upload me-1"></i>Upload
-                                        </button>
+                                        Blur: <span id="blurBadge"><?= $cur_blur ?>px</span>
                                     </div>
-                                    <small class="text-muted"><i class="bi bi-info-circle me-1"></i>JPG, PNG, WEBP, GIF ·
-                                        Max 5MB</small>
-                                </form>
+                                </div>
 
-                                <?php if ($bg_path !== 'assets/img/default_login_bg.png'): ?>
-                                    <form method="POST" action="process/process.php">
-                                        <input type="hidden" name="action" value="reset_login_bg">
-                                        <button class="btn btn-outline-danger btn-sm fw-bold w-100" type="submit"
-                                            onclick="return confirm('Reset the background image to default?');">
-                                            <i class="bi bi-arrow-counterclockwise me-1"></i>Reset to Default Image
-                                        </button>
-                                    </form>
-                                <?php endif; ?>
-                            </div>
+                                <div class="row g-4">
+                                    <!-- LEFT: Background image upload -->
+                                    <div class="col-12 col-md-6">
+                                        <h6 class="fw-bold mb-3 border-bottom pb-2">
+                                            <i class="bi bi-image-fill me-1 text-primary"></i>Background Image
+                                        </h6>
+                                        <form method="POST" action="process/process.php" enctype="multipart/form-data"
+                                            class="mb-3" id="bgUploadForm">
+                                            <input type="hidden" name="action" value="update_login_bg">
+                                            <label class="form-label fw-bold small">Upload New Background</label>
+                                            <div class="input-group mb-2">
+                                                <input type="file" class="form-control form-control-sm" name="login_bg"
+                                                    accept="image/jpeg,image/png,image/webp,image/gif" id="bgFileInput"
+                                                    required>
+                                                <button class="btn btn-brand btn-sm fw-bold px-3" type="submit">
+                                                    <i class="bi bi-upload me-1"></i>Upload
+                                                </button>
+                                            </div>
+                                            <small class="text-muted"><i class="bi bi-info-circle me-1"></i>JPG, PNG, WEBP,
+                                                GIF ·
+                                                Max 5MB</small>
+                                        </form>
 
-                            <!-- RIGHT: Blur intensity slider -->
-                            <div class="col-12 col-md-6">
-                                <h6 class="fw-bold mb-3 border-bottom pb-2">
-                                    <i class="bi bi-sliders me-1 text-primary"></i>Blur Intensity
-                                </h6>
-                                <form method="POST" action="process/process.php" id="blurForm">
-                                    <input type="hidden" name="action" value="update_login_blur">
-
-                                    <div class="d-flex justify-content-between align-items-center mb-1">
-                                        <label class="form-label fw-bold small mb-0" for="blurSlider">Blur Amount</label>
-                                        <span class="badge bg-primary" id="blurValueBadge"><?= $cur_blur ?>px</span>
+                                        <?php if ($bg_path !== 'assets/img/default_login_bg.png'): ?>
+                                            <form method="POST" action="process/process.php">
+                                                <input type="hidden" name="action" value="reset_login_bg">
+                                                <button class="btn btn-outline-danger btn-sm fw-bold w-100" type="submit"
+                                                    onclick="return confirm('Reset the background image to default?');">
+                                                    <i class="bi bi-arrow-counterclockwise me-1"></i>Reset to Default Image
+                                                </button>
+                                            </form>
+                                        <?php endif; ?>
                                     </div>
 
-                                    <input type="range" class="form-range" id="blurSlider" name="login_blur" min="0"
-                                        max="30" step="1" value="<?= $cur_blur ?>" style="accent-color: #4f46e5;">
+                                    <!-- RIGHT: Blur intensity slider -->
+                                    <div class="col-12 col-md-6">
+                                        <h6 class="fw-bold mb-3 border-bottom pb-2">
+                                            <i class="bi bi-sliders me-1 text-primary"></i>Blur Intensity
+                                        </h6>
+                                        <form method="POST" action="process/process.php" id="blurForm">
+                                            <input type="hidden" name="action" value="update_login_blur">
 
-                                    <div class="d-flex justify-content-between text-muted"
-                                        style="font-size: 0.72rem; margin-top: -2px;">
-                                        <span>0px (No blur)</span>
-                                        <span>30px (Max blur)</span>
+                                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                                <label class="form-label fw-bold small mb-0" for="blurSlider">Blur
+                                                    Amount</label>
+                                                <span class="badge bg-primary" id="blurValueBadge"><?= $cur_blur ?>px</span>
+                                            </div>
+
+                                            <input type="range" class="form-range" id="blurSlider" name="login_blur" min="0"
+                                                max="30" step="1" value="<?= $cur_blur ?>" style="accent-color: #4f46e5;">
+
+                                            <div class="d-flex justify-content-between text-muted"
+                                                style="font-size: 0.72rem; margin-top: -2px;">
+                                                <span>0px (No blur)</span>
+                                                <span>30px (Max blur)</span>
+                                            </div>
+
+                                            <!-- Preset buttons -->
+                                            <div class="d-flex gap-2 flex-wrap mt-3 mb-3">
+                                                <button type="button" class="btn btn-outline-secondary btn-sm blur-preset"
+                                                    data-val="0">None</button>
+                                                <button type="button" class="btn btn-outline-secondary btn-sm blur-preset"
+                                                    data-val="6">Light</button>
+                                                <button type="button" class="btn btn-outline-secondary btn-sm blur-preset"
+                                                    data-val="12">Medium</button>
+                                                <button type="button" class="btn btn-outline-secondary btn-sm blur-preset"
+                                                    data-val="20">Heavy</button>
+                                                <button type="button" class="btn btn-outline-secondary btn-sm blur-preset"
+                                                    data-val="30">Max</button>
+                                            </div>
+
+                                            <button type="submit" class="btn btn-brand fw-bold w-100" id="saveBlurBtn">
+                                                <i class="bi bi-save me-1"></i>Save Blur Setting
+                                            </button>
+                                        </form>
                                     </div>
+                                </div><!-- /row -->
 
-                                    <!-- Preset buttons -->
-                                    <div class="d-flex gap-2 flex-wrap mt-3 mb-3">
-                                        <button type="button" class="btn btn-outline-secondary btn-sm blur-preset"
-                                            data-val="0">None</button>
-                                        <button type="button" class="btn btn-outline-secondary btn-sm blur-preset"
-                                            data-val="6">Light</button>
-                                        <button type="button" class="btn btn-outline-secondary btn-sm blur-preset"
-                                            data-val="12">Medium</button>
-                                        <button type="button" class="btn btn-outline-secondary btn-sm blur-preset"
-                                            data-val="20">Heavy</button>
-                                        <button type="button" class="btn btn-outline-secondary btn-sm blur-preset"
-                                            data-val="30">Max</button>
-                                    </div>
+                            </div><!-- /card-body -->
+                        </div><!-- /card -->
 
-                                    <button type="submit" class="btn btn-brand fw-bold w-100" id="saveBlurBtn">
-                                        <i class="bi bi-save me-1"></i>Save Blur Setting
-                                    </button>
-                                </form>
-                            </div>
-                        </div><!-- /row -->
+                        <script>
+                            (function () {
+                                const slider = document.getElementById('blurSlider');
+                                const valueBadge = document.getElementById('blurValueBadge');
+                                const blurBadge = document.getElementById('blurBadge');
+                                const bgLayer = document.getElementById('previewBgLayer');
+                                const bgFileInput = document.getElementById('bgFileInput');
 
-                    </div><!-- /card-body -->
-                </div><!-- /card -->
+                                function applyBlur(val) {
+                                    val = Math.max(0, Math.min(30, parseInt(val)));
+                                    const scale = (1 + val * 0.006).toFixed(3);
+                                    bgLayer.style.filter = `blur(${val}px)`;
+                                    bgLayer.style.transform = `scale(${scale})`;
+                                    valueBadge.textContent = val + 'px';
+                                    blurBadge.textContent = val + 'px';
+                                }
 
-                <script>
-                    (function () {
-                        const slider = document.getElementById('blurSlider');
-                        const valueBadge = document.getElementById('blurValueBadge');
-                        const blurBadge = document.getElementById('blurBadge');
-                        const bgLayer = document.getElementById('previewBgLayer');
-                        const bgFileInput = document.getElementById('bgFileInput');
+                                slider.addEventListener('input', () => applyBlur(slider.value));
 
-                        function applyBlur(val) {
-                            val = Math.max(0, Math.min(30, parseInt(val)));
-                            const scale = (1 + val * 0.006).toFixed(3);
-                            bgLayer.style.filter = `blur(${val}px)`;
-                            bgLayer.style.transform = `scale(${scale})`;
-                            valueBadge.textContent = val + 'px';
-                            blurBadge.textContent = val + 'px';
-                        }
+                                // Preset buttons
+                                document.querySelectorAll('.blur-preset').forEach(btn => {
+                                    btn.addEventListener('click', () => {
+                                        slider.value = btn.dataset.val;
+                                        applyBlur(btn.dataset.val);
+                                    });
+                                });
 
-                        slider.addEventListener('input', () => applyBlur(slider.value));
+                                // Image file picker → live preview
+                                bgFileInput.addEventListener('change', function () {
+                                    const file = this.files[0];
+                                    if (!file) return;
+                                    const reader = new FileReader();
+                                    reader.onload = e => {
+                                        bgLayer.style.backgroundImage = `url('${e.target.result}')`;
+                                    };
+                                    reader.readAsDataURL(file);
+                                });
+                            })();
+                        </script>
+                    </div><!-- /#pane-customization -->
+                <?php endif; ?>
 
-                        // Preset buttons
-                        document.querySelectorAll('.blur-preset').forEach(btn => {
-                            btn.addEventListener('click', () => {
-                                slider.value = btn.dataset.val;
-                                applyBlur(btn.dataset.val);
-                            });
-                        });
+            </div><!-- /#profileTabContent -->
 
-                        // Image file picker → live preview
-                        bgFileInput.addEventListener('change', function () {
-                            const file = this.files[0];
-                            if (!file) return;
-                            const reader = new FileReader();
-                            reader.onload = e => {
-                                bgLayer.style.backgroundImage = `url('${e.target.result}')`;
-                            };
-                            reader.readAsDataURL(file);
-                        });
-                    })();
-                </script>
-            <?php endif; ?>
+        </div>
+    </div>
+</div>
 
+<!-- ======================================================== -->
+<!-- MODAL: PROFILE FULLSCREEN SIGNATURE PAD                  -->
+<!-- ======================================================== -->
+<style>
+    /* Forced Landscape Mode for Mobile Signature Modal */
+    @media screen and (max-width: 991px) and (orientation: portrait) {
+        #profileFullSigModal .modal-dialog {
+            margin: 0 !important;
+            max-width: 100vw !important;
+            width: 100vw !important;
+            height: 100vh !important;
+            overflow: hidden !important;
+        }
 
+        #profileFullSigModal .modal-content {
+            position: fixed !important;
+            top: 50% !important;
+            left: 50% !important;
+            width: 100vh !important;
+            height: 100vw !important;
+            transform: translate(-50%, -50%) rotate(90deg) !important;
+            transform-origin: center center !important;
+            border-radius: 0 !important;
+        }
+    }
+</style>
+<div class="modal fade" id="profileFullSigModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-fullscreen">
+        <div class="modal-content border-0">
+            <div class="modal-header bg-dark text-white py-2">
+                <div class="d-flex align-items-center">
+                    <button type="button" class="btn-close btn-close-white me-2" data-bs-dismiss="modal"
+                        aria-label="Close"></button>
+                    <h6 class="modal-title fw-bold text-uppercase mb-0">
+                        <i class="bi bi-pen text-warning me-2"></i> Official E-Signature - Fullscreen Pad
+                    </h6>
+                </div>
+                <div>
+                    <button type="button" class="btn btn-sm btn-outline-light fw-bold me-2" id="clearProfileFullSigBtn">
+                        <i class="bi bi-eraser me-1"></i> Clear
+                    </button>
+                    <button type="button" class="btn btn-sm btn-success fw-bold px-3" id="saveProfileFullSigBtn">
+                        <i class="bi bi-check-lg me-1"></i> Use Signature
+                    </button>
+                </div>
+            </div>
+            <div class="modal-body p-2 bg-light d-flex flex-column justify-content-center align-items-center position-relative"
+                style="overflow: hidden;">
+                <canvas id="profileFullSigCanvas" class="border rounded shadow-sm sig-white-bg"
+                    style="width: 100%; height: 100%; touch-action: none; cursor: crosshair; background-color: #ffffff !important;"></canvas>
+                <div id="profileFullSigPlaceholder"
+                    class="position-absolute top-50 start-50 translate-middle fw-bold pe-none fs-5 text-center"
+                    style="pointer-events: none; opacity: 0.6; color: #6c757d !important;">
+                    <i class="bi bi-phone-landscape me-2 fs-3 d-block mb-1"></i> Sign here with finger...
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -1449,129 +1720,94 @@ include 'layout/header.php';
     })();
 </script>
 
-    <!-- ======================================================== -->
-    <!-- MODAL: MFA (TOTP) SETUP WIZARD                           -->
-    <!-- ======================================================== -->
-    <div class="modal fade" id="mfaSetupModal" tabindex="-1" aria-labelledby="mfaSetupModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-fullscreen-sm-down" style="max-width: 520px;">
-            <div class="modal-content border-0 shadow-lg" style="border-radius: 18px; overflow: hidden;">
-                <div class="modal-header border-0 pb-0 pt-4 px-4 bg-white">
-                    <div class="d-flex align-items-center gap-3">
-                        <div class="d-flex align-items-center justify-content-center bg-primary-subtle rounded-3 text-primary shadow-sm"
-                            style="width: 44px; height: 44px; font-size: 1.3rem;">
-                            <i class="bi bi-qr-code-scan"></i>
-                        </div>
-                        <div>
-                            <h5 class="modal-title fw-bold text-dark mb-0" id="mfaSetupModalLabel">Set Up Two-Factor Authentication</h5>
-                            <small class="text-muted" style="font-size: 0.8rem;">Authenticator App (RFC 6238)</small>
-                        </div>
+<!-- ======================================================== -->
+<!-- MODAL: MFA (TOTP) SETUP WIZARD                           -->
+<!-- ======================================================== -->
+<div class="modal fade" id="mfaSetupModal" tabindex="-1" aria-labelledby="mfaSetupModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-fullscreen-sm-down"
+        style="max-width: 520px;">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 18px; overflow: hidden;">
+            <div class="modal-header border-0 pb-0 pt-4 px-4 bg-white">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="d-flex align-items-center justify-content-center bg-primary-subtle rounded-3 text-primary shadow-sm"
+                        style="width: 44px; height: 44px; font-size: 1.3rem;">
+                        <i class="bi bi-qr-code-scan"></i>
                     </div>
-                    <button type="button" class="btn-close shadow-none" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body px-4 py-3">
-                    <!-- Step 1: Scan QR -->
-                    <div class="mb-4">
-                        <h6 class="fw-bold small text-uppercase text-secondary mb-2">Step 1: Scan QR Code</h6>
-                        <p class="text-muted small mb-3">
-                            Open <strong>Google Authenticator</strong>, <strong>Microsoft Authenticator</strong>, or your preferred authenticator app, tap <em>"+"</em>, and scan the QR code below:
-                        </p>
-                        <div class="d-flex flex-column align-items-center justify-content-center p-3 border rounded-3 bg-white mb-2 shadow-sm text-center">
-                            <div id="totpQrCodeContainer" class="p-2 bg-white rounded" style="min-width: 180px; min-height: 180px; display: flex; align-items: center; justify-content: center;">
-                                <div class="spinner-border text-primary" role="status">
-                                    <span class="visually-hidden">Loading QR Code...</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Manual Key Entry Fallback -->
-                        <div class="p-2 border rounded-3 bg-light text-center">
-                            <small class="text-muted d-block mb-1" style="font-size: 0.75rem;">Can't scan? Enter this key manually:</small>
-                            <code class="fw-bold fs-6 text-primary user-select-all" id="totpSecretKeyDisplay">---- ---- ---- ----</code>
-                        </div>
-                    </div>
-
-                    <!-- Step 2: Emergency Backup Codes -->
-                    <div class="mb-4">
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <h6 class="fw-bold small text-uppercase text-secondary mb-0">Step 2: Save Emergency Recovery Codes</h6>
-                            <button type="button" class="btn btn-sm btn-link text-decoration-none p-0 fw-bold" id="copyBackupCodesBtn">
-                                <i class="bi bi-clipboard me-1"></i>Copy
-                            </button>
-                        </div>
-                        <p class="text-muted small mb-2" style="font-size: 0.8rem;">
-                            If you ever lose access to your phone, these single-use codes are the only way to recover your account:
-                        </p>
-                        <div class="p-3 border rounded-3 bg-light font-monospace small" id="backupCodesContainer" style="font-size: 0.85rem; line-height: 1.8;">
-                            <!-- Populated via AJAX -->
-                        </div>
-                    </div>
-
-                    <!-- Step 3: Confirmation Form -->
                     <div>
-                        <h6 class="fw-bold small text-uppercase text-secondary mb-2">Step 3: Confirm 6-Digit Code</h6>
-                        <form id="mfaSetupConfirmForm" autocomplete="off">
-                            <input type="hidden" name="action" value="verify_and_enable">
-                            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(generate_csrf_token()) ?>">
-
-                            <div class="mb-3">
-                                <label for="mfaConfirmCodeInput" class="form-label small fw-bold text-dark">Enter 6-digit code shown in your app:</label>
-                                <input type="text" class="form-control form-control-lg text-center fw-bold shadow-none" 
-                                    id="mfaConfirmCodeInput" name="code" 
-                                    placeholder="000000" maxlength="6" inputmode="numeric" 
-                                    style="letter-spacing: 0.25em; font-size: 1.4rem; height: 50px;" required>
-                            </div>
-
-                            <div class="d-grid gap-2">
-                                <button type="submit" class="btn btn-brand py-2 fw-bold shadow-sm" id="mfaSetupSubmitBtn" style="border-radius: 10px; min-height: 44px;">
-                                    <i class="bi bi-shield-check me-1"></i> Activate Two-Factor Authentication
-                                </button>
-                            </div>
-                        </form>
+                        <h5 class="modal-title fw-bold text-dark mb-0" id="mfaSetupModalLabel">Set Up Two-Factor
+                            Authentication</h5>
+                        <small class="text-muted" style="font-size: 0.8rem;">Authenticator App (RFC 6238)</small>
                     </div>
                 </div>
+                <button type="button" class="btn-close shadow-none" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-        </div>
-    </div>
+            <div class="modal-body px-4 py-3">
+                <!-- Step 1: Scan QR -->
+                <div class="mb-4">
+                    <h6 class="fw-bold small text-uppercase text-secondary mb-2">Step 1: Scan QR Code</h6>
+                    <p class="text-muted small mb-3">
+                        Open <strong>Google Authenticator</strong>, <strong>Microsoft Authenticator</strong>, or your
+                        preferred authenticator app, tap <em>"+"</em>, and scan the QR code below:
+                    </p>
+                    <div
+                        class="d-flex flex-column align-items-center justify-content-center p-3 border rounded-3 bg-white mb-2 shadow-sm text-center">
+                        <div id="totpQrCodeContainer" class="p-2 bg-white rounded"
+                            style="min-width: 180px; min-height: 180px; display: flex; align-items: center; justify-content: center;">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading QR Code...</span>
+                            </div>
+                        </div>
+                    </div>
 
-    <!-- ======================================================== -->
-    <!-- MODAL: MFA DISABLE CONFIRMATION                          -->
-    <!-- ======================================================== -->
-    <div class="modal fade" id="mfaDisableModal" tabindex="-1" aria-labelledby="mfaDisableModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered" style="max-width: 440px;">
-            <div class="modal-content border-0 shadow-lg" style="border-radius: 18px; overflow: hidden;">
-                <div class="modal-header border-0 pb-0 pt-4 px-4 bg-white">
-                    <div class="d-flex align-items-center gap-3">
-                        <div class="d-flex align-items-center justify-content-center bg-danger-subtle rounded-3 text-danger shadow-sm"
-                            style="width: 44px; height: 44px; font-size: 1.3rem;">
-                            <i class="bi bi-shield-x"></i>
-                        </div>
-                        <div>
-                            <h5 class="modal-title fw-bold text-dark mb-0" id="mfaDisableModalLabel">Disable 2FA Protection</h5>
-                            <small class="text-muted" style="font-size: 0.8rem;">Security Confirmation</small>
-                        </div>
+                    <!-- Manual Key Entry Fallback -->
+                    <div class="p-2 border rounded-3 bg-light text-center">
+                        <small class="text-muted d-block mb-1" style="font-size: 0.75rem;">Can't scan? Enter this key
+                            manually:</small>
+                        <code class="fw-bold fs-6 text-primary user-select-all"
+                            id="totpSecretKeyDisplay">---- ---- ---- ----</code>
                     </div>
-                    <button type="button" class="btn-close shadow-none" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <div class="modal-body px-4 py-3">
-                    <div class="alert alert-warning border-0 small py-2 px-3 mb-3" style="border-radius: 8px;">
-                        <i class="bi bi-exclamation-triangle-fill me-1 text-warning"></i>
-                        Disabling Two-Factor Authentication will reduce your account's protection to password-only authentication.
+
+                <!-- Step 2: Emergency Backup Codes -->
+                <div class="mb-4">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h6 class="fw-bold small text-uppercase text-secondary mb-0">Step 2: Save Emergency Recovery
+                            Codes</h6>
+                        <button type="button" class="btn btn-sm btn-link text-decoration-none p-0 fw-bold"
+                            id="copyBackupCodesBtn">
+                            <i class="bi bi-clipboard me-1"></i>Copy
+                        </button>
                     </div>
-                    <form id="mfaDisableForm" autocomplete="off">
-                        <input type="hidden" name="action" value="disable">
+                    <p class="text-muted small mb-2" style="font-size: 0.8rem;">
+                        If you ever lose access to your phone, these single-use codes are the only way to recover your
+                        account:
+                    </p>
+                    <div class="p-3 border rounded-3 bg-light font-monospace small" id="backupCodesContainer"
+                        style="font-size: 0.85rem; line-height: 1.8;">
+                        <!-- Populated via AJAX -->
+                    </div>
+                </div>
+
+                <!-- Step 3: Confirmation Form -->
+                <div>
+                    <h6 class="fw-bold small text-uppercase text-secondary mb-2">Step 3: Confirm 6-Digit Code</h6>
+                    <form id="mfaSetupConfirmForm" autocomplete="off">
+                        <input type="hidden" name="action" value="verify_and_enable">
                         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(generate_csrf_token()) ?>">
 
                         <div class="mb-3">
-                            <label for="mfaDisablePasswordInput" class="form-label small fw-bold">Enter your account password to confirm:</label>
-                            <input type="password" class="form-control" id="mfaDisablePasswordInput" name="password" placeholder="Current password" required>
+                            <label for="mfaConfirmCodeInput" class="form-label small fw-bold text-dark">Enter 6-digit
+                                code shown in your app:</label>
+                            <input type="text" class="form-control form-control-lg text-center fw-bold shadow-none"
+                                id="mfaConfirmCodeInput" name="code" placeholder="000000" maxlength="6"
+                                inputmode="numeric" style="letter-spacing: 0.25em; font-size: 1.4rem; height: 50px;"
+                                required>
                         </div>
 
                         <div class="d-grid gap-2">
-                            <button type="submit" class="btn btn-danger py-2 fw-bold shadow-sm" id="mfaDisableSubmitBtn" style="border-radius: 10px; min-height: 44px;">
-                                <i class="bi bi-unlock-fill me-1"></i> Confirm &amp; Disable 2FA
-                            </button>
-                            <button type="button" class="btn btn-light py-2 border text-secondary fw-semibold" data-bs-dismiss="modal" style="border-radius: 10px; min-height: 44px;">
-                                Keep 2FA Enabled
+                            <button type="submit" class="btn btn-brand py-2 fw-bold shadow-sm" id="mfaSetupSubmitBtn"
+                                style="border-radius: 10px; min-height: 44px;">
+                                <i class="bi bi-shield-check me-1"></i> Activate Two-Factor Authentication
                             </button>
                         </div>
                     </form>
@@ -1579,107 +1815,174 @@ include 'layout/header.php';
             </div>
         </div>
     </div>
+</div>
 
-    <!-- ======================================================== -->
-    <!-- MODAL: REGENERATE BACKUP RECOVERY CODES                  -->
-    <!-- ======================================================== -->
-    <div class="modal fade" id="mfaBackupModal" tabindex="-1" aria-labelledby="mfaBackupModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered" style="max-width: 460px;">
-            <div class="modal-content border-0 shadow-lg" style="border-radius: 18px; overflow: hidden;">
-                <div class="modal-header border-0 pb-0 pt-4 px-4 bg-white">
-                    <div class="d-flex align-items-center gap-3">
-                        <div class="d-flex align-items-center justify-content-center bg-primary-subtle rounded-3 text-primary shadow-sm"
-                            style="width: 44px; height: 44px; font-size: 1.3rem;">
-                            <i class="bi bi-key-fill"></i>
-                        </div>
-                        <div>
-                            <h5 class="modal-title fw-bold text-dark mb-0" id="mfaBackupModalLabel">Emergency Recovery Codes</h5>
-                            <small class="text-muted" style="font-size: 0.8rem;">Single-Use Backup Codes</small>
-                        </div>
+<!-- ======================================================== -->
+<!-- MODAL: MFA DISABLE CONFIRMATION                          -->
+<!-- ======================================================== -->
+<div class="modal fade" id="mfaDisableModal" tabindex="-1" aria-labelledby="mfaDisableModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" style="max-width: 440px;">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 18px; overflow: hidden;">
+            <div class="modal-header border-0 pb-0 pt-4 px-4 bg-white">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="d-flex align-items-center justify-content-center bg-danger-subtle rounded-3 text-danger shadow-sm"
+                        style="width: 44px; height: 44px; font-size: 1.3rem;">
+                        <i class="bi bi-shield-x"></i>
                     </div>
-                    <button type="button" class="btn-close shadow-none" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body px-4 py-3">
-                    <div id="regenPromptSection">
-                        <p class="text-muted small mb-3">
-                            Generating new backup codes will immediately invalidate all previously issued recovery codes. Please enter your password to proceed:
-                        </p>
-                        <form id="regenBackupCodesForm" autocomplete="off">
-                            <input type="hidden" name="action" value="regenerate_backup_codes">
-                            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(generate_csrf_token()) ?>">
-
-                            <div class="mb-3">
-                                <label for="regenPasswordInput" class="form-label small fw-bold">Current Account Password:</label>
-                                <input type="password" class="form-control" id="regenPasswordInput" name="password" placeholder="Enter password" required>
-                            </div>
-
-                            <button type="submit" class="btn btn-brand w-100 py-2 fw-bold shadow-sm" id="regenSubmitBtn" style="border-radius: 10px; min-height: 44px;">
-                                <i class="bi bi-arrow-repeat me-1"></i> Generate 8 New Codes
-                            </button>
-                        </form>
-                    </div>
-
-                    <div id="regenResultSection" class="d-none">
-                        <p class="text-success small fw-semibold mb-2">
-                            <i class="bi bi-check-circle-fill me-1"></i> 8 Fresh Backup Codes Generated:
-                        </p>
-                        <div class="p-3 border rounded-3 bg-light font-monospace small mb-3" id="freshBackupCodesDisplay" style="font-size: 0.9rem; line-height: 1.8;">
-                        </div>
-                        <div class="d-flex gap-2">
-                            <button type="button" class="btn btn-outline-primary btn-sm fw-bold w-100 py-2" id="copyFreshCodesBtn">
-                                <i class="bi bi-clipboard me-1"></i> Copy Codes
-                            </button>
-                            <button type="button" class="btn btn-brand btn-sm fw-bold w-100 py-2" data-bs-dismiss="modal">
-                                <i class="bi bi-check2 me-1"></i> Done
-                            </button>
-                        </div>
+                    <div>
+                        <h5 class="modal-title fw-bold text-dark mb-0" id="mfaDisableModalLabel">Disable 2FA Protection
+                        </h5>
+                        <small class="text-muted" style="font-size: 0.8rem;">Security Confirmation</small>
                     </div>
                 </div>
+                <button type="button" class="btn-close shadow-none" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body px-4 py-3">
+                <div class="alert alert-warning border-0 small py-2 px-3 mb-3" style="border-radius: 8px;">
+                    <i class="bi bi-exclamation-triangle-fill me-1 text-warning"></i>
+                    Disabling Two-Factor Authentication will reduce your account's protection to password-only
+                    authentication.
+                </div>
+                <form id="mfaDisableForm" autocomplete="off">
+                    <input type="hidden" name="action" value="disable">
+                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(generate_csrf_token()) ?>">
+
+                    <div class="mb-3">
+                        <label for="mfaDisablePasswordInput" class="form-label small fw-bold">Enter your account
+                            password to confirm:</label>
+                        <input type="password" class="form-control" id="mfaDisablePasswordInput" name="password"
+                            placeholder="Current password" required>
+                    </div>
+
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-danger py-2 fw-bold shadow-sm" id="mfaDisableSubmitBtn"
+                            style="border-radius: 10px; min-height: 44px;">
+                            <i class="bi bi-unlock-fill me-1"></i> Confirm &amp; Disable 2FA
+                        </button>
+                        <button type="button" class="btn btn-light py-2 border text-secondary fw-semibold"
+                            data-bs-dismiss="modal" style="border-radius: 10px; min-height: 44px;">
+                            Keep 2FA Enabled
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
+</div>
 
-    <!-- ======================================================== -->
-    <!-- MODAL: REGISTER PASSKEY / BIOMETRIC                      -->
-    <!-- ======================================================== -->
-    <div class="modal fade" id="passkeyRegisterModal" tabindex="-1" aria-labelledby="passkeyRegisterModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered" style="max-width: 440px;">
-            <div class="modal-content border-0 shadow-lg" style="border-radius: 18px; overflow: hidden;">
-                <div class="modal-header border-0 pb-0 pt-4 px-4 bg-white">
-                    <div class="d-flex align-items-center gap-3">
-                        <div class="d-flex align-items-center justify-content-center bg-success-subtle rounded-3 text-success shadow-sm"
-                            style="width: 44px; height: 44px; font-size: 1.3rem;">
-                            <i class="bi bi-fingerprint"></i>
-                        </div>
-                        <div>
-                            <h5 class="modal-title fw-bold text-dark mb-0" id="passkeyRegisterModalLabel">Register Biometric Passkey</h5>
-                            <small class="text-muted" style="font-size: 0.8rem;">Windows Hello / Touch ID / Face ID</small>
-                        </div>
+<!-- ======================================================== -->
+<!-- MODAL: REGENERATE BACKUP RECOVERY CODES                  -->
+<!-- ======================================================== -->
+<div class="modal fade" id="mfaBackupModal" tabindex="-1" aria-labelledby="mfaBackupModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" style="max-width: 460px;">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 18px; overflow: hidden;">
+            <div class="modal-header border-0 pb-0 pt-4 px-4 bg-white">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="d-flex align-items-center justify-content-center bg-primary-subtle rounded-3 text-primary shadow-sm"
+                        style="width: 44px; height: 44px; font-size: 1.3rem;">
+                        <i class="bi bi-key-fill"></i>
                     </div>
-                    <button type="button" class="btn-close shadow-none" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <div>
+                        <h5 class="modal-title fw-bold text-dark mb-0" id="mfaBackupModalLabel">Emergency Recovery Codes
+                        </h5>
+                        <small class="text-muted" style="font-size: 0.8rem;">Single-Use Backup Codes</small>
+                    </div>
                 </div>
-                <div class="modal-body px-4 py-3">
+                <button type="button" class="btn-close shadow-none" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body px-4 py-3">
+                <div id="regenPromptSection">
                     <p class="text-muted small mb-3">
-                        Link this device's biometric sensor or security key to your SiteWare account for passwordless, 1-second sign-in.
+                        Generating new backup codes will immediately invalidate all previously issued recovery codes.
+                        Please enter your password to proceed:
                     </p>
+                    <form id="regenBackupCodesForm" autocomplete="off">
+                        <input type="hidden" name="action" value="regenerate_backup_codes">
+                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(generate_csrf_token()) ?>">
 
-                    <form id="passkeyRegisterForm" autocomplete="off">
                         <div class="mb-3">
-                            <label for="passkeyDeviceNameInput" class="form-label small fw-bold">Device Nickname:</label>
-                            <input type="text" class="form-control" id="passkeyDeviceNameInput" placeholder="e.g. Work Laptop (Windows Hello)" required>
-                            <div class="form-text text-muted" style="font-size: 0.75rem;">A friendly name to help you recognize this device.</div>
+                            <label for="regenPasswordInput" class="form-label small fw-bold">Current Account
+                                Password:</label>
+                            <input type="password" class="form-control" id="regenPasswordInput" name="password"
+                                placeholder="Enter password" required>
                         </div>
 
-                        <div class="d-grid gap-2">
-                            <button type="submit" class="btn btn-success py-2 fw-bold shadow-sm" id="passkeyRegisterSubmitBtn" style="border-radius: 10px; min-height: 44px;">
-                                <i class="bi bi-shield-check me-1"></i> Start Biometric Scan
-                            </button>
-                        </div>
+                        <button type="submit" class="btn btn-brand w-100 py-2 fw-bold shadow-sm" id="regenSubmitBtn"
+                            style="border-radius: 10px; min-height: 44px;">
+                            <i class="bi bi-arrow-repeat me-1"></i> Generate 8 New Codes
+                        </button>
                     </form>
+                </div>
+
+                <div id="regenResultSection" class="d-none">
+                    <p class="text-success small fw-semibold mb-2">
+                        <i class="bi bi-check-circle-fill me-1"></i> 8 Fresh Backup Codes Generated:
+                    </p>
+                    <div class="p-3 border rounded-3 bg-light font-monospace small mb-3" id="freshBackupCodesDisplay"
+                        style="font-size: 0.9rem; line-height: 1.8;">
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-outline-primary btn-sm fw-bold w-100 py-2"
+                            id="copyFreshCodesBtn">
+                            <i class="bi bi-clipboard me-1"></i> Copy Codes
+                        </button>
+                        <button type="button" class="btn btn-brand btn-sm fw-bold w-100 py-2" data-bs-dismiss="modal">
+                            <i class="bi bi-check2 me-1"></i> Done
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
+</div>
+
+<!-- ======================================================== -->
+<!-- MODAL: REGISTER PASSKEY / BIOMETRIC                      -->
+<!-- ======================================================== -->
+<div class="modal fade" id="passkeyRegisterModal" tabindex="-1" aria-labelledby="passkeyRegisterModalLabel"
+    aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" style="max-width: 440px;">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 18px; overflow: hidden;">
+            <div class="modal-header border-0 pb-0 pt-4 px-4 bg-white">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="d-flex align-items-center justify-content-center bg-success-subtle rounded-3 text-success shadow-sm"
+                        style="width: 44px; height: 44px; font-size: 1.3rem;">
+                        <i class="bi bi-fingerprint"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title fw-bold text-dark mb-0" id="passkeyRegisterModalLabel">Register Biometric
+                            Passkey</h5>
+                        <small class="text-muted" style="font-size: 0.8rem;">Windows Hello / Touch ID / Face ID</small>
+                    </div>
+                </div>
+                <button type="button" class="btn-close shadow-none" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body px-4 py-3">
+                <p class="text-muted small mb-3">
+                    Link this device's biometric sensor or security key to your SiteWare account for passwordless,
+                    1-second sign-in.
+                </p>
+
+                <form id="passkeyRegisterForm" autocomplete="off">
+                    <div class="mb-3">
+                        <label for="passkeyDeviceNameInput" class="form-label small fw-bold">Device Nickname:</label>
+                        <input type="text" class="form-control" id="passkeyDeviceNameInput"
+                            placeholder="e.g. Work Laptop (Windows Hello)" required>
+                        <div class="form-text text-muted" style="font-size: 0.75rem;">A friendly name to help you
+                            recognize this device.</div>
+                    </div>
+
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-success py-2 fw-bold shadow-sm"
+                            id="passkeyRegisterSubmitBtn" style="border-radius: 10px; min-height: 44px;">
+                            <i class="bi bi-shield-check me-1"></i> Start Biometric Scan
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
 
 <?php include 'layout/footer.php'; ?>
 
@@ -2340,5 +2643,40 @@ include 'layout/header.php';
                 }
             });
         }
-    });
-</script>
+
+        // --- 8. PROFILE TAB SWITCHING & URL HASH PERSISTENCE ---
+        const profileTabs = document.querySelectorAll('#profileTabs button[data-bs-toggle="pill"]');
+
+        // Shortcut buttons to jump straight to the Security tab
+        document.querySelectorAll('.switch-to-security-btn').forEach(btn => {
+            btn.addEventListener('click', function (e) {
+                e.preventDefault();
+                const securityTab = document.getElementById('tab-security');
+                if (securityTab) {
+                    bootstrap.Tab.getOrCreateInstance(securityTab).show();
+                }
+            });
+        });
+
+        // Track tab selection and sync to URL hash and sessionStorage
+        profileTabs.forEach(tab => {
+            tab.addEventListener('shown.bs.tab', function (e) {
+                const targetPane = e.target.getAttribute('data-bs-target');
+                if (targetPane) {
+                    const hash = targetPane.replace('#pane-', '#');
+                    history.replaceState(null, null, hash);
+                    sessionStorage.setItem('cims_profile_active_tab', hash);
+                }
+            });
+        });
+
+        // Restore active tab on page load (URL hash takes precedence, then sessionStorage)
+        const initialHash = window.location.hash || sessionStorage.getItem('cims_profile_active_tab');
+        if (initialHash) {
+            const cleanKey = initialHash.replace('#pane-', '').replace('#', '');
+            const targetTab = document.getElementById(`tab-${cleanKey}`);
+            if (targetTab) {
+                bootstrap.Tab.getOrCreateInstance(targetTab).show();
+            }
+        }
+    });</script>
