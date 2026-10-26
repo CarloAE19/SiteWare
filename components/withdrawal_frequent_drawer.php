@@ -113,6 +113,16 @@ try {
     z-index: 1065 !important;
 }
 
+/* Hide Floating Chatbot while Withdrawal Drawer is open */
+body:has(#wdFrequentDrawer.show) #cims-chatbot-container,
+body:has(#wdFrequentDrawer.showing) #cims-chatbot-container,
+body.cims-drawer-open #cims-chatbot-container {
+    opacity: 0 !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+    display: none !important;
+}
+
 /* Tab Pills in Drawer */
 .cims-wd-nav-pills .nav-link {
     font-size: 0.80rem;
@@ -585,14 +595,26 @@ try {
         if (searchInput) searchInput.focus();
     };
 
-    // 3. Backdrop Layering Alignment when Drawer Opens
+    // 3. Backdrop Layering & Chatbot Hide Alignment when Drawer Opens
     const drawerEl = document.getElementById('wdFrequentDrawer');
     if (drawerEl) {
         drawerEl.addEventListener('show.bs.offcanvas', function() {
+            document.body.classList.add('cims-drawer-open');
+            const bot = document.getElementById('cims-chatbot-container');
+            if (bot) bot.classList.add('d-none');
             setTimeout(() => {
                 const backdrops = document.querySelectorAll('.offcanvas-backdrop');
                 backdrops.forEach(b => b.classList.add('cims-wd-backdrop'));
             }, 15);
+        });
+        drawerEl.addEventListener('hidden.bs.offcanvas', function() {
+            document.body.classList.remove('cims-drawer-open');
+            setTimeout(() => {
+                if (!document.querySelector('.offcanvas.show') && !document.querySelector('.modal.show')) {
+                    const bot = document.getElementById('cims-chatbot-container');
+                    if (bot) bot.classList.remove('d-none');
+                }
+            }, 100);
         });
     }
 })();
