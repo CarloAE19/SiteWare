@@ -2231,6 +2231,20 @@ $approvedRS = $pdo->query("
                     return;
                 }
 
+                const checkedItems = this.querySelectorAll('.po-item-checkbox:checked');
+                if (checkedItems.length === 0) {
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({
+                            icon: 'warning',
+                            title: 'No Items Selected',
+                            text: 'Please select at least one item from the requisition to purchase from this supplier.'
+                        });
+                    } else {
+                        alert('Please select at least one item to purchase.');
+                    }
+                    return;
+                }
+
                 const submitBtn = this.querySelector('button[type="submit"]');
                 const originalBtnHtml = submitBtn ? submitBtn.innerHTML : '<i class="bi bi-check-circle me-1"></i> Generate & Save PO';
 
@@ -2284,6 +2298,9 @@ $approvedRS = $pdo->query("
                     }
                 } catch (err) {
                     console.error('Error creating PO:', err);
+                    if (document.activeElement && typeof document.activeElement.blur === 'function') {
+                        document.activeElement.blur();
+                    }
                     if (typeof Swal !== 'undefined') {
                         Swal.fire({
                             icon: 'error',
