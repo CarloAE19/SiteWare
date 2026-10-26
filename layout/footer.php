@@ -80,9 +80,13 @@ if (!empty($currentUserId) && isset($pdo)) {
         transition: opacity 0.25s ease, transform 0.25s ease, visibility 0.25s ease;
     }
 
-    /* Auto-hide floating chatbot whenever a modal is open */
+    /* Auto-hide floating chatbot whenever a modal or offcanvas drawer is open */
     body.modal-open #cims-chatbot-container,
-    body:has(.modal.show) #cims-chatbot-container {
+    body:has(.modal.show) #cims-chatbot-container,
+    body.offcanvas-open #cims-chatbot-container,
+    body:has(.offcanvas.show) #cims-chatbot-container,
+    body:has(.offcanvas.showing) #cims-chatbot-container,
+    body.cims-drawer-open #cims-chatbot-container {
         opacity: 0 !important;
         visibility: hidden !important;
         pointer-events: none !important;
