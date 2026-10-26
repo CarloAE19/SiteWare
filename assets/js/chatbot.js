@@ -461,18 +461,28 @@ document.addEventListener("DOMContentLoaded", () => {
         return lines.join("\n").replace(/\n/g, "<br>");
     }
 
-    // Auto-hide Chatbot when ANY Bootstrap Modal Opens
+    // Auto-hide Chatbot when ANY Bootstrap Modal or Offcanvas Drawer Opens
     document.addEventListener("show.bs.modal", () => {
         if (container) container.classList.add("d-none");
         if (panel && !panel.classList.contains("d-none")) panel.classList.add("d-none");
     });
 
-    // Restore Chatbot when all modals are closed
-    document.addEventListener("hidden.bs.modal", () => {
+    document.addEventListener("show.bs.offcanvas", () => {
+        if (container) container.classList.add("d-none");
+        if (panel && !panel.classList.contains("d-none")) panel.classList.add("d-none");
+    });
+
+    // Restore Chatbot when all modals and offcanvas drawers are closed
+    function tryRestoreChatbot() {
         setTimeout(() => {
-            if (!document.querySelector(".modal.show") && !document.body.classList.contains("modal-open")) {
+            const hasOpenModal = document.querySelector(".modal.show") || document.body.classList.contains("modal-open");
+            const hasOpenOffcanvas = document.querySelector(".offcanvas.show") || document.querySelector(".offcanvas.showing") || document.body.classList.contains("cims-drawer-open");
+            if (!hasOpenModal && !hasOpenOffcanvas) {
                 if (container) container.classList.remove("d-none");
             }
         }, 150);
-    });
+    }
+
+    document.addEventListener("hidden.bs.modal", tryRestoreChatbot);
+    document.addEventListener("hidden.bs.offcanvas", tryRestoreChatbot);
 });
