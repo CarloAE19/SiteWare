@@ -781,6 +781,30 @@ try {
     } catch (PDOException $e) {
     }
     try {
+        $pdo->exec("ALTER TABLE purchase_orders ADD COLUMN delivery_destination VARCHAR(150) DEFAULT 'Warehouse (Central Storage)'");
+    } catch (PDOException $e) {
+    }
+    try {
+        $pdo->exec("ALTER TABLE purchase_orders ADD COLUMN delivery_address TEXT NULL");
+    } catch (PDOException $e) {
+    }
+    try {
+        $pdo->exec("ALTER TABLE purchase_orders ADD COLUMN approved_at DATETIME NULL");
+    } catch (PDOException $e) {
+    }
+    try {
+        $pdo->exec("ALTER TABLE purchase_orders ADD COLUMN supplier_dr_no VARCHAR(100) NULL");
+    } catch (PDOException $e) {
+    }
+    try {
+        $pdo->exec("ALTER TABLE po_items ADD COLUMN rejected_quantity INT DEFAULT 0");
+    } catch (PDOException $e) {
+    }
+    try {
+        $pdo->exec("ALTER TABLE po_items ADD COLUMN rejection_reason VARCHAR(255) NULL");
+    } catch (PDOException $e) {
+    }
+    try {
         // Backfill historical Delivered PO items if needed
         $pdo->exec("
             UPDATE po_items pi
