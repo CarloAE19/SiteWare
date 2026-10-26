@@ -497,9 +497,21 @@ elseif ($action === 'create_po') {
         $_SESSION['msg_type'] = "info";
         header("Location: ../po");
         exit;
-    } catch (Exception $e) {
+    } catch (Throwable $e) {
         if ($pdo->inTransaction()) {
             $pdo->rollBack();
+        }
+        if (!empty($is_ajax)) {
+            if (ob_get_length()) {
+                ob_clean();
+            }
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode([
+                'status' => 'error',
+                'success' => false,
+                'message' => $e->getMessage()
+            ]);
+            exit;
         }
         throw $e;
     }
