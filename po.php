@@ -17,9 +17,15 @@ $role = $_SESSION['user_role'];
 // AUTO-PATCH DB: Ensures the PO table can handle SMS Status, Weather Delays, Delivery Destination, and Quality Inspection! (Guarded once per session for TTFB speed)
 if (empty($_SESSION['po_schema_patched_v5'])) {
     try {
-        $pdo->exec("ALTER TABLE purchase_orders ADD COLUMN status VARCHAR(50) DEFAULT 'Generated'");
-        $pdo->exec("ALTER TABLE purchase_orders ADD COLUMN delay_remarks TEXT");
-        $pdo->exec("UPDATE purchase_orders SET status = 'Viber Order Sent' WHERE status = 'SMS Sent'");
+        try {
+            $pdo->exec("ALTER TABLE purchase_orders ADD COLUMN status VARCHAR(50) DEFAULT 'Generated'");
+        } catch (PDOException $e) {}
+        try {
+            $pdo->exec("ALTER TABLE purchase_orders ADD COLUMN delay_remarks TEXT");
+        } catch (PDOException $e) {}
+        try {
+            $pdo->exec("UPDATE purchase_orders SET status = 'Viber Order Sent' WHERE status = 'SMS Sent'");
+        } catch (PDOException $e) {}
         try {
             $pdo->exec("ALTER TABLE purchase_orders ADD COLUMN payment_terms VARCHAR(100) DEFAULT 'Credit (30 Days Net)'");
         } catch (PDOException $e) {}
@@ -125,6 +131,37 @@ include 'layout/header.php';
             box-shadow: none !important;
             background: transparent !important;
         }
+    }
+
+    /* Polished Floating Action Dropdown Menu & Anti-Table-Clipping */
+    .cims-po-action-menu {
+        border-radius: 12px !important;
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.12), 0 8px 10px -6px rgba(0, 0, 0, 0.05) !important;
+        border: 1px solid rgba(0, 0, 0, 0.08) !important;
+        padding: 6px !important;
+        z-index: 1080 !important;
+        animation: poDropdownFadeIn 0.12s ease-out;
+    }
+    @keyframes poDropdownFadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+    .cims-po-action-menu .dropdown-item {
+        border-radius: 8px !important;
+        padding: 8px 12px !important;
+        font-weight: 500;
+        font-size: 0.85rem;
+        transition: background-color 0.15s ease, color 0.15s ease;
+    }
+    .cims-po-action-menu .dropdown-item:hover {
+        background-color: #f1f5f9 !important;
+    }
+    .cims-po-action-menu .dropdown-header {
+        padding: 6px 12px 4px !important;
+    }
+    .cims-po-action-menu .dropdown-divider {
+        margin: 4px 0 !important;
+        border-color: #e2e8f0 !important;
     }
 
     /* ==========================================
@@ -1210,11 +1247,13 @@ include 'layout/header.php';
                                             <button type="button" 
                                                 class="btn btn-sm btn-outline-secondary fw-bold shadow-sm px-2"
                                                 data-bs-toggle="dropdown" 
+                                                data-bs-boundary="viewport"
+                                                data-bs-popper-config='{"strategy":"fixed"}'
                                                 aria-expanded="false"
                                                 title="More Actions">
                                                 <i class="bi bi-three-dots-vertical"></i>
                                             </button>
-                                            <ul class="dropdown-menu dropdown-menu-end shadow border-0 py-2" style="font-size: 0.85rem; min-width: 215px; border-radius: 10px; z-index: 1060;">
+                                            <ul class="dropdown-menu dropdown-menu-end shadow-lg border-0 py-2 cims-po-action-menu" style="min-width: 215px;">
                                                 <li class="dropdown-header text-uppercase text-muted fw-bold py-1 px-3" style="font-size: 0.68rem; letter-spacing: 0.5px;">
                                                     <i class="bi bi-gear me-1"></i> Order Actions
                                                 </li>
@@ -1633,10 +1672,13 @@ include 'layout/header.php';
                             <div class="col-2">
                                 <div class="dropdown w-100">
                                     <button type="button" class="btn btn-outline-secondary w-100 fw-bold px-0"
-                                        data-bs-toggle="dropdown" aria-expanded="false" title="More Actions">
+                                        data-bs-toggle="dropdown"
+                                        data-bs-boundary="viewport"
+                                        data-bs-popper-config='{"strategy":"fixed"}'
+                                        aria-expanded="false" title="More Actions">
                                         <i class="bi bi-three-dots-vertical"></i>
                                     </button>
-                                    <ul class="dropdown-menu dropdown-menu-end shadow border-0 py-2" style="font-size: 0.85rem; min-width: 215px;">
+                                    <ul class="dropdown-menu dropdown-menu-end shadow-lg border-0 py-2 cims-po-action-menu" style="min-width: 215px;">
                                         <li class="dropdown-header text-uppercase text-muted fw-bold py-1 px-3" style="font-size: 0.68rem; letter-spacing: 0.5px;">
                                             <i class="bi bi-gear me-1"></i> Order Options
                                         </li>
@@ -2973,100 +3015,12 @@ include 'layout/header.php';
     };
 
     // ==========================================
-    // CREATE PO FORM AJAX SUBMIT & LIFECYCLE
+    // CREATE PO FORM AJAX SUBMIT & LIFECYCLE (DELEGATED TO po_modal.php)
     // ==========================================
     window.initCreatePoFormLifecycle = function () {
-        const createForm = document.getElementById('createPoForm');
-        if (!createForm || createForm.dataset.boundLifecycle) return;
-        createForm.dataset.boundLifecycle = 'true';
-
-        createForm.addEventListener('submit', async function (e) {
-            e.preventDefault();
-
-            const rsSelect = document.getElementById('poRsSelect');
-            if (!rsSelect || !rsSelect.value) {
-                if (typeof Swal !== 'undefined') {
-                    Swal.fire({
-                        icon: 'warning',
-                        title: 'Missing Requisition',
-                        text: 'Please select an approved requisition to generate the Purchase Order.'
-                    });
-                } else {
-                    alert('Please select an approved requisition.');
-                }
-                return;
-            }
-
-            const checkedItems = createForm.querySelectorAll('.po-item-checkbox:checked');
-            if (checkedItems.length === 0) {
-                if (typeof Swal !== 'undefined') {
-                    Swal.fire({
-                        icon: 'warning',
-                        title: 'No Items Selected',
-                        text: 'Please select at least one item from the requisition to purchase from this supplier.'
-                    });
-                } else {
-                    alert('Please select at least one item to purchase.');
-                }
-                return;
-            }
-
-            const submitBtn = createForm.querySelector('button[type="submit"]');
-            const originalBtnHtml = submitBtn ? submitBtn.innerHTML : '';
-            if (submitBtn) {
-                submitBtn.disabled = true;
-                submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span> Generating PO...';
-            }
-
-            const formData = new FormData(createForm);
-            try {
-                const response = await (window.cimsFetchWithTimeout || fetch)('process/process.php', {
-                    method: 'POST',
-                    body: formData,
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest',
-                        'Accept': 'application/json'
-                    }
-                }, 30000);
-
-                const result = await response.json();
-                if (result && (result.status === 'success' || result.success)) {
-                    const poModalEl = document.getElementById('poModal');
-                    if (poModalEl) {
-                        const modalInst = bootstrap.Modal.getInstance(poModalEl);
-                        if (modalInst) modalInst.hide();
-                    }
-                    if (typeof Swal !== 'undefined') {
-                        await Swal.fire({
-                            icon: 'success',
-                            title: 'PO Generated!',
-                            text: result.message || 'Purchase Order generated and submitted to Management for review & authorization.',
-                            timer: 2000,
-                            showConfirmButton: false
-                        });
-                    }
-                    window.location.reload();
-                } else {
-                    throw new Error(result?.message || 'Failed to generate Purchase Order.');
-                }
-            } catch (err) {
-                console.error('Create PO Error:', err);
-                if (typeof Swal !== 'undefined') {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'PO Generation Failed',
-                        text: err.message || 'An error occurred while generating the Purchase Order.'
-                    });
-                } else {
-                    alert(err.message || 'An error occurred while generating the Purchase Order.');
-                }
-            } finally {
-                if (submitBtn) {
-                    submitBtn.disabled = false;
-                    submitBtn.innerHTML = originalBtnHtml;
-                }
-            }
-        });
+        if (typeof window.initPoModalLifecycle === 'function') {
+            window.initPoModalLifecycle();
+        }
     };
 
     // Immediate execution for SPA compatibility
