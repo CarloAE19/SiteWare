@@ -458,12 +458,42 @@ elseif ($action === 'approve_rs') {
         ->execute([$rs['requestor_id'], "Requisition {$rsStatus}", $notifMsg]);
     sendPushNotification($pdo, "Requisition {$rsStatus}", $notifMsg, null, (int)$rs['requestor_id']);
 
-    // Notify purchasing only if something was approved
-    if ($approvedCount > 0 && $rs['type'] !== 'restock') {
-        $purchasingMsg = "{$rs['rs_no']} was {$rsStatus}. Please generate a PO for the approved items.";
-        $pdo->prepare("INSERT INTO notifications (target_role, title, message) VALUES ('purchasing', 'Ready for PO', ?)")
-            ->execute([$purchasingMsg]);
-        sendPushNotification($pdo, 'Ready for PO', $purchasingMsg, 'purchasing', null);
+    // Check if management suggested procurement / PO in item remarks
+    $procurementRemarks = [];
+    if (!empty($itemRemarks)) {
+        foreach ($itemRemarks as $itemId => $rem) {
+            $trimmedRem = trim($rem);
+            if (!empty($trimmedRem)) {
+                $remLower = strtolower($trimmedRem);
+                if (strpos($remLower, 'purchas') !== false || strpos($remLower, 'po') !== false || strpos($remLower, 'restock') !== false) {
+                    $itemLookupStmt = $pdo->prepare("SELECT COALESCE(i.item_name, ri.new_item_name, ri.item_code) as item_name, ri.quantity FROM requisition_items ri LEFT JOIN inventory i ON ri.item_code = i.item_code WHERE ri.id = ?");
+                    $itemLookupStmt->execute([$itemId]);
+                    $lookupRow = $itemLookupStmt->fetch(PDO::FETCH_ASSOC);
+                    $lookupName = $lookupRow['item_name'] ?? "Item #{$itemId}";
+                    $lookupQty = $lookupRow['quantity'] ?? '';
+                    $procurementRemarks[] = "• {$lookupName}" . ($lookupQty ? " (Qty: {$lookupQty})" : "") . ": {$trimmedRem}";
+                }
+            }
+        }
+    }
+
+    // Notify purchasing if approved OR if management suggested purchasing/restock in remarks
+    if ($rs['type'] !== 'restock') {
+        if ($approvedCount > 0) {
+            $purchasingMsg = "{$rs['rs_no']} was {$rsStatus}. Please generate a PO for the approved items.";
+            if (!empty($procurementRemarks)) {
+                $purchasingMsg .= "\nManagement procurement notes:\n" . implode("\n", $procurementRemarks);
+            }
+            $pdo->prepare("INSERT INTO notifications (target_role, title, message) VALUES ('purchasing', 'Ready for PO', ?)")
+                ->execute([$purchasingMsg]);
+            sendPushNotification($pdo, 'Ready for PO', $purchasingMsg, 'purchasing', null);
+        } elseif (!empty($procurementRemarks)) {
+            // Requisition was rejected from warehouse release, but management suggested procurement/restock!
+            $purchasingMsg = "Management reviewed {$rs['rs_no']} and suggested procurement/restock action:\n" . implode("\n", $procurementRemarks);
+            $pdo->prepare("INSERT INTO notifications (target_role, title, message) VALUES ('purchasing', 'Restock / Purchase Recommendation', ?)")
+                ->execute([$purchasingMsg]);
+            sendPushNotification($pdo, 'Restock / Purchase Recommendation', $purchasingMsg, 'purchasing', null);
+        }
     }
 
     $msgType = $rsStatus === 'Rejected' ? 'danger' : ($rsStatus === 'Partially Approved' ? 'warning' : 'success');
