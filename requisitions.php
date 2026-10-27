@@ -988,26 +988,21 @@ include 'layout/header.php';
                                     $formattedDateLog = date('M d, Y g:i A', strtotime($rs['created_at'])) . ' (' . time_elapsed_string($rs['created_at']) . ')';
                                     ?>
 
-                                    <button class="btn btn-sm btn-outline-secondary fw-bold shadow-sm me-1" title="View Details" aria-label="View Details for <?= $rs['rs_no'] ?>"
+                                    <?php 
+                                    $isPendingForApprover = (in_array($role, ['management', 'admin']) && $rs['status'] === 'Pending Approval');
+                                    ?>
+
+                                    <button class="btn btn-sm <?= $isPendingForApprover ? 'btn-primary' : 'btn-outline-secondary' ?> fw-bold shadow-sm me-1" 
+                                        title="<?= $isPendingForApprover ? 'Review Requisition Document' : 'View Details' ?>" 
+                                        aria-label="<?= $isPendingForApprover ? 'Review Requisition ' . $rs['rs_no'] : 'View Details for ' . $rs['rs_no'] ?>"
                                         onclick="viewRsDetails('<?= $rs['rs_no'] ?>', '<?= $cleanProject ?>', '<?= $cleanRemarks ?>', '<?= $rs['status'] ?>', '<?= $cleanRequestor ?>', '<?= $formattedDateLog ?>', '<?= $itemsB64 ?>', '<?= $rs['type'] ?? 'project' ?>', <?= (int)$rs['id'] ?>)">
-                                        <i class="bi bi-file-earmark-text me-1" aria-hidden="true"></i> View
+                                        <i class="bi <?= $isPendingForApprover ? 'bi-file-earmark-check' : 'bi-file-earmark-text' ?> me-1" aria-hidden="true"></i> <?= $isPendingForApprover ? 'Review' : 'View' ?>
                                     </button>
 
                                     <?php if (((int)$rs['requestor_id'] === (int)$userId || in_array($role, ['admin', 'management'])) && in_array($rs['status'], ['Pending Approval', 'Rejected'])): ?>
                                         <button type="button" class="btn btn-sm btn-outline-primary fw-bold shadow-sm me-1" title="<?= $rs['status'] === 'Rejected' ? 'Edit & Resubmit Requisition' : 'Edit Request' ?>" aria-label="<?= $rs['status'] === 'Rejected' ? 'Edit and Resubmit Requisition' : 'Edit Requisition' ?>"
                                             onclick="openEditRsModal(<?= $rs['id'] ?>, '<?= $rs['rs_no'] ?>', '<?= $cleanProject ?>', '<?= $rs['urgency'] ?>', '<?= $cleanRemarks ?>', '<?= $itemsB64 ?>', '<?= $rs['type'] ?? 'project' ?>')">
                                             <i class="bi bi-pencil-square me-1" aria-hidden="true"></i><?= $rs['status'] === 'Rejected' ? 'Resubmit' : 'Edit' ?>
-                                        </button>
-                                    <?php endif; ?>
-
-                                    <?php if (in_array($role, ['management', 'admin']) && $rs['status'] === 'Pending Approval'): ?>
-                                        <button type="button" class="btn btn-sm btn-success fw-bold shadow-sm me-1" title="Review &amp; Approve Items" aria-label="Review and Approve Items for <?= $rs['rs_no'] ?>"
-                                            onclick="openApproveItemsModal(<?= $rs['id'] ?>, '<?= $rs['rs_no'] ?>', '<?= $itemsB64 ?>')">
-                                            <i class="bi bi-check2-square me-1" aria-hidden="true"></i>Review
-                                        </button>
-
-                                        <button type="button" class="btn btn-sm btn-danger shadow-sm" title="Reject RS" aria-label="Reject Requisition <?= $rs['rs_no'] ?>" onclick="openRejectModal(<?= $rs['id'] ?>, '<?= $rs['rs_no'] ?>')">
-                                            <i class="bi bi-x-lg" aria-hidden="true"></i>
                                         </button>
                                     <?php endif; ?>
 
@@ -1160,17 +1155,11 @@ include 'layout/header.php';
                         <!-- Bottom Action Row: >= 44px Touch Targets -->
                         <div class="row g-2 cims-mobile-actions">
                             <?php if ($canApprove): ?>
-                                <!-- Approver / Admin Layout: View (col-4) + Review (col-6) + More Options (col-2) -->
-                                <div class="col-4">
-                                    <button type="button" class="btn btn-outline-primary w-100 fw-bold" title="View Details"
-                                        onclick="viewRsDetails('<?= $rs['rs_no'] ?>', '<?= $cleanProject ?>', '<?= $cleanRemarks ?>', '<?= $rs['status'] ?>', '<?= $cleanRequestor ?>', '<?= $formattedDateLog ?>', '<?= $itemsB64 ?>', '<?= $rs['type'] ?? 'project' ?>')">
-                                        <i class="bi bi-file-earmark-text me-1"></i> View
-                                    </button>
-                                </div>
-                                <div class="col-6">
-                                    <button type="button" class="btn btn-success w-100 fw-bold shadow-sm"
-                                        onclick="openApproveItemsModal(<?= $rs['id'] ?>, '<?= $rs['rs_no'] ?>', '<?= $itemsB64 ?>')">
-                                        <i class="bi bi-check2-square me-1"></i> Review
+                                <!-- Approver / Admin Layout: View & Review Document (col-10) + Options (col-2) -->
+                                <div class="col-10">
+                                    <button type="button" class="btn btn-primary w-100 fw-bold shadow-sm" title="Review Requisition Document"
+                                        onclick="viewRsDetails('<?= $rs['rs_no'] ?>', '<?= $cleanProject ?>', '<?= $cleanRemarks ?>', '<?= $rs['status'] ?>', '<?= $cleanRequestor ?>', '<?= $formattedDateLog ?>', '<?= $itemsB64 ?>', '<?= $rs['type'] ?? 'project' ?>', <?= (int)$rs['id'] ?>)">
+                                        <i class="bi bi-file-earmark-check me-1"></i> Review Document
                                     </button>
                                 </div>
                                 <div class="col-2">
