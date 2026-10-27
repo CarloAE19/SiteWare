@@ -275,21 +275,90 @@ window.openApproveItemsModal = function(rsId, rsNo, itemsB64) {
     }
 
     try {
-        const items = JSON.parse(atob(itemsB64));
+        let items = [];
+        if (typeof itemsB64 === 'string') {
+            try {
+                items = JSON.parse(decodeURIComponent(escape(atob(itemsB64))));
+            } catch (e1) {
+                items = JSON.parse(atob(itemsB64));
+            }
+        } else if (Array.isArray(itemsB64)) {
+            items = itemsB64;
+        }
+
         if (!items || items.length === 0) {
             list.innerHTML = '<div class="alert alert-warning">No items found for this requisition.</div>';
         } else {
             list.innerHTML = items.map((item) => {
-                const itemId   = item.item_id || '';
+                const itemId    = item.item_id || '';
                 const isNewItem = parseInt(item.is_new_item) === 1;
-                const rawName  = item.item_name || item.item_code || 'Unknown Item';
-                const qty      = parseInt(item.quantity) || 0;
-                const unit     = item.unit || '';
-                const notes    = item.item_notes
+                const rawName   = item.item_name || item.item_code || 'Unknown Item';
+                const qty       = parseInt(item.quantity) || 0;
+                const unit      = item.unit || '';
+                const notes     = item.item_notes
                     ? `<div class="text-muted small fst-italic mt-1"><i class="bi bi-chat-left-text me-1"></i>${item.item_notes}</div>`
                     : '';
 
                 const newBadge = isNewItem ? `<span class="badge bg-success ms-2 shadow-sm" style="font-size:0.65rem;"><i class="bi bi-sparkles me-1"></i>NEW / UNLISTED ITEM</span>` : '';
+
+                // Stock analysis for Approver intelligence
+                const rawStock = (item.current_stock !== undefined && item.current_stock !== null) 
+                    ? item.current_stock 
+                    : ((item.stock !== undefined && item.stock !== null) ? item.stock : null);
+                const hasStockInfo = !isNewItem && (rawStock !== null && rawStock !== '');
+                const curStock = hasStockInfo ? parseInt(rawStock, 10) : 0;
+                const isShortage = hasStockInfo && (curStock < qty);
+                const isLowStock = hasStockInfo && (isShortage || curStock <= 5);
+
+                let stockBadge = '';
+                if (isNewItem) {
+                    stockBadge = `<span class="badge bg-secondary-subtle text-secondary border ms-1" style="font-size:0.7rem;"><i class="bi bi-box-seam me-1"></i>Unlisted (0 in Stock)</span>`;
+                } else if (hasStockInfo) {
+                    if (curStock <= 0) {
+                        stockBadge = `<span class="badge bg-danger text-white ms-1 shadow-sm" style="font-size:0.7rem;"><i class="bi bi-x-circle-fill me-1"></i>Out of Stock (0 available)</span>`;
+                    } else if (isShortage) {
+                        stockBadge = `<span class="badge bg-danger text-white ms-1 shadow-sm" style="font-size:0.7rem;"><i class="bi bi-exclamation-triangle-fill me-1"></i>Stock Shortage: ${curStock} in warehouse (Needs ${qty})</span>`;
+                    } else if (curStock <= 5) {
+                        stockBadge = `<span class="badge bg-warning text-dark border border-warning-subtle ms-1 shadow-sm" style="font-size:0.7rem;"><i class="bi bi-exclamation-circle-fill me-1"></i>Low Stock: ${curStock} available</span>`;
+                    } else {
+                        stockBadge = `<span class="badge bg-success-subtle text-success border border-success-subtle ms-1" style="font-size:0.7rem;"><i class="bi bi-check-circle me-1"></i>Stock: ${curStock} ${unit}</span>`;
+                    }
+                }
+
+                // 1-Click Low-Stock Decision Suggestions Panel
+                let quickSuggestionsHtml = '';
+                if (isLowStock || curStock <= 0 || isNewItem) {
+                    const stockLabel = isNewItem ? 'unlisted item' : (curStock <= 0 ? '0 available' : `${curStock} remaining`);
+                    quickSuggestionsHtml = `
+                    <div class="mt-2 p-2 rounded bg-white border border-warning-subtle shadow-xs quick-suggestions-panel">
+                        <div class="d-flex align-items-center justify-content-between flex-wrap gap-1 mb-1">
+                            <span class="small fw-bold text-dark d-flex align-items-center" style="font-size:0.75rem;">
+                                <i class="bi bi-lightbulb-fill text-warning me-1"></i>Low Stock Decision Suggestions:
+                            </span>
+                            <span class="text-muted" style="font-size:0.68rem;">1-click auto-fill</span>
+                        </div>
+                        <div class="d-flex flex-wrap gap-1">
+                            <button type="button" class="btn btn-sm btn-outline-danger py-1 px-2 fw-semibold quick-suggest-btn"
+                                data-item-id="${itemId}"
+                                data-decision="Rejected"
+                                data-remark="Low warehouse stock (${stockLabel}). Routed to Purchasing Officer to issue PO.">
+                                <i class="bi bi-cart-x me-1"></i>Reject &amp; Route to PO
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-success py-1 px-2 fw-semibold quick-suggest-btn"
+                                data-item-id="${itemId}"
+                                data-decision="Approved"
+                                data-remark="Approved from warehouse stock (${stockLabel}). Please restock via PO.">
+                                <i class="bi bi-cart-check me-1"></i>Approve &amp; Alert Purchasing
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary py-1 px-2 fw-semibold quick-suggest-btn"
+                                data-item-id="${itemId}"
+                                data-decision="Rejected"
+                                data-remark="Item below safety reserve threshold. Warehouse stock held for emergency use.">
+                                <i class="bi bi-shield-lock me-1"></i>Hold Reserve (Reject)
+                            </button>
+                        </div>
+                    </div>`;
+                }
 
                 const typoEditHtml = isNewItem ? `
                     <div class="mt-2 p-2 bg-success-subtle rounded border border-success-subtle">
@@ -310,9 +379,10 @@ window.openApproveItemsModal = function(rsId, rsNo, itemsB64) {
                                     ${newBadge}
                                     <span class="badge bg-light text-muted border item-decision-pill ms-auto" style="font-size:0.7rem;"><i class="bi bi-question-circle me-1"></i>Decision Required</span>
                                 </div>
-                                <div class="text-muted small mt-1">
-                                    <span class="badge bg-light text-dark border me-1">${item.item_code}</span>
+                                <div class="text-muted small mt-1 d-flex align-items-center flex-wrap gap-1">
+                                    <span class="badge bg-light text-dark border">${item.item_code}</span>
                                     <span>Quantity: <strong>${qty} ${unit}</strong></span>
+                                    ${stockBadge}
                                 </div>
                                 ${notes}
                                 ${typoEditHtml}
@@ -324,8 +394,18 @@ window.openApproveItemsModal = function(rsId, rsNo, itemsB64) {
                                 <label class="btn btn-outline-danger fw-bold px-3" for="reject_${itemId}"><i class="bi bi-x-lg me-1"></i>Reject</label>
                             </div>
                         </div>
+
+                        ${quickSuggestionsHtml}
+
                         <div class="mt-2 remark-field">
                             <input type="text" class="form-control form-control-sm" name="item_remarks[${itemId}]" placeholder="Remark (optional)..." maxlength="255">
+                            <div class="mt-1 d-flex flex-wrap gap-1 reject-quick-tags d-none">
+                                <span class="text-muted small me-1" style="font-size:0.7rem;">Quick reasons:</span>
+                                <button type="button" class="btn btn-xs btn-light border py-0 px-1 text-muted quick-tag-btn" data-text="Low warehouse stock. Route to Purchasing for PO.">Low Stock / PO</button>
+                                <button type="button" class="btn btn-xs btn-light border py-0 px-1 text-muted quick-tag-btn" data-text="Item below safety reserve threshold.">Safety Reserve</button>
+                                <button type="button" class="btn btn-xs btn-light border py-0 px-1 text-muted quick-tag-btn" data-text="Exceeds current project allocation.">Exceeds Allocation</button>
+                                <button type="button" class="btn btn-xs btn-light border py-0 px-1 text-muted quick-tag-btn" data-text="Duplicate item requisition.">Duplicate</button>
+                            </div>
                         </div>
                     </div>
                 </div>`;
@@ -337,6 +417,8 @@ window.openApproveItemsModal = function(rsId, rsNo, itemsB64) {
                     const card = this.closest('.approve-item-card');
                     const remarkInput = card.querySelector('.remark-field input');
                     const pill = card.querySelector('.item-decision-pill');
+                    const quickTags = card.querySelector('.reject-quick-tags');
+
                     if (this.value === 'Rejected') {
                         card.classList.remove('border-success-subtle');
                         card.classList.add('border-danger-subtle');
@@ -344,6 +426,7 @@ window.openApproveItemsModal = function(rsId, rsNo, itemsB64) {
                             pill.className = 'badge bg-danger text-white shadow-sm ms-auto item-decision-pill';
                             pill.innerHTML = '<i class="bi bi-x-circle-fill me-1"></i>Rejected';
                         }
+                        if (quickTags) quickTags.classList.remove('d-none');
                         remarkInput.classList.add('border-danger');
                         remarkInput.placeholder = 'Reason for rejection (required)...';
                         remarkInput.required = true;
@@ -354,14 +437,56 @@ window.openApproveItemsModal = function(rsId, rsNo, itemsB64) {
                             pill.className = 'badge bg-success text-white shadow-sm ms-auto item-decision-pill';
                             pill.innerHTML = '<i class="bi bi-check-circle-fill me-1"></i>Approved';
                         }
+                        if (quickTags) quickTags.classList.add('d-none');
                         remarkInput.classList.remove('border-danger');
                         remarkInput.placeholder = 'Remark (optional)...';
                         remarkInput.required = false;
                     }
                 });
             });
+
+            // 1-Click Suggestion Buttons Handler
+            list.querySelectorAll('.quick-suggest-btn').forEach(btn => {
+                btn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const targetItemId = this.dataset.itemId;
+                    const decision = this.dataset.decision;
+                    const remarkText = this.dataset.remark;
+                    const card = this.closest('.approve-item-card');
+                    if (!card) return;
+
+                    const radio = card.querySelector(`input[name="item_statuses[${targetItemId}]"][value="${decision}"]`);
+                    if (radio) {
+                        radio.checked = true;
+                        radio.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
+
+                    const remarkInput = card.querySelector('.remark-field input');
+                    if (remarkInput) {
+                        remarkInput.value = remarkText;
+                        remarkInput.dispatchEvent(new Event('input', { bubbles: true }));
+                        remarkInput.focus();
+                    }
+                });
+            });
+
+            // Quick Rejection Tag Pills Handler
+            list.querySelectorAll('.quick-tag-btn').forEach(tagBtn => {
+                tagBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const card = this.closest('.approve-item-card');
+                    if (!card) return;
+                    const remarkInput = card.querySelector('.remark-field input');
+                    if (remarkInput) {
+                        remarkInput.value = this.dataset.text;
+                        remarkInput.dispatchEvent(new Event('input', { bubbles: true }));
+                        remarkInput.focus();
+                    }
+                });
+            });
         }
     } catch(e) {
+        console.error("Error rendering approval items list:", e);
         list.innerHTML = '<div class="alert alert-danger">Error loading items. Please try again.</div>';
     }
 
