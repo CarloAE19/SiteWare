@@ -689,7 +689,7 @@ $units = $units ?? [];
                         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(generate_csrf_token()) ?>">
                     <?php endif; ?>
 
-                    <p class="text-muted small mb-3"><i class="bi bi-info-circle-fill me-1 text-primary"></i>For each item, choose <strong>Approve</strong> or <strong>Reject</strong>. Add a remark for any rejected item.</p>
+                    <p class="text-muted small mb-3"><i class="bi bi-info-circle-fill me-1 text-primary"></i>Review warehouse stock levels for each item. For low-stock items, use the 1-click decision suggestions to either approve for release, hold safety reserve, or route to the Purchasing Officer.</p>
 
                     <div id="approveItemsList">
                         <!-- Populated by JS openApproveItemsModal() -->
