@@ -101,6 +101,7 @@ elseif ($action === 'fetch_rs_with_history') {
             COALESCE(i.category, ri.new_category, 'General') AS category, 
             COALESCE(i.unit, ri.new_unit, 'pcs') AS unit,
             COALESCE(i.unit_price, 0.00) AS unit_price,
+            COALESCE(i.quantity, 0) AS current_stock,
             COALESCE((
                 SELECT SUM(pi.quantity) 
                 FROM po_items pi 
@@ -421,7 +422,7 @@ elseif ($action === 'approve_rs') {
         ->execute([$rsStatus, $_SESSION['user_id'], $rs_id]);
 
     // Fetch RS info for notifications
-    $rsData = $pdo->prepare("SELECT rs_no, requestor_id, type FROM requisitions WHERE id = ?");
+    $rsData = $pdo->prepare("SELECT rs_no, requestor_id, type, project_name FROM requisitions WHERE id = ?");
     $rsData->execute([$rs_id]);
     $rs = $rsData->fetch();
 
@@ -458,41 +459,98 @@ elseif ($action === 'approve_rs') {
         ->execute([$rs['requestor_id'], "Requisition {$rsStatus}", $notifMsg]);
     sendPushNotification($pdo, "Requisition {$rsStatus}", $notifMsg, null, (int)$rs['requestor_id']);
 
-    // Check if management suggested procurement / PO in item remarks
-    $procurementRemarks = [];
+    // Fetch approved items details to check actual warehouse stock availability
+    $approvedItems = [];
+    if ($approvedCount > 0) {
+        $apprStmt = $pdo->prepare("
+            SELECT ri.id, ri.quantity, ri.is_new_item, ri.item_code, ri.item_remarks,
+                   COALESCE(i.item_name, ri.new_item_name, ri.item_code) as item_name,
+                   COALESCE(i.unit, ri.new_unit, 'pcs') as unit,
+                   COALESCE(i.quantity, 0) as current_stock
+            FROM requisition_items ri
+            LEFT JOIN inventory i ON ri.item_code = i.item_code
+            WHERE ri.requisition_id = ? AND ri.item_status = 'Approved'
+        ");
+        $apprStmt->execute([$rs_id]);
+        $approvedItems = $apprStmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    $needsPurchasingItems = [];
+    $inStockWarehouseItems = [];
+
+    foreach ($approvedItems as $ai) {
+        $reqQty = (int)$ai['quantity'];
+        $curStock = (int)$ai['current_stock'];
+        $isNew = (int)($ai['is_new_item'] ?? 0);
+        $rem = strtolower(trim($ai['item_remarks'] ?? ''));
+        $hasProcureNote = (strpos($rem, 'purchas') !== false || strpos($rem, 'po') !== false || strpos($rem, 'restock') !== false);
+
+        if ($isNew === 1) {
+            $needsPurchasingItems[] = "• {$ai['item_name']} (Qty: {$reqQty} {$ai['unit']} — New/Unlisted Item)";
+        } elseif ($curStock < $reqQty) {
+            $deficit = $reqQty - $curStock;
+            $needsPurchasingItems[] = "• {$ai['item_name']} (Requested: {$reqQty}, Warehouse stock: {$curStock} — Deficit: {$deficit} {$ai['unit']})";
+            if ($curStock > 0) {
+                $inStockWarehouseItems[] = "• {$ai['item_name']} (Partial: {$curStock} of {$reqQty} {$ai['unit']} in warehouse)";
+            }
+        } elseif ($hasProcureNote) {
+            $needsPurchasingItems[] = "• {$ai['item_name']} (Qty: {$reqQty} {$ai['unit']} — Management Restock/PO Request)";
+            $inStockWarehouseItems[] = "• {$ai['item_name']} ({$reqQty} {$ai['unit']})";
+        } else {
+            // Warehouse has ample stock (e.g. Sand: 10 requested, 500 in stock) - fulfilled 100% by Warehouse!
+            $inStockWarehouseItems[] = "• {$ai['item_name']} ({$reqQty} {$ai['unit']})";
+        }
+    }
+
+    // Check if management suggested procurement / PO in rejected items remarks
+    $rejectedProcurementRemarks = [];
     if (!empty($itemRemarks)) {
         foreach ($itemRemarks as $itemId => $rem) {
-            $trimmedRem = trim($rem);
-            if (!empty($trimmedRem)) {
-                $remLower = strtolower($trimmedRem);
-                if (strpos($remLower, 'purchas') !== false || strpos($remLower, 'po') !== false || strpos($remLower, 'restock') !== false) {
-                    $itemLookupStmt = $pdo->prepare("SELECT COALESCE(i.item_name, ri.new_item_name, ri.item_code) as item_name, ri.quantity FROM requisition_items ri LEFT JOIN inventory i ON ri.item_code = i.item_code WHERE ri.id = ?");
-                    $itemLookupStmt->execute([$itemId]);
-                    $lookupRow = $itemLookupStmt->fetch(PDO::FETCH_ASSOC);
-                    $lookupName = $lookupRow['item_name'] ?? "Item #{$itemId}";
-                    $lookupQty = $lookupRow['quantity'] ?? '';
-                    $procurementRemarks[] = "• {$lookupName}" . ($lookupQty ? " (Qty: {$lookupQty})" : "") . ": {$trimmedRem}";
+            $cleanStatus = $itemStatuses[$itemId] ?? '';
+            if ($cleanStatus === 'Rejected') {
+                $trimmedRem = trim($rem);
+                if (!empty($trimmedRem)) {
+                    $remLower = strtolower($trimmedRem);
+                    if (strpos($remLower, 'purchas') !== false || strpos($remLower, 'po') !== false || strpos($remLower, 'restock') !== false) {
+                        $itemLookupStmt = $pdo->prepare("SELECT COALESCE(i.item_name, ri.new_item_name, ri.item_code) as item_name, ri.quantity FROM requisition_items ri LEFT JOIN inventory i ON ri.item_code = i.item_code WHERE ri.id = ?");
+                        $itemLookupStmt->execute([$itemId]);
+                        $lookupRow = $itemLookupStmt->fetch(PDO::FETCH_ASSOC);
+                        $lookupName = $lookupRow['item_name'] ?? "Item #{$itemId}";
+                        $lookupQty = $lookupRow['quantity'] ?? '';
+                        $rejectedProcurementRemarks[] = "• {$lookupName}" . ($lookupQty ? " (Qty: {$lookupQty})" : "") . ": {$trimmedRem}";
+                    }
                 }
             }
         }
     }
 
-    // Notify purchasing if approved OR if management suggested purchasing/restock in remarks
-    if ($rs['type'] !== 'restock') {
+    // --- SMART STOCK-AWARE NOTIFICATION ROUTING ---
+    $projectName = $rs['project_name'] ?? 'Project';
+
+    // 1. Warehouse Custodian: Alerted when in-stock materials are ready to stage / pickup
+    if (!empty($inStockWarehouseItems) && ($rs['type'] ?? '') !== 'restock') {
+        $warehouseMsg = "{$rs['rs_no']} for {$projectName} has in-stock materials ready for warehouse staging / release:\n" . implode("\n", $inStockWarehouseItems);
+        $pdo->prepare("INSERT INTO notifications (target_role, title, message) VALUES ('warehouse', 'Materials Ready for Staging', ?)")
+            ->execute([$warehouseMsg]);
+        sendPushNotification($pdo, 'Materials Ready for Staging', $warehouseMsg, 'warehouse', null);
+    }
+
+    // 2. Purchasing Officer: ONLY alerted when items actually require procurement!
+    // (If all approved items are in stock, e.g. Sand, Purchasing is NOT alerted, eliminating false alarms!)
+    if (($rs['type'] ?? '') === 'restock') {
         if ($approvedCount > 0) {
-            $purchasingMsg = "{$rs['rs_no']} was {$rsStatus}. Please generate a PO for the approved items.";
-            if (!empty($procurementRemarks)) {
-                $purchasingMsg .= "\nManagement procurement notes:\n" . implode("\n", $procurementRemarks);
-            }
+            $purchasingMsg = "Warehouse Restock request {$rs['rs_no']} was approved. Please generate PO to replenish stock.";
+            $pdo->prepare("INSERT INTO notifications (target_role, title, message) VALUES ('purchasing', 'Restock Request Approved', ?)")
+                ->execute([$purchasingMsg]);
+            sendPushNotification($pdo, 'Restock Request Approved', $purchasingMsg, 'purchasing', null);
+        }
+    } else {
+        $allProcureItems = array_merge($needsPurchasingItems, $rejectedProcurementRemarks);
+        if (!empty($allProcureItems)) {
+            $purchasingMsg = "{$rs['rs_no']} for {$projectName} has items requiring procurement:\n" . implode("\n", $allProcureItems);
             $pdo->prepare("INSERT INTO notifications (target_role, title, message) VALUES ('purchasing', 'Ready for PO', ?)")
                 ->execute([$purchasingMsg]);
             sendPushNotification($pdo, 'Ready for PO', $purchasingMsg, 'purchasing', null);
-        } elseif (!empty($procurementRemarks)) {
-            // Requisition was rejected from warehouse release, but management suggested procurement/restock!
-            $purchasingMsg = "Management reviewed {$rs['rs_no']} and suggested procurement/restock action:\n" . implode("\n", $procurementRemarks);
-            $pdo->prepare("INSERT INTO notifications (target_role, title, message) VALUES ('purchasing', 'Restock / Purchase Recommendation', ?)")
-                ->execute([$purchasingMsg]);
-            sendPushNotification($pdo, 'Restock / Purchase Recommendation', $purchasingMsg, 'purchasing', null);
         }
     }
 
