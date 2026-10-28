@@ -2155,36 +2155,63 @@ include 'layout/header.php';
         formData.append('action', 'fetch_po_items');
         formData.append('po_id', id);
 
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') 
+            || document.querySelector('input[name="csrf_token"]')?.value || '';
+        if (csrfToken) {
+            formData.append('csrf_token', csrfToken);
+        }
+
+        const basePath = window.cimsBasePath || (window.location.pathname.includes('/CIMS') ? '/CIMS' : '');
+        const targetUrl = `${basePath}/process/process.php`;
+
         try {
-            const response = await (window.cimsFetchWithTimeout || fetch)('process/process.php', {
+            const response = await (window.cimsFetchWithTimeout || fetch)(targetUrl, {
                 method: 'POST',
-                body: formData
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json'
+                }
             }, 25000);
-            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: Failed to reach server.`);
+            }
+
+            const rawText = await response.text();
+            let data;
+            try {
+                data = JSON.parse(rawText);
+            } catch (jsonErr) {
+                console.error('Non-JSON response in openReceiveModal:', rawText);
+                throw new Error('Server returned invalid data format.');
+            }
 
             if (data.status === 'success') {
                 tbody.innerHTML = '';
 
                 // Populate Modal Header 3-Way Match References
                 const poBadge = document.getElementById('receivePoNoBadge');
-                if (poBadge) poBadge.innerText = poNo;
+                if (poBadge) poBadge.innerText = po_no || data.po?.po_no || '';
                 const drInput = document.getElementById('receiveSupplierDrNo');
                 if (drInput) drInput.value = data.po?.supplier_dr_no || '';
 
-                if (data.items.length === 0) {
+                if (!Array.isArray(data.items) || data.items.length === 0) {
                     tbody.innerHTML = '<tr><td colspan="10" class="text-center text-muted py-4">No items linked to this manifest.</td></tr>';
-                    document.getElementById('confirmReceiveBtn').disabled = true;
+                    const confirmBtn = document.getElementById('confirmReceiveBtn');
+                    if (confirmBtn) confirmBtn.disabled = true;
                     return;
                 }
 
-                document.getElementById('confirmReceiveBtn').disabled = false;
+                const confirmBtn = document.getElementById('confirmReceiveBtn');
+                if (confirmBtn) confirmBtn.disabled = false;
 
                 data.items.forEach(item => {
                     const tr = document.createElement('tr');
                     const initialPrice = parseFloat(item.unit_price || 0).toFixed(2);
                     const orderedQty = parseInt(item.ordered_qty || item.expected_qty || 0);
-                    const receivedQty = parseInt(item.received_quantity || 0);
-                    const priorRejectedQty = parseInt(item.rejected_qty || 0);
+                    const receivedQty = parseInt(item.received_qty !== undefined ? item.received_qty : (item.received_quantity || 0));
+                    const priorRejectedQty = parseInt(item.rejected_qty !== undefined ? item.rejected_qty : (item.rejected_quantity || 0));
                     const remainingQty = parseInt(item.remaining_qty !== undefined ? item.remaining_qty : (orderedQty - receivedQty));
                     const isAlreadyCompleted = (remainingQty <= 0);
                     const defaultReceiveToday = isAlreadyCompleted ? 0 : remainingQty;
@@ -2212,13 +2239,13 @@ include 'layout/header.php';
                         <td class="text-center align-middle" data-label="Accepted Today">
                             ${isAlreadyCompleted ? `
                                 <input type="number" name="actual_qtys[]" class="form-control text-center bg-light text-muted actual-qty-input" 
-                                    value="0" readonly style="max-width: 90px; font-size: 1rem; height: 44px; margin: 0 auto;">
+                                    value="0" readonly style="max-width: 80px; font-size: 0.95rem; height: 40px; margin: 0 auto;">
                             ` : `
-                                <div class="cims-qty-stepper d-inline-flex justify-content-center align-items-stretch shadow-sm" style="min-width: 135px; margin: 0 auto;">
-                                    <button type="button" class="btn btn-light qty-step-btn qty-step-minus" tabindex="-1" aria-label="Decrease quantity"><i class="bi bi-dash-lg"></i></button>
+                                <div class="cims-qty-stepper d-inline-flex justify-content-center align-items-stretch shadow-sm" style="min-width: 110px; max-width: 125px; margin: 0 auto;">
+                                    <button type="button" class="btn btn-light qty-step-btn qty-step-minus" tabindex="-1" aria-label="Decrease quantity" style="width: 32px; padding: 0;"><i class="bi bi-dash-lg"></i></button>
                                     <input type="number" name="actual_qtys[]" class="form-control text-center fw-bold text-success actual-qty-input item-qty-input" 
-                                        value="${defaultReceiveToday}" min="0" max="${remainingQty}" data-remaining="${remainingQty}" inputmode="numeric" onclick="this.select()" onfocus="this.select()" required>
-                                    <button type="button" class="btn btn-light qty-step-btn qty-step-plus" tabindex="-1" aria-label="Increase quantity"><i class="bi bi-plus-lg"></i></button>
+                                        value="${defaultReceiveToday}" min="0" max="${remainingQty}" data-remaining="${remainingQty}" inputmode="numeric" onclick="this.select()" onfocus="this.select()" style="font-size: 0.95rem; padding: 0.25rem;" required>
+                                    <button type="button" class="btn btn-light qty-step-btn qty-step-plus" tabindex="-1" aria-label="Increase quantity" style="width: 32px; padding: 0;"><i class="bi bi-plus-lg"></i></button>
                                 </div>
                             `}
                         </td>
@@ -2228,7 +2255,7 @@ include 'layout/header.php';
                                 <input type="hidden" name="rejected_qtys[]" value="0">
                             ` : `
                                 <input type="number" name="rejected_qtys[]" class="form-control form-control-sm text-center fw-bold text-danger border-danger-subtle shadow-sm rejected-qty-input" 
-                                    style="max-width: 85px; font-size: 0.95rem; min-height: 44px; margin: 0 auto;" value="0" min="0" max="${remainingQty}" inputmode="numeric" onclick="this.select()" onfocus="this.select()">
+                                    style="max-width: 70px; font-size: 0.92rem; min-height: 40px; margin: 0 auto;" value="0" min="0" max="${remainingQty}" inputmode="numeric" onclick="this.select()" onfocus="this.select()">
                             `}
                         </td>
                         <td class="text-center align-middle" data-label="Defect Reason">
@@ -2236,35 +2263,35 @@ include 'layout/header.php';
                                 <span class="text-muted small">-</span>
                                 <input type="hidden" name="rejection_reasons[]" value="">
                             ` : `
-                                <select name="rejection_reasons[]" class="form-select form-select-sm text-muted defect-reason-select shadow-xs" style="min-height: 44px; font-size: 0.76rem; max-width: 180px; margin: 0 auto;">
+                                <select name="rejection_reasons[]" class="form-select form-select-sm text-muted defect-reason-select shadow-xs" style="min-height: 40px; font-size: 0.74rem; max-width: 145px; margin: 0 auto; padding-left: 0.35rem; padding-right: 1.4rem;">
                                     <option value="" selected>-- No Defect --</option>
-                                    <option value="Broken / Damage in Transit">Broken / Physical Damage</option>
-                                    <option value="Wrong Specification / Dimensions">Wrong Specification</option>
-                                    <option value="Moisture / Packaging Compromised">Moisture / Compromised</option>
-                                    <option value="Factory Defect / Quality Failure">Factory Defect / Failed QA</option>
-                                    <option value="Short-packed / Missing Parts">Missing Parts / Shortage</option>
-                                    <option value="Other Quality Non-Conformance">Other Non-Conformance</option>
+                                    <option value="Broken / Damage in Transit">Broken / Damage</option>
+                                    <option value="Wrong Specification / Dimensions">Wrong Spec</option>
+                                    <option value="Moisture / Packaging Compromised">Moisture / Leak</option>
+                                    <option value="Factory Defect / Quality Failure">Factory Defect</option>
+                                    <option value="Short-packed / Missing Parts">Missing Parts</option>
+                                    <option value="Other Quality Non-Conformance">Other Non-Conf.</option>
                                 </select>
                             `}
                         </td>
                         <td class="text-center align-middle" data-label="Unit Price (₱)">
                             <input type="number" step="0.01" name="unit_prices[]" class="form-control form-control-sm text-center fw-bold text-primary border-primary shadow-sm unit-price-input" 
-                                style="max-width: 105px; font-size: 0.95rem; min-height: 44px; margin: 0 auto;" value="${initialPrice}" min="0" inputmode="decimal" onclick="this.select()" onfocus="this.select()" required>
+                                style="max-width: 85px; font-size: 0.92rem; min-height: 40px; margin: 0 auto;" value="${initialPrice}" min="0" inputmode="decimal" onclick="this.select()" onfocus="this.select()" required>
                         </td>
                         <td class="text-center align-middle" data-label="Status / Remainder">
                             <div class="disposition-wrapper">
                                 ${isAlreadyCompleted ? `
-                                    <span class="badge bg-success-subtle text-success border border-success-subtle py-2 px-2 w-100" style="font-size: 0.75rem;"><i class="bi bi-check-circle-fill me-1"></i>Fulfilled</span>
+                                    <span class="badge bg-success-subtle text-success border border-success-subtle py-2 px-1 w-100" style="font-size: 0.72rem;"><i class="bi bi-check-circle-fill me-1"></i>Fulfilled</span>
                                     <input type="hidden" name="item_dispositions[]" value="to_follow">
                                 ` : `
                                     <div class="full-delivery-badge">
-                                        <span class="badge bg-success-subtle text-success border border-success-subtle py-2 px-2 w-100" style="font-size: 0.75rem;"><i class="bi bi-check2-circle me-1"></i>Full Delivery</span>
+                                        <span class="badge bg-success-subtle text-success border border-success-subtle py-2 px-1 w-100" style="font-size: 0.72rem;"><i class="bi bi-check2-circle me-1"></i>Full Delivery</span>
                                         <input type="hidden" name="item_dispositions[]" class="disposition-input" value="to_follow">
                                     </div>
                                     <div class="partial-delivery-select d-none">
-                                        <select class="form-select form-select-sm fw-bold border-warning shadow-sm disposition-dropdown" style="font-size: 0.78rem;">
-                                            <option value="to_follow" selected>🟡 To Follow (Supplier Pending)</option>
-                                            <option value="sold_out">🔴 Sold Out (Supplier Cancelled)</option>
+                                        <select class="form-select form-select-sm fw-bold border-warning shadow-sm disposition-dropdown" style="font-size: 0.74rem; max-width: 140px; min-height: 40px;">
+                                            <option value="to_follow" selected>🟡 To Follow</option>
+                                            <option value="sold_out">🔴 Sold Out</option>
                                         </select>
                                     </div>
                                 `}
@@ -2293,6 +2320,26 @@ include 'layout/header.php';
                         let accepted = parseInt(qtyInput ? qtyInput.value : 0) || 0;
                         let rejected = parseInt(rejectedInput ? rejectedInput.value : 0) || 0;
                         const maxQ = parseInt((qtyInput ? qtyInput.getAttribute('data-remaining') : 0) || 0);
+
+                        // If user interacts directly with Defect Reason dropdown:
+                        const isReasonEvent = Boolean(e && (e.target === reasonSelect || document.activeElement === reasonSelect));
+                        if (isReasonEvent && reasonSelect) {
+                            if (reasonSelect.value !== '') {
+                                // User actively selected a defect reason: if damaged count is 0, auto-assign at least 1 unit if available
+                                if (rejected <= 0 && maxQ > 0) {
+                                    rejected = 1;
+                                    if (rejectedInput) rejectedInput.value = rejected;
+                                    accepted = Math.max(0, maxQ - rejected);
+                                    if (qtyInput) qtyInput.value = accepted;
+                                }
+                            } else {
+                                // User explicitly selected "-- No Defect --": reset damaged units to 0 and restore to accepted
+                                rejected = 0;
+                                if (rejectedInput) rejectedInput.value = 0;
+                                accepted = maxQ;
+                                if (qtyInput) qtyInput.value = accepted;
+                            }
+                        }
 
                         if (accepted < 0) { accepted = 0; if (qtyInput) qtyInput.value = 0; }
                         if (rejected < 0) { rejected = 0; if (rejectedInput) rejectedInput.value = 0; }
@@ -2325,7 +2372,7 @@ include 'layout/header.php';
                             }
                         }
 
-                        // Defect reason dropdown dynamic styling
+                        // Defect reason dropdown dynamic styling and bidirectional state preservation
                         if (reasonSelect) {
                             if (rejected > 0) {
                                 reasonSelect.classList.remove('text-muted');
@@ -2336,7 +2383,9 @@ include 'layout/header.php';
                             } else {
                                 reasonSelect.classList.add('text-muted');
                                 reasonSelect.classList.remove('border-danger', 'fw-semibold', 'text-dark');
-                                reasonSelect.value = '';
+                                if (!isReasonEvent) {
+                                    reasonSelect.value = '';
+                                }
                             }
                         }
 
@@ -2408,6 +2457,7 @@ include 'layout/header.php';
                     }
                     if (reasonSelect && !isAlreadyCompleted) {
                         reasonSelect.addEventListener('change', (e) => updateRowState(e));
+                        reasonSelect.addEventListener('input', (e) => updateRowState(e));
                     }
                 });
 
@@ -2424,11 +2474,20 @@ include 'layout/header.php';
                     }
                 }
                 updateGrandTotal();
+
+                // Ensure manifest table starts scrolled to the first column (Item Description)
+                const tableResp = document.getElementById('receiveItemsTable')?.closest('.table-responsive');
+                if (tableResp) tableResp.scrollLeft = 0;
             } else {
-                tbody.innerHTML = `<tr><td colspan="10" class="text-center text-danger py-3">Error: ${data.message}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="10" class="text-center text-danger py-3">Error: ${data.message || 'Failed to load manifest items.'}</td></tr>`;
+                const confirmBtn = document.getElementById('confirmReceiveBtn');
+                if (confirmBtn) confirmBtn.disabled = true;
             }
         } catch (e) {
-            tbody.innerHTML = `<tr><td colspan="8" class="text-center text-danger py-3">Network Error: Could not load the manifest.</td></tr>`;
+            console.error('Error loading manifest in openReceiveModal:', e);
+            tbody.innerHTML = `<tr><td colspan="10" class="text-center text-danger py-3"><i class="bi bi-exclamation-triangle me-1"></i> Failed to load manifest: ${e.message || 'Network error'}.</td></tr>`;
+            const confirmBtn = document.getElementById('confirmReceiveBtn');
+            if (confirmBtn) confirmBtn.disabled = true;
         }
     }
 
@@ -2911,12 +2970,20 @@ include 'layout/header.php';
         const receiveForm = document.getElementById('receiveForm');
 
         if (receiveModalEl) {
-            // Accessibility: Auto-focus the first editable quantity field
+            // Focus management: Focus Supplier DR first (required) or first editable quantity without horizontal shift
             receiveModalEl.addEventListener('shown.bs.modal', function () {
-                const firstQty = receiveModalEl.querySelector('.actual-qty-input:not([readonly])');
-                if (firstQty) {
-                    firstQty.focus();
-                    firstQty.select();
+                const tableResp = document.getElementById('receiveItemsTable')?.closest('.table-responsive');
+                if (tableResp) tableResp.scrollLeft = 0;
+
+                const drInput = document.getElementById('receiveSupplierDrNo');
+                if (drInput && !drInput.value) {
+                    drInput.focus();
+                } else {
+                    const firstQty = receiveModalEl.querySelector('.actual-qty-input:not([readonly])');
+                    if (firstQty) {
+                        firstQty.focus({ preventScroll: true });
+                        firstQty.select();
+                    }
                 }
             });
 
