@@ -447,8 +447,35 @@ $approvedRS = $pdo->query($approvedRSQuery)->fetchAll(PDO::FETCH_ASSOC);
 <!-- ==========================================
   3. MODAL: RECEIVE PO / VERIFY DISCREPANCY
 =========================================== -->
+<style>
+@media (min-width: 1200px) {
+    #receiveModal .modal-receive-wide {
+        max-width: min(96vw, 1460px) !important;
+        width: 96vw;
+    }
+}
+@media (min-width: 992px) and (max-width: 1199.98px) {
+    #receiveModal .modal-receive-wide {
+        max-width: 96vw !important;
+        width: 96vw;
+    }
+}
+#receiveItemsTable {
+    table-layout: auto;
+}
+#receiveItemsTable th {
+    white-space: normal;
+    vertical-align: middle;
+    padding: 0.55rem 0.35rem;
+    line-height: 1.25;
+}
+#receiveItemsTable td {
+    padding: 0.45rem 0.35rem;
+    vertical-align: middle;
+}
+</style>
 <div class="modal fade" id="receiveModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
-    <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable modal-fullscreen-sm-down">
+    <div class="modal-dialog modal-dialog-centered modal-xl modal-receive-wide modal-dialog-scrollable modal-fullscreen-sm-down">
         <div class="modal-content border-0 shadow-lg border-top border-success border-4">
             <div class="modal-header bg-white">
                 <div>
@@ -602,19 +629,19 @@ $approvedRS = $pdo->query($approvedRSQuery)->fetchAll(PDO::FETCH_ASSOC);
 
                     <!-- Manifest Table -->
                     <div class="table-responsive border rounded shadow-sm bg-white mb-2">
-                        <table class="table table-hover align-middle mb-0 text-nowrap" id="receiveItemsTable">
-                            <thead class="table-light text-muted" style="font-size: 0.8rem;">
+                        <table class="table table-hover align-middle mb-0" id="receiveItemsTable">
+                            <thead class="table-light text-muted" style="font-size: 0.76rem;">
                                 <tr>
-                                    <th style="min-width: 170px;">Item Description</th>
+                                    <th style="min-width: 130px;">Item Description</th>
                                     <th class="text-center" style="width: 70px;">Ordered</th>
-                                    <th class="text-center" style="width: 70px;">Prior</th>
-                                    <th class="text-center" style="width: 75px;">Remaining</th>
-                                    <th class="text-center" style="min-width: 145px; width: 150px;">Accepted Today</th>
-                                    <th class="text-center" style="min-width: 125px; width: 130px;">Damaged / Defect</th>
-                                    <th class="text-center" style="min-width: 180px;">Defect Reason (If Any)</th>
-                                    <th class="text-center" style="min-width: 120px; width: 125px;">Unit Price (₱)</th>
-                                    <th class="text-center" style="min-width: 185px;">Supplier Status / Remainder</th>
-                                    <th class="text-end" style="width: 110px;">Batch Subtotal</th>
+                                    <th class="text-center" style="width: 50px;">Prior</th>
+                                    <th class="text-center" style="width: 65px;">Remaining</th>
+                                    <th class="text-center" style="min-width: 120px; width: 125px;">Accepted Today</th>
+                                    <th class="text-center" style="min-width: 75px; width: 80px;">Damaged</th>
+                                    <th class="text-center" style="min-width: 135px; width: 145px;">Defect Reason</th>
+                                    <th class="text-center" style="min-width: 85px; width: 95px;">Unit Price (₱)</th>
+                                    <th class="text-center" style="min-width: 130px; width: 140px;">Status / Remainder</th>
+                                    <th class="text-end" style="width: 90px;">Subtotal</th>
                                 </tr>
                             </thead>
                             <tbody id="receiveItemsBody">
@@ -2514,8 +2541,10 @@ $approvedRS = $pdo->query($approvedRSQuery)->fetchAll(PDO::FETCH_ASSOC);
         if (receiveModal && !receiveModal.dataset.boundLifecycle) {
             receiveModal.dataset.boundLifecycle = 'true';
             receiveModal.addEventListener('shown.bs.modal', function () {
+                const tableResp = document.getElementById('receiveItemsTable')?.closest('.table-responsive');
+                if (tableResp) tableResp.scrollLeft = 0;
                 const drInput = document.getElementById('receiveSupplierDrNo');
-                if (drInput) drInput.focus();
+                if (drInput && !drInput.value) drInput.focus();
             });
             receiveModal.addEventListener('hidden.bs.modal', function () {
                 if (typeof stopReceiptCamera === 'function') stopReceiptCamera();
