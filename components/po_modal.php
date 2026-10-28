@@ -15,17 +15,49 @@ $suppliers = $pdo->query("
     GROUP BY s.id
     ORDER BY s.company_name ASC
 ")->fetchAll(PDO::FETCH_ASSOC);
-// Fetch Approved AND Partially Approved Requisitions for PO creation
-// Supports both Warehouse Restock and Project Requisitions (Direct-to-Jobsite or Central Warehouse Delivery)
-$approvedRS = $pdo->query("
+// Fetch Requisitions waiting for PO creation:
+// Automatically filters out Project Requisitions whose approved materials are already 100% available in warehouse stock.
+// Restock requests and any explicitly targeted rs_id always remain available.
+$targetRsId = !empty($_GET['rs_id']) ? (int)$_GET['rs_id'] : 0;
+$approvedRSQuery = "
     SELECT r.id, r.rs_no, r.project_name, r.status, r.type, p.address AS project_address 
     FROM requisitions r 
     LEFT JOIN projects p ON r.project_name = p.project_name 
     WHERE r.status IN ('Approved', 'Partially Approved', 'Partially Ordered') 
+      AND (
+          r.type = 'restock' OR r.project_name = 'Warehouse Restock'
+          " . ($targetRsId > 0 ? "OR r.id = {$targetRsId}" : "") . "
+          OR
+          EXISTS (
+              SELECT 1 
+              FROM requisition_items ri 
+              LEFT JOIN inventory i ON ri.item_code = i.item_code 
+              WHERE ri.requisition_id = r.id 
+                AND ri.item_status = 'Approved' 
+                AND (
+                    ri.is_new_item = 1 
+                    OR COALESCE(i.quantity, 0) < ri.quantity
+                    OR LOWER(COALESCE(ri.item_remarks, '')) LIKE '%purchas%'
+                    OR LOWER(COALESCE(ri.item_remarks, '')) LIKE '%po%'
+                    OR LOWER(COALESCE(ri.item_remarks, '')) LIKE '%restock%'
+                )
+                AND (
+                    ri.quantity > COALESCE((
+                        SELECT SUM(pi.quantity) 
+                        FROM po_items pi 
+                        JOIN purchase_orders po ON pi.po_id = po.id 
+                        WHERE po.rs_id = ri.requisition_id 
+                          AND pi.item_code = ri.item_code 
+                          AND po.status != 'Cancelled'
+                    ), 0)
+                )
+          )
+      )
     ORDER BY 
         FIELD(r.status, 'Partially Ordered', 'Approved', 'Partially Approved'),
         r.created_at DESC
-")->fetchAll(PDO::FETCH_ASSOC);
+";
+$approvedRS = $pdo->query($approvedRSQuery)->fetchAll(PDO::FETCH_ASSOC);
 ?>
 
 <!-- ==========================================
