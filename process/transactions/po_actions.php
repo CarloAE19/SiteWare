@@ -109,6 +109,7 @@ if ($action === 'fetch_supplier_delivery_history') {
 // --- AJAX: FETCH PO ITEMS FOR RECEIVING MODAL ---
 elseif ($action === 'fetch_po_items') {
     if (!in_array($_SESSION['user_role'], ['warehouse', 'admin', 'purchasing'])) {
+        header('Content-Type: application/json; charset=utf-8');
         echo json_encode(['status' => 'error', 'message' => 'Unauthorized.']);
         exit;
     }
@@ -126,7 +127,9 @@ elseif ($action === 'fetch_po_items') {
             pi.quantity AS ordered_qty,
             pi.quantity AS expected_qty,
             COALESCE(pi.received_quantity, 0) AS received_qty,
+            COALESCE(pi.received_quantity, 0) AS received_quantity,
             COALESCE(pi.rejected_quantity, 0) AS rejected_qty,
+            COALESCE(pi.rejected_quantity, 0) AS rejected_quantity,
             pi.rejection_reason,
             GREATEST(0, pi.quantity - COALESCE(pi.received_quantity, 0)) AS remaining_qty,
             COALESCE(pi.item_status, 'Pending') AS item_status,
@@ -142,6 +145,8 @@ elseif ($action === 'fetch_po_items') {
     $stmt->execute([$po_id]);
     $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+    header('Content-Type: application/json; charset=utf-8');
+    if (ob_get_length()) ob_clean();
     echo json_encode([
         'status' => 'success', 
         'po' => $poMeta,
