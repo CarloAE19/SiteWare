@@ -18,6 +18,34 @@ $approvedRsQuery = "
     FROM requisitions r 
     LEFT JOIN projects p ON r.project_name = p.project_name 
     WHERE r.status IN ('Approved', 'Partially Approved', 'Partially Ordered') 
+      AND (
+          r.type = 'restock' OR r.project_name = 'Warehouse Restock'
+          OR
+          EXISTS (
+              SELECT 1 
+              FROM requisition_items ri 
+              LEFT JOIN inventory i ON ri.item_code = i.item_code 
+              WHERE ri.requisition_id = r.id 
+                AND ri.item_status = 'Approved' 
+                AND (
+                    ri.is_new_item = 1 
+                    OR COALESCE(i.quantity, 0) < ri.quantity
+                    OR LOWER(COALESCE(ri.item_remarks, '')) LIKE '%purchas%'
+                    OR LOWER(COALESCE(ri.item_remarks, '')) LIKE '%po%'
+                    OR LOWER(COALESCE(ri.item_remarks, '')) LIKE '%restock%'
+                )
+                AND (
+                    ri.quantity > COALESCE((
+                        SELECT SUM(pi.quantity) 
+                        FROM po_items pi 
+                        JOIN purchase_orders po ON pi.po_id = po.id 
+                        WHERE po.rs_id = ri.requisition_id 
+                          AND pi.item_code = ri.item_code 
+                          AND po.status != 'Cancelled'
+                    ), 0)
+                )
+          )
+      )
     ORDER BY 
         FIELD(r.status, 'Partially Ordered', 'Approved', 'Partially Approved'),
         r.created_at DESC
