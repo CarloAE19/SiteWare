@@ -1888,6 +1888,21 @@ include 'layout/header.php';
                             const remaining = parseInt(item.remaining_qty || 0, 10);
                             const requested = parseInt(item.requested_qty || item.quantity || 0, 10);
                             const unitPrice = parseFloat(item.unit_price || 0);
+                            const curStock = parseInt(item.current_stock || 0, 10);
+                            const isNew = parseInt(item.is_new_item || 0, 10) === 1;
+
+                            // Visual Warehouse Stock Health Badge
+                            let stockBadge = '';
+                            if (isNew) {
+                                stockBadge = `<span class="badge bg-info-subtle text-info-emphasis border border-info-subtle ms-1" style="font-size:0.65rem;" title="Unlisted Material (Not yet in Inventory)"><i class="bi bi-asterisk me-1"></i>New Item</span>`;
+                            } else if (curStock >= requested) {
+                                stockBadge = `<span class="badge bg-success-subtle text-success border border-success-subtle ms-1" style="font-size:0.65rem;" title="Warehouse has sufficient stock (${curStock} ${item.unit} available)"><i class="bi bi-check-circle-fill me-1 text-success"></i>Stock: ${curStock} (In Warehouse)</span>`;
+                            } else if (curStock > 0) {
+                                const deficit = requested - curStock;
+                                stockBadge = `<span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle ms-1" style="font-size:0.65rem;" title="Warehouse only has ${curStock} ${item.unit} in stock"><i class="bi bi-exclamation-triangle-fill me-1 text-warning"></i>Stock: ${curStock} (Short ${deficit})</span>`;
+                            } else {
+                                stockBadge = `<span class="badge bg-danger-subtle text-danger border border-danger-subtle ms-1" style="font-size:0.65rem;" title="0 stock in warehouse"><i class="bi bi-x-circle-fill me-1 text-danger"></i>Stock: 0 (Out of Stock)</span>`;
+                            }
 
                             if (isFullyOrdered) {
                                 tr.className = 'table-light opacity-60 text-muted';
@@ -1898,6 +1913,7 @@ include 'layout/header.php';
                                     <td>
                                         <span class="fw-semibold text-muted text-decoration-line-through">${item.item_name}</span>
                                         <span class="badge bg-secondary-subtle text-secondary border ms-1" style="font-size:0.65rem;">${item.category || 'General'}</span>
+                                        ${stockBadge}
                                         <small class="text-muted d-block" style="font-size:0.72rem;">
                                             RS Qty: ${requested} ${item.unit} &bull; <span class="badge bg-success-subtle text-success border">100% Ordered on Active PO</span>
                                         </small>
@@ -1922,8 +1938,11 @@ include 'layout/header.php';
                                             checked onchange="window.onPoItemCheckboxChange(this)" style="cursor: pointer;">
                                     </td>
                                     <td>
-                                        <span class="fw-bold text-dark">${item.item_name}</span>
-                                        <span class="badge bg-light text-secondary border ms-1" style="font-size:0.65rem;">${item.category || 'General'}</span>
+                                        <div class="d-flex align-items-center flex-wrap gap-1 mb-0.5">
+                                            <span class="fw-bold text-dark">${item.item_name}</span>
+                                            <span class="badge bg-light text-secondary border" style="font-size:0.65rem;">${item.category || 'General'}</span>
+                                            ${stockBadge}
+                                        </div>
                                         <small class="text-muted d-block" style="font-size:0.72rem;">
                                             RS Requested: ${requested} ${item.unit} &bull; <strong class="text-primary">Remaining Needed: ${remaining} ${item.unit}</strong> ${supplierHint}
                                         </small>
