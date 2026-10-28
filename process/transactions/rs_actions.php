@@ -158,9 +158,17 @@ elseif ($action === 'fetch_rs_with_history') {
         unset($item);
     }
 
+    $rsMetaStmt = $pdo->prepare("SELECT type, project_name FROM requisitions WHERE id = ?");
+    $rsMetaStmt->execute([$rs_id]);
+    $rsMeta = $rsMetaStmt->fetch(PDO::FETCH_ASSOC);
+    $rsType = $rsMeta['type'] ?? 'project';
+    $isRestock = ($rsType === 'restock' || ($rsMeta['project_name'] ?? '') === 'Warehouse Restock');
+
     echo json_encode([
         'status' => 'success', 
         'items' => $items, 
+        'rs_type' => $rsType,
+        'is_restock' => $isRestock,
         'available_count' => $availableToOrderCount,
         'total_items' => count($items)
     ]);
