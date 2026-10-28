@@ -88,7 +88,7 @@ self.addEventListener('notificationclick', (event) => {
  * and SPA route caching (Dashboard -> PO -> Requisitions)
  * ========================================================== */
 
-const OFFLINE_CACHE = 'gb-offline-v4';
+const OFFLINE_CACHE = 'gb-offline-v5';
 
 // Core local assets required for the offline application shell (dynamically mapped with swUrl)
 const PRECACHE_LOCAL_ASSETS = [
@@ -122,7 +122,7 @@ const PRECACHE_CDN_ASSETS = [
 self.addEventListener('install', (event) => {
     event.waitUntil(
         caches.open(OFFLINE_CACHE).then(async (cache) => {
-            console.log('[SW] Pre-caching v4 offline assets');
+            console.log('[SW] Pre-caching v5 offline assets');
             
             // 1. Cache same-origin local assets
             try {
