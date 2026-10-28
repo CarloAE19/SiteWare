@@ -1781,7 +1781,7 @@ include 'layout/header.php';
     window.toggleAllPoItems = function (check) {
         const checkAll = document.getElementById('checkAllPoItems');
         if (checkAll) checkAll.checked = check;
-        const checkboxes = document.querySelectorAll('.po-item-checkbox:not(:disabled)');
+        const checkboxes = document.querySelectorAll('#rsItemsPreviewBody tr:not(.d-none) .po-item-checkbox:not(:disabled)');
         checkboxes.forEach(cb => {
             cb.checked = check;
             const row = cb.closest('tr');
@@ -1792,6 +1792,52 @@ include 'layout/header.php';
                 if (priceInput) priceInput.disabled = !check;
             }
         });
+        window.updatePoSelectedTotal();
+    };
+
+    window.toggleInStockPoItems = function (unhideEmptyBanner = false) {
+        const inStockRows = document.querySelectorAll('#rsItemsPreviewBody .in-stock-po-item');
+        const btn = document.getElementById('toggleInStockPoItemsBtn');
+        if (unhideEmptyBanner) {
+            inStockRows.forEach(row => {
+                row.classList.remove('d-none');
+                const cb = row.querySelector('.po-item-checkbox');
+                if (cb) {
+                    cb.checked = true;
+                    if (typeof window.onPoItemCheckboxChange === 'function') {
+                        window.onPoItemCheckboxChange(cb);
+                    }
+                }
+            });
+            const bannerRow = document.querySelector('#rsItemsPreviewBody .all-instock-banner-row');
+            if (bannerRow) bannerRow.classList.add('d-none');
+            const checkAll = document.getElementById('checkAllPoItems');
+            if (checkAll) checkAll.checked = true;
+            window.updatePoSelectedTotal();
+            return;
+        }
+        let isHidden = true;
+        inStockRows.forEach(row => {
+            if (row.classList.contains('d-none')) {
+                row.classList.remove('d-none');
+                isHidden = false;
+            } else {
+                row.classList.add('d-none');
+                isHidden = true;
+                const cb = row.querySelector('.po-item-checkbox');
+                if (cb && cb.checked) {
+                    cb.checked = false;
+                    if (typeof window.onPoItemCheckboxChange === 'function') {
+                        window.onPoItemCheckboxChange(cb);
+                    }
+                }
+            }
+        });
+        if (btn) {
+            btn.innerHTML = isHidden 
+                ? `<i class="bi bi-eye me-1"></i>Show In-Stock (${inStockRows.length})` 
+                : `<i class="bi bi-eye-slash me-1"></i>Hide In-Stock`;
+        }
         window.updatePoSelectedTotal();
     };
 
@@ -1882,7 +1928,28 @@ include 'layout/header.php';
                             return;
                         }
 
+                        const isRestock = !!data.is_restock;
+                        const needsProcureItems = [];
+                        const inStockItems = [];
+
                         data.items.forEach(item => {
+                            const curStock = parseInt(item.current_stock || 0, 10);
+                            const requested = parseInt(item.requested_qty || item.quantity || 0, 10);
+                            const isNew = parseInt(item.is_new_item || 0, 10) === 1;
+                            const hasProcureNote = /purchas|po|restock/i.test(item.item_remarks || '');
+
+                            // Restock request, unlisted item, deficit stock, or management PO remark -> Needs Procurement!
+                            if (isRestock || isNew || curStock < requested || hasProcureNote) {
+                                needsProcureItems.push(item);
+                            } else {
+                                inStockItems.push(item);
+                            }
+                        });
+
+                        window._currentInStockPoItems = inStockItems;
+
+                        // Helper function to render a table row
+                        const renderItemRow = (item, isHiddenInStock = false) => {
                             const tr = document.createElement('tr');
                             const isFullyOrdered = item.is_fully_ordered || item.remaining_qty <= 0;
                             const remaining = parseInt(item.remaining_qty || 0, 10);
@@ -1904,8 +1971,13 @@ include 'layout/header.php';
                                 stockBadge = `<span class="badge bg-danger-subtle text-danger border border-danger-subtle ms-1" style="font-size:0.65rem;" title="0 stock in warehouse"><i class="bi bi-x-circle-fill me-1 text-danger"></i>Stock: 0 (Out of Stock)</span>`;
                             }
 
-                            if (isFullyOrdered) {
+                            if (isHiddenInStock) {
+                                tr.className = 'in-stock-po-item table-light bg-opacity-50 text-muted d-none';
+                            } else if (isFullyOrdered) {
                                 tr.className = 'table-light opacity-60 text-muted';
+                            }
+
+                            if (isFullyOrdered) {
                                 tr.innerHTML = `
                                     <td class="text-center ps-2">
                                         <input type="checkbox" class="form-check-input po-item-checkbox" disabled>
@@ -1928,6 +2000,7 @@ include 'layout/header.php';
                             } else {
                                 const supplierHint = item.last_supplier ? `&bull; Past Vendor: <span class="text-primary">${item.last_supplier}</span>` : '';
                                 const subtotal = (remaining * unitPrice).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                                const isChecked = !isHiddenInStock;
                                 tr.innerHTML = `
                                     <td class="text-center ps-2">
                                         <input type="checkbox" class="form-check-input po-item-checkbox" name="selected_items[]" 
@@ -1935,38 +2008,97 @@ include 'layout/header.php';
                                             data-name="${(item.item_name || '').replace(/"/g, '&quot;')}" 
                                             data-unit="${item.unit || 'pcs'}" 
                                             data-price="${unitPrice}" 
-                                            checked onchange="window.onPoItemCheckboxChange(this)" style="cursor: pointer;">
+                                            ${isChecked ? 'checked' : ''} onchange="window.onPoItemCheckboxChange(this)" style="cursor: pointer;">
                                     </td>
                                     <td>
                                         <div class="d-flex align-items-center flex-wrap gap-1 mb-0.5">
-                                            <span class="fw-bold text-dark">${item.item_name}</span>
+                                            <span class="fw-bold ${isHiddenInStock ? 'text-secondary' : 'text-dark'}">${item.item_name}</span>
                                             <span class="badge bg-light text-secondary border" style="font-size:0.65rem;">${item.category || 'General'}</span>
                                             ${stockBadge}
                                         </div>
                                         <small class="text-muted d-block" style="font-size:0.72rem;">
-                                            RS Requested: ${requested} ${item.unit} &bull; <strong class="text-primary">Remaining Needed: ${remaining} ${item.unit}</strong> ${supplierHint}
+                                            RS Requested: ${requested} ${item.unit} &bull; <strong class="${isHiddenInStock ? 'text-muted' : 'text-primary'}">Remaining Needed: ${remaining} ${item.unit}</strong> ${supplierHint}
                                         </small>
                                     </td>
                                     <td class="text-center" style="vertical-align: middle;">
                                         <div class="d-inline-flex flex-column align-items-center">
                                             <input type="number" class="form-control form-control-sm text-center fw-bold po-item-qty shadow-xs" 
                                                 name="item_qty[${item.item_code}]" min="1" max="${remaining}" value="${remaining}" 
+                                                ${isChecked ? '' : 'disabled'}
                                                 oninput="window.updatePoSelectedTotal()" style="width: 85px; font-size: 0.90rem; padding: 4px 6px;">
                                             <span class="input-group-text bg-transparent border-0 text-muted small fw-medium mt-1 p-0" style="font-size:0.72rem;">${item.unit}</span>
                                         </div>
                                     </td>
                                     <td class="text-end pe-3">
-                                        <input type="hidden" class="po-item-price" name="item_price[${item.item_code}]" value="${unitPrice}">
+                                        <input type="hidden" class="po-item-price" name="item_price[${item.item_code}]" value="${unitPrice}" ${isChecked ? '' : 'disabled'}>
                                         <div class="po-item-subtotal font-monospace fw-bold text-success" style="font-size:0.85rem;">₱${subtotal}</div>
                                         <small class="text-muted d-block" style="font-size:0.68rem;">@ ₱${unitPrice.toLocaleString('en-US', { minimumFractionDigits: 2 })}/${item.unit}</small>
                                     </td>
                                 `;
                             }
-                            tbody.appendChild(tr);
-                        });
+                            return tr;
+                        };
+
+                        // Case 1: Entire RS is already 100% fulfillable by warehouse stock!
+                        if (needsProcureItems.length === 0 && inStockItems.length > 0) {
+                            const emptyTr = document.createElement('tr');
+                            emptyTr.className = 'all-instock-banner-row';
+                            emptyTr.innerHTML = `
+                                <td colspan="4" class="p-4 text-center">
+                                    <div class="py-3 px-2">
+                                        <div class="rounded-circle bg-success-subtle text-success d-inline-flex align-items-center justify-content-center mb-2 shadow-xs" style="width: 52px; height: 52px;">
+                                            <i class="bi bi-shield-check fs-2"></i>
+                                        </div>
+                                        <h6 class="fw-bold text-dark mb-1">All Materials Available in Warehouse</h6>
+                                        <p class="text-muted small mb-3" style="max-width: 480px; margin: 0 auto; font-size: 0.82rem;">
+                                            All approved materials on this requisition are currently in healthy stock at Central Storage. 
+                                            No supplier purchase order is required. Central Warehouse can stage and release these materials directly.
+                                        </p>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary py-1 px-3 fw-semibold shadow-xs" id="toggleInStockPoItemsBtn" onclick="window.toggleInStockPoItems(true)" style="font-size: 0.78rem;">
+                                            <i class="bi bi-eye me-1 text-primary"></i>Show In-Stock Warehouse Materials (${inStockItems.length})
+                                        </button>
+                                    </div>
+                                </td>
+                            `;
+                            tbody.appendChild(emptyTr);
+
+                            // Append in-stock items hidden initially
+                            inStockItems.forEach(item => {
+                                tbody.appendChild(renderItemRow(item, true));
+                            });
+                        } else {
+                            // Case 2: Render items needing procurement
+                            needsProcureItems.forEach(item => {
+                                tbody.appendChild(renderItemRow(item, false));
+                            });
+
+                            // If there are also healthy in-stock items, render collapsible notice and rows
+                            if (inStockItems.length > 0) {
+                                const noticeTr = document.createElement('tr');
+                                noticeTr.className = 'table-light border-top border-bottom in-stock-notice-row';
+                                noticeTr.innerHTML = `
+                                    <td colspan="4" class="py-2 px-3 text-muted">
+                                        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                                            <small style="font-size: 0.76rem;">
+                                                <i class="bi bi-box-seam me-1 text-success"></i>
+                                                <strong>${inStockItems.length}</strong> material(s) have healthy stock in warehouse (hidden from PO to prevent redundant purchasing).
+                                            </small>
+                                            <button type="button" class="btn btn-xs btn-outline-secondary py-0.5 px-2 fw-semibold" id="toggleInStockPoItemsBtn" onclick="window.toggleInStockPoItems()" style="font-size: 0.72rem;">
+                                                <i class="bi bi-eye me-1"></i>Show In-Stock (${inStockItems.length})
+                                            </button>
+                                        </div>
+                                    </td>
+                                `;
+                                tbody.appendChild(noticeTr);
+
+                                inStockItems.forEach(item => {
+                                    tbody.appendChild(renderItemRow(item, true));
+                                });
+                            }
+                        }
 
                         const checkAll = document.getElementById('checkAllPoItems');
-                        if (checkAll) checkAll.checked = true;
+                        if (checkAll) checkAll.checked = (needsProcureItems.length > 0);
                         window.updatePoSelectedTotal();
                         if (typeof window.checkActiveSupplierInquiries === 'function') {
                             window.checkActiveSupplierInquiries();
