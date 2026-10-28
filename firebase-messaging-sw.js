@@ -88,7 +88,7 @@ self.addEventListener('notificationclick', (event) => {
  * and SPA route caching (Dashboard -> PO -> Requisitions)
  * ========================================================== */
 
-const OFFLINE_CACHE = 'gb-offline-v5';
+const OFFLINE_CACHE = 'gb-offline-v6';
 
 // Core local assets required for the offline application shell (dynamically mapped with swUrl)
 const PRECACHE_LOCAL_ASSETS = [
