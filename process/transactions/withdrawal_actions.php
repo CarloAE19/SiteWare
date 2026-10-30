@@ -62,8 +62,13 @@ if ($action === 'create_withdrawal') {
             throw new Exception("Photo proof of handed-over materials is required before releasing.");
         }
 
-        $stmt = $pdo->prepare("INSERT INTO withdrawals (withdrawal_no, project_name, released_by, remarks, received_by, signature_path, photo_proof_path) VALUES (?, ?, ?, ?, ?, ?, ?)");
-        $stmt->execute([$withdrawal_no, $project_name, $released_by, $remarks, $received_by, $signature_path, $photo_proof_path]);
+        // Fetch Releasing Warehouse Staff's active E-Signature Snapshot (Point-in-Time Lock)
+        $releaserSigStmt = $pdo->prepare("SELECT signature_path FROM users WHERE id = ?");
+        $releaserSigStmt->execute([$released_by]);
+        $releaser_signature = $releaserSigStmt->fetchColumn() ?: null;
+
+        $stmt = $pdo->prepare("INSERT INTO withdrawals (withdrawal_no, project_name, released_by, remarks, received_by, signature_path, photo_proof_path, releaser_signature) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+        $stmt->execute([$withdrawal_no, $project_name, $released_by, $remarks, $received_by, $signature_path, $photo_proof_path, $releaser_signature]);
         $withdrawal_id = $pdo->lastInsertId();
 
         $wdItemStmt = $pdo->prepare("INSERT INTO withdrawal_items (withdrawal_id, item_code, quantity) VALUES (?, ?, ?)");
