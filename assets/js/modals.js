@@ -700,9 +700,9 @@ window.openWithdrawalModalByNo = async function(withdrawalNo) {
                 items.forEach(item => {
                     tbody.innerHTML += `
                         <tr class="wd-item-row">
-                            <td class="text-center align-middle wd-td-code"><span class="item-code-badge">${item.item_code}</span></td>
+                            <td class="text-start align-middle wd-td-code"><span class="item-code-badge">${item.item_code}</span></td>
                             <td class="text-start align-middle wd-td-name"><div class="fw-bold text-dark item-title">${item.item_name}</div></td>
-                            <td class="text-center align-middle wd-td-qty">
+                            <td class="text-end align-middle wd-td-qty">
                                 <span class="wd-metric-mobile-label d-md-none">Quantity Issued</span>
                                 <div class="d-inline-flex align-items-center gap-1">
                                     <span class="fw-bold text-dark fs-6">${item.quantity}</span>
