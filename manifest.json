@@ -1,7 +1,7 @@
 {
   "name": "SiteWare",
   "short_name": "SiteWare",
-  "description": "Systemized Inventory for Construction Warehouse Management",
+  "description": "AI-Powered Construction Material Procurement and Monitoring System with Predictive Analytics",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
