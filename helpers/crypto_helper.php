@@ -301,7 +301,8 @@ function getWithdrawalDetailsForCrypto($pdo, $wdIdOrNo)
     if (!$pdo || empty($wdIdOrNo)) return null;
 
     $stmt = $pdo->prepare("
-        SELECT w.*, u.name AS releaser_name, u.role AS releaser_role, u.public_key AS releaser_public_key, u.signature_path AS releaser_sig
+        SELECT w.*, u.name AS releaser_name, u.role AS releaser_role, u.public_key AS releaser_public_key, 
+               COALESCE(w.releaser_signature, u.signature_path) AS releaser_sig
         FROM withdrawals w
         LEFT JOIN users u ON w.released_by = u.id
         WHERE w.withdrawal_no = ? OR w.id = ?
