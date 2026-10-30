@@ -712,6 +712,20 @@ try {
         $pdo->exec("ALTER TABLE withdrawals ADD COLUMN signed_at DATETIME NULL");
     } catch (PDOException $e) {
     }
+    try {
+        $pdo->exec("ALTER TABLE withdrawals ADD COLUMN releaser_signature VARCHAR(255) NULL");
+    } catch (PDOException $e) {
+    }
+    try {
+        $pdo->exec("
+            UPDATE withdrawals w
+            JOIN users u ON w.released_by = u.id
+            SET w.releaser_signature = u.signature_path
+            WHERE (w.releaser_signature IS NULL OR w.releaser_signature = '')
+              AND u.signature_path IS NOT NULL AND u.signature_path != ''
+        ");
+    } catch (PDOException $e) {
+    }
 
     // Auto-sync: Backfill signatures for existing Purchase Orders from profile signatures
     try {
