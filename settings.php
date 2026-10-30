@@ -2233,9 +2233,9 @@ include 'layout/header.php';
                     <table class="table table-sm table-hover mb-0 bg-white">
                         <thead class="table-light">
                             <tr>
-                                <th style="width: 100px;">Item Code</th>
+                                <th class="text-start" style="width: 120px;">Item Code</th>
                                 <th>Item Name</th>
-                                <th class="text-center" style="width: 110px;">Qty Dispatched</th>
+                                <th class="text-end" style="width: 120px;">Qty Dispatched</th>
                             </tr>
                         </thead>
                         <tbody id="projWdDocItemsBody"></tbody>
