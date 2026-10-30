@@ -512,9 +512,9 @@ window.openProjectWdDoc = function (index) {
         if (ws.items && ws.items.length > 0) {
             tbody.innerHTML = ws.items.map(it => `
                 <tr class="wd-item-row">
-                    <td class="text-center align-middle wd-td-code"><span class="item-code-badge">${escapeHtml(it.item_code)}</span></td>
+                    <td class="text-start align-middle wd-td-code"><span class="item-code-badge">${escapeHtml(it.item_code)}</span></td>
                     <td class="text-start align-middle wd-td-name"><div class="fw-bold text-dark item-title">${escapeHtml(it.item_name)}</div></td>
-                    <td class="text-center align-middle wd-td-qty">
+                    <td class="text-end align-middle wd-td-qty">
                         <span class="wd-metric-mobile-label d-md-none">Dispatched</span>
                         <div class="d-inline-flex align-items-center gap-1">
                             <span class="fw-bold text-success fs-6">${it.quantity}</span>
