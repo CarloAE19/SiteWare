@@ -85,12 +85,12 @@ window.viewWdDetails = function (wdNo, project, remarks, itemsJson, releaser = '
         items.forEach(item => {
             tbody.innerHTML += `
                 <tr class="wd-item-row">
-                    <td class="text-center align-middle wd-td-code"><span class="item-code-badge">${item.item_code}</span></td>
+                    <td class="text-start align-middle wd-td-code"><span class="item-code-badge">${item.item_code}</span></td>
                     <td class="text-start align-middle wd-td-name"><div class="fw-bold text-dark item-title">${item.item_name}</div></td>
-                    <td class="text-center align-middle wd-td-qty">
+                    <td class="text-end align-middle wd-td-qty">
                         <span class="wd-metric-mobile-label d-md-none">Qty Released</span>
-                        <div class="d-inline-flex align-items-center gap-1">
-                            <span class="text-danger fw-bold fs-6">-${item.quantity}</span>
+                        <div class="d-inline-flex align-items-center justify-content-end gap-1">
+                            <span class="fw-bold text-dark fs-6">${Math.abs(item.quantity)}</span>
                             <small class="text-muted text-uppercase fw-semibold" style="font-size: 0.68rem;">${item.unit}</small>
                         </div>
                     </td>
@@ -144,7 +144,7 @@ window.triggerWdPrint = function () {
                     <tr>
                         <td style="padding: 4px 6px; border: 1px solid #000; font-family: monospace;">${cols[0].innerText}</td>
                         <td style="padding: 4px 6px; border: 1px solid #000; font-weight: bold;">${cols[1].innerText}</td>
-                        <td style="padding: 4px 6px; border: 1px solid #000; text-align: right; font-weight: bold; color: #cc0000;">${cols[2].innerText}</td>
+                        <td style="padding: 4px 6px; border: 1px solid #000; text-align: right; font-weight: bold; color: #000;">${cols[2].innerText}</td>
                     </tr>
                 `;
             }
