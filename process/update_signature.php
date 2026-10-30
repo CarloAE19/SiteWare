@@ -41,27 +41,11 @@ try {
 }
 
 if ($signaturePath) {
-    // Optionally remove old signature file if exists
-    try {
-        $oldStmt = $pdo->prepare("SELECT signature_path FROM users WHERE id = ?");
-        $oldStmt->execute([$userId]);
-        $oldPath = $oldStmt->fetchColumn();
-        if ($oldPath && file_exists(__DIR__ . '/../' . $oldPath)) {
-            @unlink(__DIR__ . '/../' . $oldPath);
-        }
-    } catch (Exception $e) {}
-
+    // Point-in-Time Snapshot Pattern (ISO 9001 Clause 7.5 & Legal Non-Repudiation):
+    // 1. Do NOT delete old signature files; past Purchase Orders and Material Withdrawals must preserve their historical signatures.
+    // 2. Do NOT retroactively update past documents; profile signature changes only affect future transactions.
     $stmt = $pdo->prepare("UPDATE users SET signature_path = ? WHERE id = ?");
     $stmt->execute([$signaturePath, $userId]);
-
-    // Sync signature to purchase orders prepared or approved by this user
-    try {
-        $poPrepStmt = $pdo->prepare("UPDATE purchase_orders SET prepared_signature = ? WHERE prepared_by = ?");
-        $poPrepStmt->execute([$signaturePath, $userId]);
-
-        $poAppStmt = $pdo->prepare("UPDATE purchase_orders SET approved_signature = ? WHERE approved_by = ? OR (approved_by IS NULL AND approved_signature LIKE ?)");
-        $poAppStmt->execute([$signaturePath, $userId, '%user_sig_' . $userId . '_%']);
-    } catch (Exception $e) {}
 
     $_SESSION['message'] = "Official E-Signature updated successfully!";
     $_SESSION['msg_type'] = "success";
