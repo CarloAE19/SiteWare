@@ -118,9 +118,9 @@ define('CIMS_ENTITY_MODALS_LOADED', true);
                     <table class="table table-sm table-hover mb-0 bg-white align-middle" id="viewWdTable">
                         <thead class="table-light">
                             <tr>
-                                <th>Item Code</th>
-                                <th>Item Name</th>
-                                <th class="text-center">Quantity Issued</th>
+                                <th class="text-start" style="width: 140px;">Item Code</th>
+                                <th class="text-start">Item Name</th>
+                                <th class="text-end" style="width: 140px;">Quantity Issued</th>
                             </tr>
                         </thead>
                         <tbody id="viewWdItemsBody"></tbody>
