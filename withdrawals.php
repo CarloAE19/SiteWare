@@ -6,7 +6,7 @@ require_once 'Connection/db.php';
 $role = $_SESSION['user_role'];
 
 // Fetch all Withdrawals
-$query = "SELECT w.*, u.name as releaser_name, u.signature_path as releaser_signature_path, r.requestor_name 
+$query = "SELECT w.*, u.name as releaser_name, COALESCE(w.releaser_signature, u.signature_path) as releaser_signature_path, r.requestor_name 
           FROM withdrawals w
           LEFT JOIN users u ON w.released_by = u.id
           LEFT JOIN requisitions r ON (w.remarks LIKE CONCAT('%', r.rs_no, '%') AND r.rs_no != '')
