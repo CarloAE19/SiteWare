@@ -286,12 +286,12 @@ include 'layout/header.php';
                 </div>
                 
                 <div class="table-responsive mb-4 rounded border shadow-sm">
-                    <table class="table table-sm table-hover mb-0 bg-white text-nowrap">
+                    <table class="table table-sm table-hover mb-0 bg-white text-nowrap" id="viewWdTable">
                         <thead class="table-light">
                             <tr>
-                                <th>Item Code</th>
+                                <th class="text-start" style="width: 140px;">Item Code</th>
                                 <th>Item Name</th>
-                                <th class="text-end">Qty Released</th>
+                                <th class="text-end" style="width: 140px;">Qty Released</th>
                             </tr>
                         </thead>
                         <tbody id="viewWdItemsBody"></tbody>
