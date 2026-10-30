@@ -20,7 +20,7 @@ if (empty($withdrawalNo)) {
 try {
     // 1. Fetch Withdrawal details
     $wStmt = $pdo->prepare("
-        SELECT w.*, u.name as releaser_name, u.signature_path as releaser_signature_path, r.requestor_name
+        SELECT w.*, u.name as releaser_name, COALESCE(w.releaser_signature, u.signature_path) as releaser_signature_path, r.requestor_name
         FROM withdrawals w
         LEFT JOIN users u ON w.released_by = u.id
         LEFT JOIN requisitions r ON (w.remarks LIKE CONCAT('%', r.rs_no, '%') AND r.rs_no != '')
